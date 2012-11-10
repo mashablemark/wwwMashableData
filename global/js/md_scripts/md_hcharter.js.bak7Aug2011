@@ -1,0 +1,453 @@
+//mashableData theme
+$(document).ready(function(){
+var btnHeight = 20;
+var btnsWidth = 24;
+var btnsX = 10;
+var btnsY = 10;
+
+	Highcharts.theme = {
+  //colors: ['#ff0000'],  //Red
+		plotOptions :{ series: { marker: {enabled: false, states: {hover: {enabled: true} } } } },
+		/*legend:  {labelFormatter: function(){
+			if(this.name.indexOf('Linear regression of')=='-1'){
+				return this.name;
+			} else {
+				return "";
+			}
+			}
+		},*/
+		exporting: {
+			buttons:{
+				/* now in mashableDataMain megapanel
+				mashableDataButton:{
+					x : -62,
+					y : btnsY,
+					symbol: 'gear',
+					height : btnHeight,
+					width : btnsWidth,
+					onclick: function(){mashableDataMain(this)},
+					menuitems: [{textKey: 'tools',text:'tools', onclick: function(){alert('from inside tools')}}]}, */
+				printButton: {
+					enabled: false
+					/*x : -36,
+					y : btnsY,
+					height : btnHeight,
+					width : btnsWidth,
+					onclick: function(){$("div#mashabledata_menu").remove();chart.print()}*/
+					},
+				exportButton:{
+					x : -10,
+					y : btnsY,
+					height : btnHeight,
+					width : btnsWidth,
+					menuItems: null,
+					onclick: function(){mashableDataMain(this)}
+					/* now in mashableDataMain megapanel
+					menuItems: [{
+						text: 'Export Image',
+						onclick: function(){
+						this.exportChart();
+						}
+					},
+					{
+						text: 'Export SVG',
+						onclick: function(){
+						this.exportChart({type: 'image/svg+xml'});
+						}
+					},
+					{
+						text: 'Export PDF',
+						onclick: function(){
+						this.exportChart({type: 'application/pdf'});
+						}
+					},
+					{
+						text: 'Linear regression',
+						onclick: function(){
+						plotLinearRegressions();
+						}
+					},
+					{
+						text: 'Cache data series',
+						onclick: function(){
+						showSaveSeriesDialog();
+						}
+					}]*/
+				}
+			}
+		}
+	}
+  /*  now in mashableDataMain megapanel
+	if(window.localStorage.getItem("mashableDataIndex") != null){
+	  Highcharts.theme.exporting.buttons.exportButton.menuItems.push(
+		{
+		  text: 'Load saved data series',
+		  onclick: function(){
+			showLoadSeriesDialog();
+		  }
+		});
+	}else{
+		//console.info("no seriesIndex in localStorage");
+  }*/
+  var highchartsOptions = Highcharts.setOptions(Highcharts.theme);
+	
+	$.extend(Highcharts.Renderer.prototype.symbols, {
+    gear: function() {
+			var innerR =5;
+			var outterR=7;
+			var offset=11;
+			var teeth=10,
+			gearCommands = ['M',10,0];
+			for(i=0;i<teeth;i++){
+				var angle = (2*Math.PI / teeth * i) + (2*Math.PI / (teeth*4));
+			  gearCommands.push('L');
+			  gearCommands.push(Math.sin(angle)*outterR + offset);
+			  gearCommands.push(offset-Math.cos(angle)*outterR);
+			  gearCommands.push('L');
+			  gearCommands.push(Math.sin(angle)*innerR + offset);
+			  gearCommands.push(offset-Math.cos(angle)*innerR);
+				var angle = (2*Math.PI / teeth * i) + 3* (2*Math.PI / (teeth*4));
+			  gearCommands.push('L');
+			  gearCommands.push(Math.sin(angle)*innerR + offset);
+			  gearCommands.push(offset-Math.cos(angle)*innerR);
+			  gearCommands.push('L');
+			  gearCommands.push(Math.sin(angle)*outterR + offset);
+			  gearCommands.push(offset-Math.cos(angle)*outterR);
+			}
+			gearCommands.push('Z');
+			return gearCommands;
+    }
+	});
+});
+
+function mashableDataMain(thischart){
+	currentChart = thischart;  //global scope on purpose
+	console.info(thischart);
+	var chartWidth = thischart.chartWidth;
+	var chartHeight = thischart.chartHeight;
+	var containID = thischart.container.id;
+	var fudgeFactor = 10; //dont know why this is needed
+	
+/*	$("div#" + containID).mousemove(function(e){
+		//document.getElementById(containID).	
+ 		//console.info(console.info);
+		var container = document.getElementById(containID);
+		var containerWidth=container.width;
+		var totalOffsetX = 0;
+		var totalOffsetY = 0;
+		while(container != null){
+			if(!isNaN(container.offsetLeft)){totalOffsetX += container.offsetLeft;}
+			if(!isNaN(container.offsetTop)){totalOffsetY +=	container.offsetTop;}
+			container = container.parentNode;
+		}
+		var relX = e.pageX-totalOffsetX - thischart.container.clientWidth - Highcharts.theme.exporting.buttons.exportButton.x -fudgeFactor;
+		var relY = e.pageY-totalOffsetY - Highcharts.theme.exporting.buttons.exportButton.y - fudgeFactor;
+		console.info(relX,relY,-Highcharts.theme.exporting.buttons.exportButton.width,Highcharts.theme.exporting.buttons.exportButton.height);
+		if(relX < -Highcharts.theme.exporting.buttons.exportButton.width-100 || relX>0 || 
+		  relY < 0 || relY > Highcharts.theme.exporting.buttons.exportButton.height){
+				$('div#mashabledata_menu').slideToggle();
+				$('div#' + containID).unbind();
+		}
+	});
+*/
+	var y = Highcharts.theme.exporting.buttons.exportButton.y;// +  Highcharts.theme.exporting.buttons.mashableDataButton.height;
+	var right = - Highcharts.theme.exporting.buttons.exportButton.x;
+	var mdContents = '<span class="md_h2">Download Center</span>' + 
+	  '<div class="md_export" style="float:none;background-color:blue"><div class="md_export md_left" style="float:left;background-color:yellow">' +
+		'<span class="md_h3">Image files</span>' + 
+	  '<ul><li onclick="currentChart.exportChart();">PNG format</li>' +
+		'<li onclick="currentChart.exportChart({type: \'image/jpeg\'});">JPG format<svg width="10" height="10" version="1.1" xmlns="http://www.w3.org/2000/svg"><elipse cx="5" cy="5" rx="5" ry="3" style="fill:rgb(200,100,50);stroke:rgb(0,0,100);stroke-width:2"/></svg></li>' +
+		'<li onclick="currentChart.exportChart({type: \'image/svg+xml\'});">SVG format</li>' +
+		'<li onclick="currentChart.exportChart({type: \'application/pdf\'});">PDF format</li>' +
+		'</ul></div>' +
+	  '<div class="md_export md_right" style="float:left;background-color:green"">' +
+		'<span class="md_h3">Data files</span>' + 
+		'<ul>' +
+		'<li onclick="currentChart.exportCSV;">CSV format</li>' +
+		'<li onclick="currentChart.exportExcelChart;">Excel format</li>' +
+		'</ul></div></div>' +
+		'<div id="md_ct" style="clear:both;"><span class="md_h2">Chart Tools</span>' +
+		'<ul><li onclick="{plotLinearRegressions(); hideMdPanel();}">Show / Hide linear regressions</li></ul></div>'
+	//save options
+	mdContents += '<div id="md_sds" style="clear:both;"><span class="md_h2">Save data series to local cache</span><br />'
+	for(var i=0;i<chart.series.length;i++){	
+		mdContents += '<input type="checkbox" onclick="saveButtonState()" class="seriesCheckbox" value="' + i + '" name="' + chart.series[i].name + '" />' + chart.series[i].name  + '<br />';
+	}	
+	//load options
+	mdContents += '<button id="saveDataSeriesBtn" disabled="disabled" onclick="saveDataSeries()">Save Local</button>'
+		if(window.localStorage.getItem("mashableDataIndex") != null){
+		mdContents += '<div id="md_lds" style="clear:both;"><span class="md_h2">Load data series from local cache</span><br />'
+		var aSavedSeries = window.localStorage.getItem("mashableDataIndex").split("|");
+		for(var i=0;i<aSavedSeries.length;i++){	
+			mdContents += '<input type="checkbox" onclick="saveButtonState()" class="seriesCheckbox" value="' + i + '" name="' + aSavedSeries[i] + '" />' + aSavedSeries[i]  + '<br />';
+		}
+		mdContents += '<button id="saveDataSeriesBtn" disabled="disabled" onclick="loadDataSeries()">Add</button>';
+		mdContents += '<button id="btnClearCache" onclick="clearCache()">Clear Cache</button>';
+	}
+/*
+						text: 'Export PDF',
+						onclick: function(){
+						this.exportChart({type: 'application/pdf'});
+						}
+					},
+					{
+						text: 'Linear regression',
+						onclick: function(){
+						plotLinearRegressions();
+						}
+					},
+					{
+						text: 'Cache data series',
+						onclick: function(){
+						showSaveSeriesDialog();
+*/
+	
+	
+	$('div#' + containID).prepend('<div  id="mashabledata_menu" style="position:absolute;z-index:10;right:' + right + 'px;top:' + y + 
+		'px;background-color:#fff; border: 1px solid #aaa;width:400px;height:300px;display:none;">' + mdContents + '</div>');
+	
+	document.getElementById('mashabledata_menu').onmouseout= function(event){
+			//is bubbled up from a child?
+			if (event===undefined) event= window.event;  
+			var target= 'target' in event? event.target : event.srcElement;
+			if (target!==this) return;
+			//is event due to move from parent to child?
+			var other= 'relatedTarget' in event? event.relatedTarget : event.toElement;
+			while ((other= other.parentNode).nodeType===1)
+					if (other===this) return;
+			//desired event = truly exiting DIV
+			$(this).slideToggle('fast',function(){$(this).remove();});
+	};
+	
+	$('div#mashabledata_menu').slideToggle('fast');
+}
+
+function hideMdPanel(){
+	$('div#mashabledata_menu').slideToggle('fast',function(){$(this).remove();});
+}
+
+function plotLinearRegressions(){
+	var hadLinearRegressions = false;
+	for(var i=chart.series.length-1;i>=0;i--){
+		//wouldn't accept new property: chart.series[i].regression
+			console.info(chart.series[i].dashStyle);
+		if(chart.series[i].name.indexOf("Linear regression of") != '-1'){
+			console.info('trying to remove ' + chart.series[i].name);
+			chart.series[i].remove(false);
+			hadLinearRegressions = true;
+		}
+	}
+	if(!hadLinearRegressions){
+		for(var i=chart.series.length-1;i>=0;i--){	
+			if(chart.series[i].name.indexOf("Linear regression of") == '-1'){
+				var newSeries = addLinearRegression(chart, chart.series[i])
+			} 
+		}
+	}
+		chart.redraw()
+}
+
+function addLinearRegression(hChart, series){
+	var sumX = 0;
+	var minX = null;
+	var maxX = null;
+	var sumY = 0;
+	var minY = null;
+	var maxY = null;
+	var points = 0;
+	//console.info(series);
+	for(var j=0;j<series.data.length;j++){
+		if(series.data[j].x != null && series.data[j].y != null){
+			sumX +=  series.data[j].x;
+			sumY +=  series.data[j].y;
+			if(minX == null){minX=series.data[j].x;}
+			if(maxX == null){maxX=series.data[j].x;}
+			if(minY == null){minY=series.data[j].y;}
+			if(maxY == null){maxY=series.data[j].y;}
+			if(minX>series.data[j].x){minX=series.data[j].x;}
+			if(maxX<series.data[j].x){maxX=series.data[j].x;}
+			if(minY>series.data[j].y){minY=series.data[j].y;}
+			if(maxY<series.data[j].y){maxY=series.data[j].y;}
+			points++;
+		}
+	}
+	var avgX = sumX / points;
+	var avgY = sumY / points;
+	//console.info("avg y: " + avgY);
+	var num = 0;
+	var den = 0;
+	for(var j=0;j<series.data.length;j++){
+		if(series.data[j].x != null && series.data[j].y != null){
+			 num += (series.data[j].x - avgX) * (series.data[j].y - avgY)
+			 den += (series.data[j].x - avgX)*(series.data[j].x - avgX);
+		}
+	}
+	var b1 = num / den;  //sum((x_i-x_avg)*(y_i-y_avg)) / sum((x_i-x_avg)^2)
+	//console.info(b1 + "=" + num + "/" + den);
+	var b0 = avgY - b1 * avgX;
+	
+	var newSeries = { 
+		name:  "Linear regression of " + series.name,
+        dashStyle: 'shortdot',
+		color: series.color,
+		data: [],
+		regression: true
+	}
+	for(var j=0;j<series.data.length;j++){
+		if(series.data[j].x != null && series.data[j].y != null){
+			newSeries.data.push([series.data[j].x , (b1*series.data[j].x  + b0)]);  //y = b1*x + b0
+		}
+	}
+	//newSeries.data.push([minX, (b1*minX + b0)]);  //y = b1*x + b0
+	//newSeries.data.push([maxX, (b1*maxX + b0)]);  //y = b1*x + b0
+	return(hChart.addSeries(newSeries,false));
+	
+}
+//if more than one series in graph, present popup with series and checkboxes and a save button (and ultimately a save to my.mashabledata.com)
+function showSaveSeriesDialog()	{
+	$('#saveLoadSeriesDiv').html("<button id=\"saveDataSeriesBtn\" disabled=\"disabled\" onclick=\"saveDataSeries()\">Save Local</button> " +
+		"<button onclick=\"{$('#fancybox-close').click();$('#showGraphLink').click();}\">Cancel</button>");
+	for(var i=0;i<chart.series.length;i++){	
+		$('#saveLoadSeriesDiv').prepend('<input type="checkbox" onclick="saveButtonState()" class="seriesCheckbox" value="' + i + '" name="' + chart.series[i].name + '" />' + chart.series[i].name  + '<br />');
+	}
+	$('#showSaveLoadLink').click();
+	$('#showGraphLink').click();
+}
+function saveButtonState(){
+	if($('input.seriesCheckbox:checked').length == 0){
+		$('button#saveDataSeriesBtn').attr("disabled","disabled");
+	} else {
+		$('button#saveDataSeriesBtn').removeAttr("disabled","disabled");
+	}
+}
+
+function saveDataSeries(){
+	if($('input.seriesCheckbox:checked').length > 0){
+		var mashableDataIndex = window.localStorage.getItem("mashableDataIndex");
+		if(mashableDataIndex == null){
+			aExistingData = []
+		} else {
+			var aExistingData = mashableDataIndex.split("|");
+		}
+		$('input.seriesCheckbox:checked').each(function(){
+			for(var i=0;i<aExistingData.length;i++){
+				if(this.name == aExistingData[i]){
+					//replace it by first deleting and then adding
+					window.localStorage.removeItem(this.name)
+					aExistingData.splice(i,1);
+				}
+			}
+			aExistingData.push(this.name);
+			var dataString = "";
+			for(var i=0;i<chart.series[parseInt(this.value)].data.length;i++){
+				xDate = new Date(chart.series[(this.value)].data[i].x);
+				//console.info(xDate.getFullYear() + ";" + chart.series[parseInt(this.value)].data[i].y);
+				dataString = dataString + ((dataString.length==0)?"":"|") + xDate.getFullYear() + ";" + chart.series[parseInt(this.value)].data[i].y;
+			}
+			//console.info("dataString: " + dataString);
+			window.localStorage.setItem(this.name, dataString);
+			//console.info(chart.series[0]);
+		});
+		window.localStorage.setItem("mashableDataIndex", aExistingData.join("|"));
+	}
+	hideMdPanel()
+}
+
+function showLoadSeriesDialog(){
+	$('#saveLoadSeriesDiv').html("<button id=\"saveDataSeriesBtn\" disabled=\"disabled\" onclick=\"loadDataSeries()\">Add</button> " +
+		"<button onclick=\"{$('#fancybox-close').click();$('#showGraphLink').click();}\">Cancel</button>");
+	var aSavedSeries = window.localStorage.getItem("mashableDataIndex").split("|");
+	for(var i=0;i<aSavedSeries.length;i++){	
+		$('#saveLoadSeriesDiv').prepend('<input type="checkbox" onclick="saveButtonState()" class="seriesCheckbox" value="' + i + '" name="' + aSavedSeries[i] + '" />' + aSavedSeries[i]  + '<br />');
+	}
+	$('#showSaveLoadLink').click();
+	$('#showGraphLink').click();
+}
+function loadDataSeries()	{
+	$('input.seriesCheckbox:checked').each(function(){
+		var newSeries = { name:  this.name,
+						  data: []}
+		aPoints = window.localStorage.getItem(this.name).split("|");
+		for(var i=0; i<aPoints.length;i++){
+			var xy = aPoints[i].split(";");
+			newSeries.data.push([Date.parse("January 1, " + xy[0]),parseInt(xy[1])]);
+		}
+		chart.addSeries(newSeries,false); 
+	});
+	hideMdPanel();
+	chart.redraw();
+	//console.info(chart);
+}
+
+function clearCache(){
+	if(confirm("Press a button!")==true){
+		window.localStorage.clear()	;
+		hideMdPanel();
+	}
+}
+
+	
+function graphTableData(dataTableId, metaDatatableId){
+	var units = "";
+	var seriesName = document.getElementById(dataTableId).rows[0].cells[1].innerHTML;
+	var graphType = "line";
+	var charttitle =  document.getElementById(dataTableId).rows[0].cells[1].innerHTML;
+	
+	var	jschart = {
+		chart: 
+		{ 
+			renderTo: 'HighChartsDiv',
+			defaultSeriesType: graphType,
+			zoomType: 'xy'
+		},
+		legend: { },
+		credits: {
+        	enabled: false
+		},
+		title: {
+        	text: charttitle  
+    	},
+		series: [],		
+		xAxis: {
+			type: 'datetime'
+			//maxZoom: 10 * 365 * 24 * 3600 * 1000
+		},
+		yAxis: {
+	        title: {
+				text: units
+			}
+    	}
+	};
+	var oDataSeries = {
+		name: seriesName,
+		data: []
+	}
+//loop through the data rows	
+	$("table#" + dataTableId + " tr:gt(0)").each(function(){
+		oDataSeries.data.push([Date.parse("January 1, " + this.cells[0].innerHTML), parseInt(this.cells[1].innerHTML)]);
+	});
+	
+	jschart.series.push(oDataSeries);
+	
+	//console.info(jschart);
+	chart = new Highcharts.Chart(jschart);
+	
+	$('#showGraphLink').click();
+}
+
+
+$(document).ready(function(){
+	$("body").prepend('<a id="showGraphLink" href="#HighChartsDiv" title="MashbleData.com: Cross Internet Data Sharing and Visualizations"></a>' +
+		'<div id="outerShowGraphDiv" style="display:none;">' +
+		'  <div id="HighChartsDiv" style="width:75%;height:75%;">Loading the chart.  Please wait...</div>' +
+		'</div>');
+	$("body").prepend('<a id="showSaveLoadLink" href="#saveLoadSeriesDiv" title="MashbleData.com: Cross Internet Data Sharing and Visualizations"></a>' +
+		'<div id="outerLoadSeriesDiv" style="display:none;">' +
+		'  <div id="saveLoadSeriesDiv"></div>' +
+		'</div>');
+	$("#showGraphLink, #showSaveLoadLink").fancybox({
+		'titlePosition'		: 'inside',
+		'transitionIn'		: 'none',
+		'transitionOut'		: 'none'
+	});
+});
