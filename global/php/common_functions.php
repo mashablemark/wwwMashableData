@@ -152,6 +152,13 @@ function trackUsage($counter){
     } else die('{"status":"Internal error: invalid usage counter"}');
 }
 
+function cleanIdArray($dirtyIds){
+    $cleanIds = array();
+    for($i=0;$i<count($dirtyIds);$i++){
+        array_push($cleanIds, intval($dirtyIds[$i]));
+    }
+    return $cleanIds;
+}
 
 function getMapSet($name, $apiid, $periodicity, $units){ //get a mapset id, creating a record if necessary
     global $db;
