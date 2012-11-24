@@ -1292,7 +1292,7 @@ function getGraphs($userid, $ghash){
 function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
     global $db, $orgid;
     $mapout = array();
-    $sql = "SELECT ms.mapsetid, ms.name, ms.units, ms.periodicity as period, "
+    $sql = "SELECT ms.mapsetid, ms.name, s.name as seriesname, ms.units, ms.periodicity as period, "
     . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt "
     . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
     . " WHERE ms.mapsetid = s.mapsetid and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
@@ -1321,6 +1321,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
             "handle"=>"S".$row["seriesid"],
             "geoid"=>$row["geoid"],
             "geoname"=>$row["geoname"],
+            "name"=>$row["seriesname"],
             "data"=>$row["data"],
             "firstdt"=>$row["firstdt"],
             "lastdt"=>$row["lastdt"]

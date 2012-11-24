@@ -180,6 +180,7 @@ function jsddm_timer(){  ddmenuClosetimer = window.setTimeout(jsddm_close, ddmen
 function jsddm_canceltimer(){if(ddmenuClosetimer){window.clearTimeout(ddmenuClosetimer);ddmenuClosetimer = null;}}
 document.onclick = jsddm_close;
 
+console = console || {log: function(msg){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
 
 function addJQueryStringify(){ //stringify extension ensure stringify functionality for older browsers
     jQuery.extend({
@@ -294,7 +295,7 @@ $(document).ready(function(){
     $("#series-tabs li a").click(function (){seriesPanel(this)});
     //$pickerTabs = $("#pickers" ).tabs();
     /*	$( "#graph_text" ).resizable({ minWidth: 705, maxWidth: 705,  minHeight: 30, maxHeight: 160, resize: function(event, ui) {
-     debug(ui.size.height + ":" + ui.originalSize.height);
+     console.log(ui.size.height + ":" + ui.originalSize.height);
      }
      }); */
     /*
@@ -508,12 +509,12 @@ function setupPublicSeriesTable(){
                 "url": "api.php",
                 "data": aoData,
                 "success": function(data, textStatus, jqXHR){
-                    debug(data.command+" ("+data.search+"): "+data.exec_time);
+                    console.log(data.command+" ("+data.search+"): "+data.exec_time);
 
                     fnCallback(data, textStatus, jqXHR);
                 },
                 "error": function(results){
-                    debug(results);
+                    console.log(results);
                 }
             });
         },
@@ -675,7 +676,7 @@ function setupPublicGraphsTable(){
                 url: "api.php",
                 data: aoData,
                 "success": fnCallback
-                , "complete": function(results){debug(results)}
+                , "complete": function(results){console.log(results)}
             });
         },
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
@@ -894,7 +895,7 @@ function clearChecksMySeries(){
         $(this).removeClass("md-checked").addClass("md-check").html("Graph");
         var cellHTML = $(this).parent().html();  //dataTable overwrites
         var tdView = this.parentNode;
-        //debug(cellHTML)
+        //console.log(cellHTML)
         dtMySeries.fnUpdate("Graph", dtMySeries.fnGetPosition(tdView.parentNode), tdView.cellIndex);
         $(tdView).html(cellHTML); //rewrite the link
     });
@@ -1035,12 +1036,12 @@ function loadMySeriesByKey(key){   //key is either 'newSeries' or 'localSeries'
 function removeIdFromStorageList(id, key){
     var ids = window.localStorage.getItem(key);
     var found = false;
-    //debug('saved: ' + window.localStorage.getItem('saved'));
+    //console.log('saved: ' + window.localStorage.getItem('saved'));
     if(ids==null){
         //not found (will return false)
     } else {
         //remove from fromIds
-        //debug(fromIds);
+        //console.log(fromIds);
         var aryIds = ids.split('|');
         for(var i=0;i<aryIds.length;i++){
             if(aryIds[i]==id){
@@ -1156,25 +1157,31 @@ function getQuickViewData(btn){
             }
     );
 }
-function quickGraph(oMashableData, showAddSeries){
-    oQuickViewSeries = oMashableData; //store in global var
-    //debug(oMySeries);
-    var quickGraph = emptyGraph();
-    quickGraph.title = 'Selected data series from the map';
-    quickGraph.plots = [];
+function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra of series objects, or a complete grpah object
+    oQuickViewSeries = obj; //store in global var
+    var quickGraph;
+    //quickGraph.title = 'Selected data series from the map';
 
-    if(oMashableData instanceof Array){
+    if(obj instanceof Array){
+        quickGraph = emptyGraph();
+        quickGraph.plots = [];
         var handles = [];
-        for(var i=0;i<oMashableData.length;i++){
-            quickGraph.assets[oMashableData[i].handle] = oMashableData[i];
-            quickGraph.plots.push({components:[{handle:oMashableData[i].handle, k:1, op:'+', options:{}}],  options:{}});
-            handles.push(oMashableData[i].handle);
+        for(var i=0;i<obj.length;i++){
+            quickGraph.assets[obj[i].handle] = obj[i];
+            quickGraph.plots.push({components:[{handle:obj[i].handle, options:{k:1, op:'+'}}],  options:{}});
+            handles.push(obj[i].handle);
             $('#quick-view-controls').attr('data', handles.join(","));
         }
     } else {
-        quickGraph.assets['S'+oMashableData.sid] = oMashableData;
-        quickGraph.plots.push({components:[{handle:'S'+oMashableData.sid, k:1, op:'+', options:{}}],  options:{}});
-        $('#quick-view-controls').attr('data', oMashableData.handle);
+        if(obj.plots){ //a grahps object was passed in
+            quickGraph = obj; //everything including title should be set by caller
+        } else {
+            quickGraph = emptyGraph();
+            quickGraph.assets[obj.handle] = obj;
+            quickGraph.title = obj.name;
+            quickGraph.plots = [{components:[{handle:obj.handle, options:{k:1, op:'+'}}],  options:{}}];
+            $('#quick-view-controls').attr('data', obj.handle);
+        }
     }
     var quickChartOptions = createChartObject(quickGraph);
     delete quickChartOptions.chart.height;
@@ -1183,17 +1190,17 @@ function quickGraph(oMashableData, showAddSeries){
     quickChart = new Highcharts.Chart(quickChartOptions);
     //this are the series info added to the quickView panel.  Could be more complete & styled
     var qvNotes='';
-    if(!(oMashableData instanceof Array)){
-        qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + oMashableData.graph + '</td></tr>'
-                + '<tr><td>Series notes:</td><td>' + oMashableData.notes + '</td></tr>'
-                + '<tr><td>My Series count:</td><td>' + oMashableData.myseriescount + '</td></tr>'
-                + '<tr><td>Graphs (including unpublished) count:</td><td>' + oMashableData.graphcount + '</td></tr>'
-                + '<tr><td>Series key:</td><td>' + oMashableData.skey + '</td></tr>'
+    if(!(obj instanceof Array) && !obj.plots){ //only if single series
+        qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + obj.graph + '</td></tr>'
+                + '<tr><td>Series notes:</td><td>' + obj.notes + '</td></tr>'
+                + '<tr><td>My Series count:</td><td>' + obj.myseriescount + '</td></tr>'
+                + '<tr><td>Graphs (including unpublished) count:</td><td>' + obj.graphcount + '</td></tr>'
+                + '<tr><td>Series key:</td><td>' + obj.skey + '</td></tr>'
                 + '</table>';
-        if(oMashableData.mapsetid || oMashableData.pointsetid){
+        if(obj.mapsetid || obj.pointsetid){
             var $mapSelect =  $('select.quick-view-maps').html("");
             var mapOptions = "";
-            callApi({command: "GetAvailableMaps", mapsetid: oMashableData.mapsetid, pointsetid: oMashableData.pointsetid}, function(jsoData, textStatus, jqXH){
+            callApi({command: "GetAvailableMaps", mapsetid: obj.mapsetid, pointsetid: obj.pointsetid}, function(jsoData, textStatus, jqXH){
                 for(var i=0;i<jsoData.maps.length;i++){
                     mapOptions+='<option value="'+jsoData.maps[i].name+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
                 }
@@ -1231,38 +1238,51 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
 }
 function quickViewToGraph(btn){
     $(btn).attr("disabled","disabled");
-    if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
     var panelId =  $('#quick-view-to-graphs').val();
-    if(panelId!='new') {
-        if(!oPanelGraphs[panelId].plots)oPanelGraphs[panelId].plots=[];
-        for(var i=0;i<oQuickViewSeries.length;i++){
-            oPanelGraphs[panelId].assets[oQuickViewSeries[i].handle] = $.extend({save_dt: new Date().getTime()}, oQuickViewSeries[i]); //make copy
-            oPanelGraphs[panelId].plots.push({
-                components:
-                        [{
-                            k: 1.0,
-                            op:'+',
-                            handle:   oQuickViewSeries[i].handle,
-                            options: {k:1.0,
-                            }
-                        }],
-                name: null,
-                options: {}
-            });
-
-            //not sure what the role of MySeries should be going forward...
-            var rowInMySeries = dtMySeries.find('button[data="' + oQuickViewSeries[i].handle + '"]');
-            if(rowInMySeries.legnth==1) clickMySeriesCheck(rowInMySeries[0]); //check the newly added series
+    if(oQuickViewSeries.plots){  //we have a complete graph object!
+        if(panelId!='new') {
+            var plots = oQuickViewSeries.plots;
+            if(!oPanelGraphs[panelId].plots)oPanelGraphs[panelId].plots=[];
+            for(var p=0;p<plots.length;p++){
+                oPanelGraphs[panelId].plots.push(plots[p]);
+            }
+            for(var asset in oQuickViewSeries.assets){
+                oPanelGraphs[panelId].assets[asset] = oPanelGraphs[panelId].assets[asset] || oQuickViewSeries.assets[asset];
+            }
+            $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
+            $('#' + panelId + ' .graph-type').change();
+        } else {
+            buildGraphPanel(oQuickViewSeries);
         }
-
-        $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-        $('#' + panelId + ' .graph-type').change();
-        hideGraphEditor();  //show graph instead My Series table of $('#local-series').click();
     } else {
-        hideGraphEditor();
-        createUpdateGraphFromMySeries(buildGraphPanel, undefined, oQuickViewSeries);
+        if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
+        if(panelId!='new') {
+            if(!oPanelGraphs[panelId].plots)oPanelGraphs[panelId].plots=[];
+            for(var i=0;i<oQuickViewSeries.length;i++){
+                oPanelGraphs[panelId].assets[oQuickViewSeries[i].handle] = $.extend({save_dt: new Date().getTime()}, oQuickViewSeries[i]); //make copy
+                oPanelGraphs[panelId].plots.push({
+                    components:
+                            [{
+                                handle:   oQuickViewSeries[i].handle,
+                                options: {k:1.0, op:'+'}
+                            }],
+                    name: null,
+                    options: {}
+                });
+
+                //not sure what the role of MySeries should be going forward...
+                var rowInMySeries = dtMySeries.find('button[data="' + oQuickViewSeries[i].handle + '"]');
+                if(rowInMySeries.legnth==1) clickMySeriesCheck(rowInMySeries[0]); //check the newly added series
+            }
+
+            $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
+            $('#' + panelId + ' .graph-type').change();
+        } else {
+            createUpdateGraphFromMySeries(buildGraphPanel, undefined, oQuickViewSeries);
+        }
     }
     quickViewClose();
+    hideGraphEditor();  //show graph instead My Series table of $('#local-series').click();
 }
 function quickViewToMap(){
     var mapsetid = oQuickViewSeries.mapsetid;
@@ -1298,6 +1318,7 @@ function quickViewToMap(){
                 if($makeMapButton.length==1) $makeMapButton.click(); else $('#' + panelId + ' .graph-type').change();
             }
         });
+        unmask();
         hideGraphEditor();
     });
 
@@ -1317,7 +1338,7 @@ function browseFromSeries(seriesId){
         var $chainTable = $('<table id="cat-chains">');
         //need to construct object tree structure to effectively combine and sort chains
         var chainTree = {}, branch, branchingCount, nextLevel, parentid;
-        debug(jsoData.chains);
+        console.log(jsoData.chains);
         for(var chain in jsoData.chains){
             branch = chainTree;
             parentid = 0;
@@ -1381,19 +1402,6 @@ function browseFromSeries(seriesId){
 
         $('div#cloudSeriesTableDiv').hide();
     });
-}
-function emptyGraph(){
-    return  {
-        annotations: {},
-        title: null,
-        type: 'line',
-        assets: {},
-        analysis: null,
-        mapconfig: {},
-        start: null,
-        end: null,
-        published: 'N'
-    };
 }
 function editCheckedSeries(){//edit the first visible
     var sHandle = $("td.dt-vw a.md-checked:first").closest("tr").find("td.quick-view button").attr("data");
@@ -1507,7 +1515,7 @@ function initializeSeriesEditor(){
                         //empty bottomish row found!!
                         if(r<gridData.length-1) $editor.handsontable('alter', 'remove_row', r); //remove it if not absolute bottom!!
                     }
-                } catch(err){debug(err)}
+                } catch(err){console.log(err)}
 
             }
         }
@@ -1780,12 +1788,12 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
                     $("#mn_facebook").html("sign out");
                     syncMyAccount();
                 } else {
-                    debug(md_getUserId_results);
+                    console.log(md_getUserId_results);
                     dialogShow("Login Status", md_getUserId_results.status);
                 }
             },
             error: function(results, textStatus, jqXH){
-                debug(results)
+                console.log(results)
             }
         });
         return false;
@@ -1827,7 +1835,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                             window.localStorage.removeItem('meta'+oMySeries[ids[i]].lid);
                             window.localStorage.removeItem('data'+oMySeries[ids[i]].lid);
                             delete oMySeries[ids[i]].lid;
-                            //debug("localSeries and all LS should be empty.  window.localStorage.getItem('localSeries')= " + window.localStorage.getItem('localSeries'));
+                            //console.log("localSeries and all LS should be empty.  window.localStorage.getItem('localSeries')= " + window.localStorage.getItem('localSeries'));
                         }
                     }
                     // 4. clear oMySeries and the DataTable    *** not needed since everything is now SID based
@@ -2014,7 +2022,7 @@ function addMySeriesRow(oMD){  //add to table and to oMySeries
         dtMySeries.fnAddData(oMD);
         oMySeries[oMD.handle] = oMD; //if exists, overwrite with new
     } else {
-        debug("Error loading series object: invalid series id.")
+        console.log("Error loading series object: invalid series id.")
     }
     return oMD.handle;
 }
@@ -2323,9 +2331,9 @@ function plotLinearRegressions(chart){  //COPIED DIRECTLY FROM md_hcharter.js.  
     var i, hadLinearRegressions = false;
     for(i=chart.series.length-1;i>=0;i--){
         //wouldn't accept new property: chart.series[i].regression
-        //debug(chart.series[i].dashStyle);
+        //console.log(chart.series[i].dashStyle);
         if(chart.series[i].name.indexOf("Linear regression of") != '-1'){
-            //debug('trying to remove ' + chart.series[i].name);
+            //console.log('trying to remove ' + chart.series[i].name);
             chart.series[i].remove(false);
             hadLinearRegressions = true;
         }
@@ -2344,7 +2352,7 @@ function addLinearRegression(hChart, series){ //COPIED DIRECTLY FROM md_hcharter
     var sumX = 0, minX = null, maxX = null;
     var sumY = 0, minY = null, maxY = null;
     var j, points = 0;
-    //debug(series);
+    //console.log(series);
     for(j=0;j<series.data.length;j++){
         if(series.data[j].x != null && series.data[j].y != null){
             sumX +=  series.data[j].x;
@@ -2362,7 +2370,7 @@ function addLinearRegression(hChart, series){ //COPIED DIRECTLY FROM md_hcharter
     }
     var avgX = sumX / points;
     var avgY = sumY / points;
-    //debug("avg y: " + avgY);
+    //console.log("avg y: " + avgY);
     var num = 0;
     var den = 0;
     for(j=0;j<series.data.length;j++){
@@ -2372,7 +2380,7 @@ function addLinearRegression(hChart, series){ //COPIED DIRECTLY FROM md_hcharter
         }
     }
     var b1 = num / den;  //sum((x_i-x_avg)*(y_i-y_avg)) / sum((x_i-x_avg)^2)
-    //debug(b1 + "=" + num + "/" + den);
+    //console.log(b1 + "=" + num + "/" + den);
     var b0 = avgY - b1 * avgX;
 
     var newSeries = {
@@ -2465,15 +2473,12 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
         error: function(jqXHR, textStatus, errorThrown){
             unmask();
             dialogShow(textStatus, "A system error occurred while trying to connect to the server.  Check your internet connectivity and try again later.");
-            debug(textStatus);
-            debug(jqXHR);}
+            console.log(textStatus);
+            console.log(jqXHR);}
     });
 }
 function unmask(){$("div#modal").hide();}
 function mask(){$("div#modal").show();}
-function debug(obj){
-    if(navigator.userAgent.toLowerCase().indexOf('chrome') > -1) console.info(obj);
-}
 
 </script>
 

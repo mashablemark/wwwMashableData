@@ -33,6 +33,9 @@ var jVectorMapTemplates = {
     "US states": "us_aea_en",
     "world": "world_mil"
 };
+
+console = console || {log: function(msg){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
+
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
     var panelId = $(node).closest('div.ui-tabs-panel').get(0).id;
@@ -331,7 +334,6 @@ function assetNeeded(handle, graph, assetsToFetch){
         }
     }
 }
-
 function getAssets(graph, callBack){
 var assetsToFetch = {S:[],U:[], X:[], M:[]};
 var p, c, handle;
@@ -390,7 +392,6 @@ var p, c, handle;
     }
     if(assetsToFetch.M.length+assetsToFetch.X.length+assetsToFetch.U.length+assetsToFetch.S.length==0) callBack();
 }
-
 function createMyGraph(gid, onComplete){
     var oMyGraph = oMyGraphs['G' + gid];
     var fileAssets = ["/global/js/highcharts/js/highcharts.2.2.5.min.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"];
@@ -398,13 +399,25 @@ function createMyGraph(gid, onComplete){
     require(fileAssets); //parallel load while getting db assets
     getAssets(oMyGraph, function(){
         require(fileAssets, function(){
-            buildGraphPanel($.extend(true, {}, oMyGraph))
+            buildGraphPanel($.extend(true, {}, oMyGraph));
             unmask();
             if(onComplete) onComplete();
         }); //panelId not passed -> new panel
     });
 }
-
+function emptyGraph(){
+    return  {
+        annotations: [],
+        title: '',
+        type: 'line',
+        assets: {},
+        analysis: null,
+        mapconfig: {},
+        start: null,
+        end: null,
+        published: 'N'
+    };
+}
 function createChartObject(oGraph){
     var i, j, allX = {};
 
@@ -900,8 +913,8 @@ function calcMap(graph){
     var oMapDates = {};
     if(graph.mapsets){
         var mapset;  //shortcut past the mapHandle into the the mapset
-        for(var mapHandle in graph.mapsets){  //TODO:  only handles a single mapset right now
-            mapset = graph.mapsets[mapHandle];
+        for(var mapHandle in graph.mapsets.components){  //TODO:  only handles a single mapset right now
+            mapset = graph.assets[graph.mapsets.components[mapHandle].handle];
             mapTitle = mapset.name;
             mapPeriod = mapset.period;
             mapUnits = mapset.units;
@@ -1179,7 +1192,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                  });*/
             },
             error: function(response, textStatus, jqXH){
-                debug(textStatus);
+                console.log(textStatus);
             }
         });
     });
@@ -1381,7 +1394,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             series: {
                 regions:  [{
                     attribute: "fill",
-                    values: getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
+                    values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
                     scale: ['#C8EEFF', '#0071A4'],
                     normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
                     min: calculatedMapData.regionDataMin,
@@ -1455,44 +1468,66 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
         $thisPanel.find('.map-graph-selected').click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
+/* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
+If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
+If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
+OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
+* */
+
             var selectedRegions = $map.getSelectedRegions();
             var selectedMarkers = $map.getSelectedMarkers();
-            var selectedSeries = [];
-            //tODO: how to handle truly calculated component?  -> include components[] and formula
+            var grph = emptyGraph(), plt, formula;
+            grph.plots =[];
+            grph.title = 'from map of ' + oGraph.title;
             for(var i=0;i<selectedMarkers.length;i++){
-                for(var pointset in oGraph.pointsets){
-                    if(oGraph.pointsets[pointset].data[selectedMarkers[i]]){
-                        var oSerie={
-                            data: oGraph.pointsets[pointset].data[selectedMarkers[i]].data,
-                            firstdt: oGraph.pointsets[pointset].data[selectedMarkers[i]].firstdt,
-                            lastdt: oGraph.pointsets[pointset].data[selectedMarkers[i]].lastdt,
-                            handle: oGraph.pointsets[pointset].data[selectedMarkers[i]].handle,
-                            name: oGraph.pointsets[pointset].data[selectedMarkers[i]].name,
-                            period: oGraph.pointsets[pointset].period,
-                            units:  oGraph.pointsets[pointset].units
-                        };
-                        selectedSeries.push(oSerie);
+                var compPattern = /[SU][0-9]+/g;
+                var comps = selectedMarkers[i].match(compPattern);  //!!!!point markers must use the formula of series handles as their ID
+                plt = {options:{}, components:[]};
+                formula = selectedMarkers[i];
+                for(var c=0;c<comps.length;c++){ //loops through the component for this marker
+                    formula.replace(comps[c], String.fromCharCode("a".charAt(0)+c));  //make the formula
+                    plt.components.push(comps[c]);
+                    //find asset:  either directly in assets or part of a point or mapset
+                    if(oGraph.assets[comps[c]]){
+                        grph.assets[comps[c]] = oGraph.assets[comps[c]]
+                    } else {
+                        for(var aHandle in oGraph.assets){
+                            if(oGraph.assets[aHandle].data[comps[c]]){
+                                grph.assets[comps[c]] = oGraph.assets[aHandle].data[comps[c]];
+                                grph.assets[comps[c]].period = oGraph.assets[aHandle].period;
+                                grph.assets[comps[c]].units = oGraph.assets[aHandle].units;
+                                break;
+                            }
+                        }
+                    }
+                }
+                plt.options.name = calculatedMapData.markers[selectedMarkers[i]].name;
+                plt.options.formula = formula;
+                grph.plots.push(plt);
+            }
+            //regions (mapsets) are simply than markers (pointsets) because there is only one
+            if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
+                for(var i=0;i<selectedRegions.length;i++){
+                    for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
+                        if(calculatedMapData.regionData[dateSet][selectedRegions[i]]){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
+                            plt = $.extend(true, {}, oGraph.mapsets);
+                            for(var j=0;j<plt.components.length;j++){
+                                if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
+                                    var mapAsset = oGraph.assets[plt.components[j].handle];
+                                    var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
+                                    plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
+                                    grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
+                                } else {
+                                    grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
+                                }
+                            }
+                            grph.plots.push(plt);
+                        }
                         break;
                     }
                 }
             }
-            for(var i=0;i<selectedRegions.length;i++){
-                for(var mapset in oGraph.mapsets){
-                    if(oGraph.mapsets[mapset].data[selectedRegions[i]]){
-                        var oSerie={
-                            data: oGraph.mapsets[mapset].data[selectedRegions[i]].data,
-                            firstdt: oGraph.mapsets[mapset].data[selectedRegions[i]].firstdt,
-                            lastdt: oGraph.mapsets[mapset].data[selectedRegions[i]].lastdt,
-                            handle: oGraph.mapsets[mapset].data[selectedRegions[i]].handle,
-                            name: oGraph.mapsets[mapset].name +": "+ oGraph.mapsets[mapset].data[selectedRegions[i]].geoname,
-                            period: oGraph.mapsets[mapset].period,
-                            units: oGraph.mapsets[mapset].units
-                        };
-                        selectedSeries.push(oSerie);
-                    }
-                }
-            }
-            if(selectedSeries.length>0) quickGraph(selectedSeries, true);
+            if(grph.plots.length>0) quickGraph(grph, true);
         });
         $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));  //initialize here ratehr than set slider value which would trigger a map redraw
         $thisPanel.find('.make-map').click(function(){
@@ -1535,7 +1570,7 @@ function provenance(){
 
     plotList = '<button onclick="provClose(this)" style="float:right;margin-right: 50px;">cancel</button> <button onclick="provOk(this)" style="float:right;">ok</button><br>'
         + ' <div width="80%"><ol class="plots">';
-    //TODO: check for grph.map object structure and write map and mapset structures here.  (Note:  no user reordering of mapsets allowed, just unit and op editing)
+
     for(i=0;i<grph.plots.length;i++){
         //outer PLOT loop
         plot = grph.plots[i];
@@ -1543,20 +1578,20 @@ function provenance(){
         if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
         plotColor = plot.options.lineColor||oHighCharts[panelId].get('P'+i).color;
         plotList += '<li class="plot ui-state-highlight">'
-                 +    '<button class="edit-plot" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
-                 +    '<div class="line-sample" style="padding:0;margin:0 10px 10px 0;display:inline-block;border-width:0;background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;width:38px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
-                 +    '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plot.name+'</span> in ' + plotUnits(grph, i) + ' ' + plotPeriodicity(grph, i)+'</div>'
-                 +    '<ul class="components" style="list-style-type: none;">';
+             + '<button class="edit-plot" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
+             + '<div class="line-sample" style="padding:0;margin:0 10px 10px 0;display:inline-block;border-width:0;background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;width:38px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
+             + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(grph, plot)+'</span> in ' + plotUnits(grph, plot) + ' ' + plotPeriodicity(grph, plot)+'</div>'
+             + '<ul class="components" style="list-style-type: none;">';
         for(j=0;j< plot.components.length;j++){
             //inner COMPONENT SERIES loop
             //TODO: add op icon and order by (+,-,*,/)
             componentHandle = plot.components[j].handle;
             if(plot.components[j].op==null)plot.components[j].op="+";
 
-            plotList +=   '<li class="component ui-state-default" data="'+ componentHandle + '">'
-                        + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                        + '<span class="plot-op ui-icon ' + opUI[plot.components[j].op] + '">operation</span> '
-                        + grph.assets[componentHandle].name + '</li>';
+            plotList += '<li class="component ui-state-default" data="'+ componentHandle + '">'
+                + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
+                + '<span class="plot-op ui-icon ' + opUI[plot.components[j].op] + '">operation</span> '
+                + grph.assets[componentHandle].name + '</li>';
         }
         plotList +=   '</ul>';
         plotList += '</li>';
@@ -1566,7 +1601,10 @@ function provenance(){
     $prov.html(mapList + plotList);
     grph.plotsEdits = $.extend(true, {}, grph.plots);  //this is the copy that the provenance panel will work with.  Will replace grph.plots on "OK"
     $prov.find(".components").sortable({
+        containment: $prov.get(0),
         connectWith: ".components",
+        axis: "y",
+        delay: 150,   //in ms to prevent accidentally drags
         update: function(event, ui){ componentMoved(ui)}
         /* receive: function(event, ui){alert("received")},
          remove: function(event, ui) {alert("removed")}*/
@@ -1592,10 +1630,26 @@ function provenance(){
             showComponentEditor(this);
         });
     });
-    $prov.find(".plots").sortable({dropOnEmpty: false}).disableSelection();
+    $prov.find(".plots").sortable({
+        axis: "y", dropOnEmpty: false}).disableSelection();
 }
-function plotUnits(oGraph, plotIndex){
-    var sHandle, comp, seriesUnits, plot=oGraph.plots[plotIndex];
+function plotName(oGraph, plot){
+    var handle, comp, c, calcName='';
+    if(typeof(plot.options.name) != "undefined"){
+        return plot.options.name;
+    } else {
+        //calculate from components
+        for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
+            comp = plot.components[c];
+            handle = comp.handle;
+            if(c!=0||(comp.options.op!='+' && !comp.options.op)) calcName += comp.options.op;
+            calcName +=oGraph.assets[handle].name;
+        }
+        return calcName;
+    }
+}
+function plotUnits(oGraph, plot){
+    var sHandle, comp, seriesUnits;
     if(typeof(plot.options.calcUnits) == "undefined"){
         //calculate from series
         plot.options.calcUnits='';
@@ -1603,7 +1657,7 @@ function plotUnits(oGraph, plotIndex){
             comp = plot.components[c];
             sHandle = comp.handle;
             //TODO: nominator / denominator cancellations & user formula
-            if(c==0 ||(comp.op=='*' ||comp/op=='/')){
+            if(c==0 ||(comp.options.op=='*' ||comp.options.op=='/')){
                 if(c>0) plot.options.calcUnits +=' ';
                 seriesUnits = (typeof(comp.options.userUnits)!="undefined")?comp.options.userUnits:oGraph.assets[sHandle].units;
                 if(comp.op=='/'){
@@ -1620,8 +1674,8 @@ function plotUnits(oGraph, plotIndex){
         return '<span class="plot-units">'+ plot.options.userUnits +'</span> <span class="plot-units-conversion">= '+ plot.options.k +' * ' + plot.options.calcUnits + '</span>';
     }
 }
-function plotPeriodicity(oGraph, plotIndex){
-    var sHandle, comp, fromPeriodicity, plot=oGraph.plots[plotIndex];
+function plotPeriodicity(oGraph, plot){
+    var sHandle, comp, fromPeriodicity;
     if(plot.components[0].options.downshiftPeriod){
         fromPeriodicity = plot.components[0].options.downshiftPeriod;
     } else {
@@ -1634,14 +1688,62 @@ function plotPeriodicity(oGraph, plotIndex){
     }
 }
 function provenanceOfMap(grph){
+    var provHTML = "", c, p, plt, componentHandle, isSet;
+    if(grph.map&&(grph.mapsets||grph.pointsets)){ //map!!
+        provHTML = '<div class="map-prov"><h3>'+ grph.map +'</h3>';
+        if(grph.mapsets){
+            provHTML += '<div class="mapsets">Mapset'
+            + '<ol class="mapsets">'
+            + '<li class="mapset ui-state-highlight">'
+            + '<button class="edit-mapset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
+            + '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
+            + '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.maxColor||'#0071A4') +';"></div>'
+            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+            + plotName(grph, grph.mapsets)+'</span> in ' + (grph.mapsets.options.units||plotUnits(grph, grph.mapsets)) + ' ' + (grph.mapsets.options.period||plotPeriodicity(grph, graph.mapsets))+'</div>';
 
+            provHTML += '<ol class="map-comp components" style="list-style-type: none;>';
+            for(c=0;c<grph.mapsets.components.length;c++){
+                componentHandle = grph.mapsets.components[c].handle;
+                isSet = componentHandle.substr(0,1)=='M';
+                provHTML += '<li class="component ui-state-default" data="'+ componentHandle + '">'
+                    + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
+                    + '<span class="plot-op ui-icon ' + opUI[plot.components[j].options.op||'+'] + '">operation</span> '
+                    + grph.assets[componentHandle].name + '</li>';
+            }
+            provHTML += '</ol>'
+            + '</ol>';
+        }
+        if(grph.pointsets){
+            provHTML += '<ol class="pointsets">';
+            for(p=0;p<grph.pointsets.plots.length;p++){
+                plt = grph.pointsets.plots[p];
+                provHTML += '<li class="pointset ui-state-highlight">'
+                + '<button class="edit-pointset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
+                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+                + plotName(grph, plt)+'</span> in ' + (plt.options.units||plotUnits(grph, plt)) + ' ' + (plt.options.period||plotPeriodicity(grph, plt))+'</div>'
+                + '<ol class="point-comp components">';
+                for(c=0;c<plt.components.length;c++){
+                    componentHandle = plt.components[c].handle;
+                    isSet = (/[XM]/).test(componentHandle);
+                    provHTML += '<li class="component ui-state-default" data="'+ componentHandle  + '">'
+                        + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
+                        + '<span class="plot-op ui-icon ' + opUI[plot.components[j].options.op||'+'] + '">operation</span> '
+                        + grph.assets[componentHandle].name + '</li>';
+                }
+                provHTML += '</ol></li>';
+            }
+            provHTML += '</ol>';
+        }
+        provHTML += '</div>'
+    }
+    return provHTML;
 }
 //TODO: FIX  componentMoved !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
     //first find out whether a sort or a move, and whether that move empty or created a new component.
     var oGraph, $targetSeriesList, pFromHandle, fromIndex, pTargetHandle, sHandle, newPlotLi;
     var $prov = ui.item.closest(".provenance");
-    if(ui.sender==null){    // handle everything in the sorting call
+    if(ui.sender!=null){    // handle everything in the sorting call
         //is series already in here?  if not add
         sHandle = ui.item.attr('data');
         pFromHandle = ui.item.attr('plot');
@@ -1671,9 +1773,12 @@ function componentMoved(ui){  //triggered when an item is move between lists or 
             //.sortable(destroy);
             $prov.find(".components").sortable({
                 connectWith: ".components",
+                axis: "y",
                 update: function(event, ui){ componentMoved(ui)}
             }).disableSelection();
-            $prov.find(".plots").sortable({dropOnEmpty: false}).disableSelection();
+            $prov.find(".plots").sortable({
+                axis: "y",
+                dropOnEmpty: false}).disableSelection();
         } else {
             pTargetHandle =  ui.item.closest("li.plot").attr('data');
             if($targetSeriesList.find("li[data='"+sHandle+"']").length>1||pTargetHandle==pFromHandle){  //cancel move if duplicate
@@ -1823,8 +1928,8 @@ function showComponentEditor(liComp){
 }
 function showPlotEditor(liPlot){
     var selectThickness='<select class="plot-thickness">', selectStyle = '<select class="plot-linestyle">', $liPlot = $(liPlot);
-    plotColor = plot.options.lineColor||oHighCharts[panelId].get('P' + $liPlot.index()).color;
     var oPlot = oPanelGraphs[panelIdContaining(liPlot)].plotsEdits[$liPlot.index()];
+    plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
     $liPlot.find(".edit-plot, .plot-info").hide();
     for(var t=1;t<=5;t++) selectThickness+='<option>'+t+'px</option>';
     selectThickness += '</select>';
