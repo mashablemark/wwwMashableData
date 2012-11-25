@@ -464,7 +464,7 @@ function createChartObject(oGraph){
                             return this.point.id;
                         }
                     },
-                    y:10,
+                    y:5,
                     x:0
                 }
             }
@@ -1032,10 +1032,11 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '<div  style="width:70%;display:inline;float:left;">' +
             '<div class="map" style="display:none;"><h3 style="color:black;"></h3>'+
             '<div class="jvmap" style="display: inline-block;"></div>' +
-            '<div class="slider" style="display: inline-block;width: 280px; margin: 10px"></div><ul id="icons" class="ui-widget ui-helper-clearfix" style="display: inline-block;"><li class="ui-state-default ui-corner-all" title="play" style="display: inline-block;margin: 2px;position: relative;padding: 4px 0;cursor: pointer;float: left;list-style: none;"><span class="ui-icon ui-icon-play"></span></li></ul>' +
-            '<button class="map-unselect">clear</button>' +
-            '<button class="map-graph-selected" disabled="disabled">graph</button>' +
-            '<button class="make-map">map</button>' +
+            '<div class="slider" style="display: inline-block;width: 280px; margin: 10px"></div>' +
+            '<button class="map-play">play</button>' +
+            //'<button class="map-unselect">clear</button>' +
+            '<button class="map-graph-selected" title="graph sleected regions and markers" disabled="disabled">graph</button>' +
+            '<button class="make-map">reset</button>' +
             '</div>' +
             '<div class="chart"></div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -1455,12 +1456,12 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         $thisPanel.find('div.jvmap').show().height(500).vectorMap(vectorMapSettings);
         $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
         $thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
-        $thisPanel.find('.slider').show().slider({
+        var $slider = $thisPanel.find('.slider').show().slider({
             value: val,
             min: 0,
             max: val,
             step: 1,
-            slide: function( event, ui ) {
+            change: function( event, ui ) {
                 val = ui.value;
                 $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                 $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
@@ -1529,6 +1530,24 @@ OK.  That is a lot of work, but is correct.  quickGraph will need to detect a gr
             }
             if(grph.plots.length>0) quickGraph(grph, true);
         });
+        var $play = $thisPanel.find('.map-play');
+        var player;
+        $play.click(function(){
+            if($play.attr("title")=="play"){
+                $play.button({text: false, icons: {primary: "ui-icon-pause"}}).attr("title","pause");
+                if($slider.slider("value")==calculatedMapData.dates.length-1) $slider.slider("value",0);
+                player = setInterval(function(){
+                    $slider.slider("value",$slider.slider("value")+1);
+                    if($slider.slider("value")==calculatedMapData.dates.length-1) {
+                        clearInterval(player);
+                        $play.button({text: false, icons: {primary: "ui-icon-play"}});
+                    }
+                }, 1000);
+            } else {
+                clearInterval(player);
+                $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
+            }
+        }).button({text: false, icons: {primary: "ui-icon-play"}});
         $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));  //initialize here ratehr than set slider value which would trigger a map redraw
         $thisPanel.find('.make-map').click(function(){
             calculatedMapData  = calcMap(oGraph);
@@ -2391,7 +2410,7 @@ function buildAnnotations(panelId, redrawAnnoTypes){
             case 'point':
                 if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
                     annoSeries = oHighCharts[panelId].get(anno.series);
-                    if(annoSeries==null){
+                    if(annoSeries==null){//cut anno out if we can't find it's reference series
                         oGraph.annotations.splice(i,1);
                         i--;
                         break;
@@ -2418,8 +2437,7 @@ function buildAnnotations(panelId, redrawAnnoTypes){
                                                     enabled: true,
                                                     fillColor: anno.color,
                                                     lineColor: anno.color,
-                                                    radius: 8,
-
+                                                    radius: 8
                                                 }
                                             }
                                         }

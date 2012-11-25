@@ -94,7 +94,7 @@ var colWidths = {
 };
 var layoutDimensions= {
     heights: {
-        graphTabsMinGap: 30,
+//        graphTabsMinGap: 30,
         graphTabsGap: null,
         tableControls: 42,
         innerDataTable: null,
@@ -289,6 +289,7 @@ $(document).ready(function(){
         'transitionIn'		: 'none',
         'transitionOut'		: 'none'
     });
+    $("#show-hide-pickers").button({icons: {secondary: "browse-rollup"}});
 
     $('#jsddm > li').bind('mouseover', jsddm_open);
     $('#jsddm > li').bind('mouseout',  jsddm_timer);
@@ -316,7 +317,7 @@ $(document).ready(function(){
 
     // tabs init with a custom tab template and an "add" callback filling in the content
     $graphTabs = $('#canvas').tabs({
-        tabTemplate: '<li><a href="#{href}">#{label}</a> <span class="ui-icon ui-icon-close" onclick="removeTab(this)">Remove Tab</span></li>',
+        tabTemplate: '<li class="graph-tab"><a href="#{href}">#{label}</a> <span class="ui-icon ui-icon-close" onclick="removeTab(this)">Remove Tab</span></li>',
         add: function(event, ui) {
             var tab_content = 'Loading graph.  Please wait.';
             return($(ui.panel).append('<p>'+tab_content + '</p>'));
@@ -363,28 +364,24 @@ $(document).ready(function(){
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable); //resizeCanvas already called, but need this after datatable calls
     unmask();
     loadSources();
-
+    $('ul#series-tabs').click(function(){
+        showGraphEditor()
+    });
 });
 function resizeCanvas(){
-    var winHeight = window.innerHeight-10;
-    if(winHeight<layoutDimensions.widths.windowMinimum)winHeight=layoutDimensions.widths.windowMinimum;
-    var winWidth = window.innerWidth-10;
-    if(winWidth<layoutDimensions.widths.windowMinimum)winWidth=layoutDimensions.widths.windowMinimum;
+    var winHeight = Math.max(window.innerHeight-10, layoutDimensions.widths.windowMinimum);
+    var winWidth = Math.max(window.innerWidth-10, layoutDimensions.widths.windowMinimum);
     $("div#wrapper").height(winHeight).width(winWidth);
-    layoutDimensions.heights.menuBar = $("#menu").outerHeight(true);
-    layoutDimensions.heights.graphComposerHeader  = $("#graph-composer-header").outerHeight(true);
 
-    //$('div#localSeriesTableDiv').height(layoutDimensions.heights.innerDataTable -
-    layoutDimensions.heights.graphTabsGap = $("#graph-tabs").outerHeight();
-    if(layoutDimensions.heights.graphTabsGap == 0){
-        layoutDimensions.heights.graphTabsGap = layoutDimensions.heights.graphTabsMinGap;
-    }
-    layoutDimensions.heights.canvas = winHeight - layoutDimensions.heights.graphComposerHeader - layoutDimensions.heights.menuBar  -layoutDimensions.heights.graphTabsGap - 2;
+    layoutDimensions.heights.menuBar = $("#menu").outerHeight(true);
+    layoutDimensions.heights.canvas = winHeight - layoutDimensions.heights.menuBar - 2;
+    layoutDimensions.heights.graphTabs = $("#graph-tabs").outerHeight(); // || layoutDimensions.heights.graphTabsMinGap; //if 0, use graphTabsMinGap
+
     $('div#canvas').height(layoutDimensions.heights.canvas);
     $('div.ui-tabs-panel').height(layoutDimensions.heights.canvas - layoutDimensions.heights.graphTabsGap).width(winWidth).css('margin','0').css('padding','0');
 
-    layoutDimensions.heights.pickers = winHeight - layoutDimensions.heights.menuBar - layoutDimensions.heights.graphTabsGap -layoutDimensions.heights.graphComposerHeader -40; //paddings
-    $('div.picker').height(layoutDimensions.heights.pickers );
+    layoutDimensions.heights.pickers = layoutDimensions.heights.canvas; //paddings
+    $('div.picker').height(layoutDimensions.heights.pickers);
     layoutDimensions.heights.innerDataTable = layoutDimensions.heights.pickers  - layoutDimensions.heights.tableControls -  layoutDimensions.heights.scrollHeads -40;
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable);
     //dtPublicSeries.height((layoutDimensions.heights.canvas-layoutDimensions.heights.graphTabsGap)-layoutDimensions.heights.tableControls-$("div#cloud-series div.dataTables_scrollHead").height());
@@ -1079,20 +1076,20 @@ function showHideGraphEditor(){
     var current = $("div.picker:visible").length;
     if(current==1){
         $(".show-hide").slideToggle(function(){ //callback prevents close click from tiggering a showGraphEditor
-            $("#graph-composer-header").on('click',function(evt){showGraphEditor()});
+            //$("#graph-composer-header").on('click',function(evt){showGraphEditor()});
+            var panelToDeactive = $("#series-tabs li.ui-tabs-selected").removeClass("ui-tabs-selected ui-state-active").find("a").attr("data");
+            $(panelToDeactive).hide();
         });
-        $("#main-graph-buttons-top").hide();
-        $(".graphEditorClosedControls").show();
-        $("div.graph-composer-header").css("cursor","pointer");
-        $("#show-hide-pickers").html("show");
+/*        $(".graphEditorClosedControls").show();
+        $("div.graph-composer-header").css("cursor","pointer");*/
+        $("#show-hide-pickers").hide();  //html('<span class="ui-icon browse-rolldown">show search tables</span>');
     } else {
         $(".show-hide").slideToggle(function(){
-            $("#main-graph-buttons-top").show()
         });
-        $(".graphEditorClosedControls").hide();
+/*        $(".graphEditorClosedControls").hide();
         $("div.graph-composer-header").css("cursor","default");
-        $("#graph-composer-header").off('click');
-        $("#show-hide-pickers").html("hide");
+        $("#graph-composer-header").off('click');*/
+        if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();  //in revise layout, hide instead of state change: .html('show graphs <span class="ui-icon browse-rollup"></span>')
     }
 }
 function showGraphEditor(){
@@ -2209,7 +2206,7 @@ function addTab(title) {
     if($("#delete-my-series").attr("disabled")!="disabled"){
         $("button.add-to-graph").removeAttr("disabled");
     }
-    $("#show-hide-pickers").removeAttr("disabled");
+    //in revised layout, show only if graph tabs and seardh tables are show  $("#show-hide-pickers").show();
     $('#graph-tabs a:last').click(function(){
         hideGraphEditor()
     });
@@ -2232,7 +2229,7 @@ function removeTab(span){
         editingPanelId = null; //dissociate the chart from the this edit session
         $("button.add-to-graph").attr("disabled","disabled");
         clearChecksMySeries(); //set up panels
-        $("#show-hide-pickers").attr("disabled","disabled");
+        $("#show-hide-pickers").hide();
         showGraphEditor()
     } else  {
         $('#graph-tabs a:last').click();
@@ -2491,9 +2488,20 @@ function mask(){$("div#modal").show();}
 </div>
 <div id="fb-root"></div>
 <div id="wrapper" class="wrapper">
-    <div id="title-bar" class="title-bar" style="background-color:#000;">
-        <span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Analyst's Workbench</span> <span style="font-size:8px;color:white;">powered by</span>  <a href="/" target="_blank"><img height="26px" src="/global/images/logo/md_logo_sm.png"></a>
-        <!--main menu-->
+    <div id="title-bar" class="title-bar" style="background-color:#000;border:0px;">
+        <a href="/" target="_blank"><img height="32px" style="margin:0 10px 0 20px;" src="/global/images/logo/md_logo_sm.png"></a>
+        <!--span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Workbench</span-->
+        <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all" style="position:relative; left:5px; border:0; background:none;height:30px;display: inline-block;">
+            <!--PICKER TABS-->
+            <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" style="background:none;border:0;display:inline;">
+                <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Series</a></li>
+                <li class="cloud-series ui-state-default ui-corner-top"><a data="#cloud-series">Public Series</a></li>
+                <li class="my-graphs ui-state-default ui-corner-top"><a data="#myGraphs">My Graphs</a></li>
+                <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
+            </ul>
+        </div>
+        <button style="position:relative;left:20px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
+        <!--account and help menu-->
         <ul id="jsddm" class="menu" style="list-style-type: none;float:right;">
             <li><span id="login-display">sign in</span><span class="sorting_asc"><span></span></span>
                 <ul><li><a id="mn_facebook" onclick="loginout()">Facebook</a></li></ul>
@@ -2502,56 +2510,19 @@ function mask(){$("div#modal").show();}
             <li><a alt="preferences"><img src="images/gear.png"></a></li>
         </ul>
     </div>
-    <div id="canvas">
-        <ul id="graph-tabs">
-        </ul>
-    </div>
-    <a class="showTitleEditor" href="#titleEditor"></a>
-    <div id="dwrap2" style="display:none;position:absolute;top:50px;left:0px;width:75%;height:35px;">
-        <div id="titleEditor">
-            <input type="text" width="300px" onkeyup="if(event.keyCode==13)graphTitle.changeOk()" name="title" /> <button onclick="graphTitle.changeOk()">OK</button> <button onclick="graphTitle.changeCancel()">cancel</button>
-        </div>
-    </div>
-    <!-- <a class="showAnnotationMenu" href="#annotationMenu"></a>
-     <div id="dwrap3" style="display:none;position:absolute;">
-         <div id="annotationMenu">
-             <table class="md-table">
-             <tr  style="margin: 5px 0px;"><td><a style="cursor: pointer;" onclick="annotatePoint()">annotate point</a></td></tr>
-             <tr  style="margin: 5px 0px;"><td><a style="cursor: pointer;" onclick="annotateLine()" style="margin: 5px 0px;">add event line</a></td></tr>
-             <tr  style="margin: 5px 0px;"><td><a style="cursor: pointer;" onclick="annotateBand()" style="margin: 5px 0px;">add event band</a></td></tr>
-             </table>
-         </div>
-     </div>-->
-    <div id="graphComposer" style="position:absolute; bottom:0; width:100%;">
-        <!-- TOP HAT TO GRAPH EDITOR -->
-        <div class="graph-composer-header" id="graph-composer-header" style="position:relative;top:0;left:0;height:26px;top:0px;padding:2px;margin:0;background-color:#aaaaaa;z-index:100;">
-            <h3 id="h3-graph" style="display:inline-block;margin:0px;padding:3px;color:white">Graph Editor</h3>
-            <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all" style="position:absolute; bottom:0; left:150px; border:0; background:none;height:30px;">
-                <!--PICKER TABS-->
-                <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" style="background:none;border:0;display:inline;">
-                    <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Series</a></li>
-                    <li class="cloud-series ui-state-default ui-corner-top"><a data="#cloud-series">Public Series</a></li>
-                    <li class="my-graphs ui-state-default ui-corner-top"><a data="#myGraphs">My Graphs</a></li>
-                    <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
-                </ul>
+    <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER DATATABLES -->
+        <!--BEGIN LOCAL SERIES-->
+        <div id="local-series" class="picker">
+            <div id="edit-user-series" style="display:none; border: 1px solid black;position: absolute;z-index: 5;background-color: #FFFFFF;width:100%;">
+                <div id="editor-chart" class="editor-chart" style="float:right;width:45%;">chart here</div>
+                <div id="data-editor" class="hands-on-table dataTable" style="width:50%;overflow:scroll;"></div>
+                <button class="series-edit-save" onclick="saveSeriesEditor(false)">save</button> <button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button> <button onclick="closeSeriesEditor()">cancel</button>
             </div>
-            <button style="float: right;" id="show-hide-pickers" disabled="disabled" onclick="showHideGraphEditor()">hide</button>
-        </div>
-
-        <!-- GRAPH EDITOR TABS = Local Series, Cloud Series Search, My Graphs, Cloud Graphs-->
-        <div id="picker-divs" class="show-hide">
-            <!--BEGIN LOCAL SERIES-->
-            <div id="local-series" class="picker">
-                <div id="edit-user-series" style="display:none; border: 1px solid black;position: absolute;z-index: 5;background-color: #FFFFFF;width:100%;">
-                    <div id="editor-chart" class="editor-chart" style="float:right;width:45%;">chart here</div>
-                    <div id="data-editor" class="hands-on-table dataTable" style="width:50%;overflow:scroll;"></div>
-                    <button class="series-edit-save" onclick="saveSeriesEditor(false)">save</button> <button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button> <button onclick="closeSeriesEditor()">cancel</button>
-                </div>
-                <div id="local-series-header" class="md-DS_title">
-                    <fieldset class="tight-fieldset"><legend>Filter</legend>
+            <div id="local-series-header" class="md-DS_title">
+                <fieldset class="tight-fieldset"><legend>Filter</legend>
                         <span id="series-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
                         </span>
-                    </fieldset>
+                </fieldset>
                     <span id="main-graph-buttons-top">
                         <fieldset style="padding: 1px 5px;"><legend>Graph</legend>
                             <button disabled="disabled" class="series-checked" onclick="createUpdateGraphFromMySeries(buildGraphPanel)">create</button>
@@ -2564,84 +2535,96 @@ function mask(){$("div#modal").show();}
                              <button id="delete-my-series" disabled="disabled" class="series-checked" onclick="deleteCheckedSeries()">delete</button>
                          </fieldset>
                     </span>
-                </div>
-                <div>
-                    <table id="series-table" class="md-table"></table>
-                </div>
             </div>
-            <!--BEGIN COMMUNITY SERIES-->
-            <div id="cloud-series" class="picker">
-                <div id="cloud-series-header" class="md-DS_title">
-                    <div id="cloud-series-search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                        <fieldset style="display:inline;margin-left: 5px; padding: 0px 5px;margin: 1px;">
-                            <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
-                            <input maxlength="100" style="width:300px;" id="series_search_text" onkeyup="seriesCloudSearchKey(event)" />
-                            <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
-                            <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option></select>
-                            <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
-                            <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
-                        </fieldset>
-                    </div>
-                    <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
-                    </div>
-                    <div id="cloud_series_info" style="display:inline;font-size:8px;"></div>
-                </div>
-                <div id="cloudSeriesTableDiv" class="series-table">
-                    <table id="tblPublicSeries" class="md-table">
-                    </table>
-                </div>
-                <div id="browse-api" class="scrollable" style="display:none; border: 1px solid black;"></div>
+            <div>
+                <table id="series-table" class="md-table"></table>
             </div>
-            <div id="myGraphs" class="picker">
-                <div id="myGraphsHeader" class="md-DS_title">
-                    <fieldset class="tight-fieldset"><legend>Search and Display</legend>
-                        <span id="graphs-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
-                        </span>
+        </div>
+        <!--BEGIN COMMUNITY SERIES DATATABLE-->
+        <div id="cloud-series" class="picker">
+            <div id="cloud-series-header" class="md-DS_title">
+                <div id="cloud-series-search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
+                    <fieldset style="display:inline;margin-left: 5px; padding: 0px 5px;margin: 1px;">
+                        <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
+                        <input maxlength="100" style="width:300px;" id="series_search_text" onkeyup="seriesCloudSearchKey(event)" />
+                        <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
+                        <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option></select>
+                        <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
+                        <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
                     </fieldset>
-                    <!--div id="graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px">
-                    </div-->
                 </div>
-                <table id="my_graphs_table" class="md-table graphs-table scrollable series-table">
+                <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
+                </div>
+                <div id="cloud_series_info" style="display:inline;font-size:8px;"></div>
+            </div>
+            <div id="cloudSeriesTableDiv" class="series-table">
+                <table id="tblPublicSeries" class="md-table">
                 </table>
             </div>
-            <div id="publicGraphs" class="picker">
-                <div id="publicGraphsHeader" class="md-DS_title">
-                    <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                        Search terms: <input maxlength="200" width="200px" id="graphs_search_text" onkeyup="graphsCloudSearch(event)" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
-                    </div>
-                    <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
-                    </div>
-                </div>
-                <div id="publicGraphsTableDiv" class="series-table">
-                    <table id="tblPublicGraphs" class="md-table">
-                    </table>
-                </div>
-                <!-- LOWER GRAPH EDITOR -->
-            </div>
-            <!-- END PICKERS -->
+            <div id="browse-api" class="scrollable" style="display:none; border: 1px solid black;"></div>
         </div>
-        <!--modal dialog html-->
-        <div id="dialog" style="display:none;"></div>
-        <!--quick view html-->
-        <a class="show-graph-link" href="#outer-show-graph-div"></a>
-        <div id="dwrap" style="display:none;width:100%;height:90%;">
-            <div id="outer-show-graph-div" style="width:100%;height:100%;position:relative;background-color:white;">
-                <div id="highcharts-div" style="width:90%;height:60%;position:static;"></div>
-                </br>
-                <div id="qv-info"></div>
-                </br>
-                <div id="quick-view-controls" class="no_print">
-                    <fieldset class="tight-fieldset"><legend>graph</legend>
-                        <select id="quick-view-to-graphs"></select>
-                        <select class="quick-view-maps"></select>
-                        <button class="quick-view-maps" onclick="quickViewToMap(this)">map entire set</button>
-                        <button id="quick-view-to-graph" onclick="quickViewToGraph(this)">chart series</button>
-                    </fieldset>
-                    <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
-                    <button onclick="quickViewClose()">Close</button>
+        <!--BEGIN MY GRAPHS DATATABLE-->
+        <div id="myGraphs" class="picker">
+            <div id="myGraphsHeader" class="md-DS_title">
+                <fieldset class="tight-fieldset"><legend>Search and Display</legend>
+                        <span id="graphs-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
+                        </span>
+                </fieldset>
+                <!--div id="graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px">
+                </div-->
+            </div>
+            <table id="my_graphs_table" class="md-table graphs-table scrollable series-table">
+            </table>
+        </div>
+        <!--BEGIN COMMUNITY GRAPHS DATATABLE-->
+        <div id="publicGraphs" class="picker">
+            <div id="publicGraphsHeader" class="md-DS_title">
+                <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
+                    Search terms: <input maxlength="200" width="200px" id="graphs_search_text" onkeyup="graphsCloudSearch(event)" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
+                </div>
+                <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>
             </div>
+            <div id="publicGraphsTableDiv" class="series-table">
+                <table id="tblPublicGraphs" class="md-table">
+                </table>
+            </div>
+            <!-- LOWER GRAPH EDITOR -->
         </div>
+    </div><!-- END PICKERS DATATABLES-->
+    <div id="canvas">
+        <ul id="graph-tabs">
+        </ul>
+    </div>
+</div>
+<!--POP UP DIVS-->
+<!--modal dialog html used by jqueryUI-->
+<div id="dialog" style="display:none;"></div>
+<!--quick view html used by fancy box-->
+<a class="show-graph-link" href="#outer-show-graph-div"></a>
+<div id="dwrap" style="display:none;width:100%;height:90%;">
+    <div id="outer-show-graph-div" style="width:100%;height:100%;position:relative;background-color:white;">
+        <div id="highcharts-div" style="width:90%;height:60%;position:static;"></div>
+        </br>
+        <div id="qv-info"></div>
+        </br>
+        <div id="quick-view-controls" class="no_print">
+            <fieldset class="tight-fieldset"><legend>graph</legend>
+                <select id="quick-view-to-graphs"></select>
+                <select class="quick-view-maps"></select>
+                <button class="quick-view-maps" onclick="quickViewToMap(this)">map entire set</button>
+                <button id="quick-view-to-graph" onclick="quickViewToGraph(this)">chart series</button>
+            </fieldset>
+            <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
+            <button onclick="quickViewClose()">Close</button>
+        </div>
+    </div>
+</div>
+<!--graph title editor div used by fancy box-->
+<a class="showTitleEditor" href="#titleEditor"></a>
+<div id="dwrap2" style="display:none;position:absolute;top:50px;left:0px;width:75%;height:35px;">
+    <div id="titleEditor">
+        <input type="text" width="300px" onkeyup="if(event.keyCode==13)graphTitle.changeOk()" name="title" /> <button onclick="graphTitle.changeOk()">OK</button> <button onclick="graphTitle.changeCancel()">cancel</button>
     </div>
 </div>
 </body>

@@ -305,6 +305,7 @@ button{margin:0;}
 
 div.wrapper {
     position:absolute;
+    overflow: hidden;
     top:0;
     left:0;
     padding:0px;
@@ -325,7 +326,7 @@ div.menu{
     background-color:#AAAAFF;
 }
 div#canvas {
-    border: solid thin;
+    /*border: solid thin;*/
     padding:0px;
     margin: 0px 0px 0px 0px;
 }
