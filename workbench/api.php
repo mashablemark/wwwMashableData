@@ -769,8 +769,7 @@ switch($command){
             break;
         }
 		$sql = "select accounttypeid from accounttypes where name = " . safeStringSQL($accounttype);
-		logEvent("GetUserId: accounttypeid", $sql);
-		$result = runQuery($sql);		
+		$result = runQuery($sql, "GetUserId: accounttypeid");
 		if($result->num_rows==1){
 			$row = $result->fetch_assoc();
 			$output = $row;
@@ -784,7 +783,7 @@ switch($command){
         logEvent("GetUserId: fb call", $fb_command);
         $fbstatus = json_decode(httpGet($fb_command));
         if(array_key_exists ("data",$fbstatus)){
-            $sql = "select userid from users u "
+            $sql = "select userid, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
                 . " where u.accounttypeid = " . $accounttypeid
                 . " and u.username = '" . $db->real_escape_string($username) . "'";
             logEvent("GetUserId: lookup user", $sql);
@@ -792,9 +791,8 @@ switch($command){
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
                 $sql = "update users set accesstoken = '" . $db->real_escape_string($accesstoken) . "' where userid=" .  $row["userid"];
-                logEvent("GetUserId: update accesstoken", $sql);
-                runQuery($sql);
-                $output = array("status" => "ok", "userid" => $row["userid"]);
+                runQuery($sql, "GetUserId: update accesstoken");
+                $output = array("status" => "ok", "userid" => $row["userid"], "orgid" => $row["orgid"], "orgname" => $row["orgname"]);
             } else {
                 $sql = "INSERT INTO users(username, accesstoken, name, email, accounttypeid, company) VALUES ("
                     . safeSQLFromPost("username") . ","
@@ -803,8 +801,7 @@ switch($command){
                     . safeSQLFromPost("email") . ","
                     . $accounttypeid . ","
                     . safeSQLFromPost("company") . ")";
-                logEvent("GetUserId: create new user record", $sql);
-                $result = runQuery($sql);
+                $result = runQuery($sql, "GetUserId: create new user record");
                 $output = array("status" => "ok", "userid" => $db->insert_id);
             }
 		} else {

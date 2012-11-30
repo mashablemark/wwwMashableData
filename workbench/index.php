@@ -166,6 +166,7 @@ var loggedIn = false;
 var fb_user = null;
 var fbAppId = '209270205811334';
 var md_userId = null;
+var orgId, orgName;
 var accessToken; //set in doc.ready after check that browser has localStorage
 var expiresIn = null;
 var myPreferences = {uselatest: 'N'};
@@ -1781,6 +1782,9 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
             success: function(md_getUserId_results, textStatus, jqXH){
                 if(md_getUserId_results.status=='ok'){
                     md_userId = md_getUserId_results.userid;  //no further action required (assumes success)
+                    orgId = md_getUserId_results.orgid;
+                    orgName = md_getUserId_results.orgname;
+                    if(orgId&&orgName){$("#series_search_source").append('<option value="O'+orgId+'">'+orgName+'</option>')};
                     $("#login-display").html(fb_user.name);
                     $("#mn_facebook").html("sign out");
                     syncMyAccount();
