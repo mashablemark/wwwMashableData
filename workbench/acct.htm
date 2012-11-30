@@ -1,0 +1,108 @@
+<style>
+.llabel{
+	width: 200px;
+}
+</style>
+<h2>Account Management:
+</h2>
+<h3>basic information</h3>  
+
+<p>user name: 
+   
+  <input class="req uname" data="user name" type="text" /><br />
+main email: 
+<input class="req email" data="email" type="text" /><br />
+ <div class="auth">
+ <label for="">
+  <input type="radio" name="auth" id="authfb" value="fb" />
+  <strong>have Facebook authenticate me.</strong>  You don't have to remember another password and Facebook ensures that we cannot see your password.  Everybody wins!</label>
+ <label for=""><br />
+  <input type="radio" name="auth" id="authmd" value="md" />
+  <strong>have MashableData manage my credentials.</strong>  Your personal information will be hashed or encrypted.</label>
+<div class"pwd">
+<label for="">password (required):
+  <input class="req pwd" data="email" type="password" />
+</label></div>
+</div>
+  
+<p><br />
+  To post to Facebook or Twitter:</p>
+  <p><span class="llabel">Facebook email:</span> 
+    <input type="radio" name="radfb" id="fbsame" value="fbsame" /> <label for="fbsame">same as main</label>
+    <input type="radio" name="radfb" id="fbdiff" value="fbdiff" /><label for="label"><input class="fbemail" data="optional" type="text" /></label>
+    <br />
+    <span class="llabel">Twitter email: </span>
+	<input type="radio" name="radtwit" id="twitsame" value="twitmain" /><label for="twitsame">same as main</label> 
+    <input type="radio" name="radtwit" id="twitdiff" value="twitdiff" /><label for="twitdiff"><input class="twitemail" data="optional" type="text" /></label>
+  </p>
+<h3>subscription type</h3>  
+  
+  <input type="radio" class="indiv" name="level" id="trilvl" value="trilvl" />
+  <label class="indiv" for="trilvl"><strong>free trial</strong> <em>Access to all features for a limited number of requests.</em></label><br />
+  <input type="radio" name="level" id="indlvl" value="indiv" />
+  <label for="indlvl"><strong>individual</strong> <em>Unlimited graphs, custom series, searches and downloads for US$10 every 6 months.</em></label><br />
+  <input type="radio" name="level" id="orglvl" value="orglvl" />
+  <label for="orglvl"><strong>organization</strong> <em>Same unlimited usage and cost as per individual account, but shares your custom series and draft graphs within your organization.  All payments for organization members are processed by the organization's administrator, so only a single credit card is required.   Select this option to create a new organization account or join an existing one.</em></label><br />
+<br />
+<div class="org">
+    <input type="radio" name="auth" id="authfb2" value="fb" />
+    <label for="authfb2"><strong>join an existing organization.</strong></label><br />
+    <div class="regcode">
+      Registration code (required): <input class="req regcode" data="regcode" type="text" /> 
+      <em>(Your code is included in your invitation email sent by your organization's administrator.)</em></div>
+  <label for="label2">
+    <input type="radio" name="auth" id="authmd" value="md" />
+    <strong>create an administrative account for a new organization.</strong>.</label> 
+  <em>This account will have tools to send invitations and to manage users and billing.</em>
+  <div class="joinmode">
+<p><em>How will users join your organization.</em></p>
+      <label for="">
+        <input type="radio" name="join" id="email" value="free" />
+        <strong>anyone with an email address with the same domain as your main email address OR by invitation</strong></label>
+      <br />
+      <input type="radio" name="join" id="emailandcode" value="free" />
+      <strong> by invitation only</strong>
+      <label for=""><em>You can supply the email addresses for each member at anytime. MashableData will then send an email with a unique registration code and instructions to each invitee.<br />
+      </em></label>
+      <br />
+</div>
+</div>
+<label for=""><em><br />
+</em></label>
+<br />
+  <div class="payments">
+    <h3>payment method</h3>
+    <span class="llabel">credit card number:</span> <input class="fbemail" data="optional" type="text" />
+Expiration: 
+  <select name="expmonth">
+    <option val="1">Jan</option>
+    <option val="2">Feb</option>
+    <option val="3">Mar</option>
+    <option val="4">Apr</option>
+    <option val="5">May</option>
+    <option val="6">Jun</option>
+    <option val="7">Jul</option>
+    <option val="8">Aug</option>
+    <option val="9">Sep</option>
+    <option val="10">Oct</option>
+    <option val="11">Nov</option>
+    <option val="12">Dec</option>
+  </select>
+  / 
+  <select name="expyear">
+    <option>2012</option>
+    <option>2013</option>
+    <option>2014</option>
+    <option>2015</option>
+    <option>2016</option>
+    <option>2017</option>
+    <option>2018</option>
+    <option>2019</option>
+    <option>2020</option>
+    <option>2021</option>
+  </select>
+  CCV: <input class="ccv" style="width:40px;" data="optional" type="text" /><br />
+  	<span class="llabel">name on card:</span> <input style="width:300px;" type="text" class="nameoncard" /><br />
+  	<span class="llabel">address:</span> <input type="text" class="address" /><br />
+  	<span class="llabel">ncity:</span> <input type="text" class="city" />	<span class="stateprov">state:</span><input type="text" class="stateprov" /> <span class="postal">ZIP code:</span><input type="text" class="postal" /></p>
+</div>
