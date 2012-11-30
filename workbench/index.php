@@ -1786,7 +1786,7 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
                     md_userId = md_getUserId_results.userid;  //no further action required (assumes success)
                     orgId = md_getUserId_results.orgid;
                     orgName = md_getUserId_results.orgname;
-                    if(orgId&&orgName){$("#series_search_source").append('<option value="O'+orgId+'">'+orgName+'</option>')};
+                    if(orgId&&orgName){$("#series_search_source").append('<option value="org">'+orgName+'</option>')};
                     $("#login-display").html(fb_user.name);
                     $("#mn_facebook").html("sign out");
                     syncMyAccount();
