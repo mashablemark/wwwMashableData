@@ -496,6 +496,8 @@ function setupPublicSeriesTable(){
             aoData.push({name: "mapset", value: $("input:radio[name=public-mapset-radio]:checked").val()});
             aoData.push({name: "lastSearch", value: lastSeriesSearch});
             aoData.push({name: "search", value: thisSearch});
+            aoData.push({name: "uid", value: getUserId()});
+            aoData.push({name: "accessToken", value: accessToken});
             if(lastSeriesSearch!=thisSearch) {
                 lastSeriesSearch = thisSearch;
                 dtPublicSeries.fnSort([]);   //this clear sort order and triggers a fnServerData call

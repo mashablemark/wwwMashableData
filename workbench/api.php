@@ -112,6 +112,10 @@ switch($command){
             }
             if(is_numeric($apiid)) {
                  $sql .= " AND apiid = " . intval($apiid);
+            } elseif ($apiid = "org") { //for security, the orgid is not passed in.  rather, if it is fetched from the users account
+                requiresLogin(); //sets $orgid.  Dies if not logged in
+                $sql .= " AND orgid = " . $orgid; 
+
             }
         }
         if($periodicity != "all") {
