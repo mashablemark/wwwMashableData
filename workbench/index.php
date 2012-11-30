@@ -170,7 +170,7 @@ var orgId, orgName;
 var accessToken; //set in doc.ready after check that browser has localStorage
 var expiresIn = null;
 var myPreferences = {uselatest: 'N'};
-
+var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 //top menu variables and routines.  Currently ony used for logm, but could be expanded to help and setting/preferences
 var ddmenuTimeout    = 500;
 var ddmenuClosetimer = 0;
@@ -1289,12 +1289,13 @@ function quickViewToMap(){
     var pointsetid = oQuickViewSeries.pointsetid;
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
+    var map = $("select.quick-view-maps").val();
     if(oPanelGraphs[panelId] && oPanelGraphs[panelId].map && oPanelGraphs[panelId].map!=map){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+"map.  Additional map data can be added, but must use the same base map.")
         return null;
     }
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
-    oGraph.map = $("select.quick-view-maps").val();
+    oGraph.map = map;
     require(['js/maps/jquery_jvectormap_' +  jVectorMapTemplates[oGraph.map] + '.js']); //preload it
     if(!isNaN(mapsetid) && mapsetid>0){
         if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
@@ -1935,8 +1936,11 @@ function saveGraph(oGraph) {
             params.plots[plot].components[comp].options = $.stringify(params.plots[plot].components[comp].options);
         }
     }
-    for(comp in oGraph.mapsets){
-        params.mapsets.components[comp].options = $.stringify(params.mapsets.components[comp].options);
+    if(oGraph.mapsets){
+        params.mapsets.options = $.stringify(params.mapsets.options);
+        for(comp in oGraph.mapsets.components){
+            params.mapsets.components[comp].options = $.stringify(params.mapsets.components[comp].options);
+        }
     }
     for(plot in oGraph.pointsets){
         params.pointsets[plot].options = $.stringify(params.pointsets[plot].options);
@@ -2231,17 +2235,15 @@ function removeTab(span){
 
     delete oPanelGraphs[panelId];
     if($graphTabs.find("li").length == 0){
-        $("#btnEditGraphTop").attr("disabled","disabled");
         editingPanelId = null; //dissociate the chart from the this edit session
+        $("#btnEditGraphTop").attr("disabled","disabled");
         $("button.add-to-graph").attr("disabled","disabled");
         clearChecksMySeries(); //set up panels
-        $("#show-hide-pickers").hide();
-        showGraphEditor()
+        lastTabAnchorClicked.click();
     } else  {
         $('#graph-tabs a:last').click();
-        //$graphTabs.tabs('select', tabCount - 1);
     }
-    $("#graph_title, #graph_title").attr('value','');
+    $("#graph_title").attr('value','');
     $(".series-checked").attr('disabled','disabled');
 }
 
@@ -2320,7 +2322,7 @@ function synthesizeTitle(titles){
 }
 
 function seriesPanel(anchorClicked){
-//	$("#series-tabs li.ui-tabs-active").length != 0)
+    lastTabAnchorClicked = anchorClicked;
     var panelToDeactive = $("#series-tabs li.ui-tabs-selected").removeClass("ui-tabs-selected ui-state-active").find("a").attr("data");
 
     var panelToActivate = $(anchorClicked).attr("data");

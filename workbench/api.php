@@ -112,9 +112,9 @@ switch($command){
             }
             if(is_numeric($apiid)) {
                  $sql .= " AND apiid = " . intval($apiid);
-            } elseif ($apiid = "org") { //for security, the orgid is not passed in.  rather, if it is fetched from the users account
+            } elseif ($apiid == "org") { //for security, the orgid is not passed in.  rather, if it is fetched from the users account
                 requiresLogin(); //sets $orgid.  Dies if not logged in
-                $sql .= " AND orgid = " . $orgid; 
+                $sql .= " AND orgid = " . $orgid;
 
             }
         }
@@ -552,8 +552,8 @@ switch($command){
         $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;
         $updatedt = isset($_POST['updatedt'])?intval($_POST['updatedt']/1000)*1000:null;
         $intervals = isset($_POST['interval']['count'])?intval($_POST['interval']['count']/1000)*1000:'null';
-        $from = isset($_POST['start'])?intval($_POST['start']/1000)*1000:'null';
-        $to = isset($_POST['end'])?intval($_POST['end']/1000)*1000:'null';
+        $from = (isset($_POST['start']) && is_numeric($_POST['start']))?intval($_POST['start']/1000)*1000:'null';
+        $to = (isset($_POST['end']) && is_numeric($_POST['end']))?intval($_POST['end']/1000)*1000:'null';
         switch($_POST['type']){
             case "auto":
             case "area":
@@ -1187,9 +1187,7 @@ function getGraphs($userid, $ghash){
                     "selecteddt" => $aRow["intervaldt"],
                     "span" => $aRow["intervalspan"],
                     "count" => $aRow["intervalcount"]
-                ),
-                "assets" => array("asd"=>"asdf")
-            //,"legendOrder" => array()
+                )
             );
             //if($aRow["map"]!=null){
                 $output['graphs']['G' . $gid]["map"] = $aRow["map"];
@@ -1264,6 +1262,7 @@ function getGraphs($userid, $ghash){
 
         //each may create a new series asset. Repeated assets simply get overwritten and output only once.
         if(strlen($ghash)>0){
+            $output['graphs']['G' . $gid]["assets"] = array();
             if($aRow["comptype"]=='S'||$aRow["comptype"]=='U'){
                 $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]] = array(
                     "handle"=>$aRow["comptype"].$aRow["objid"],
