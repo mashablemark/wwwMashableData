@@ -48,9 +48,7 @@ function ApiCrawl($catid, $api_row){ //initiates a WB crawl
 
     $config = array("runid"=>$runid, "apiid"=>$api_row["apiid"], "type"=>"category", "apicatid"=>$apicatid);
     //create job record for start category
-    $sql = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values (".$runid.",'".json_encode($config)."',0,'Q',now())";
-    runQuery($sql);
-    $jobid  = $db->insert_id;
+    $jobid = queueJob($runid, $config);
     $threadjobid = $jobid;
 
     //2. call executer
@@ -136,7 +134,7 @@ function ExecuteJob($api_row){
         throw new Exception("unable to get ". $url);
     }
     $eia_cat_out = json_decode($get, true);
-    var_dump($eia_cat_out["category"]["name"]);print("<BR>");
+    //var_dump($eia_cat_out["category"]["name"]);print("<BR>");
 
     //find and insert if necessary category corresponding to the apicatid
     $sql = "select * from categories where apiid=".$api_row["apiid"]
@@ -177,9 +175,16 @@ function ExecuteJob($api_row){
     foreach($eia_cat_out["category"]["childseries"] as $childserie){
         $status["scanned"] += 1;
         if(!isset($jobconfig["power plants"]) || strpos($childserie["name"], "All Primemovers")){  //do harvest turbine level series
+
+
+
+            updateSeries($childserie["series_id"], $name, $period, $units, $notes, $apiid, $data)
+
+
             $sql = "select * from series where skey=".safeStringSQL($childserie["series_id"])
                 . " and  apiid=".$api_row["apiid"];
             $result = runQuery($sql);
+
             if($result->num_rows==1){
                 $serie_row = $result->fetch_assoc();
                 $seriesid = $serie_row["seriesid"];
@@ -187,7 +192,9 @@ function ExecuteJob($api_row){
                 $saved_update_dt = new DateTime($serie_row["apidt"]);
                 $update_dt =  new DateTime($childserie["updated"]);
                 $needCapture = ($saved_update_dt<$update_dt);
-            } else {
+            }
+
+            if($result->num_rows==0 || $needCapture){
                 $url = "http://api.eia.gov/series?api_key=".$eai_api_key."&series_id=".$childserie["series_id"]."&out=json";
                 logEvent("eia api fetch", $url);
                 $get = httpGet($url);
@@ -233,31 +240,7 @@ function ExecuteJob($api_row){
                         }
                     }
                 }
-                $sql = "insert into series (name, namelen, src, url, units, units_abbrev, periodicity, skey, title, notes, apiid, apidt, mapsetid, pointsetid, geoid, lat, lon, l1domain, l2domain) values ("
-                    . safeStringSQL( $serie_header["name"]) . ","
-                    . strlen( $serie_header["name"]) . ","
-                    . "'U.S. Energy Information Administration'" . ","
-                    . "'http://www.eia.gov/',"
-                    . safeStringSQL( $serie_header["units"]) . ","
-                    . safeStringSQL( $serie_header["unitsshort"]) . ","
-                    . safeStringSQL( $serie_header["f"]) . ","
-                    . safeStringSQL( $serie_header["series_id"]) . ","
-                    . safeStringSQL( $eia_cat_out["category"]["name"]) . ","
-                    . safeStringSQL( $serie_header["description"]) . ","
-                    . $api_row["apiid"] . ","
-                    . safeStringSQL( $serie_header["updated"]) . ","
-                    . $mapsetid  . ","
-                    . $pointsetid . ","
-                    . $geoid  . ","
-                    . safeStringSQL($serie_header["lat"])  . ","
-                    . safeStringSQL($serie_header["lon"]). ","
-                    . "'gov','eia')";
-                runQuery($sql);
-                $seriesid = $db->insert_id;
-                $captureid = null;
-                $needCapture = true;
-            }
-            if($needCapture){
+
                 $url = "http://api.eia.gov/series/data?api_key=".$eai_api_key."&series_id=".$childserie["series_id"]."&out=json";
                 logEvent("eia api fetch", $url);
                 $get = httpGet($url);
@@ -294,41 +277,27 @@ function ExecuteJob($api_row){
                 }
                 $first_date_js = $jsdate;
                 if($realPointCount>0){
-                    if($captureid===null){
-                        $sql = "INSERT INTO captures(seriesid, userid, data, hash, firstdt, lastdt, points, capturedt, processdt, lastchecked, isamerge, capturecount, privategraphcount, publicgraphcount) "
-                            . "VALUES (" . $seriesid
-                            . ",null, '" . $mashabledata . "'"
-                            . ",'" . sha1($mashabledata) . "'"
-                            . "," . $first_date_js
-                            . "," . $last_date_js
-                            . "," . $realPointCount
-                            . ", NOW()"
-                            . ", NOW()"
-                            . ", NOW()"
-                            . ",'N'"
-                            . ",1,0,0"
-                            . ")";
-                        runQuery($sql);
-                        $sql = "update series set captureid=".$db->insert_id." where seriesid=".$seriesid;
-                        runQuery($sql);
-                        $status["added"] += 1;
-                    } else {
-                        $sql = "update captures set "
-                        . " data = ". safeStringSQL($mashabledata)
-                        . ", hash='" . sha1($mashabledata)
-                            . "', firstdt = ". $first_date_js
-                            . ", lastdt = ". $last_date_js
-                            . ", points = ". $realPointCount
-                            . ", lastchecked=NOW()"
-                            . " where captureid=" . $captureid;
-                        runQuery($sql);
-                        $status["updated"] += 1;
-                    }
-                    $sql="insert into categoryseries (catid, seriesid) values(" . $parentcatid . "," . $seriesid .") ON DUPLICATE KEY UPDATE seriesid=" . $seriesid;
-                    runQuery($sql);
-                } else {   // don't allow series of empty arrays to clog up the DB
-                    $sql = "delete from series where seriesid=".$seriesid;
-                    runQuery($sql);
+                    updateSeries($serie_header["series_id"],
+                        $serie_header["name"],
+                        "U.S. Energy Information Administration",
+                        "http://www.eia.gov/",
+                        $serie_header["f"],
+                        $serie_header["units"],
+                        $serie_header["unitsshort"],
+                        $serie_header["description"],
+                        $eia_cat_out["category"]["name"],
+                        $api_row["apiid"],
+                        $serie_header["updated"],
+                        $first_date_js,
+                        $last_date_js,
+                        $mashabledata,
+                        $geoid,
+                        $mapsetid,
+                        $pointsetid,
+                        safeStringSQL($serie_header["lat"]),
+                        safeStringSQL($serie_header["lon"])
+                    );
+                }else {   // don't allow series of empty arrays to clog up the DB
                     $status["failed"] += 1;
                 }
             }

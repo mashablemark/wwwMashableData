@@ -347,6 +347,81 @@ function catInChain($parentcatids, $childcatid){
     } else {
         return false;
     }
+}
+
+function archiveSeries($obj){ //accepts either an ID or a an array of all fields in the series to be archived
+    if(is_array($obj)){
+        $series = $obj;
+    } else {
+        $sql = "sekect * from series where seriesid = ".$obj;
+        $result = runQuery($sql);
+        $series = $result->fetch_assoc();
+    }
+    $fieldlist = array();
+    $valuelist = array();
+
+    foreach($series as $field=>$value){
+        array_push($fieldlist, $field);
+        array_push($valuelist, safeStringSQL($value));  //wraps integers as strings - mySQL will be fine
+    }
+    $sql = "insert into seriesarchive (". implode(",", $valuelist) .") values(". implode(",", $fieldlist) .")";
+    runQuery($sql);
+}
+
+function updateSeries($key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
+    global $db;
+    $sql = "select * from series where key = " . $key . " and apiid=" . $apiid;
+    $result = runQuery($sql);
+    if($result->num_rows==1){
+        $series = $result->fetch_assoc();
+        if($series["units"]!=$units || $series["period"]!=$period || $series["notes"]!=$notes || $series["name"]!=$name || $series["data"]!=$data){
+            archiveSeries($series);
+            $sql = "update series set "
+                ."key=".safeStringSQL($key).","
+                ."name=".safeStringSQL($name).","
+                ."src=".safeStringSQL($src).","
+                ."url=".safeStringSQL($url).","
+                ."namelen=". strlen($name).","
+                ."periodicity=".safeStringSQL($period).","
+                ."units=".safeStringSQL($units).","
+                ."units_abbrev=".safeStringSQL($units_abbrev).","
+                ."notes=".safeStringSQL($notes).","
+                ."title=".safeStringSQL($title).","
+                ."data=".safeStringSQL($data).","
+                ."hash=".safeStringSQL(sha1($data)).","
+                ."apiid=".$apiid.","
+                ."firstdt=".$firstdt.","
+                ."lastdt=".$lastdt.","
+                ."geoid=".$geoid.","
+                ."mapsetid=".$mapsetid.","
+                ."pointsetid=".$pointsetid.","
+                ."lat=".$lat.","
+                ."lon=".$lon
+                ." where seriesid=".$series["seriesid"];
+            runQuery($sql);
+        }
+        return $series["seriesid"];
+    } else {
+        $sql = "insert into series (key, name, namelen, units, units_abbrev, periodicity, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
+            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",". safeStringSQL($period).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".$geoid.",". $mapsetid.",". $pointsetid.",".$lat.",". $lon.")";
+        runQuery($sql);
+        return $db->insert_id;
+    }
+}
+function queueJob($runid, $config){  //return jobid
+    global $db;
+    $sql = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values (".$runid.",'".json_encode($config)."',0,'Q',now())";
+    runQuery($sql);
+    return $db->insert_id;
+}
+function updateJob($jobid, $status, $options){
 
 }
+function setCategory($apiid, $name, $apicatid, $parentid){ //insert categories and catcat records as needed; return catid
+
+}
+function setCatSeries($catid, $seriesid){ //insert catSeries record if DNE
+
+}
+
 

@@ -548,7 +548,7 @@ function ExecuteJob($api_row){ //$api_row contains the joined apid, apiruns, and
     }  catch(Exception $e){
         //GLOBAL STATUS (TEMPORARILY INSIDE THE LOOP TO SEE WHAT'S GOING ON)
         $job_config["error"] =  $e->getMessage();
-        $esc_config = $db->escape_string( json_encode($job_config));
+        $esc_config = $db->escape_string(json_encode($job_config));
         $sql = "update globalstatus set status='".$esc_config."', modifieddt=now() where statuskey = 'apirun'";
         runQuery($sql);
         //TERMINATE CURRENT JOB
@@ -566,21 +566,17 @@ function saveWB($mashableData, $detectedFrequency, $first_date_js, $last_date_js
         $result = runQuery($sql);
         if(mysqli_num_rows($result)==1){
             $row = $result->fetch_assoc();
-            $captureid = $row["captureid"];
-            $sql = "update captures set data=".safeStringSQL($mashableData)
+            $sql = "update series set data=".safeStringSQL($mashableData)
                 . ", hash=" . safeStringSQL(sha1($mashableData))
                 . ", firstdt=". $first_date_js
                 . ", lastdt=". $last_date_js
-                . ", points=". $point_count
-                . ", capturedt=now()"
-                . ", processdt=now()"
-                . ", lastchecked=now()"
-                . " where captureid =" . $captureid;
+                . ", updatedt=now()"
+                . " where seriesid =" . $row["seriesid"];;
             runQuery($sql);
         } else {
             $mapsetid = getMapSet($job_config["name"],$api_row["apiid"],$detectedFrequency, $job_config["units"]);
             $geoid = getGeoId($iso3);
-            $sql = "insert into series (name, namelen, src, url, units, units_abbrev, periodicity, skey, title, notes, apiid, geoid, mapsetid, l1domain, l2domain) values ("
+            $sql = "insert into series (name, namelen, src, url, units, units_abbrev, periodicity, skey, title, notes, apiid, geoid, mapsetid, l1domain, l2domain, data, hash, firstdt, lastdt) values ("
                 . safeStringSQL($job_config["name"] . ": ".$geography) . ","
                 . strlen( $job_config["name"] . ": ".$geography). ","
                 . safeStringSQL($api_row["name"]). ","
@@ -595,27 +591,14 @@ function saveWB($mashableData, $detectedFrequency, $first_date_js, $last_date_js
                 . $geoid . ","
                 . $mapsetid . ","
                 . safeStringSQL($api_row["l1domain"]) . ","
-                . safeStringSQL($api_row["l2domain"]) . ")";
+                . safeStringSQL($api_row["l2domain"]) . ","
+                . "'" . $mashableData . "',"
+                . "'" . sha1($mashableData) . "',"
+                . $first_date_js . ","
+                . $last_date_js . ")";
             $result = runQuery($sql);
             if($result===false) die("<br><br>Bad query.  check event log");
             $seriesid =$db->insert_id;
-            $sql = "INSERT INTO captures(seriesid, userid, data, hash, firstdt, lastdt, points, capturedt, processdt, lastchecked, isamerge, capturecount, privategraphcount, publicgraphcount) "
-                . "VALUES (" . $seriesid
-                . ", 1, '" . $mashableData . "'"
-                . ",'" . sha1($mashableData) . "'"
-                . "," . $first_date_js
-                . "," . $last_date_js
-                . "," . $point_count
-                . ", NOW()"
-                . ", NOW()"
-                . ", NOW()"
-                . ",'N'"
-                . ",1,0,0"
-                . ")";
-            runQuery($sql);
-            $captureid = $db->insert_id;
-            $sql = "update series set captureid=".$captureid." where seriesid=".$seriesid;
-            runQuery($sql);
             //create cat-series link records
             $topicId = null;
             foreach($job_config["topicsIds"] as $topicId){
