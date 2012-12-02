@@ -198,7 +198,7 @@ switch($command){
             break;
         }
         $search =  $_POST['search'];
-        $periodicity =  $_POST['period'];
+        //$periodicity =  $_POST['period'];
         //$user_id =  intval($_POST['uid']);
         if(count($search) == 0) die("invalid call.  Err 106");
         $sLimit = " ";
@@ -210,15 +210,15 @@ switch($command){
 
         $sql = "SELECT g.graphid, g.title, text as analysis, "
        . "   serieslist, map, ghash,  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, views, ifnull(updatedt, createdt) as modified"
-       . " from graphs g, graphplots gp, plotcomponents ps, series s "
-       . " where g.graphid=gp.graphid and gp.plotid=ps.plotid and ps.seriesid=s.seriesid and g.graphid is not null and published='Y'";
+       . " FROM graphs g, graphplots gp, plotcomponents pc, series s "
+       . " WHERE g.graphid=gp.graphid and gp.plotid=pc.plotid and pc.objid=s.seriesid and (pc.objtype='S' or pc.objtype='U') and g.graphid is not null and published='Y'";
         if($search!='+ +'){
-            $sql .= "   and  match(title,text,serieslist,map) against ('" . $search . "' IN BOOLEAN MODE) ";
+            $sql .= "   and  match(g.title, g.text, g.serieslist, g.map) against ('" . $search . "' IN BOOLEAN MODE) ";
         }
 /*        if($periodicity != "all") {
             $sql = $sql . " and periodicity='" . $periodicity . "'";
         }
- */
+*/
         /*
          * Ordering
          */
@@ -261,24 +261,23 @@ switch($command){
        $iFilteredTotal = $aResultFilterTotal[0];
 
        /* Total data set length */
-      $sQuery = "SELECT COUNT(graphid) FROM graphs";
-
-      //echo($sQuery . "<br>");
+/*      $sQuery = "SELECT COUNT(graphid) FROM graphs";
       $rResultTotal = runQuery( $sQuery ) or die($db->error());
       $aResultTotal = $rResultTotal->fetch_array();
-      $iTotal = $aResultTotal[0];
+      $iTotal = $aResultTotal[0];*/
+        $iTotal = 0;  //don't bother fetching this value as it is not displayed or otherwise used
 
-        $output = array_merge($output, array("status"=>"ok",
-           "sEcho" => intval($_POST['sEcho']),
-           "iTotalRecords" => $iTotal,
-           "iTotalDisplayRecords" => $iFilteredTotal,
-           "aaData" => array())
-        );
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
-       while ($aRow = $result->fetch_assoc()) {
-           $output['aaData'][] = $aRow;
-       }
-        break;
+      $output = array("status"=>"ok",
+         "sEcho" => intval($_POST['sEcho']),
+         "iTotalRecords" => $iTotal,
+         "iTotalDisplayRecords" => $iFilteredTotal,
+         "aaData" => array()
+      );
+      if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
+      while ($aRow = $result->fetch_assoc()) {
+          $output['aaData'][] = $aRow;
+      }
+      break;
 	case "GetSeriesData": 
 		$seriesIds =  $_POST['sids'];
 		if(count($seriesIds) == 0){

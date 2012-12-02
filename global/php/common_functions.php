@@ -126,30 +126,35 @@ function trackUsage($counter){
         "count_userseries" => array("name"=>"user series", "warn"=>10, "max"=>15),
         "count_datadown" => array("name"=>"data downloads", "warn"=>4, "max"=>6)
     );
-    if(isset($limits[$counter])){
-        $uid = intval($_POST["uid"]);
-        $sql = "update users set ".$counter."=".$counter."+1 where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
-        runQuery($sql);
-        $sql = "select ".$counter.", subscriptionlevel from users where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
-        $result = runQuery($sql);
-        $aRow = $result->fetch_assoc();
 
-        if($aRow[$counter]==$limits[$counter]["warn"]&&$aRow[$counter]=="F"){
-            return array(
-                "approved"=>true,
-                "msg"=>"You are approaching the limit for free trial ".$limits[$counter]["name"]
-                    .".  Please consider subscribing.  At only $10 per half a year, joining is easy on your wallet and will support acquiring new data sets and features."
-            );
-        } elseif($aRow[$counter]>=$limits[$counter]["max"]&&$aRow[$counter]=="F"){
-            return array(
-                "approved"=>false,
-                "msg"=>"You have reached the limit for free trial ".$limits[$counter]["name"]
-                    .".  Please consider subscribing.  At only $10 per half a year, joining is easy on your wallet and will support acquiring new data sets and features."
-            );
-        } else {
-            return array("approved"=>true);
-        }
-    } else die('{"status":"Internal error: invalid usage counter"}');
+    if(isset($_POST["uid"])){ //if UID is truly required, it will be caught by requiresLogin()
+        if(isset($limits[$counter])){
+            $uid = intval($_POST["uid"]);
+            $sql = "update users set ".$counter."=".$counter."+1 where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
+            runQuery($sql);
+            $sql = "select ".$counter.", subscriptionlevel from users where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
+            $result = runQuery($sql);
+            $aRow = $result->fetch_assoc();
+
+            if($aRow[$counter]==$limits[$counter]["warn"]&&$aRow[$counter]=="F"){
+                return array(
+                    "approved"=>true,
+                    "msg"=>"You are approaching the limit for free trial ".$limits[$counter]["name"]
+                        .".  Please consider subscribing.  At only $10 per half a year, joining is easy on your wallet and will support acquiring new data sets and features."
+                );
+            } elseif($aRow[$counter]>=$limits[$counter]["max"]&&$aRow[$counter]=="F"){
+                return array(
+                    "approved"=>false,
+                    "msg"=>"You have reached the limit for free trial ".$limits[$counter]["name"]
+                        .".  Please consider subscribing.  At only $10 per half a year, joining is easy on your wallet and will support acquiring new data sets and features."
+                );
+            } else {
+                return array("approved"=>true);
+            }
+        } else die('{"status":"Internal error: invalid usage counter"}');
+    } else {
+        return array("approved"=>true);
+    }
 }
 
 function cleanIdArray($dirtyIds){
