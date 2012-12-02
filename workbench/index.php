@@ -141,7 +141,7 @@ var oMySeries = {};  //referenced by 'S'+seriesid (i.e. oMySeries['S173937']). F
 var oMyGraphs = {};  //complete fetch from API.GetMyGraphs.  Kept in sync with cloud by API.ManageMyGraphs and API.DeleteMyGraphs
 //var oPublicGraphs = {};  //NOT USED.  DataTables fetches directly from API.SearchGraphs = endless scroll style fetch TODO: show button not programmed
 
-var oPanelGraphs = {}; //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. oPanelGraphs['tabs-1']).  Kept in sync by UI events.  Used by save/publish operations.
+var oPanelGraphs = {}; //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. oPanelGraphs['graphTab1']).  Kept in sync by UI events.  Used by save/publish operations.
 var oHighCharts = {}; //contained objects return by Highcharts.chart call referenced by panelID as per oPanelGraphs
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
@@ -592,7 +592,7 @@ function setupMyGraphsTable(){
         "aoColumns": [
             {"mDataProp":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
                 "fnRender": function(obj) {
-                    return '<button data="G' + obj.aData.gid + '" onclick="clickViewGraph(' + obj.aData.gid + ')">Edit</button>'}
+                    return '<button data="G' + obj.aData.gid + '" onclick="clickViewGraph(' + obj.aData.gid + ')">open</button>'}
             },
             {"mDataProp":"title", "sTitle": "Title<span></span>", "bSortable": true,  "sWidth": titleColWidth+"px", "fnRender": function(obj){
                 return formatAsSpanWithTitle(obj)
@@ -668,15 +668,17 @@ function setupPublicGraphsTable(){
         "bServerSide": true,
         "fnServerData": function ( sSource, aoData, fnCallback ) {
             aoData.push({name: "command", value: "SearchGraphs"});
-            aoData.push({ "name": "periodicity", "value": $("#").value });
+//            aoData.push({ "name": "periodicity", "value": $("#").value });
             aoData.push({name: "search", value: $("#tblPublicGraphs_filter input").val()});
             $.ajax( {
                 "dataType": 'json',
                 "type": "POST",
                 url: "api.php",
                 data: aoData,
-                "success": fnCallback
-                , "complete": function(results){console.log(results)}
+                "success": fnCallback,
+                "complete": function(results){
+                    console.log(results)
+                }
             });
         },
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
@@ -2205,7 +2207,7 @@ function deleteCheckedSeries(){
 // actual addTab function: adds new tab using the title input from the form above.  Also checks and sets the edit graph button
 function addTab(title) {
     var tab_title =  (title.length==0)?'Graph '+tab_counter:title;
-    var newDiv = $graphTabs.tabs('add', '#tabs-'+tab_counter, tab_title);
+    var newDiv = $graphTabs.tabs('add', '#graphTab'+tab_counter, tab_title);
     //this causes problem when deleting tabs
     $( "#canvas" ).tabs().find( ".ui-tabs-nav" ).sortable({ axis: "x" });
     $graphTabs.tabs('select', $graphTabs.tabs('length') - 1);

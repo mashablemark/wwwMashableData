@@ -1041,7 +1041,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '<div class="map" style="display:none;"><h3 class="map-title" style="color:black;"></h3>'+
                 '<div class="container map-controls">' +
                     '<div class="jvmap" style="display: inline-block;"></div>' +
-                    '<div class="slider" style="display: inline-block;width: 280px; margin: 10px"></div>' +
+                    '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
                     '<button class="map-play">play</button>' +
                     '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
                     '<button class="make-map">reset</button>' +
@@ -1479,7 +1479,19 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 val = ui.value;
                 $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                 $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
-                $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
+                if(oGraph.plots){
+                    var timeAxis = oHighCharts[panelId].xAxis[0];
+                    timeAxis.removePlotLine('timeLine');
+                    timeAxis.addPlotLine({
+                        value: calculatedMapData.dates[val].dt,
+                        color: 'red',
+                        width: 2,
+                        id: 'timeLine'
+                    })
+                } else {
+                    $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
+                }
+
             }
         });
         $thisPanel.find('.map-graph-selected').click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
@@ -1598,15 +1610,15 @@ OK.  That is a lot of work, but is correct.  quickGraph will need to detect a gr
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
 function provenance(){
-    var panelId, $tab, $prov, grph, i, j, plotList, mapList, componentHandle, plot, plotColor;
+    var panelId, $tab, $prov, grph, i, j, plotList, mapList, componentHandle, plot, plotColor, okcancel;
     panelId = visiblePanelId();
     $tab = $('#'+panelId);
     $prov =  $tab.find('.provenance').width($tab.width()-30-2).height($tab.height()-30).slideDown(); //compensation for margins @ 15px + borders
     grph = oPanelGraphs[panelId];
+    okcancel = '<button onclick="provClose(this)" style="float:right;margin-right: 50px;">cancel</button> <button onclick="provOk(this)" style="float:right;">ok</button><br>';
     mapList = provenanceOfMap(grph);
-
-    plotList = '<button onclick="provClose(this)" style="float:right;margin-right: 50px;">cancel</button> <button onclick="provOk(this)" style="float:right;">ok</button><br>'
-        + ' <div width="80%"><ol class="plots">';
+    plotList = '';
+    if(grph.plots) plotList = '<div class="chart-plots">Chart:<ol class="plots">';
 
     for(i=0;i<grph.plots.length;i++){
         //outer PLOT loop
@@ -1635,7 +1647,7 @@ function provenance(){
     }
     plotList += '</ol>'
              +  '<ul class="blank-plot components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.  Double click on any series or plot line to edit its properties.</i></li></ul></div>';
-    $prov.html(mapList + plotList);
+    $prov.html(okcancel + plotList + mapList);
     grph.plotsEdits = $.extend(true, {}, grph.plots);  //this is the copy that the provenance panel will work with.  Will replace grph.plots on "OK"
     $prov.find(".components").sortable({
         containment: $prov.get(0),
@@ -1727,16 +1739,16 @@ function plotPeriodicity(oGraph, plot){
 function provenanceOfMap(grph){
     var provHTML = "", c, p, plt, componentHandle, isSet;
     if(grph.map&&(grph.mapsets||grph.pointsets)){ //map!!
-        provHTML = '<div class="map-prov"><h3>'+ grph.map +'</h3>';
+        provHTML = '<div class="map-prov"><h3>Map of '+ grph.map +'</h3>';
         if(grph.mapsets){
-            provHTML += '<div class="mapsets">Mapset'
+            provHTML += '<div class="mapset">Mapset (regions)'
             + '<ol class="mapsets">'
             + '<li class="mapset ui-state-highlight">'
             + '<button class="edit-mapset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
             + '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
             + '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.maxColor||'#0071A4') +';"></div>'
             + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-            + plotName(grph, grph.mapsets)+'</span> in ' + (grph.mapsets.options.units||plotUnits(grph, grph.mapsets)) + ' ' + (grph.mapsets.options.period||plotPeriodicity(grph, graph.mapsets))+'</div>';
+            + plotName(grph, grph.mapsets)+'</span> in ' + (grph.mapsets.options.units||plotUnits(grph, grph.mapsets)) + ' ' + (grph.mapsets.options.period||plotPeriodicity(grph, grph.mapsets))+'</div>';
 
             provHTML += '<ol class="map-comp components" style="list-style-type: none;>';
             for(c=0;c<grph.mapsets.components.length;c++){
@@ -1744,32 +1756,33 @@ function provenanceOfMap(grph){
                 isSet = componentHandle.substr(0,1)=='M';
                 provHTML += '<li class="component ui-state-default" data="'+ componentHandle + '">'
                     + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                    + '<span class="plot-op ui-icon ' + opUI[plot.components[j].options.op||'+'] + '">operation</span> '
+                    + '<span class="plot-op ui-icon ' + opUI[grph.mapsets.components[c].options.op||'+'] + '">operation</span> '
                     + grph.assets[componentHandle].name + '</li>';
             }
             provHTML += '</ol>'
-            + '</ol>';
+                + '</ol>'
+            + '</div>'; //close mapset
         }
         if(grph.pointsets){
-            provHTML += '<ol class="pointsets">';
-            for(p=0;p<grph.pointsets.plots.length;p++){
-                plt = grph.pointsets.plots[p];
+            provHTML += '<div class="pointsets">Pointsets (location markers)<ol class="pointsets">';
+            for(p=0;p<grph.pointsets.length;p++){
+                pntset = grph.pointsets[p];
                 provHTML += '<li class="pointset ui-state-highlight">'
                 + '<button class="edit-pointset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
                 + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                + plotName(grph, plt)+'</span> in ' + (plt.options.units||plotUnits(grph, plt)) + ' ' + (plt.options.period||plotPeriodicity(grph, plt))+'</div>'
+                + plotName(grph, pntset)+'</span> in ' + (pntset.options.units||plotUnits(grph, pntset)) + ' ' + (pntset.options.period||plotPeriodicity(grph, pntset))+'</div>'
                 + '<ol class="point-comp components">';
-                for(c=0;c<plt.components.length;c++){
-                    componentHandle = plt.components[c].handle;
+                for(c=0;c<pntset.components.length;c++){
+                    componentHandle = pntset.components[c].handle;
                     isSet = (/[XM]/).test(componentHandle);
                     provHTML += '<li class="component ui-state-default" data="'+ componentHandle  + '">'
                         + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                        + '<span class="plot-op ui-icon ' + opUI[plot.components[j].options.op||'+'] + '">operation</span> '
+                        + '<span class="plot-op ui-icon ' + opUI[pntset.components[c].options.op||'+'] + '">operation</span> '
                         + grph.assets[componentHandle].name + '</li>';
                 }
                 provHTML += '</ol></li>';
             }
-            provHTML += '</ol>';
+            provHTML += '</ol></div>';
         }
         provHTML += '</div>'
     }
@@ -1964,12 +1977,16 @@ function showComponentEditor(liComp){
     });
 }
 function showPlotEditor(liPlot){
-    var selectThickness='<select class="plot-thickness">', selectStyle = '<select class="plot-linestyle">', $liPlot = $(liPlot);
+    var $liPlot = $(liPlot);
     var oPlot = oPanelGraphs[panelIdContaining(liPlot)].plotsEdits[$liPlot.index()];
-    plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
+    var plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
     $liPlot.find(".edit-plot, .plot-info").hide();
+    //line thickness selector
+    var selectThickness='<select class="plot-thickness">';
     for(var t=1;t<=5;t++) selectThickness+='<option>'+t+'px</option>';
     selectThickness += '</select>';
+    //line style (solid, dots, dash...) selector
+    var selectStyle = '<select class="plot-linestyle">';
     for(var ds=0;ds<dashStyles.length;ds++) selectStyle += '<option value="' +dashStyles[ds].replace(/ /g,'')+ '">' +dashStyles[ds].toLowerCase()+ '</option>';
     selectStyle += '</select>';
 
@@ -1978,7 +1995,7 @@ function showPlotEditor(liPlot){
         + '<button class="plot-copy prov-float-btn">make copy</button>'
         + '<button class="plot-delete prov-float-btn" style="background-color: #FF0000;">delete</button>'
         + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
-        + ' <div style="display:inline-block;"><input class="plot-color" type="text" value="' + oPlot.options.lineColor|| + '" /></div>' + selectThickness + selectStyle
+        + ' <div style="display:inline-block;"><input class="plot-color" type="text" value="' + (oPlot.options.lineColor|| plotColor) + '" /></div>' + selectThickness + selectStyle
         + '</fieldset>'
         + '<span style="margin:0 10px">name:</span><input class="plot-name" type="text" value="'+((oPlot.name==null)?'':oPlot.name)+'" /><br />'
         + '<span class="edit-label">display as:</span><select class="plot-type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select><br />'
