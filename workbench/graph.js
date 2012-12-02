@@ -1513,7 +1513,7 @@ OK.  That is a lot of work, but is correct.  quickGraph will need to detect a gr
                 formula = selectedMarkers[i];
                 for(var c=0;c<comps.length;c++){ //loops through the component for this marker
                     formula.replace(comps[c], String.fromCharCode("a".charAt(0)+c));  //make the formula
-                    plt.components.push(comps[c]);
+                    plt.components.push({options:{},handle: comps[c]});
                     //find asset:  either directly in assets or part of a point or mapset
                     if(oGraph.assets[comps[c]]){
                         grph.assets[comps[c]] = oGraph.assets[comps[c]]
