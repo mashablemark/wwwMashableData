@@ -21,6 +21,7 @@
     <script type="text/javascript" src="/global/js/jquery/jquery-1.7.2.min.js"></script><!-- latest verions is 1.8.2-->
     <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.8.16.custom.min.js"></script>
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.8.2.min.js"></script><!-- latest version is 1.9.4-->
+    <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
     <!--script type="text/javascript" src="js/ColVis.min.js"></script-->
     <!--script type="text/javascript" src="js/ColReorder.min.js"></script-->
     <!--script type="text/javascript" src="js/ColReorderWithResize.js"></script-->

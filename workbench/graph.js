@@ -1424,24 +1424,40 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 }]
             },
             onRegionLabelShow: function(event, label, code){
-                var containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
+                var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
                 if(containingDateData && containingDateData[code]){
+                    for(i=0;i<calculatedMapData.dates.length;i++){
+                        if(calculatedMapData.regionData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
+                    }
+                    var y = containingDateData[code];
                     label.html(
-                        '<b>'+label.html()+': '
-                            + Highcharts.numberFormat(containingDateData[code], (parseInt(containingDateData[code])==containingDateData[code])?0:2)
+                        '<span style="display: inline-block;"><b>'+label.html()+':</b><br />'
+                            + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
                             + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
-                    ).css("z-Index",400);
+                            + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
+                        ).css("z-Index",400);
+                    var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
+                    sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                    $('.inlinesparkline').sparkline(vals, sparkOptions);
                 }
             },
             regionsSelectable: (typeof oGraph.mapsets != "undefined"),
             markers: calculatedMapData.markers,
             onMarkerLabelShow: function(event, label, code){
-                var containingDateData = getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s);
+                var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s);
+                for(i=0;i<calculatedMapData.dates.length;i++){
+                    if(calculatedMapData.markerData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code]);
+                }
+                var y = containingDateData[code];
                 label.html(
-                    '<b>'+label.html()+': '
+                    '<span style="display: inline-block;"><b>'+label.html()+':</b><br />'
                         + Highcharts.numberFormat(containingDateData[code], (parseInt(containingDateData[code])==containingDateData[code])?0:2)
-                        + " " + ((calculatedMapData.units)?calculatedMapData.units:''))
-                    .css("z-Index",400);
+                        + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
+                        + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
+                    ).css("z-Index",400);
+                var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
+                sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                $('.inlinesparkline').sparkline(vals, sparkOptions);
             },
             onRegionSelected: function(e, code, isSelected){
                 var selectedMarkers = $map.getSelectedMarkers();
@@ -1591,6 +1607,7 @@ OK.  That is a lot of work, but is correct.  quickGraph will need to detect a gr
             $map.removeAllMarkers();
             console.info(vectorMapSettings);
             //not sure if this is the best way to destroy and rebuild a map..
+            $map.remove();
             $thisPanel.find('div.jvmap').html('').vectorMap(vectorMapSettings);
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
         });
