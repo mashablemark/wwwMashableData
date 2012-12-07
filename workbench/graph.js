@@ -1098,20 +1098,29 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '</fieldset></div>' +
             '<div class="downloads">' +
                 '<fieldset>' +
-                '<legend>&nbsp;Download &amp; Print</legend>' +
-                '<p class="risspacer">Data Files: ' +
+                '<legend>&nbsp;Downloads&nbsp;</legend>' +
+                'Data: ' +
                 '<a title="tooltip" class="md-csv rico">CSV</a>' +
-                '<a class="md-xls rico">Excel</a><br>' +
-                'Image Files:' +
-                '<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
+                //'<a class="md-xls rico">Excel</a><br>' +
+                ' Image: ' +
+                //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
                 '<a onclick="exportChart(\'image/jpeg\')" class="md-jpg rico">JPG</a>' +
                 '<a onclick="exportChart(\'image/svg+xml\')" class="md-svg rico">SVG</a>' +
                 '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
-                '</p>' +
-                '</fieldset>' +
+            '</fieldset>' +
             '</div>' +
-            'publish <input type="checkbox" class="graph-publish" /> <button class="graph-save-preview">save & preview</button><br />' +
-            '<button class="graph-save">save</button> <button class="graph-post">post</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
+            '<div class="downloads">' +
+            '<fieldset>' +
+            '<legend>&nbsp;Sharing&nbsp;</legend>' +
+
+            '<a href="#" class="post-facebook"><img src="http://www.eia.gov/global/images/icons/facebook.png" />facebook</a> ' +
+            '<a href="#" class="post-twitter"><img src="http://www.eia.gov/global/images/icons/twitter.png" />twitter</a> ' +
+            '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
+            '<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
+            '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />searchable</a> ' +
+            '</fieldset>' +
+            '</div>' +
+            '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
         '</div>');
     var chart;
 //load
@@ -1327,11 +1336,14 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     });
     //$thisPanel.find('input.graph-title').change(function(){titleChange(this);});
     $thisPanel.find('.graph-analysis').change(function(){oPanelGraphs[panelId].analysis=this.value;});
-    $thisPanel.find('button.graph-save').click(function(){saveGraph(getGraph(this));});
-    $thisPanel.find('button.graph-close').click(function(){
+    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button("disable").click(function(){
+        saveGraph(getGraph(this));
+        $thisPanel.find('button.graph-delete').button("enable");
+    });
+    $thisPanel.find('button.graph-close').button({icons: {secondary: "ui-icon-closethick"}}).click(function(){
         $('ul#graph-tabs a[href=#' + panelId + ']').siblings('span').click();
     });
-    $thisPanel.find('button.graph-delete').click(function(){
+    $thisPanel.find('button.graph-delete').button({icons: {secondary: "ui-icon-trash"}}).click(function(){
         dialogShow("Permanently Delete Graph", "Are you sure you want to delete this graph?",
             [
                 {
@@ -1351,7 +1363,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 }
             ]);
     });
-
+    if(oGraph.gid)$thisPanel.find('button.graph-delete').button("disable");
     oGraph.smallestPeriod = "A";
     var min, max, key, jsdt, handle;
     for(var key in oGraph.assets){
