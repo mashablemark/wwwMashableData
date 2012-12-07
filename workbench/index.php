@@ -15,17 +15,20 @@
     <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-1.1.1.css">
     <link  rel="stylesheet" href="md_workbench.css" />
     <link rel="stylesheet" href="js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
+    <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css" type="text/css">
 
 
     <!--JavaScript files-->
-    <script type="text/javascript" src="/global/js/jquery/jquery-1.7.2.min.js"></script><!-- latest verions is 1.8.2-->
-    <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.8.16.custom.min.js"></script>
+    <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script><!-- latest verions is 1.8.3-->
+    <!--script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.8.16.custom.min.js"></script-->
+    <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.8.2.min.js"></script><!-- latest version is 1.9.4-->
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
     <!--script type="text/javascript" src="js/ColVis.min.js"></script-->
     <!--script type="text/javascript" src="js/ColReorder.min.js"></script-->
     <!--script type="text/javascript" src="js/ColReorderWithResize.js"></script-->
     <script type="text/javascript" src="js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
+    <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
     <!--script  type="text/javascript" src="js/jquery-jvectormap-1.0.js"></script-->
     <script type="text/javascript" src="graph.js"></script>
 
@@ -107,24 +110,6 @@ var layoutDimensions= {
     }
 };
 var MY_SERIES_DATE = 9, MY_SERIES_CHECK_COL = 1;  //important column indexes used for ordering
-var periodValue = {
-    N: 1,
-    D: 2,
-    W: 3,
-    M: 4,
-    Q: 5,
-    SA: 6,
-    A: 7
-} ;
-var periodName = {
-    N: 'non period data',
-    D: 'daily',
-    W: 'weekly',
-    M: 'monthly',
-    Q: 'quarterly',
-    SA: 'semiannual',
-    A: 'annual'
-} ;
 var standardAnnotations = [];  //filled by API call on first use
 var nonWhitePattern = /\S/;  //handy pattern to check for non-whitespace
 //Datatable variables set after onReady calls to... , setupMySeriesTable, setupMySeriesTable, and setupMySeriesTable,
@@ -2235,8 +2220,8 @@ function removeTab(span){
     $(panelRef).remove();
     $(span).parent().remove();
     destroyChartObject(panelId);
-
     delete oPanelGraphs[panelId];
+    $graphTabs.tabs('refresh'); //tell JQUI to sync up
     if($graphTabs.find("li").length == 0){
         editingPanelId = null; //dissociate the chart from the this edit session
         $("#btnEditGraphTop").attr("disabled","disabled");
@@ -2485,18 +2470,17 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
             console.log(jqXHR);}
     });
 }
-function unmask(){$("div#modal").hide();}
-function mask(){$("div#modal").show();}
+//function unmask(){$("div#modal").hide();}
+function unmask(){
+    $("#wrapper").unmask()
+}
+function mask(){
+    $("#wrapper").mask("Loading...");
+}
 
 </script>
 
 <body onresize="resizeCanvas();">
-<div id="modal" style="z-index: 1000;position: fixed;border: none;  left:0;top:0;width: 100%;height:100%;">
-    <div style="background-color: #000000;opacity: 0.1;z-index: 1000;position: fixed;left:0;top:0;width: 100%;height:100%;"></div>
-    <div style="z-index: 1000;position: fixed;border: none;  left:0;top:0;width: 100%;height:100%;">
-        <table style="border:0;width: 100%;height: 100%;padding:0;margin:0 "><tr><td><span style="background-color: #ffffff; opacity: 1; display: block;margin-left: auto;margin-right: auto;padding:10px;"><img src="images/load_animation.gif"></span></td></tr></table>
-    </div>
-</div>
 <div id="fb-root"></div>
 <div id="wrapper" class="wrapper">
     <div id="title-bar" class="title-bar" style="background-color:#000;border:0px;">

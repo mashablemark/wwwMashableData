@@ -519,6 +519,7 @@ ul.selectable li{
     background: #F39814;
     color: white;
 }
+.interval-crop-count{width: 50px;height: 20px; }
 div.map-prov{
     background-color: orange;
     border: thin black solid;

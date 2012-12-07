@@ -9,7 +9,7 @@ var hcColors = [
     '#92A8CD',
     '#A47D7C',
     '#B5CA92'];
-var primeColors=['#008000', '#FF0000','#0000FF', '#FFFF00', '#FF9900', '#00FFFF', '#000000']  //green, red, blue, yellow, orange, azure, black
+var primeColors=['#008000', '#FF0000','#0000FF', '#FFFF00', '#FF9900', '#00FFFF', '#000000'];  //green, red, blue, yellow, orange, azure, black
 var dashStyles = [
     'Solid',
     'Short Dash',
@@ -23,6 +23,32 @@ var dashStyles = [
     'Long Dash Dot',
     'Long Dash Dot Dot'
 ];
+var periodValue = {
+    N: 1,
+    D: 2,
+    W: 3,
+    M: 4,
+    Q: 5,
+    SA: 6,
+    A: 7
+} ;
+var periodName = {
+    N: 'non period data',
+    D: 'daily',
+    W: 'weekly',
+    M: 'monthly',
+    Q: 'quarterly',
+    SA: 'semiannual',
+    A: 'annual'
+} ;
+var periodUnits = {
+    'A': "years",
+    'SA': "half-years",
+    'Q': "quarters",
+    'M': "months",
+    'W': "weeks",
+    'D': "days"
+};
 var oPanelGraphs = {}; //MyGraph objects by panelID allows easy access to oMyCharts
 var oHighCharts = {}; //highchart objects by panelID
 var newPlotsIndex = -1; //index to generate unqiue local ids of new plot objects
@@ -40,6 +66,7 @@ console = console || {log: function(msg){}};  //allow conole.log call without tr
 function chartPanel(node){
     var panelId = $(node).closest('div.ui-tabs-panel').get(0).id;
     var oGraph = oPanelGraphs[panelId];
+    var chart;
     var oChartOptions = createChartObject(oPanelGraphs[panelId]);
     var $chart = $('#' + panelId + ' div.chart');
     if(oChartOptions.series.length==0){
@@ -97,7 +124,7 @@ function chartPanel(node){
             $('#' + panelId + ' tr.graph-crop-row').click();
         }
     };
-    var chart = new Highcharts.Chart(oChartOptions);
+    chart = new Highcharts.Chart(oChartOptions);
     //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
     $('#' + panelId + ' div.chart').mouseover(function(e){
         if(banding){
@@ -300,6 +327,53 @@ function chartPanel(node){
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
     return chart;
 }
+
+function setCropSlider(panelId){  //get closest point to recorded js dt
+    var leftIndex, rightIndex, i, bestDelta, thisDelta;
+    var oGraph = oPanelGraphs[panelId];
+    var chartOptions = oHighCharts[panelId].options.chart;
+    if(oGraph.start===null){
+        leftIndex = 0;
+    } else {
+        i = chartOptions.x.indexOf(oGraph.start.toString());
+        if(i>-1){
+            leftIndex = i;
+        } else { //start is a non-null number, but not point matches exactly.  We have to search for the closest
+            bestDelta = null;
+            for(i=0;i<chartOptions.x.length;i++){
+                thisDelta = Math.abs(parseInt(chartOptions.x[i])-parseInt(oGraph.start));
+                if(bestDelta===null || bestDelta>thisDelta){
+                    bestDelta = thisDelta;
+                    leftIndex = i;
+                }
+            }
+        }
+    }
+
+    if(oGraph.end===null){
+        rightIndex = chartOptions.x.length-1;
+    } else {
+        i = chartOptions.x.indexOf(oGraph.end.toString());
+        if(i>-1){
+            rightIndex = i;
+        } else { //start is a non-null number, but not point matches exactly.  We have to search for the closest
+            bestDelta = null;
+            for(i=0;i<chartOptions.x.length;i++){
+                thisDelta = Math.abs(parseInt(chartOptions.x[i])-parseInt(oGraph.end));
+                if(bestDelta===null || bestDelta>thisDelta){
+                    bestDelta = thisDelta;
+                    rightIndex = i;
+                }
+            }
+        }
+    }
+
+    $('#' + panelId + ' span.interval-crop-period').html(periodUnits[oGraph.largestPeriod]);
+    $('#' + panelId + ' div.crop-slider')
+        .slider("option", "max", chartOptions.x.length-1)
+        .slider("option", "values", [leftIndex, rightIndex]);
+}
+
 function dateFromMdDate(dt, periodicity){
     var udt = new Date(dt.substr(0,4));
     switch(periodicity){
@@ -1026,7 +1100,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         if(assetCount==1) oGraph.title = oGraph.assets[key].name;
     }
     title = oGraph.title;
-
+    if(oGraph.intervals==0) oGraph.intervals = null;
     if(!panelId){
         panelId = addTab(title);
     } else {
@@ -1084,13 +1158,23 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
              '<input type="checkbox" class="show-percent" /> show percent change from previous period<br />' +
              '</fieldset>' +
              '</div>' +*/
-            '<div class="crop-tool"><fieldset><legend>Crop tool</legend>' +
-                '<table>' +
-                    '<tr class="graph-crop-none-row"><td>data:</td><td class="graph-from" align="center"></td><td>to</td><td class="graph-to" align="center"></td></tr>' +
-                    '<tr class="graph-crop-row"><td>crop:</td><td class="graph-from graph-uncrop-clear" align="center">-</td><td>to</td><td class="graph-to graph-uncrop-clear" align="center">-</td></tr>' +
-                    '<tr class="graph-zoom-row"><td>zoom:</td><td align="center"><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust from down"><span class="ui-icon ui-icon-triangle-1-w">decrement</span></li></ul><span class="graph-from graph-uncrop-clear"> - </span><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust from up"><span class="ui-icon ui-icon-triangle-1-e active">increment</span></li></ul></td><td>to</td><td align="center"><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust to down"><span class="ui-icon ui-icon-triangle-1-w active">decrement</span></li></ul><span class="graph-to graph-uncrop-clear"> - </span><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust to up"><span class="ui-icon ui-icon-triangle-1-e">increment</span></li></ul></td></tr>' +
-                    //'<tr><td></td><td><button class="crop-adjust from down">&lt;</button><button class="crop-adjust from up">&gt;</button></td><td></td><td><button class="crop-adjust to down">&lt;</button><button class="crop-adjust to up">&gt;</button></td></tr>' +
-                '</table>' +
+            '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
+            '<table>' +
+                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
+                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
+                    '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
+                    '<div class="crop-slider"></div>' +
+                    '</td></tr>' +
+                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
+                    '<td><label for="'+ panelId +'-rad-latest-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+            '</table>' +
+
+            /*                '<table>' +
+                                '<tr class="graph-crop-none-row"><td>data:</td><td class="graph-from" align="center"></td><td>to</td><td class="graph-to" align="center"></td></tr>' +
+                                '<tr class="graph-crop-row"><td>crop:</td><td class="graph-from graph-uncrop-clear" align="center">-</td><td>to</td><td class="graph-to graph-uncrop-clear" align="center">-</td></tr>' +
+                                '<tr class="graph-zoom-row"><td>zoom:</td><td align="center"><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust from down"><span class="ui-icon ui-icon-triangle-1-w">decrement</span></li></ul><span class="graph-from graph-uncrop-clear"> - </span><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust from up"><span class="ui-icon ui-icon-triangle-1-e active">increment</span></li></ul></td><td>to</td><td align="center"><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust to down"><span class="ui-icon ui-icon-triangle-1-w active">decrement</span></li></ul><span class="graph-to graph-uncrop-clear"> - </span><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust to up"><span class="ui-icon ui-icon-triangle-1-e">increment</span></li></ul></td></tr>' +
+                                //'<tr><td></td><td><button class="crop-adjust from down">&lt;</button><button class="crop-adjust from up">&gt;</button></td><td></td><td><button class="crop-adjust to down">&lt;</button><button class="crop-adjust to up">&gt;</button></td></tr>' +
+                            '</table>' +*/
                 '<button class="graph-crop">crop</button>	<button class="graph-uncrop">no crop</button></fieldset>' +
             '</div>' +
             '<div class="annotations"><fieldset><legend>Annotations</legend>' +
@@ -1154,7 +1238,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         }
         chart.redraw();
     });
-    $thisPanel.find('button.graph-post').click(function(){
+    $thisPanel.find('a.post-facebook').click(function(){
         annoSync();
         var svg = oHighCharts[panelId].getSVG();
         $.ajax({
@@ -1186,79 +1270,80 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 }
 
                 FB.ui(obj, callback);
-
-
-
-                /* FB.api('/me/feed', 'post', //doc: http://developers.facebook.com/docs/reference/api/post/
-                 {   //possible arguments: message, picture, link, name, caption, description, source, place, tags
-                 message: body,
-                 picture: chartInfo.imageURL,
-                 link: 'http://www.mashabledata.com/workbench/view.php?g='+ oPanelGraphs[visiblePanelId()].ghash
-                 }, function(response) {
-                 if (!response || response.error) {
-                 //this command does not exist FB.authorize("publish_stream");
-                 var url = 'http://www.facebook.com/dialog/feed?'
-                 + 'app_id='+fbAppId
-                 + '&link=http://www.mashabledata.com/workbench/view.php?g='+ oPanelGraphs[visiblePanelId()].ghash
-                 + '&picture=' + chartInfo.imageURL
-                 + '&description=' + encodeURIComponent(body)
-                 + '&redirect_uri=http://www.mashabledata.com/workbench';
-                 var dialog = $('<iframe id="postfb" src="'+url+'" style="position:relative;z-Index:10;"></iframe>').prependTo(document.body);
-                 } else {
-                 alert('Post ID: ' + response.id);
-                 }
-                 });*/
             },
             error: function(response, textStatus, jqXH){
                 console.log(textStatus);
             }
         });
     });
-    var buttonStates = function(){
-        //enable/disable the increment, decrement buttons
-        var atMin = false, atMax = false, graph = oPanelGraphs[panelId];
-        if(graph.start==graph.minZoom || graph.minZoom==graph.firstdt){
-            atMin = true;
-            $thisPanel.find('li.crop-adjust.from.down span.ui-icon').removeClass('active');
-        }  else {
-            $thisPanel.find('li.crop-adjust.from.down span.ui-icon').addClass('active');
-        }
-        if(graph.end==graph.maxZoom || graph.maxZoom==graph.lastdt){
-            atMax = true;
-            $thisPanel.find('li.crop-adjust.to.up span.ui-icon').removeClass('active');
-        }  else {
-            $thisPanel.find('li.crop-adjust.to.up span.ui-icon').addClass('active');
-        }
-        if(atMin && atMax){
-            $thisPanel.find('button.graph-crop').attr('disabled','disabled');
+    if(oGraph.intervals){ //initialize crop radio button selection
+        $thisPanel.find('.rad-interval-crop').attr('checked',true)
+    } else {
+        if(oGraph.start && oGraph.end){
+            $thisPanel.find('.rad-hard-crop').attr('checked',true)
         } else {
-            $thisPanel.find('button.graph-crop').removeAttr('disabled');
+            $thisPanel.find('.rad-no-crop').attr('checked',true);
         }
-        if(graph.start==null && graph.end==null){
-            $thisPanel.find('button.graph-uncrop').attr('disabled','disabled');
-        } else {
-            $thisPanel.find('button.graph-uncrop').removeAttr('disabled');
-        }
-
-        if(graph.start==null){
-            $thisPanel.find('tr.graph-crop-row td.graph-from').html('-');
-            $thisPanel.find(' tr.graph-crop-row td.graph-to').html('-');
-        } else {
-            $thisPanel.find('tr.graph-crop-row td.graph-from').html( formatDateByPeriod(graph.start,graph.smallestPeriod));
-            $thisPanel.find('tr.graph-crop-row td.graph-to').html( formatDateByPeriod(graph.end,graph.smallestPeriod));
-        }
-        //if((graph.start==null&&graph.minZoom!=graph.firstdt)||(graph.start!=null&&graph.start==graph.minZoom)){
-        //    $('#' + panelId + ' tr.graph-zoom-row span.graph-from').html(' - ');
-        //} else {
-        $thisPanel.find('tr.graph-zoom-row span.graph-from').html(formatDateByPeriod(graph.minZoom,graph.smallestPeriod));
-        //}
-        //if((graph.end==null&&graph.maxZoom!=graph.lastdt)||(graph.end!=null&&graph.end==graph.maxZoom)){
-        //    $('#' + panelId + ' tr.graph-zoom-row span.graph-to').html(' - ');
-        //} else {
-        $thisPanel.find('tr.graph-zoom-row span.graph-to').html(formatDateByPeriod(graph.maxZoom,graph.smallestPeriod));
-        //}
+    }
+    var hardCropFromSlider = function(){
+        var values = $thisPanel.find('.crop-slider').slider('values');
+        $thisPanel.find('.rad-hard-crop').attr('checked',true);
+        oGraph.intervals = null;
+        oGraph.start = oHighCharts[panelId].options.chart.x[values[0]];
+        oGraph.end = oHighCharts[panelId].options.chart.x[values[1]];
+        $thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
     };
-    $thisPanel.find(' tr.graph-crop-row').click(function(){buttonStates()});
+    var cropDates = function(slider){
+        var values = $(slider).slider("values");
+        return formatDateByPeriod(oHighCharts[panelId].options.chart.x[values[0]],oGraph.smallestPeriod)+' - '+formatDateByPeriod(oHighCharts[panelId].options.chart.x[values[1]],oGraph.smallestPeriod);
+    };
+    $thisPanel
+        .find('div.crop-slider')
+        .slider(  //max and value[] are set Highchart's load event
+        {
+            range: true,
+            stop: function(){
+                hardCropFromSlider()
+            },
+            change: function(){
+                if(oHighCharts[panelId]){
+                    $thisPanel.find('.crop-dates').html(cropDates(this));
+                }
+            },
+            slide: function(){
+                $thisPanel.find('.crop-dates').html(cropDates(this));
+            }
+        });
+    $('#'+panelId+'-rad-hard-crop').change(function(){
+        hardCropFromSlider();
+    });
+
+    $('#'+panelId+'-rad-no-crop').change(function(){
+        oGraph.intervals = null;
+        oGraph.start = null;
+        oGraph.end = null;
+        oGraph.minZoom = oGraph.firstdt;
+        oGraph.maxZoom = oGraph.lastdt;
+        //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].firstdt,oPanelGraphs[panelId].lastdt);
+        oHighCharts[panelId]=chartPanel(this);
+        buildAnnotations(panelId);
+        //$thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
+    });
+
+    $thisPanel
+        .find('input.interval-crop-count')
+        .spinner({
+            min:1,
+            incrementalType: false,
+            stop: function(event, ui) {
+                $thisPanel.find('input#'+panelId+'-rad-interval-crop').attr('checked',true);
+                oGraph.intervals = $(this).val();
+                oGraph.start = null;
+                oGraph.end = null;
+                $thisPanel.find('graph-type').change();  //should be signals or a call to a local var  = function
+            }
+        });
+
     $thisPanel.find('li.crop-adjust').click(function(){
         if($(this).find("span.ui-icon").hasClass("active")){
             var from = $(this).hasClass('from');
@@ -1297,16 +1382,6 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         buttonStates();
         buildAnnotations(panelId);
     });
-    $thisPanel.find('button.graph-uncrop').click(function(){
-        oPanelGraphs[panelId].start = null;
-        oPanelGraphs[panelId].minZoom = oPanelGraphs[panelId].firstdt;
-        oPanelGraphs[panelId].end = null;
-        oPanelGraphs[panelId].maxZoom = oPanelGraphs[panelId].lastdt;
-        //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].firstdt,oPanelGraphs[panelId].lastdt);
-        oHighCharts[panelId]=chartPanel(this);
-        buttonStates();
-        buildAnnotations(panelId);
-    });
 
     $thisPanel.find('input.graph-publish').change(function(){
         oGraph.published = (this.checked?'Y':'N');
@@ -1328,13 +1403,11 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 
     });
 
-    /*    $thisPanel.find('select.interval-length').change(function(){
-     oGraph.interval.count = parseInt($(this).val());
-     });*/
     $thisPanel.find('.graph-analysis').change(function(){
         oGraph.analysis=$(this).val();
     });
     //$thisPanel.find('input.graph-title').change(function(){titleChange(this);});
+
     $thisPanel.find('.graph-analysis').change(function(){oPanelGraphs[panelId].analysis=this.value;});
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button("disable").click(function(){
         saveGraph(getGraph(this));
@@ -1365,6 +1438,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     });
     if(oGraph.gid)$thisPanel.find('button.graph-delete').button("disable");
     oGraph.smallestPeriod = "A";
+    oGraph.largestPeriod = "N";
     var min, max, key, jsdt, handle;
     for(var key in oGraph.assets){
         if(!oGraph.assets[key].firstdt && (key.charAt(0)=='M' || key.charAt(0)=='X')){
@@ -1375,7 +1449,9 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
             }
         }
-        if(periodValue[oGraph.smallestPeriod]>periodValue[oGraph.assets[key].period])oGraph.smallestPeriod=oGraph.assets[key].period;
+        if(periodValue[oGraph.smallestPeriod]>periodValue[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
+        if(periodValue[oGraph.largestPeriod]<periodValue[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
+
         jsdt = oGraph.assets[key].firstdt;
         min = Math.min(jsdt, min)  || jsdt;
         jsdt = oGraph.assets[key].lastdt;
@@ -1392,6 +1468,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     if(oGraph.plots){
         oHighCharts[panelId]=chartPanel($thisPanel.find('select.graph-type').get(0));
         buildAnnotations(panelId);
+        setCropSlider(panelId);
         $thisPanel.find('div.highcharts-container').mousedown(function (b) {
             if(b.which==3){}  //???
         });
@@ -1447,7 +1524,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                             + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
                             + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
                             + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
-                        ).css("z-Index",400);
+                    ).css("z-Index",400);
                     var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
                     sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
                     $('.inlinesparkline').sparkline(vals, sparkOptions);
@@ -1466,7 +1543,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                         + Highcharts.numberFormat(containingDateData[code], (parseInt(containingDateData[code])==containingDateData[code])?0:2)
                         + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
                         + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
-                    ).css("z-Index",400);
+                ).css("z-Index",400);
                 var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
                 sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
                 $('.inlinesparkline').sparkline(vals, sparkOptions);
@@ -1523,11 +1600,11 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
         $thisPanel.find('.map-graph-selected').click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
-/* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
-If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
-If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
-OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
-* */
+            /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
+             If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
+             If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
+             OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
+             * */
 
             var selectedRegions = $map.getSelectedRegions();
             var selectedMarkers = $map.getSelectedMarkers();
@@ -1624,15 +1701,7 @@ OK.  That is a lot of work, but is correct.  quickGraph will need to detect a gr
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
         });
     }
-
-    buttonStates();
 };
-
-
-
-
-
-
 
 
 

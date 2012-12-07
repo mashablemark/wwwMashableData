@@ -545,12 +545,9 @@ switch($command){
         $user_id =  intval($_POST['uid']);
         //TODO:  eliminate useLatest field altogether
         if($_POST['published']=='Y'){$published = "Y";} else  {$published = "N";}
-        $intervaldt = isset($_POST['interval']['lastdt'])?intval($_POST['interval']['lastdt']):0;
-        if($intervaldt==0)$intervaldt = "null";
-        $interval = isset($_POST['interval']['span'])?safeStringSQL($_POST['interval']['span']):'null';
         $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;
         $updatedt = isset($_POST['updatedt'])?intval($_POST['updatedt']/1000)*1000:null;
-        $intervals = isset($_POST['interval']['count'])?intval($_POST['interval']['count']/1000)*1000:'null';
+        $intervals = isset($_POST['intervals'])?intval($_POST['intervals']):'null';
         $from = (isset($_POST['start']) && is_numeric($_POST['start']))?intval($_POST['start']/1000)*1000:'null';
         $to = (isset($_POST['end']) && is_numeric($_POST['end']))?intval($_POST['end']/1000)*1000:'null';
         switch($_POST['type']){
@@ -573,11 +570,10 @@ switch($command){
         //table structure = graphs <-> graphplots <-> plotcomponents
 
         if(count($gid) == 0 || $gid==0){
-            $sql = "insert into graphs (userid, published, title, text, type, intervaldt, intervalspan, "
+            $sql = "insert into graphs (userid, published, title, text, type, "
             . " intervalcount, fromdt, todt, annotations, map, mapconfig, views, createdt) values ("
             . $user_id . ", '" . $published . "',". safeSQLFromPost("title") . "," . safeSQLFromPost("analysis")
-            . ", '" . $type . "', " . $intervaldt
-            . ", " . $interval . ", " . $intervals
+            . ", '" . $type . "', " . $intervals
             . ", " . $from . ", ". $to . ", ". safeSQLFromPost("annotations")
                 . ", " . safeSQLFromPost("map") . ", " . safeSQLFromPost("mapconfig")   . ", 0, ".$createdt.")";
             logEvent("ManageMyGraphs: insert graphs record", $sql);
@@ -615,8 +611,7 @@ switch($command){
 
         } else {
             $sql = "update graphs set userid=" . $user_id . ", published='" . $published . "', title=". safeSQLFromPost("title")
-                . ", text=" . safeSQLFromPost("analysis") . ", type='" . $type . "', intervaldt="
-                . $intervaldt . ", intervalspan=" . $interval . ", intervalcount="
+                . ", text=" . safeSQLFromPost("analysis") . ", type='" . $type . "', intervalcount="
                 . $intervals . " , fromdt=" . $from
                 . ", todt=" . $to . ", annotations=" . safeSQLFromPost("annotations") . ", updatedt=".$updatedt
                 . ", map=" . safeSQLFromPost("map") . ", mapconfig=" . safeSQLFromPost("mapconfig")
@@ -1143,7 +1138,7 @@ function getGraphs($userid, $ghash){
         . " serieslist, s.name, s.units, skey, s.firstdt, s.lastdt, s.periodicity, data, "
         . " ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
         . " gp.plotid, gp.type as plottype, gp.options as plotoptions, legendorder, pc.objtype as comptype, objid, "
-        . " pc.options as componentoptions, pc.comporder, intervaldt, intervalspan, intervalcount, g.type, annotations "
+        . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
         . " from graphs g, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid  "
         . " where g.graphid=gp.graphid and gp.plotid=pc.plotid ";
     if(strlen($ghash)>0){
@@ -1182,11 +1177,7 @@ function getGraphs($userid, $ghash){
                 "views" =>  $aRow["views"],
                 "updatedt" =>  $aRow["updatedt"],
                 "annotations" =>  $aRow["annotations"],
-                "interval" =>  array(
-                    "selecteddt" => $aRow["intervaldt"],
-                    "span" => $aRow["intervalspan"],
-                    "count" => $aRow["intervalcount"]
-                )
+                "intervals" => $aRow["intervalcount"]
             );
             //if($aRow["map"]!=null){
                 $output['graphs']['G' . $gid]["map"] = $aRow["map"];
