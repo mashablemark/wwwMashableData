@@ -6,7 +6,7 @@
     <title>MashableData Workbench</title>
 
     <!--CSS files-->
-    <link  rel="stylesheet" href="css/smoothness/jquery-ui-1.8.16.custom.css" />
+    <link  rel="stylesheet" href="css/smoothness/jquery-ui-1.9.2.custom.css" />
     <link  rel="stylesheet" href="/global/css/datatables/datatable.css" />
     <!--link  rel="stylesheet" href="css/ColVis.css" /-->
     <link  rel="stylesheet" href="/global/css/colorPicker.css" />
@@ -2495,7 +2495,7 @@ function mask(){
                 <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
             </ul>
         </div>
-        <button style="position:relative;left:20px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
+        <button style="position:relative;left:20px;top:-10px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu-->
         <ul id="jsddm" class="menu" style="list-style-type: none;float:right;">
             <li><span id="login-display">sign in</span><span class="sorting_asc"><span></span></span>

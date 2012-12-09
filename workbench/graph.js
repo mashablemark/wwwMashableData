@@ -65,6 +65,7 @@ console = console || {log: function(msg){}};  //allow conole.log call without tr
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
     var panelId = $(node).closest('div.ui-tabs-panel').get(0).id;
+    if(oHighCharts[panelId]) oHighCharts[panelId].destroy();
     var oGraph = oPanelGraphs[panelId];
     var chart;
     var oChartOptions = createChartObject(oPanelGraphs[panelId]);
@@ -102,9 +103,6 @@ function chartPanel(node){
             var min;
             var max;
             if(event.resetSelection){
-                $('#' + panelId + ' tr.graph-zoom-row td.graph-from').html('-');
-                $('#' + panelId + ' tr.graph-zoom-row td.graph-to').html('-');
-                $('#' + panelId + ' button.graph-crop').attr('disabled','disabled');
                 oGraph.minZoom = (oGraph.start===null)?oGraph.firstdt:oGraph.start;
                 oGraph.maxZoom = (oGraph.end===null)?oGraph.lastdt:oGraph.end;
             } else {
@@ -115,9 +113,6 @@ function chartPanel(node){
                     min = closestDate(axisMin, seriesData, min);
                     max = closestDate(axisMax, seriesData, max);
                 }
-                $('#' + panelId + ' tr.graph-zoom-row .graph-from').html(formatDateByPeriod(min,oPanelGraphs[panelId].smallestPeriod));
-                $('#' + panelId + ' tr.graph-zoom-row .graph-to').html(formatDateByPeriod(max,oPanelGraphs[panelId].smallestPeriod));
-
                 oGraph.minZoom = min;
                 oGraph.maxZoom = max;
             }
@@ -1109,22 +1104,20 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     }
     var $thisPanel = $('#' + panelId);
     $thisPanel.html(
-        '<div class="provenance"></div>' +
-        '<div class="chart-map" style="width:70%;display:inline;float:left;">' +
-            '<div class="chart"></div>' +
-            '<div class="map" style="display:none;"><h3 class="map-title" style="color:black;"></h3>'+
-                '<div class="container map-controls">' +
-                    '<div class="jvmap" style="display: inline-block;"></div>' +
-                    '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
-                    '<button class="map-play">play</button>' +
-                    '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
-                    '<button class="make-map">reset</button>' +
-                '</div>' +
-            '</div>' +
-            '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
-        '</div>' +
+        '<div class="graph-nav">' +
+            '<ol class="graph-nav">' +
+                '<li class="graph-nav-talk" data="graph-talk"></li>' +
+                '<li class="graph-nav-data" data="graph-data"></li>' +
+                '<li class="graph-nav-sources"  data="graph-sources"onclick="provenance();"></li>' +
+                '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
+            '</ol>' +
+        '</div>'+
+        '<div class="graph-talk graph-subpanel" style="display: none;">owner enables and reviews WordPress powered comments here</div>' +
+        '<div class="graph-data graph-subpanel" style="display: none;">users view and download data here (account required)</div>' +
+        '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
+        '<div class="graph-chart graph-subpanel">' +
         '<div class="graph_control_panel" style="font-size: 11px !important;">' +
-            '<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
+            //'<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
             //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
             '<div class="graph-type">default graph type ' +
                 '<select class="graph-type">' +
@@ -1139,25 +1132,6 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 '<option value="pie">pie</option>' +
                 '</select>' +
             '</div>' +
-            /*'<div>' +
-             '<fieldset><legend>define interval for column or pie charts</legend>' +
-             'using last uncrop date: <span class="interval-date"></span><br />' +
-             'interval: <select class="interval-length"><option value="M">months</option><option value="Y">year</option></select>' +
-             ' count: <select class="interval-length">' +
-             '<option value="1">1</option>' +
-             '<option value="2">2</option>' +
-             '<option value="3">3</option>' +
-             '<option value="4">4</option>' +
-             '<option value="5">5</option>' +
-             '<option value="6">6</option>' +
-             '<option value="7">7</option>' +
-             '<option value="8">8</option>' +
-             '<option value="9">9</option>' +
-             '<option value="10">10</option>' +
-             '</select><br />' +
-             '<input type="checkbox" class="show-percent" /> show percent change from previous period<br />' +
-             '</fieldset>' +
-             '</div>' +*/
             '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
             '<table>' +
                 '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
@@ -1168,14 +1142,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
                     '<td><label for="'+ panelId +'-rad-latest-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
             '</table>' +
-
-            /*                '<table>' +
-                                '<tr class="graph-crop-none-row"><td>data:</td><td class="graph-from" align="center"></td><td>to</td><td class="graph-to" align="center"></td></tr>' +
-                                '<tr class="graph-crop-row"><td>crop:</td><td class="graph-from graph-uncrop-clear" align="center">-</td><td>to</td><td class="graph-to graph-uncrop-clear" align="center">-</td></tr>' +
-                                '<tr class="graph-zoom-row"><td>zoom:</td><td align="center"><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust from down"><span class="ui-icon ui-icon-triangle-1-w">decrement</span></li></ul><span class="graph-from graph-uncrop-clear"> - </span><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust from up"><span class="ui-icon ui-icon-triangle-1-e active">increment</span></li></ul></td><td>to</td><td align="center"><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust to down"><span class="ui-icon ui-icon-triangle-1-w active">decrement</span></li></ul><span class="graph-to graph-uncrop-clear"> - </span><ul class="ilb"><li class="ui-state-default ui-corner-all crop-adjust to up"><span class="ui-icon ui-icon-triangle-1-e">increment</span></li></ul></td></tr>' +
-                                //'<tr><td></td><td><button class="crop-adjust from down">&lt;</button><button class="crop-adjust from up">&gt;</button></td><td></td><td><button class="crop-adjust to down">&lt;</button><button class="crop-adjust to up">&gt;</button></td></tr>' +
-                            '</table>' +*/
-                '<button class="graph-crop">crop</button>	<button class="graph-uncrop">no crop</button></fieldset>' +
+                '<button class="graph-crop">crop</button></fieldset>' +
             '</div>' +
             '<div class="annotations"><fieldset><legend>Annotations</legend>' +
                 '<table class="annotations"></table>' +
@@ -1205,15 +1172,32 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '</fieldset>' +
             '</div>' +
             '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
+        '</div>' +
+        '<div class="chart-map" style="width:70%;display:inline;float:right;">' +
+            '<div class="chart"></div>' +
+            '<div class="map" style="display:none;"><h3 class="map-title" style="color:black;"></h3>'+
+            '<div class="container map-controls">' +
+            '<div class="jvmap" style="display: inline-block;"></div>' +
+            '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
+                '<button class="map-play">play</button>' +
+                '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
+                '<button class="make-map">reset</button>' +
+                '</div>' +
+                '</div>' +
+                '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
+            '</div>' +
         '</div>');
     var chart;
 //load
-    //var titleControl  = $('#' + panelId + ' input.graph-title');
-    //titleControl.val(title);
-    //$('#' + panelId + ' select.interval-length').val(oGraph.interval.count);
-
     $thisPanel.find('select.graph-type').val(oGraph.type);
-
+    $thisPanel.find('ol.graph-nav li').click(function(){
+        $thisPanel.find('ol.graph-nav li').removeClass('graph-nav-active');
+        $thisPanel.find('.graph-subpanel').hide();
+        $thisPanel.find('.' + $(this).attr('data')).show();
+        $(this).addClass('graph-nav-active');
+    });
+    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-30-2-35).height($thisPanel.height()-30)
+        .find('.chart-map').width($thisPanel.width()-40-350); //
     $thisPanel.find('input.graph-publish').change(function(){
         if(this.checked){
             $thisPanel.find('button.graph-save-preview').removeAttr("disabled");
@@ -1276,6 +1260,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
     });
+
+//  *** crop routines begin ***
     if(oGraph.intervals){ //initialize crop radio button selection
         $thisPanel.find('.rad-interval-crop').attr('checked',true)
     } else {
@@ -1297,10 +1283,9 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         var values = $(slider).slider("values");
         return formatDateByPeriod(oHighCharts[panelId].options.chart.x[values[0]],oGraph.smallestPeriod)+' - '+formatDateByPeriod(oHighCharts[panelId].options.chart.x[values[1]],oGraph.smallestPeriod);
     };
-    $thisPanel
-        .find('div.crop-slider')
-        .slider(  //max and value[] are set Highchart's load event
-        {
+
+    $thisPanel.find('div.crop-slider').slider(
+        { //max and value[] are set in setCropSlider() after Highchart is called below
             range: true,
             stop: function(){
                 hardCropFromSlider()
@@ -1314,10 +1299,23 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 $thisPanel.find('.crop-dates').html(cropDates(this));
             }
         });
+
     $('#'+panelId+'-rad-hard-crop').change(function(){
         hardCropFromSlider();
     });
 
+    $('#'+panelId+'-rad-interval-crop').change(function(){
+        var interval = parseInt($(this).val());
+        if(!interval || interval<1){
+            interval = 5;
+            $(this).val(interval);
+        }
+        oGraph.intervals = interval;
+        oGraph.start = null;
+        oGraph.end = null;
+
+
+    });
     $('#'+panelId+'-rad-no-crop').change(function(){
         oGraph.intervals = null;
         oGraph.start = null;
@@ -1330,9 +1328,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         //$thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
     });
 
-    $thisPanel
-        .find('input.interval-crop-count')
-        .spinner({
+    $thisPanel.find('input.interval-crop-count').spinner({
             min:1,
             incrementalType: false,
             stop: function(event, ui) {
@@ -1344,34 +1340,6 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
 
-    $thisPanel.find('li.crop-adjust').click(function(){
-        if($(this).find("span.ui-icon").hasClass("active")){
-            var from = $(this).hasClass('from');
-            var up =   $(this).hasClass('up');
-            var toFind = (from)?oPanelGraphs[panelId].minZoom:oPanelGraphs[panelId].maxZoom;
-            var xs = oHighCharts[panelId].options.chart.x;  //this is a undocumented arrary of all x-values for all points.
-            var i;
-            if(from){ //use two loop to speed processing time
-                for(i=0; i< xs.length;i++){if(xs[i]==toFind)break;}
-            }else{
-                for(i=xs.length-1; i>=0 ;i--){if(xs[i]==toFind)break;}
-            }
-            if(up){i++}else{i--}
-            if(xs.length>i && i>=-1){
-                var axis = oHighCharts[panelId].xAxis[0];
-                if(from){
-                    oPanelGraphs[panelId].minZoom=xs[i];
-                } else {
-                    oPanelGraphs[panelId].maxZoom= xs[i];
-                }
-                axis.setExtremes(parseInt(oPanelGraphs[panelId].minZoom), parseInt( oPanelGraphs[panelId].maxZoom));
-                oHighCharts[panelId].showResetZoom();
-                $thisPanel.find('button.crop-adjust').removeAttr("disabled");
-                //oHighCharts[panelId].toolbar.add('zoom', 'Reset zoom', 'Reset zoom', oHighCharts[panelId].resetZoom);
-            }
-            buttonStates();
-        }
-    });
     $thisPanel.find('button.graph-crop').click(function(){
         var graph = oPanelGraphs[panelId];
         graph.start = (graph.minZoom>graph.firstdt)?graph.minZoom:graph.firstdt;
@@ -1379,9 +1347,11 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         $(this).attr("disabled","disabled");
         //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].start,oPanelGraphs[panelId].end);
         oHighCharts[panelId]=chartPanel(this);
-        buttonStates();
         buildAnnotations(panelId);
     });
+
+// *** crop rountine end ***
+
 
     $thisPanel.find('input.graph-publish').change(function(){
         oGraph.published = (this.checked?'Y':'N');
@@ -1711,7 +1681,7 @@ function provenance(){
     var panelId, $tab, $prov, grph, i, j, plotList, mapList, componentHandle, plot, plotColor, okcancel;
     panelId = visiblePanelId();
     $tab = $('#'+panelId);
-    $prov =  $tab.find('.provenance').width($tab.width()-30-2).height($tab.height()-30).slideDown(); //compensation for margins @ 15px + borders
+    $prov =  $tab.find('.provenance').show(); //compensation for margins @ 15px + borders
     grph = oPanelGraphs[panelId];
     okcancel = '<button onclick="provClose(this)" style="float:right;margin-right: 50px;">cancel</button> <button onclick="provOk(this)" style="float:right;">ok</button><br>';
     mapList = provenanceOfMap(grph);
@@ -1997,7 +1967,7 @@ function provClose(btn){ //called directly from cancel btn = close without savin
     delete grph.plotsEdits;
     var $prov = $(btn).closest(".provenance");
     $prov.find("ol, ul").sortable("destroy");
-    $prov.slideUp();
+    $prov.closest('div.ui-tabs-panel').find('.graph-nav-graph').click();
 }
 function sortComponentsByOp(comp){
     comp.sort(function(a,b){
