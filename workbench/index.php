@@ -42,7 +42,6 @@
     //Group for user series edit
     <script type="text/javascript" src="js/jquery.handsontable.js"></script>
     <script  type="text/javascript" src="js/jquery.contextMenu.js"></script>
-    <script  type="text/javascript" src="js/jquery.ui.position.js"></script>
     <script  type="text/javascript" src="js/jquery-jvectormap-1.1.1.min.js"></script>
     -->
     <!--dynamic loading of maps by REQUIRES as needed
@@ -254,7 +253,7 @@ $(document).ready(function(){
         return false;  //no further executes
     }
     //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from graph.js)
-    require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js","/global/js/jquery.ui.position/jquery.ui.position.js"]);
+    require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
     addJQueryStringify();   // add extension after jQuery guarenteed to be loaded
     $(".show-graph-link").fancybox({
@@ -296,7 +295,7 @@ $(document).ready(function(){
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
     resizeCanvas();
     setupMySeriesTable();
-    loadMySeriesByKey('localSeries');  //load everything in localStorage & updates to/from cloud as needed
+    //loadMySeriesByKey('localSeries');  //load everything in localStorage & updates to/from cloud as needed
     setupMyGraphsTable(); //loaded on sync account.  No local storage for graphs.
 
     var $tab_title_input = $('#tab_title'), $tab_content_input = $('#tab_content');
@@ -1084,10 +1083,11 @@ function showHideGraphEditor(){
     }
 }
 function showGraphEditor(){
-    if($("div.picker:visible").length==0) {showHideGraphEditor()}
+    if($("div.picker:visible").length==0) showHideGraphEditor();
 }
 function hideGraphEditor(){
-    if($("div.picker:visible").length==1) {showHideGraphEditor()}
+    if($("div.picker:visible").length==1) showHideGraphEditor();
+
 }
 
 //EVENT FUNCTIONS
@@ -1524,7 +1524,7 @@ function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties
 }
 function validatePaste(changes){}
 function showSeriesEditor(series_handle){
-    require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js","/global/js/jquery.ui.position/jquery.ui.position.js"], function(){seriesEditor(series_handle)});
+    require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"], function(){seriesEditor(series_handle)});
 }
 function seriesEditor(series_handle){
     if(!seriesEditorInitialised) initializeSeriesEditor();

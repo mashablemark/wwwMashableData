@@ -103,9 +103,26 @@ function chartPanel(node){
             var min;
             var max;
             if(event.resetSelection){
+                if(chart.cropButton) chart.cropButton = chart.cropButton.destroy();
                 oGraph.minZoom = (oGraph.start===null)?oGraph.firstdt:oGraph.start;
                 oGraph.maxZoom = (oGraph.end===null)?oGraph.lastdt:oGraph.end;
             } else {
+                //var chart = oHighCharts[panelId];
+                var btnOptions = $.extend(true, {}, chart.options.chart.resetZoomButton);
+                btnOptions.position.y += 30;
+                var box = {
+                    x: chart.plotLeft,
+                    y: chart.plotTop,
+                    width: chart.plotWidth,
+                    height: chart.plotHeight
+                };
+                chart.cropButton = chart.renderer.button('Crop X-axis', null, null, function () { $('#'+ panelId + ' button.graph-crop').click()}, {zIndex:20}, null).attr({align: "right"})
+                    .attr({
+                        align: btnOptions.position.align,
+                        title: 'Crop x-axis to current zoom level'
+                    })
+                    .add()
+                    .align(btnOptions.position, false, box);
                 var axisMin = event.xAxis[0].min;
                 var axisMax = event.xAxis[0].max;
                 for(var i=0;i<oChartOptions.series.length;i++){
@@ -470,7 +487,7 @@ var p, c, handle;
 }
 function createMyGraph(gid, onComplete){
     var oMyGraph = oMyGraphs['G' + gid];
-    var fileAssets = ["/global/js/highcharts/js/highcharts.2.2.5.min.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"];
+    var fileAssets = ["/global/js/highcharts/js/highcharts.2.2.5.src.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"];
     if(oMyGraph.map) fileAssets.push('js/maps/jquery_jvectormap_'+ jVectorMapTemplates[oMyGraph.map] +'.js');   //get the map too if needed
     require(fileAssets); //parallel load while getting db assets
     getAssets(oMyGraph, function(){
@@ -1084,6 +1101,88 @@ function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match an
     }
 }
 
+function downloadMap(panelID, format){
+    //format = 'image/jpeg';  //'application/pdf',
+    var svg = $('#'+ panelID + ' div.jvmap div').html();
+    //jvector map sanitize
+    svg = svg.replace(/<div.+<\/div>/gi, '');
+    //svg = svg.replace(/ class="[^"]+"/gi, '');
+    //svg = svg.replace(/ id="[^"]+"/gi, '');
+    svg = svg.replace(/<svg /gi, '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" ');
+    //svg = svg.replace(/<g [^>]+>/gi, '<g>');
+
+    // standard sanitize
+    svg = svg
+        .replace(/zIndex="[^"]+"/g, '')
+        .replace(/isShadow="[^"]+"/g, '')
+        .replace(/symbolName="[^"]+"/g, '')
+        .replace(/jQuery[0-9]+="[^"]+"/g, '')
+        .replace(/isTracker="[^"]+"/g, '')
+        .replace(/url\([^#]+#/g, 'url(#')
+        /*.replace(/<svg /, '<svg xmlns:xlink="http://www.w3.org/1999/xlink" ')
+         .replace(/ href=/, ' xlink:href=')
+         .replace(/preserveAspectRatio="none">/g, 'preserveAspectRatio="none"/>')*/
+        /* This fails in IE < 8
+         .replace(/([0-9]+)\.([0-9]+)/g, function(s1, s2, s3) { // round off to save weight
+         return s2 +'.'+ s3[0];
+         })*/
+
+        // Replace HTML entities, issue #347
+        .replace(/&nbsp;/g, '\u00A0') // no-break space
+        .replace(/&shy;/g,  '\u00AD') // soft hyphen
+
+        // IE specific
+        .replace(/id=([^" >]+)/g, 'id="$1"')
+        .replace(/class=([^" ]+)/g, 'class="$1"')
+        .replace(/ transform /g, ' ')
+        .replace(/:(path|rect)/g, '$1')
+        .replace(/style="([^"]+)"/g, function (s) {
+            return s.toLowerCase();
+        });
+
+    // IE9 beta bugs with innerHTML. Test again with final IE9.
+    svg = svg.replace(/(url\(#highcharts-[0-9]+)&quot;/g, '$1')
+        .replace(/&quot;/g, "'");
+    if ((svg.match(/ xmlns="/g)) && svg.match(/ xmlns="/g).length === 2) {
+        svg = svg.replace(/xmlns="[^"]+"/, '');
+    }
+
+    var options = {
+        type: format,
+        filename: 'MashableDataMap',
+        width: 800,
+        svg: svg,
+        url: 'export/index.php'
+    };
+    var createElement = Highcharts.createElement;
+    // create the form
+    var form = createElement('form', {
+            method: 'post',
+            action: options.url
+        }, {
+            display: 'none'
+        },
+        document.body
+    );
+    Highcharts.each(['filename', 'type', 'width', 'svg'], function (name) {
+        createElement('input', {
+            type: 'hidden',
+            name: name,
+            value: {
+                filename: options.filename || 'chart',
+                type: options.type,
+                width: options.width,
+                svg: svg
+            }[name]
+        }, null, form);
+    });
+
+    // submit
+    form.submit();
+
+    // clean up
+    Highcharts.discardElement(form);
+}
 var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
     var title;
     if(oGraph.title.length==0){
@@ -1142,7 +1241,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
                     '<td><label for="'+ panelId +'-rad-latest-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
             '</table>' +
-                '<button class="graph-crop">crop</button></fieldset>' +
+                '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
             '</div>' +
             '<div class="annotations"><fieldset><legend>Annotations</legend>' +
                 '<table class="annotations"></table>' +
@@ -1378,8 +1477,12 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     });
     //$thisPanel.find('input.graph-title').change(function(){titleChange(this);});
 
-    $thisPanel.find('.graph-analysis').change(function(){oPanelGraphs[panelId].analysis=this.value;});
-    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button("disable").click(function(){
+    $thisPanel.find('.graph-analysis').change(function(){
+        oPanelGraphs[panelId].analysis=this.value;
+        $thisPanel.find('.graph-save').button("enable");
+    });
+    oGraph.isDirty = oGraph.gid;
+    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable').click(function(){
         saveGraph(getGraph(this));
         $thisPanel.find('button.graph-delete').button("enable");
     });
@@ -2145,9 +2248,14 @@ function panelIdContaining(cntl){  //uniform way of getting ID of active panel f
 }
 
 function exportChart(type){
-    var thisChart = oHighCharts[visiblePanelId()];
-    annoSync();
-    thisChart.exportChart({type: type});
+    var panelID = visiblePanelId();
+    if(oPanelGraphs[panelID].map){
+        downloadMap(panelID, type);
+    } else {
+        var thisChart = oHighCharts[panelID];
+        annoSync();
+        thisChart.exportChart({type: type});
+    }
 }
 
 
@@ -2303,7 +2411,7 @@ var banding = false;
 var bandStartPoint;
 var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
 $(document).ready(function(){
-    require(["/global/js/highcharts/js/highcharts.2.2.5.min.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"], function(){
+    require(["/global/js/highcharts/js/highcharts.2.2.5.src.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"], function(){
         require(["/global/js/highcharts/js/modules/exporting.2.1.6.src.js"]);
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
         Highcharts.setOptions({
@@ -2490,6 +2598,10 @@ function annotationY(chart, anno){
     return y;
 }
 function buildAnnotations(panelId, redrawAnnoTypes){
+    if($('div#' + panelId + ' table.annotations').html().length!=0) { //enable on all calls except initial build
+        $('div#' + panelId + ' .graph-save').button("enable");
+        oPanelGraphs[panelId].isDirty = true;
+    }
     if(!redrawAnnoTypes) redrawAnnoTypes='all';
     var oGraph = oPanelGraphs[panelId];
 // builds and return a fresh annotations table HTML string from oGraph

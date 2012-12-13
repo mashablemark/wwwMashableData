@@ -419,6 +419,9 @@ div.jvmap {
 button.map-graph-selected{
     margin: 0 5px;
 }
+div.crop-slider{
+    margin: 5px 0;
+}
 div.slider{
     margin: 2px 20px 0 0;
     top: 4px;
