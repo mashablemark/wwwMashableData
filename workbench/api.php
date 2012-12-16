@@ -781,7 +781,7 @@ switch($command){
         logEvent("GetUserId: fb call", $fb_command);
         $fbstatus = json_decode(httpGet($fb_command));
         if(array_key_exists ("data",$fbstatus)){
-            $sql = "select userid, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
+            $sql = "select u.userid, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
                 . " where u.accounttypeid = " . $accounttypeid
                 . " and u.username = '" . $db->real_escape_string($username) . "'";
             logEvent("GetUserId: lookup user", $sql);

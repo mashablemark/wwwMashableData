@@ -355,14 +355,51 @@ div#pickers {
     bottom: 0;
     padding:0;
     margin:0;
-    background-color:none;
+    height: 27px;
+    position:relative;
+    left:5px;
+    border:0;
+    background:none;
+    display: inline-block;
 }
 div.picker{
     background:DarkTurquoise;
 }
-div#pickers ul{background-color:none;}
-div.graph-subpanel{
+div#pickers ul{background:none;}
+div.graph-chart{
     display: inline;
+}
+button.copy-to-clipboard{
+    right: 10px;
+    position: absolute;
+    top: 10px;
+}
+div.graph-subpanel, div.graph-data-inner{
+    height: 100%;
+    width: 100%;
+}
+div.graph-sources{
+    background-color: #FFFFFF;
+    z-index: 10;
+    display: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 5px 15px;
+    height: 100%;
+}
+div.graph-chart, div.graph-data {
+    overflow: hidden;
+}
+div.graph-data-subpanel{
+    height: 100%;
+    overflow: auto;
+}
+table.data-grid td{
+    text-align: right;
+    overflow: auto;
+}
+div.graph-data{
+    display: block;
 }
 div.graph_control_panel{
     width:350px;
@@ -372,15 +409,6 @@ div.graph_control_panel{
     margin:5px 5px 0 0;
     position: relative;
     z-index: 1;
-}
-div.graph-sources{
-    background-color: #FFFFFF;
-    z-index: 10;
-    display: none;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 5px 15px;
-    height: 0;
 }
 ol.plots li.plot{
     margin: 5px 0;

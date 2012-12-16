@@ -359,12 +359,12 @@ function resizeCanvas(){
     var winWidth = Math.max(window.innerWidth-10, layoutDimensions.widths.windowMinimum);
     $("div#wrapper").height(winHeight).width(winWidth);
 
-    layoutDimensions.heights.menuBar = $("#menu").outerHeight(true);
+    layoutDimensions.heights.menuBar = $("#title-bar").outerHeight(true);
     layoutDimensions.heights.canvas = winHeight - layoutDimensions.heights.menuBar - 2;
     layoutDimensions.heights.graphTabs = $("#graph-tabs").outerHeight(); // || layoutDimensions.heights.graphTabsMinGap; //if 0, use graphTabsMinGap
 
     $('div#canvas').height(layoutDimensions.heights.canvas);
-    $('div.ui-tabs-panel').height(layoutDimensions.heights.canvas - layoutDimensions.heights.graphTabsGap).width(winWidth).css('margin','0').css('padding','0');
+    $('div.graph-panel').height(layoutDimensions.heights.canvas - layoutDimensions.heights.graphTabs).width(winWidth).css('margin','0').css('padding','0');
 
     layoutDimensions.heights.pickers = layoutDimensions.heights.canvas; //paddings
     $('div.picker').height(layoutDimensions.heights.pickers);
@@ -1092,7 +1092,7 @@ function hideGraphEditor(){
 
 //EVENT FUNCTIONS
 function titleChange(titleControl){
-    var panelId = $(titleControl).closest("div.ui-tabs-panel").get(0).id;
+    var panelId = $(titleControl).closest("div.graph-panel").get(0).id;
     oHighCharts[panelId].setTitle({text:titleControl.value});
     oPanelGraphs[panelId].title = titleControl.value;
     if(titleControl.value.length==0){
@@ -1208,7 +1208,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
 
     var graphOptions = '<option value="new">new graph</option>';
     var visiblePanel = visiblePanelId();
-    $('div.ui-tabs-panel').each(function(){
+    $('div.graph-panel').each(function(){
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
     });
@@ -2193,7 +2193,8 @@ function deleteCheckedSeries(){
 // actual addTab function: adds new tab using the title input from the form above.  Also checks and sets the edit graph button
 function addTab(title) {
     var tab_title =  (title.length==0)?'Graph '+tab_counter:title;
-    var newDiv = $graphTabs.tabs('add', '#graphTab'+tab_counter, tab_title);
+    var newTab = $graphTabs.tabs('add', '#graphTab'+tab_counter, tab_title);
+    $('#graphTab'+tab_counter).addClass('graph-panel');
     //this causes problem when deleting tabs
     $( "#canvas" ).tabs().find( ".ui-tabs-nav" ).sortable({ axis: "x" });
     $graphTabs.tabs('select', $graphTabs.tabs('length') - 1);
@@ -2208,10 +2209,10 @@ function addTab(title) {
     $('#graph-tabs a:last').click(function(){
         hideGraphEditor()
     });
-    /*    $('#canvas .ui-tabs-panel:last div.chart').dblclick(function(){
+    /*    $('#canvas .graph-panel:last div.chart').dblclick(function(){
      editGraph(); todo: modify the graph's plots by adding from quickViews or by deleting form graphs's series provenance panel
      });*/
-    return($('#canvas .ui-tabs-panel:last').attr('id'));
+    return($('#canvas .graph-panel:last').attr('id'));
 }
 //run when a graph tab is deleted.  Also checks and sets the edit graph button and global variable
 function removeTab(span){
@@ -2486,7 +2487,7 @@ function mask(){
     <div id="title-bar" class="title-bar" style="background-color:#000;border:0px;">
         <a href="/" target="_blank"><img height="32px" style="margin:0 10px 0 20px;" src="/global/images/logo/md_logo_sm.png"></a>
         <!--span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Workbench</span-->
-        <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all" style="position:relative; left:5px; border:0; background:none;height:30px;display: inline-block;">
+        <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
             <!--PICKER TABS-->
             <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" style="background:none;border:0;display:inline;">
                 <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Series</a></li>
@@ -2495,7 +2496,7 @@ function mask(){
                 <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
             </ul>
         </div>
-        <button style="position:relative;left:20px;top:-10px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
+        <button style="position:absolute;left:650px;top:5px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu-->
         <ul id="jsddm" class="menu" style="list-style-type: none;float:right;">
             <li><span id="login-display">sign in</span><span class="sorting_asc"><span></span></span>

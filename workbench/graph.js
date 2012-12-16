@@ -64,7 +64,7 @@ console = console || {log: function(msg){}};  //allow conole.log call without tr
 
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
-    var panelId = $(node).closest('div.ui-tabs-panel').get(0).id;
+    var panelId = $(node).closest('div.graph-panel').get(0).id;
     if(oHighCharts[panelId]) oHighCharts[panelId].destroy();
     var oGraph = oPanelGraphs[panelId];
     var chart;
@@ -339,7 +339,6 @@ function chartPanel(node){
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
     return chart;
 }
-
 function setCropSlider(panelId){  //get closest point to recorded js dt
     var leftIndex, rightIndex, i, bestDelta, thisDelta;
     var oGraph = oPanelGraphs[panelId];
@@ -385,9 +384,9 @@ function setCropSlider(panelId){  //get closest point to recorded js dt
         .slider("option", "max", chartOptions.x.length-1)
         .slider("option", "values", [leftIndex, rightIndex]);
 }
-
 function dateFromMdDate(dt, periodicity){
-    var udt = new Date(dt.substr(0,4));
+    var udt;
+    udt = new Date(dt.substr(0,4) + ' UTC');
     switch(periodicity){
         case "N": {
             udt.setUTCHours(dt.substr(9,2));
@@ -414,7 +413,7 @@ function closestDate(nearbyDate, seriesData, closestYet){
 }
 function getGraph(node){
     var panelID;
-    panelID = $(node).closest("div.ui-tabs-panel").get(0).id;
+    panelID = $(node).closest("div.graph-panel").get(0).id;
     return oPanelGraphs[panelID];
 }
 function assetNeeded(handle, graph, assetsToFetch){
@@ -520,7 +519,8 @@ function createChartObject(oGraph){
             animation: false,
             type: 'line',
             zoomType: 'x',
-            height: ($('div.ui-tabs-panel').height()-175) * ((oGraph.mapsets||oGraph.pointsets)?0.4:1), //leave space for analysis textarea
+            //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
+            height: ($('div.graph-panel').height()-70 - (oGraph.map?70:0)) * ((oGraph.mapsets||oGraph.pointsets)?0.4:1), //leave space for analysis textarea
             x: []
         },
         colors: hcColors,
@@ -992,6 +992,151 @@ function plotFormula(plot){//returns a formula for eval, with lcase S & U and uc
     return formula;
 
 }
+
+function makeDataTable(panelId, type){  //create tables in data tab of data behind the chart, the map regions, and the map markers
+    var hasMap, hasChart, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
+    var oGraph = oPanelGraphs[panelId];
+    var assets = oGraph.assets;
+    if(oGraph.plots){
+        var chart = oHighCharts[panelId];
+        hasChart = true;
+    } else {
+        hasChart = false;
+    }
+    if(oGraph.map){
+        hasMap = true;
+        var mapData = assets.mapData;
+    } else {
+        hasMap = false;
+    }
+    /*
+     strategy:
+     1.  separate tables (tabs) for chart, map regions, map markers
+     2.  build array of arrays on the fly, each plot at a time
+     2.  each row contains the full set of assets and calculated data
+     3.  header:  name, units, symbol, source
+     4.  skip the calculated column when formula = A & no unit or name changes
+     5.  insert row where date DNE
+     */
+
+    //create a structure to put all data and results into
+    var grid = [
+        ['name:'],     //name of component or plot (plot names are bolded); component column removed if straight through plot
+        ['units:'],
+        ['source:'],
+        ['notes:'],
+        ['region code:'], //row deleted if empty at func end
+        ['lat, lon:'],  //row deleted if empty at func end
+        ['date:']   // for successive columns:  formula for plot or variable (e.g.: "a") for component
+    ];
+
+    var rowPosition = {
+        name: 0,
+        units: 1,
+        source: 2,
+        notes: 3,
+        region: 4,
+        lat_lon: 5,
+        date: 6,
+        dataStart: 7
+    };
+
+    if(type=='chart'){
+
+        for(p=0;p<oGraph.plots.length;p++){
+            plot = oGraph.plots[p];
+            serie = chart.get('P'+p);
+
+            var showComponentsAndPlot = plot.components.length>1 || (plot.options.formula && plot.options.formula.length>1) || plot.options.units || plot.options.name;
+            for(c=0;c<plot.components.length;c++){
+                component = assets[plot.components[c].handle];
+                grid[rowPosition.name].push((showComponentsAndPlot?'':'<b>') + component.name + (showComponentsAndPlot?'':'</b>'));
+                grid[rowPosition.units].push(component.units);
+                grid[rowPosition.source].push('<a href="'+ component.url +'">' + component.src + '</a>');
+                grid[rowPosition.notes].push(component.notes);
+                grid[rowPosition.region].push(component.iso1366?component.iso1366:'');
+                grid[rowPosition.lat_lon].push((component.lat)?'"' + component.lat + ', ' + component.lon + '"':'');
+                grid[rowPosition.date].push(showComponentsAndPlot?String.fromCharCode('a'.charCodeAt(0)+c):'values');
+                for(row=rowPosition.dataStart;row<grid.length;row++){
+                    grid[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
+                }
+                compData = component.data.split('||');
+                for(d=0;d<compData.length;d++){
+                    mdPoint = compData[d].split('|');
+                    jsdt = dateFromMdDate( mdPoint[0], component.period);
+                    mdDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
+                    if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
+                        //search to see if this date is in gridArray
+                        for(row=rowPosition.dataStart;row<grid.length;row++){
+                            if(grid[row][0].dt.getTime() == jsdt.getTime()) {
+                                break;
+                            }
+                            if(grid[row][0].dt.getTime() > jsdt.getTime()){
+                                grid.splice(row,0,new Array(grid[0].length));
+                                grid[row][0] = {dt: jsdt, s: mdDate};
+                                break;
+                            }
+                        }
+                        if(row==grid.length) {
+                            grid.push(new Array(grid[0].length));
+                            grid[row][0] = {dt: jsdt, s: mdDate};
+                        }
+                        if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+                        grid[row][grid[0].length-1] = mdPoint[1];  //actually set the value!
+                    }
+                }
+            }
+            if(showComponentsAndPlot){
+                grid[rowPosition.name].push('<b>' + serie.name + '</b>');
+                grid[rowPosition.units].push(serie.yAxis.axisTitle.text);
+                grid[rowPosition.source].push('calculated');
+                grid[rowPosition.notes].push('');
+                grid[rowPosition.region].push('');
+                grid[rowPosition.lat_lon].push('');
+                grid[rowPosition.date].push((plot.options.formula?plot.options.formula:'y=a'));
+                for(row=rowPosition.dataStart;row<grid.length;row++){
+                    grid[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
+                }
+                for(d=0;d<serie.data.length;d++){
+                    mdDate = formatDateByPeriod(serie.data[d].x, serie.options.period);
+                    //search to see if this date is in gridArray
+                    if((!oGraph.start || oGraph.start<=serie.data[d].x) && (!oGraph.end || oGraph.end>=serie.data[d].x)){
+                        for(row=rowPosition.dataStart;row<grid.length;row++){
+                            if(grid[row][0].dt.getTime() == serie.data[d].x) break;
+                            if(grid[row][0].dt.getTime() > serie.data[d].x){
+                                grid.splice(row,0,new Array(grid[0].length));
+                                grid[row][0] = {dt: serie.data[d].x, s: mdDate};
+                                break;
+                            }
+                        }
+                        if(row==grid.length){
+                            grid.push(new Array(grid[0].length));
+                            grid[row][0] = {dt: serie.data[d].x, s: mdDate};
+                        }
+                        if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+                        grid[row][grid[0].length-1] = serie.data[d].y;  //actually set the value!
+                    }
+                }
+            }
+        }
+        for(row=rowPosition.dataStart;row<grid.length;row++){
+            grid[row][0] = grid[row][0].s;  //even out array to ensure the grid is square 2-D array of arrays
+        }
+
+        if(grid[rowPosition.lat_lon].join('')=='lat, lon:') grid.splice(rowPosition.lat_lon,1);
+        if(grid[rowPosition.region].join('')=='region code:') grid.splice(rowPosition.region,1);
+    }
+    return(makeTableFromArray(grid));
+}
+function makeTableFromArray(grid){
+    var r, c;
+    for(r=0;r<grid.length;r++){
+        grid[r] = '<tr><td>' + grid[r].join('</td><td>') + '</td></tr>';
+    }
+    return '<table class="data-grid">' + grid.join('') + '</table>';
+}
+
+
 //MAP FUNCTIONS
 function calcMap(graph){
     //vars that will make up the return object
@@ -1212,76 +1357,88 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '</ol>' +
         '</div>'+
         '<div class="graph-talk graph-subpanel" style="display: none;">owner enables and reviews WordPress powered comments here</div>' +
-        '<div class="graph-data graph-subpanel" style="display: none;">users view and download data here (account required)</div>' +
+        '<div class="graph-data graph-subpanel" style="display: none;">' +
+            '<div class="graph-data-inner">' +
+                '<ul>' +
+                    '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
+                    '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
+                    '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
+                '</ul><button class="copy-to-clipboard ui-state-highlight" title="Copy table below to your clip board for easy pasting into Excel">Copy to clipboard&nbsp;</button>' +
+                '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">c-d</div>' +
+                '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="region">r-d</div>' +
+                '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="marker">m-d</div>' +
+            '</div>' +
+        '</div>' +
         '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
         '<div class="graph-chart graph-subpanel">' +
-        '<div class="graph_control_panel" style="font-size: 11px !important;">' +
-            //'<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
-            //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
-            '<div class="graph-type">default graph type ' +
-                '<select class="graph-type">' +
-                '<option value="line">line</option>' +
-                '<option value="auto">mixed line &amp; column</option>' +
-                '<option value="column">column</option>' +
-                '<option value="stacked-column">stacked column</option>' +
-                '<option value="area-percent">stacked percent</option>' +
-                '<option value="area">stacked area</option>' +
-                '<option value="logarithmic">logarithmic</option>' +
-                '<option value="normalized-line">normalized line</option>' +
-                '<option value="pie">pie</option>' +
-                '</select>' +
-            '</div>' +
-            '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
-            '<table>' +
-                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
-                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
-                    '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
-                    '<div class="crop-slider"></div>' +
-                    '</td></tr>' +
-                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
-                    '<td><label for="'+ panelId +'-rad-latest-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
-            '</table>' +
-                '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
-            '</div>' +
-            '<div class="annotations"><fieldset><legend>Annotations</legend>' +
-                '<table class="annotations"></table>' +
-            '</fieldset></div>' +
-            '<div class="downloads">' +
-                '<fieldset>' +
-                '<legend>&nbsp;Downloads&nbsp;</legend>' +
-                'Data: ' +
-                '<a title="tooltip" class="md-csv rico">CSV</a>' +
-                //'<a class="md-xls rico">Excel</a><br>' +
-                ' Image: ' +
-                //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
-                '<a onclick="exportChart(\'image/jpeg\')" class="md-jpg rico">JPG</a>' +
-                '<a onclick="exportChart(\'image/svg+xml\')" class="md-svg rico">SVG</a>' +
-                '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
-            '</fieldset>' +
-            '</div>' +
-            '<div class="downloads">' +
-            '<fieldset>' +
-            '<legend>&nbsp;Sharing&nbsp;</legend>' +
-
-            '<a href="#" class="post-facebook"><img src="http://www.eia.gov/global/images/icons/facebook.png" />facebook</a> ' +
-            '<a href="#" class="post-twitter"><img src="http://www.eia.gov/global/images/icons/twitter.png" />twitter</a> ' +
-            '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
-            '<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
-            '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />searchable</a> ' +
-            '</fieldset>' +
-            '</div>' +
-            '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
-        '</div>' +
-        '<div class="chart-map" style="width:70%;display:inline;float:right;">' +
-            '<div class="chart"></div>' +
-            '<div class="map" style="display:none;"><h3 class="map-title" style="color:black;"></h3>'+
-            '<div class="container map-controls">' +
-            '<div class="jvmap" style="display: inline-block;"></div>' +
-            '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
-                '<button class="map-play">play</button>' +
-                '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
-                '<button class="make-map">reset</button>' +
+            '<div class="graph_control_panel" style="font-size: 11px !important;">' +
+                //'<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
+                //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
+                '<div class="graph-type">default graph type ' +
+                    '<select class="graph-type">' +
+                    '<option value="line">line</option>' +
+                    '<option value="auto">mixed line &amp; column</option>' +
+                    '<option value="column">column</option>' +
+                    '<option value="stacked-column">stacked column</option>' +
+                    '<option value="area-percent">stacked percent</option>' +
+                    '<option value="area">stacked area</option>' +
+                    '<option value="logarithmic">logarithmic</option>' +
+                    '<option value="normalized-line">normalized line</option>' +
+                    '<option value="pie">pie</option>' +
+                    '</select>' +
                 '</div>' +
+                '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
+                '<table>' +
+                    '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
+                    '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
+                        '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
+                        '<div class="crop-slider"></div>' +
+                        '</td></tr>' +
+                    '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
+                        '<td><label for="'+ panelId +'-rad-latest-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+                '</table>' +
+                    '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
+                '</div>' +
+                '<div class="annotations"><fieldset><legend>Annotations</legend>' +
+                    '<table class="annotations"></table>' +
+                '</fieldset></div>' +
+                '<div class="downloads">' +
+                    '<fieldset>' +
+                    '<legend>&nbsp;Downloads&nbsp;</legend>' +
+                    'Data: ' +
+                    '<a title="tooltip" class="md-csv rico">CSV</a>' +
+                    //'<a class="md-xls rico">Excel</a><br>' +
+                    ' Image: ' +
+                    //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
+                    '<a onclick="exportChart(\'image/jpeg\')" class="md-jpg rico">JPG</a>' +
+                    '<a onclick="exportChart(\'image/svg+xml\')" class="md-svg rico">SVG</a>' +
+                    '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
+                '</fieldset>' +
+                '</div>' +
+                '<div class="downloads">' +
+                '<fieldset>' +
+                '<legend>&nbsp;Sharing&nbsp;</legend>' +
+
+                '<a href="#" class="post-facebook"><img src="http://www.eia.gov/global/images/icons/facebook.png" />facebook</a> ' +
+                '<a href="#" class="post-twitter"><img src="http://www.eia.gov/global/images/icons/twitter.png" />twitter</a> ' +
+                '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
+                '<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
+                '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />searchable</a> ' +
+                '</fieldset>' +
+                '</div>' +
+                '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
+            '</div>' +
+            '<div class="chart-map" style="width:70%;display:inline;float:right;">' +
+                '<div class="chart"></div>' +
+                '<div class="map" style="display:none;">' +
+                    '<h3 class="map-title" style="color:black;"></h3>'+
+                    '<div class="container map-controls">' +
+                        '<div class="jvmap" style="display: inline-block;"></div>' +
+                        '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
+                        '<button class="map-play">play</button>' +
+                        '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
+                        '<button class="make-map">reset</button>' +
+                    '</div>' +
                 '</div>' +
                 '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
             '</div>' +
@@ -1289,13 +1446,32 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     var chart;
 //load
     $thisPanel.find('select.graph-type').val(oGraph.type);
-    $thisPanel.find('ol.graph-nav li').click(function(){
-        $thisPanel.find('ol.graph-nav li').removeClass('graph-nav-active');
+    $thisPanel.find('ol.graph-nav').children('li').click(function(){
+        $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
         $thisPanel.find('.graph-subpanel').hide();
         $thisPanel.find('.' + $(this).attr('data')).show();
+        if(this)
         $(this).addClass('graph-nav-active');
     });
-    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-30-2-35).height($thisPanel.height()-30)
+
+    $thisPanel.find('.graph-data-inner')
+        .tabs({
+            beforeActivate: function( event, ui ) {
+                ui.newPanel.html(makeDataTable(panelId,ui.newPanel.attr('data')))
+            }
+        })
+        .tabs(oGraph.plots?"enable":"disable",0)
+        .tabs(oGraph.mapsets?"enable":"disable",1)
+        .tabs(oGraph.pointsets?"enable":"disable",2);
+
+    $thisPanel.find('.graph-nav-data').click(function(){
+        var $dataPanel = $($thisPanel.find('.graph-data-inner li.ui-state-active a').attr('href'));
+        $dataPanel.html(makeDataTable(panelId, $dataPanel.attr('data')));
+    });
+    $thisPanel.find('button.copy-to-clipboard').button({icons: {secondary: "ui-icon-copy"}}).click(function(){
+        //invoke copy to clipboard lib here!!!!!!!!!!!!!
+    });
+    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()-30)
         .find('.chart-map').width($thisPanel.width()-40-350); //
     $thisPanel.find('input.graph-publish').change(function(){
         if(this.checked){
@@ -1645,7 +1821,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         var val = calculatedMapData.dates.length-1; //initial value
         $thisPanel.find('div.map').show();
 
-        $thisPanel.find('div.jvmap').show().height(($('div.ui-tabs-panel').height()-75) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
+        //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
+        $thisPanel.find('div.jvmap').show().height(($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
         $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
         $thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
         var $slider = $thisPanel.find('.slider').show().slider({
@@ -2061,7 +2238,7 @@ function provOk(btn){//save change to graph object and rechart
 //TODO: save and rechart
     var grph = oPanelGraphs[visiblePanelId()];
     grph.plots = grph.plotsEdits;
-    var $panel= $(btn).closest("div.ui-tabs-panel");
+    var $panel= $(btn).closest("div.graph-panel");
     provClose(btn);
     $panel.find(".graph-type").change();  //trigger redaw
 }
@@ -2070,7 +2247,7 @@ function provClose(btn){ //called directly from cancel btn = close without savin
     delete grph.plotsEdits;
     var $prov = $(btn).closest(".provenance");
     $prov.find("ol, ul").sortable("destroy");
-    $prov.closest('div.ui-tabs-panel').find('.graph-nav-graph').click();
+    $prov.closest('div.graph-panel').find('.graph-nav-graph').click();
 }
 function sortComponentsByOp(comp){
     comp.sort(function(a,b){
@@ -2239,7 +2416,7 @@ function showPlotEditor(liPlot){
 
 
 function panelIdContaining(cntl){  //uniform way of getting ID of active panel for user events
-    var visPan = $(cntl).closest('div.ui-tabs-panel:visible');
+    var visPan = $(cntl).closest('div.graph-panel:visible');
     if(visPan.length==1){
         return visPan.get(0).id;
     } else {
@@ -2263,7 +2440,7 @@ function exportChart(type){
 var graphTitle = {
     show: function(oTitle){
         $('.showTitleEditor').click();
-        var thisPanelID = $(oTitle).closest('div.ui-tabs-panel').get(0).id;
+        var thisPanelID = $(oTitle).closest('div.graph-panel').get(0).id;
         /*
          $(oTitle).closest('div.highcharts-container').prepend('<div class="title-editor" style="position:absolute;z-index:100;border:thin solid black;background-color:white;left:0px;top:0px;margin:20px;width:90%;"><input type="text"><input type="text" name="title" value="'
          + oPanelGraphs[thisPanelID].title + '" /> <button onclick="graphTitle.changeOk(this)">OK</button> <button onclick="graphTitle.changeCancel(this)">cancel</button></div>');
@@ -2297,7 +2474,7 @@ var graphTitle = {
 };
 //HELPER FUNCTIONS
 function visiblePanelId(){  //uniform way of getting ID of active panel for user events
-    var visPan = $('div.ui-tabs-panel:visible');
+    var visPan = $('div.graph-panel:visible');
     if(visPan.length==1){
         return visPan.get(0).id;
     } else {
@@ -2755,7 +2932,7 @@ function annoDateParse(partialDateString){
 }
 function deleteAnno(deleteAnchor){
     var id = $(deleteAnchor).closest('tr').attr('data');
-    var panelId = $(deleteAnchor).closest('div.ui-tabs-panel').attr('id');
+    var panelId = $(deleteAnchor).closest('div.graph-panel').attr('id');
     var oGraph = oPanelGraphs[panelId];
     for(var i=0;i< oGraph.annotations.length;i++){
         if(id == oGraph.annotations[i].id){
@@ -2784,7 +2961,7 @@ function gun(desired, alpha){
 }
 function changeAnno(obj){
     var id = $(obj).closest('tr').attr('data');
-    var panelId = $(obj).closest('div.ui-tabs-panel').attr('id');
+    var panelId = $(obj).closest('div.graph-panel').attr('id');
     var oGraph = oPanelGraphs[panelId];
     var anno;
     for(var i=0;i< oGraph.annotations.length;i++){

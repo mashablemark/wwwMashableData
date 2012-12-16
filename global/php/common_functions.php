@@ -55,7 +55,7 @@ function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mys
 
 function getConnection(){
     global $db;
-    if($_SERVER["SERVER_NAME"]=="www.mashabledata.com"){
+    if(strpos($_SERVER["SERVER_NAME"],"mashabledata.com")>=0){
         $db = new mysqli("localhost","melbert_admin","g4bmyLl890e0");
     } else {
         $db = new mysqli("127.0.0.1:3306","root","");
@@ -208,3 +208,9 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
     }
 }
 
+function encyptAcctInfo($value){
+
+}
+function decryptAcctInfo($encyptedString){
+
+}
