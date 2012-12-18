@@ -1,6 +1,9 @@
 @charset "utf-8";
 /* CSS Document */
 /* md Reset */
+img, a{
+    border: none;
+}
 #md h3, #md div, #md span, #md p, #md a, #md img, #md strong, #md tt, #md b, #md u, #md i, #md center,
 #md ol, #md ul, #md li, #md label, #md table, #md tbody, #md tfoot, #md thead, #md tr, #md th, #md td,
 article, #md aside, #md canvas, #md details, #md embed, #md 
