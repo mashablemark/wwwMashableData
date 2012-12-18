@@ -60,7 +60,7 @@ var jVectorMapTemplates = {
     "world": "world_mil"
 };
 
-console = console || {log: function(msg){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
+if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
 
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
@@ -410,11 +410,6 @@ function closestDate(nearbyDate, seriesData, closestYet){
         if(Math.abs(nearbyDate-seriesData[i][0])<Math.abs(nearbyDate-closestYet) || closestYet===undefined) closestYet = seriesData[i][0];
     }
     return closestYet;
-}
-function getGraph(node){
-    var panelID;
-    panelID = $(node).closest("div.graph-panel").get(0).id;
-    return oPanelGraphs[panelID];
 }
 function assetNeeded(handle, graph, assetsToFetch){
     graph.assets = graph.assets || {};
@@ -1426,7 +1421,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />searchable</a> ' +
                 '</fieldset>' +
                 '</div>' +
-                '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
+                '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-saveas">save as&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
             '</div>' +
             '<div class="chart-map" style="width:70%;display:inline;float:right;">' +
                 '<div class="chart"></div>' +
@@ -1473,6 +1468,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     });
     $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()-30)
         .find('.chart-map').width($thisPanel.width()-40-350); //
+    $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('input.graph-publish').change(function(){
         if(this.checked){
             $thisPanel.find('button.graph-save-preview').removeAttr("disabled");
@@ -1659,13 +1655,20 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     });
     oGraph.isDirty = oGraph.gid;
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable').click(function(){
-        saveGraph(getGraph(this));
-        $thisPanel.find('button.graph-delete').button("enable");
+        saveGraph(oGraph);
+        $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
+    });
+    $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)}).click(function(){
+        delete oGraph.gid;
+        graphTitle.show(this, function(){
+            saveGraph(oGraph);
+            $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
+        });
     });
     $thisPanel.find('button.graph-close').button({icons: {secondary: "ui-icon-closethick"}}).click(function(){
         $('ul#graph-tabs a[href=#' + panelId + ']').siblings('span').click();
     });
-    $thisPanel.find('button.graph-delete').button({icons: {secondary: "ui-icon-trash"}}).click(function(){
+    $thisPanel.find('button.graph-delete').button({icons: {secondary: "ui-icon-trash"}, disabled: (!oGraph.gid)}).click(function(){
         dialogShow("Permanently Delete Graph", "Are you sure you want to delete this graph?",
             [
                 {
@@ -1685,7 +1688,6 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 }
             ]);
     });
-    if(oGraph.gid)$thisPanel.find('button.graph-delete').button("disable");
     oGraph.smallestPeriod = "A";
     oGraph.largestPeriod = "N";
     var min, max, key, jsdt, handle;
@@ -2438,7 +2440,7 @@ function exportChart(type){
 
 //This object performs all of the task associated with editing and setting the chart title
 var graphTitle = {
-    show: function(oTitle){
+    show: function(oTitle, callback){
         $('.showTitleEditor').click();
         var thisPanelID = $(oTitle).closest('div.graph-panel').get(0).id;
         /*
@@ -2452,8 +2454,9 @@ var graphTitle = {
             'left': '50px'
         });
         $('#titleEditor input').css("width","450px").focus();
-        //oHighCharts[thisPanelID].setTitle({text: ' '});
+        this.callback = callback;
     },
+    callBack: false,
     changeOk: function(){
         var thisPanelID =  $('#titleEditor input').attr('data');
         oPanelGraphs[thisPanelID].title = $('#titleEditor input').val();
@@ -2465,11 +2468,13 @@ var graphTitle = {
             oHighCharts[thisPanelID].setTitle({text: oPanelGraphs[thisPanelID].title, style: {color: 'black', font: 'normal'}});
             $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',oPanelGraphs[thisPanelID].title).html(oPanelGraphs[thisPanelID].title);
         }
+        if(this.callback) this.callback();
         $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
         this.changeCancel();
     },
     changeCancel: function(){
         $.fancybox.close();
+        this.callBack = false;
     }
 };
 //HELPER FUNCTIONS

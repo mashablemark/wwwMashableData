@@ -166,7 +166,7 @@ function jsddm_timer(){  ddmenuClosetimer = window.setTimeout(jsddm_close, ddmen
 function jsddm_canceltimer(){if(ddmenuClosetimer){window.clearTimeout(ddmenuClosetimer);ddmenuClosetimer = null;}}
 document.onclick = jsddm_close;
 
-console = console || {log: function(msg){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
+if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};
 
 function addJQueryStringify(){ //stringify extension ensure stringify functionality for older browsers
     jQuery.extend({
@@ -2601,9 +2601,9 @@ function mask(){
 <div id="dwrap" style="display:none;width:100%;height:90%;">
     <div id="outer-show-graph-div" style="width:100%;height:100%;position:relative;background-color:white;">
         <div id="highcharts-div" style="width:90%;height:60%;position:static;"></div>
-        </br>
+        <br />
         <div id="qv-info"></div>
-        </br>
+        <br />
         <div id="quick-view-controls" class="no_print">
             <fieldset class="tight-fieldset"><legend>graph</legend>
                 <select id="quick-view-to-graphs"></select>
