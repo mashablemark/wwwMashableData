@@ -279,7 +279,7 @@ $(document).ready(function(){
 
     $('#jsddm > li').bind('mouseover', jsddm_open);
     $('#jsddm > li').bind('mouseout',  jsddm_timer);
-    $("#series-tabs li a").click(function (){seriesPanel(this)});
+    lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).find("[data='#local-series']").get(0);
     //$pickerTabs = $("#pickers" ).tabs();
     /*	$( "#graph_text" ).resizable({ minWidth: 705, maxWidth: 705,  minHeight: 30, maxHeight: 160, resize: function(event, ui) {
      console.log(ui.size.height + ":" + ui.originalSize.height);

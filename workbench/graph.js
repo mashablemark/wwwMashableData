@@ -23,15 +23,15 @@ var dashStyles = [
     'Long Dash Dot',
     'Long Dash Dot Dot'
 ];
-var periodValue = {
-    N: 1,
-    D: 2,
-    W: 3,
-    M: 4,
-    Q: 5,
-    SA: 6,
-    A: 7
-} ;
+var periodValue = { //used to determine rank and to set column widths
+    N: 1000, //one second
+    D: 24*3600*1000,
+    W: 7*24*3600*1000,
+    M: 30*24*3600*1000,
+    Q: 365/4*24*3600*1000,
+    SA: 365/2*24*3600*1000,
+    A: 365*24*3600*1000
+};
 var periodName = {
     N: 'non period data',
     D: 'daily',
@@ -57,7 +57,7 @@ var opUI = {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-div
 var jVectorMapTemplates = {
     "European Union": "europe_mill_en",
     "US states": "us_aea_en",
-    "world": "world_mil"
+    "world": "world_mill_en"
 };
 
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
@@ -339,6 +339,23 @@ function chartPanel(node){
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
     return chart;
 }
+function intervalStartDt(graph){
+    var dt =  new Date(parseInt(graph.lastdt));
+    switch (graph.largestPeriod){
+        case 'A':
+            return dt.setUTCFullYear(dt.getUTCFullYear()-graph.interval).getTime();
+        case 'SA':
+            return dt.setUTCMonth(dt.getUTCMonth()-graph.interval*6).getTime();
+        case 'Q':
+            return dt.setUTCMonth(dt.getUTCMonth()-graph.interval*3).getTime();
+        case 'M':
+            return dt.setUTCMonth(dt.getUTCMonth()-graph.interval).getTime();
+        case 'W':
+            return dt.setUTCDate(dt.getUTCDate()-graph.interval*7).getTime();
+        default:
+            return dt.setUTCDate(dt.getUTCDate()-graph.interval).getTime();
+    }
+}
 function setCropSlider(panelId){  //get closest point to recorded js dt
     var leftIndex, rightIndex, i, bestDelta, thisDelta;
     var oGraph = oPanelGraphs[panelId];
@@ -481,7 +498,7 @@ var p, c, handle;
 }
 function createMyGraph(gid, onComplete){
     var oMyGraph = oMyGraphs['G' + gid];
-    var fileAssets = ["/global/js/highcharts/js/highcharts.2.2.5.src.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"];
+    var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"];
     if(oMyGraph.map) fileAssets.push('js/maps/jquery_jvectormap_'+ jVectorMapTemplates[oMyGraph.map] +'.js');   //get the map too if needed
     require(fileAssets); //parallel load while getting db assets
     getAssets(oMyGraph, function(){
@@ -552,7 +569,7 @@ function createChartObject(oGraph){
                             return this.point.id;
                         }
                     },
-                    y:5,
+                    y:9,
                     x:0
                 }
             }
@@ -569,7 +586,7 @@ function createChartObject(oGraph){
         }, // tooltip: {shared:true, crosshairs:[true,false]},
         xAxis: {
             type: 'datetime',
-            min: (oGraph.start===null)?null:parseInt(oGraph.start),
+            min: (oGraph.start===null)?(oGraph.intervals?intervalStartDt(oGraph):null):parseInt(oGraph.start),
             max: (oGraph.end===null)?null:parseInt(oGraph.end)
             //maxZoom: 10 * 365 * 24 * 3600 * 1000
         },
@@ -759,31 +776,18 @@ function createChartObject(oGraph){
             jschart.chart.type = "area";
             break;
         case "auto":
-            var maxPeriodWidth = -1;
-            var minPeriodWidth = 1e12;
-            for(var i=0;i<jschart.series.length;i++){
-                if(jschart.series[i].period){
-                    var rank = periodWidth(jschart.series[i].period);
-                    if(minPeriodWidth > rank)minPeriodWidth = rank;
-                    if(maxPeriodWidth < rank)maxPeriodWidth = rank;
-                }
-            }
-            if(maxPeriodWidth != minPeriodWidth){
+            if(oGraph.smallestPeriod!=oGraph.largestPeriod) {//default is all lines if they have the same periodicity
                 for(var i=0;i<jschart.series.length;i++){
-                    if(maxPeriodWidth == periodWidth(jschart.series[i].period)){
+                    if(oGraph.largestPeriod == jschart.series[i].period){  //only convert the largest to column (ie. if monthly + quarterly + annual, only annual data become columns)
                         jschart.series[i].type = 'column';
                         jschart.series[i].zIndex = 8;
-                        //jschart.series[i].lineWidth = null;
-                        //jschart.series[i].pointPadding = 30*24*3600*1000;
-                        //jschart.series[i].pointWidth = 10;  //TODO: change when next Highcharts release fixes bug
-                        for(var j=0;j<jschart.series[i].data.length;j++){
-                            jschart.series[i].data[j].x +=  maxPeriodWidth /2;
-                        }
-                        //jschart.series[i].pointPadding = 10; //365*24*60*60*1000;
+                        jschart.series[i].pointRange = periodValue[jschart.series[i].period];
+                        jschart.series[i].pointPlacement = 'between';
+                        jschart.series[i].pointPadding = 0; //default 0.1
+                        jschart.series[i].groupPadding = 0.05; //default 0.2
                     }
                 }
-            }   //default is all lines if they have the same periodicity
-
+            }
             break;
         case "logarithmic":
             for(var i=0;i<jschart.yAxis.length;i++){jschart.yAxis[i].type='logarithmic'}
@@ -988,8 +992,8 @@ function plotFormula(plot){//returns a formula for eval, with lcase S & U and uc
 
 }
 
-function makeDataTable(panelId, type){  //create tables in data tab of data behind the chart, the map regions, and the map markers
-    var hasMap, hasChart, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
+function makeDataTable(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
+    var hasMap, hasChart, m, r, i, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
     var oGraph = oPanelGraphs[panelId];
     var assets = oGraph.assets;
     if(oGraph.plots){
@@ -1000,7 +1004,7 @@ function makeDataTable(panelId, type){  //create tables in data tab of data behi
     }
     if(oGraph.map){
         hasMap = true;
-        var mapData = assets.mapData;
+        var $map = $('#' + panelId + ' .jvmap').vectorMap('get', 'mapObject');
     } else {
         hasMap = false;
     }
@@ -1024,7 +1028,6 @@ function makeDataTable(panelId, type){  //create tables in data tab of data behi
         ['lat, lon:'],  //row deleted if empty at func end
         ['date:']   // for successive columns:  formula for plot or variable (e.g.: "a") for component
     ];
-
     var rowPosition = {
         name: 0,
         units: 1,
@@ -1036,92 +1039,193 @@ function makeDataTable(panelId, type){  //create tables in data tab of data behi
         dataStart: 7
     };
 
-    if(type=='chart'){
+    switch(type){
 
-        for(p=0;p<oGraph.plots.length;p++){
-            plot = oGraph.plots[p];
-            serie = chart.get('P'+p);
+//CHART
+        case 'chart':
 
-            var showComponentsAndPlot = plot.components.length>1 || (plot.options.formula && plot.options.formula.length>1) || plot.options.units || plot.options.name;
-            for(c=0;c<plot.components.length;c++){
-                component = assets[plot.components[c].handle];
-                grid[rowPosition.name].push((showComponentsAndPlot?'':'<b>') + component.name + (showComponentsAndPlot?'':'</b>'));
-                grid[rowPosition.units].push(component.units);
-                grid[rowPosition.source].push('<a href="'+ component.url +'">' + component.src + '</a>');
-                grid[rowPosition.notes].push(component.notes);
-                grid[rowPosition.region].push(component.iso1366?component.iso1366:'');
-                grid[rowPosition.lat_lon].push((component.lat)?'"' + component.lat + ', ' + component.lon + '"':'');
-                grid[rowPosition.date].push(showComponentsAndPlot?String.fromCharCode('a'.charCodeAt(0)+c):'values');
-                for(row=rowPosition.dataStart;row<grid.length;row++){
-                    grid[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
-                }
-                compData = component.data.split('||');
-                for(d=0;d<compData.length;d++){
-                    mdPoint = compData[d].split('|');
-                    jsdt = dateFromMdDate( mdPoint[0], component.period);
-                    mdDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
-                    if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
-                        //search to see if this date is in gridArray
-                        for(row=rowPosition.dataStart;row<grid.length;row++){
-                            if(grid[row][0].dt.getTime() == jsdt.getTime()) {
-                                break;
+            for(p=0;p<oGraph.plots.length;p++){
+                plot = oGraph.plots[p];
+                serie = chart.get('P'+p);
+
+                var showComponentsAndPlot = plot.components.length>1 || (plot.options.formula && plot.options.formula.length>1) || plot.options.units || plot.options.name;
+                for(c=0;c<plot.components.length;c++){
+                    component = assets[plot.components[c].handle];
+                    grid[rowPosition.name].push((showComponentsAndPlot?'':'<b>') + component.name + (showComponentsAndPlot?'':'</b>'));
+                    grid[rowPosition.units].push(component.units);
+                    grid[rowPosition.source].push('<a href="'+ component.url +'">' + component.src + '</a>');
+                    grid[rowPosition.notes].push(component.notes);
+                    grid[rowPosition.region].push(component.iso1366?component.iso1366:'');
+                    grid[rowPosition.lat_lon].push((component.lat)?'"' + component.lat + ', ' + component.lon + '"':'');
+                    grid[rowPosition.date].push(showComponentsAndPlot?String.fromCharCode('a'.charCodeAt(0)+c):'values');
+                    makeSquare(grid);
+                    compData = component.data.split('||');
+                    for(d=0;d<compData.length;d++){
+                        mdPoint = compData[d].split('|');
+                        jsdt = dateFromMdDate( mdPoint[0], component.period);
+                        mdDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
+                        if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
+                            //search to see if this date is in gridArray
+                            for(row=rowPosition.dataStart;row<grid.length;row++){
+                                if(grid[row][0].dt.getTime() == jsdt.getTime()) {
+                                    break;
+                                }
+                                if(grid[row][0].dt.getTime() > jsdt.getTime()){
+                                    grid.splice(row,0,new Array(grid[0].length));
+                                    grid[row][0] = {dt: jsdt, s: mdDate};
+                                    break;
+                                }
                             }
-                            if(grid[row][0].dt.getTime() > jsdt.getTime()){
-                                grid.splice(row,0,new Array(grid[0].length));
+                            if(row==grid.length) {
+                                grid.push(new Array(grid[0].length));
                                 grid[row][0] = {dt: jsdt, s: mdDate};
-                                break;
                             }
+                            if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+                            grid[row][grid[0].length-1] = mdPoint[1];  //actually set the value!
                         }
-                        if(row==grid.length) {
-                            grid.push(new Array(grid[0].length));
-                            grid[row][0] = {dt: jsdt, s: mdDate};
-                        }
-                        if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
-                        grid[row][grid[0].length-1] = mdPoint[1];  //actually set the value!
                     }
                 }
-            }
-            if(showComponentsAndPlot){
-                grid[rowPosition.name].push('<b>' + serie.name + '</b>');
-                grid[rowPosition.units].push(serie.yAxis.axisTitle.text);
-                grid[rowPosition.source].push('calculated');
-                grid[rowPosition.notes].push('');
-                grid[rowPosition.region].push('');
-                grid[rowPosition.lat_lon].push('');
-                grid[rowPosition.date].push((plot.options.formula?plot.options.formula:'y=a'));
-                for(row=rowPosition.dataStart;row<grid.length;row++){
-                    grid[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
-                }
-                for(d=0;d<serie.data.length;d++){
-                    mdDate = formatDateByPeriod(serie.data[d].x, serie.options.period);
-                    //search to see if this date is in gridArray
-                    if((!oGraph.start || oGraph.start<=serie.data[d].x) && (!oGraph.end || oGraph.end>=serie.data[d].x)){
-                        for(row=rowPosition.dataStart;row<grid.length;row++){
-                            if(grid[row][0].dt.getTime() == serie.data[d].x) break;
-                            if(grid[row][0].dt.getTime() > serie.data[d].x){
-                                grid.splice(row,0,new Array(grid[0].length));
+                if(showComponentsAndPlot){
+                    grid[rowPosition.name].push('<b>' + serie.name + '</b>');
+                    grid[rowPosition.units].push(serie.yAxis.axisTitle.text);
+                    grid[rowPosition.source].push('calculated');
+                    grid[rowPosition.notes].push('');
+                    grid[rowPosition.region].push('');
+                    grid[rowPosition.lat_lon].push('');
+                    grid[rowPosition.date].push((plot.options.formula?plot.options.formula:'y=a'));
+                    makeSquare(grid);
+                    for(d=0;d<serie.data.length;d++){
+                        mdDate = formatDateByPeriod(serie.data[d].x, serie.options.period);
+                        //search to see if this date is in gridArray
+                        if((!oGraph.start || oGraph.start<=serie.data[d].x) && (!oGraph.end || oGraph.end>=serie.data[d].x)){
+                            for(row=rowPosition.dataStart;row<grid.length;row++){
+                                if(grid[row][0].dt.getTime() == serie.data[d].x) break;
+                                if(grid[row][0].dt.getTime() > serie.data[d].x){
+                                    grid.splice(row,0,new Array(grid[0].length));
+                                    grid[row][0] = {dt: serie.data[d].x, s: mdDate};
+                                    break;
+                                }
+                            }
+                            if(row==grid.length){
+                                grid.push(new Array(grid[0].length));
                                 grid[row][0] = {dt: serie.data[d].x, s: mdDate};
-                                break;
                             }
+                            if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+                            grid[row][grid[0].length-1] = serie.data[d].y;  //actually set the value!
                         }
-                        if(row==grid.length){
-                            grid.push(new Array(grid[0].length));
-                            grid[row][0] = {dt: serie.data[d].x, s: mdDate};
-                        }
-                        if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
-                        grid[row][grid[0].length-1] = serie.data[d].y;  //actually set the value!
                     }
                 }
             }
-        }
-        for(row=rowPosition.dataStart;row<grid.length;row++){
-            grid[row][0] = grid[row][0].s;  //even out array to ensure the grid is square 2-D array of arrays
-        }
-
-        if(grid[rowPosition.lat_lon].join('')=='lat, lon:') grid.splice(rowPosition.lat_lon,1);
-        if(grid[rowPosition.region].join('')=='region code:') grid.splice(rowPosition.region,1);
+            break;
+//REGIONS
+        case 'regions':
+            var vals, transposedRegionData = {}, regionCode, region, dt, regions = [];
+            var period = mapData.period;
+            for(dt in mapData.regionData){
+                for(regionCode in mapData.regionData[dt]){
+                    regions.push({"regionCode": regionCode, "name": $map.getRegionName(regionCode)});
+                }
+/*
+                regions.sort(function(a,b){
+                    return (a.name < b.name);
+                }); //alphabetize by region name
+*/
+                break;  //only need first set to get all of the regions (note: all regions element present for each data object (i.e this is a square data set))
+            }
+            var showComponents = oGraph.mapsets.components.length>1 || (oGraph.mapsets.options.formula && oGraph.mapsets.options.formula.length>1) || oGraph.mapsets.options.units;
+            for(r in regions){ //main loop (like plot loop for chart data)
+                region = regions[r];
+                for(c=0;c<oGraph.mapsets.components.length;c++){
+                    component = oGraph.mapsets.components[c];
+                    if(component.handle[0]=='M'){
+                        period = assets[component.handle].period;
+                        asset = assets[component.handle].data[region.regionCode];
+                        if(asset){   //mapsets may be not have all regions
+                            grid[rowPosition.units].push(assets[component.handle].units);
+                            grid[rowPosition.source].push('');  //TODO: src and url for mapset series
+                            grid[rowPosition.notes].push('');  //TODO: note for mapset series
+                            grid[rowPosition.region].push(region.regionCode);
+                        }
+                    } else {
+                        asset = assets[component.handle];
+                        period = asset.period;
+                        grid[rowPosition.units].push(asset.units);
+                        grid[rowPosition.source].push('<a href="'+ asset.url +'">' + asset.src + '</a>');
+                        grid[rowPosition.notes].push(asset.notes);
+                        grid[rowPosition.region].push(asset.iso1366?asset.iso1366:'');
+                    }
+                    if(asset){  //mapsets may be not have all regions
+                        makeSquare(grid);
+                        grid[rowPosition.lat_lon].push((asset.lat)?'"' + asset.lat + ', ' + asset.lon + '"':'');
+                        grid[rowPosition.name].push((showComponents?'':'<b>') + asset.name + (showComponents?'':'</b>'));
+                        grid[rowPosition.date].push(showComponents?String.fromCharCode('a'.charCodeAt(0)+c):'values');
+                        compData = asset.data.split('||');
+                        for(d=0;d<compData.length;d++){
+                            mdPoint = compData[d].split('|');
+                            jsdt = dateFromMdDate( mdPoint[0], period);
+                            mdDate = formatDateByPeriod(jsdt.getTime(), period);
+                            for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
+                                if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
+                                if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row
+                                    grid.splice(row,0,new Array(grid[0].length));
+                                    grid[row][0] = {dt: jsdt, s: mdDate};
+                                    break;
+                                }
+                            }
+                            if(row==grid.length){  //need to append new row
+                                grid.push(new Array(grid[0].length));
+                                grid[row][0] = {dt: jsdt, s: mdDate};
+                            }
+                            if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+                            grid[row][grid[0].length-1] = mdPoint[1];  //actually set the value!
+                        }
+                    }
+                }
+                if(showComponents){  //need to show calculated values
+                    grid[rowPosition.units].push(oGraph.mapsets.options.units || assets[oGraph.mapsets.components[0].handle].units);
+                    grid[rowPosition.source].push('calculated');
+                    grid[rowPosition.notes].push('');
+                    grid[rowPosition.region].push(region.regionCode);
+                    grid[rowPosition.lat_lon].push('');
+                    grid[rowPosition.name].push('<b>' + 'calculated' + '</b>');
+                    grid[rowPosition.date].push(oGraph.mapsets.options.formula || 'y = a');
+                    makeSquare(grid);
+                    for(i=0;i<mapData.dates.length;i++){
+                        if(mapData.regionData[mapData.dates[i].s]) {
+                            jsdt = mapData.dates[i].dt;
+                            mdDate = mapData.dates[i].s;
+                            for(row=rowPosition.dataStart;row<grid.length;r++){  //find the row on which the dates line up
+                                if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
+                                if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row
+                                    grid.splice(row,0,new Array(grid[0].length));
+                                    grid[row][0] = {dt: jsdt, s: mdDate};
+                                    break;
+                                }
+                            }
+                            if(row==grid.length){  //need to append new row
+                                grid.push(new Array(grid[0].length));
+                                grid[row][0] = {dt: jsdt, s: mdDate};
+                            }
+                            if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+                            grid[row][grid[0].length-1] = mapData.regionData[mapData.dates[i].s][region.regionCode];  //actually set the value!
+                        }
+                    }
+                }
+            }
+            break;
     }
+    for(row=rowPosition.dataStart;row<grid.length;row++){
+        grid[row][0] = grid[row][0].s;  //replace the object with its MDdate string
+    }
+    if(grid[rowPosition.lat_lon].join('')=='lat, lon:') grid.splice(rowPosition.lat_lon,1);
+    if(grid[rowPosition.region].join('')=='region code:') grid.splice(rowPosition.region,1);
     return(makeTableFromArray(grid));
+}
+function makeSquare(gridArray){
+    var length = gridArray[0].length;
+    for(var row=1;row<gridArray.length;row++){
+        if(gridArray[row].length<length)gridArray[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
+    }
 }
 function makeTableFromArray(grid){
     var r, c;
@@ -1324,7 +1428,7 @@ function downloadMap(panelID, format){
     Highcharts.discardElement(form);
 }
 var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
-    var title;
+    var title, calculatedMapData;
     if(oGraph.title.length==0){
         var key, assetCount=0;
         for(key in oGraph.assets){
@@ -1360,8 +1464,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                     '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
                 '</ul><button class="copy-to-clipboard ui-state-highlight" title="Copy table below to your clip board for easy pasting into Excel">Copy to clipboard&nbsp;</button>' +
                 '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">c-d</div>' +
-                '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="region">r-d</div>' +
-                '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="marker">m-d</div>' +
+                '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions">r-d</div>' +
+                '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers">m-d</div>' +
             '</div>' +
         '</div>' +
         '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
@@ -1371,8 +1475,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
                 '<div class="graph-type">default graph type ' +
                     '<select class="graph-type">' +
+                    '<option value="auto">auto (line &amp; column)</option>' +
                     '<option value="line">line</option>' +
-                    '<option value="auto">mixed line &amp; column</option>' +
                     '<option value="column">column</option>' +
                     '<option value="stacked-column">stacked column</option>' +
                     '<option value="area-percent">stacked percent</option>' +
@@ -1390,7 +1494,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                         '<div class="crop-slider"></div>' +
                         '</td></tr>' +
                     '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
-                        '<td><label for="'+ panelId +'-rad-latest-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+                        '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
                 '</table>' +
                     '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
                 '</div>' +
@@ -1416,9 +1520,14 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 
                 '<a href="#" class="post-facebook"><img src="http://www.eia.gov/global/images/icons/facebook.png" />facebook</a> ' +
                 '<a href="#" class="post-twitter"><img src="http://www.eia.gov/global/images/icons/twitter.png" />twitter</a> ' +
-                '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
-                '<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
-                '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />searchable</a> ' +
+                '<button class="email">email </button> ' +
+                '<button class="link">link </button>' +
+                //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
+                //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
+                '<br><div class="searchability">' +
+                '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">publicly searchable</label>' +
+                '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (orgName?'searcahable by members of '+ orgName:'not searchable') + '</label>' +
+                '</div>' +
                 '</fieldset>' +
                 '</div>' +
                 '<br /><button class="graph-save">save&nbsp;</button> <button class="graph-saveas">save as&nbsp;</button> <button class="graph-close">close&nbsp;</button> <button class="graph-delete">delete&nbsp;</button><br />' +
@@ -1452,7 +1561,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     $thisPanel.find('.graph-data-inner')
         .tabs({
             beforeActivate: function( event, ui ) {
-                ui.newPanel.html(makeDataTable(panelId,ui.newPanel.attr('data')))
+                ui.newPanel.html(makeDataTable(panelId,ui.newPanel.attr('data'), calculatedMapData))
             }
         })
         .tabs(oGraph.plots?"enable":"disable",0)
@@ -1461,22 +1570,14 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 
     $thisPanel.find('.graph-nav-data').click(function(){
         var $dataPanel = $($thisPanel.find('.graph-data-inner li.ui-state-active a').attr('href'));
-        $dataPanel.html(makeDataTable(panelId, $dataPanel.attr('data')));
+        $dataPanel.html(makeDataTable(panelId, $dataPanel.attr('data'), calculatedMapData));
     });
     $thisPanel.find('button.copy-to-clipboard').button({icons: {secondary: "ui-icon-copy"}}).click(function(){
         //invoke copy to clipboard lib here!!!!!!!!!!!!!
     });
-    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()-30)
+    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
         .find('.chart-map').width($thisPanel.width()-40-350); //
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
-    $thisPanel.find('input.graph-publish').change(function(){
-        if(this.checked){
-            $thisPanel.find('button.graph-save-preview').removeAttr("disabled");
-        } else {
-            $thisPanel.find('button.graph-save-preview').attr("disabled","disabled");
-        }
-    }).prop('checked',(oGraph.published=='Y'));
-    if(oGraph.published!='Y'){ $('#' + panelId + ' button.graph-save-preview').attr("disabled","disabled")}
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
 //add events
     $thisPanel.find('button.interval-selector').click(function(){
@@ -1531,6 +1632,22 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
     });
+    $thisPanel.find('.email').button({icons: {primary: "ui-icon-mail-closed"},
+        click: function(){
+            //mail to code here
+        }
+    });
+    $thisPanel.find('.link').button({icons: {primary: "ui-icon-link"},
+        click: function(){
+            //show link div code here
+        }
+    });
+    $thisPanel.find('.searchability').buttonset()
+        .find('#'+ panelId +'-private').button('option', 'icons' , { primary: "ui-icon-locked"}).end()
+        .find('#'+ panelId +'-searchable').button('option', 'icons' , { primary: "ui-icon-search"}).end()
+        .find('input').click(function(){
+            oGraph.published = $(this).val();
+        });
 
 //  *** crop routines begin ***
     if(oGraph.intervals){ //initialize crop radio button selection
@@ -1584,8 +1701,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         oGraph.intervals = interval;
         oGraph.start = null;
         oGraph.end = null;
-
-
+        oHighCharts[panelId]=chartPanel(this);
+        buildAnnotations(panelId);
     });
     $('#'+panelId+'-rad-no-crop').change(function(){
         oGraph.intervals = null;
@@ -1607,7 +1724,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 oGraph.intervals = $(this).val();
                 oGraph.start = null;
                 oGraph.end = null;
-                $thisPanel.find('graph-type').change();  //should be signals or a call to a local var  = function
+                $thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
             }
         });
 
@@ -1729,7 +1846,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
     var $map;
     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
-        var calculatedMapData = calcMap(oGraph);
+        calculatedMapData = calcMap(oGraph);
 
         var jvmap_template;
         switch(oGraph.map){
@@ -2593,7 +2710,7 @@ var banding = false;
 var bandStartPoint;
 var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
 $(document).ready(function(){
-    require(["/global/js/highcharts/js/highcharts.2.2.5.src.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"], function(){
+    require(["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"], function(){
         require(["/global/js/highcharts/js/modules/exporting.2.1.6.src.js"]);
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
         Highcharts.setOptions({
