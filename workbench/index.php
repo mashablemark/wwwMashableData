@@ -261,6 +261,7 @@ $(document).ready(function(){
         'height'            : '100%',
         'autoScale'         : true,
         'showCloseButton'   : false,
+        //'overlayOpacity'    : 0,
         'transitionIn'		: 'none',
         'transitionOut'		: 'none'
     });
@@ -279,7 +280,7 @@ $(document).ready(function(){
 
     $('#jsddm > li').bind('mouseover', jsddm_open);
     $('#jsddm > li').bind('mouseout',  jsddm_timer);
-    lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).find("[data='#local-series']").get(0);
+    lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).filter("[data='#local-series']").get(0);
     //$pickerTabs = $("#pickers" ).tabs();
     /*	$( "#graph_text" ).resizable({ minWidth: 705, maxWidth: 705,  minHeight: 30, maxHeight: 160, resize: function(event, ui) {
      console.log(ui.size.height + ":" + ui.originalSize.height);
@@ -1224,7 +1225,7 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
     //$('#fancybox-close').click(); < explicitly close it
     return serieskey;
 }
-function quickViewToGraph(btn){
+function quickViewToChart(btn){
     $(btn).attr("disabled","disabled");
     var panelId =  $('#quick-view-to-graphs').val();
     if(oQuickViewSeries.plots){  //we have a complete graph object!
@@ -1303,8 +1304,9 @@ function quickViewToMap(){
                 buildGraphPanel(oGraph);
             } else {
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                var $makeMapButton= $('#' + panelId + ' .make-map');
-                if($makeMapButton.length==1) $makeMapButton.click(); else $('#' + panelId + ' .graph-type').change();
+                /*var $makeMapButton= $('#' + panelId + ' .make-map');
+                if($makeMapButton.length==1) $makeMapButton.click(); else*/
+                $('#' + panelId + ' .graph-type').change();
             }
         });
         unmask();
@@ -1942,6 +1944,7 @@ function saveGraph(oGraph) {
                 //first find to whether this is a new row or an update
                 oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
                 oGraph.ghash = jsoData.ghash;
+                oGraph.isDirty = false;
                 var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
                 objForDataTable.updatedt = new Date().getTime();
                 if(('G' + oGraph.gid) in oMyGraphs){
@@ -2075,17 +2078,8 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
     var oGraph;
     mask();
     if(panelId===undefined){
-        var oGraph = {
-            title: '',
-            analysis: '',
-            start: null,  //null = uncropped
-            end: null,
-            published: 'N',
-            type: 'line',
-            annotations: [],
-            assets: {},
-            plots: []
-        };
+        var oGraph = emptyGraph();
+        oGraph.plots = [];
     } else {
         oGraph = oPanelGraphs[panelId];
     }
@@ -2609,13 +2603,20 @@ function mask(){
                 <select id="quick-view-to-graphs"></select>
                 <select class="quick-view-maps"></select>
                 <button class="quick-view-maps" onclick="quickViewToMap(this)">map entire set</button>
-                <button id="quick-view-to-graph" onclick="quickViewToGraph(this)">chart series</button>
+                <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
             </fieldset>
             <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
             <button onclick="quickViewClose()">Close</button>
         </div>
     </div>
 </div>
+<a class="show-link-options" href="#link-options-div"></a>
+<div id="dwrap" style="display:none;width:100%;height:90%;">
+    <div id="link-options-div" style="background-color:white;">
+        link options
+    </div>
+</div>
+
 <!--graph title editor div used by fancy box-->
 <a class="showTitleEditor" href="#titleEditor"></a>
 <div id="dwrap2" style="display:none;position:absolute;top:50px;left:0px;width:75%;height:35px;">

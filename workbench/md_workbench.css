@@ -458,10 +458,26 @@ div.slider{
     top: 4px;
     left: 4px;
 }
+div.sharing fieldset{
+    padding: 0;
+}
+div.sharing div{
+    margin: 5px;
+}
 div.graph-analysis{
     z-index: 1;
-
 }
+textarea#link-html{
+    width: 580px;
+    height: 50px;
+}
+/*
+button#ghash-reset{
+    display: inline;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+}*/
 button.toggle-inactive{
     margin:0;
     border-style: outset;
@@ -751,7 +767,7 @@ ul.comp-op li{
     list-style-type: none;
     width: 200px;
 }
-button.edit-plot, button.edit-comp{ float: right;}
+button.edit-plot, button.edit-comp, .right{ float: right;}
 .ui-icon-grip-dotted-vertical{
     display: inline-block;
 }

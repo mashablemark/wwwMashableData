@@ -534,6 +534,13 @@ switch($command){
             $output = array("status" => "fail: no gids to delete");
         }
         break;
+    case "resetGhash":
+        requiresLogin();
+        $gid = intval($_POST["gid"]);
+        $uid = intval($_POST["uid"]);
+        $ghash = setGhash($gid, $uid);
+        $output = array("status" => "ok", "gid" => $gid, "ghash"=> $ghash);
+        break;
     case "ManageMyGraphs":
         requiresLogin();
         $usageTracking = trackUsage("count_graphsave");
@@ -570,45 +577,15 @@ switch($command){
         //table structure = graphs <-> graphplots <-> plotcomponents
 
         if(count($gid) == 0 || $gid==0){
+            $ghash = makeGhash($uid);  //ok to use uid instead of gid as ghash is really just a random number
             $sql = "insert into graphs (userid, published, title, text, type, "
-            . " intervalcount, fromdt, todt, annotations, map, mapconfig, views, createdt) values ("
+            . " intervalcount, fromdt, todt, annotations, map, mapconfig, views, createdt, ghash) values ("
             . $user_id . ", '" . $published . "',". safeSQLFromPost("title") . "," . safeSQLFromPost("analysis")
             . ", '" . $type . "', " . $intervals
             . ", " . $from . ", ". $to . ", ". safeSQLFromPost("annotations")
-                . ", " . safeSQLFromPost("map") . ", " . safeSQLFromPost("mapconfig")   . ", 0, ".$createdt.")";
-            logEvent("ManageMyGraphs: insert graphs record", $sql);
-            if(!runQuery($sql)){$output = array("status" => "fail on graph record insert", "post" => $_POST);break;}
+                . ", " . safeSQLFromPost("map") . ", " . safeSQLFromPost("mapconfig")   . ", 0, ".$createdt.",'". $ghash . "')";
+            if(!runQuery($sql, "ManageMyGraphs: insert graphs record")){$output = array("status" => "fail on graph record insert", "post" => $_POST);break;}
             $gid = $db->insert_id;
-            //set the ghash field (which requires knowing the graph.graphid)
-            $sql = "update graphs set ghash = '" . md5($gid . "mashrocks") . "' where graphid = " . $gid;
-            logEvent("ManageMyGraphs: update ghash", $sql);
-            runQuery($sql);
-
-/*         //remove any deleted plots
-            $sql = "select plotid from graphplots where graphid=" . $gid;
-            $db_plots= runQuery($sql);
-
-            //figure out which plots need to be deleted and clear the plotcomponents underbrush
-            $plotsIdToDelete = array();
-            $plotsIdToClear = array();
-            while($aRow = $db_plots->fetch_assoc()) {
-                if(!array_key_exists('P'.$aRow["plotid"], $plots)){
-                    array_push($plotsIdToDelete,$aRow["plotid"]);
-                }else{
-                    array_push($plotsIdToClear,$aRow["plotid"]);
-                }
-            }
-            if(count($plotsIdToDelete)>0){
-                $sql = "delete from graphplots gp, plotcomponents ps where gp.plotid=ps.plotid and gp.plotid in (" . implode(",",$plotsIdToDelete) . ")";
-                logEvent("ManageMyGraphs: deleting plots no longer used", $sql);
-                runQuery($sql);
-            }
-            if(count($plotsIdToClear)>0){
-                $sql = "delete from plotcomponents ps where plotid in (" . implode(",",$plotsIdToClear) . ")";
-                logEvent("ManageMyGraphs: clearing plotcomponents info before updating (by insertion)", $sql);
-                runQuery($sql);
-            }*/
-
         } else {
             $sql = "update graphs set userid=" . $user_id . ", published='" . $published . "', title=". safeSQLFromPost("title")
                 . ", text=" . safeSQLFromPost("analysis") . ", type='" . $type . "', intervalcount="
@@ -617,11 +594,14 @@ switch($command){
                 . ", map=" . safeSQLFromPost("map") . ", mapconfig=" . safeSQLFromPost("mapconfig")
                 . " where graphid = " . $gid . " and userid=" . $user_id;
             if(!runQuery($sql,"ManageMyGraphs: update graphs record")){$output = array("status" => "fail on graph record update");break;}
+            $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id,"ManageMyGraphs: read the ghash when updating");
+            $row = $result->fetch_assoc();
+            $ghash = $row["ghash"];
             //clear plots and componenets for fresh insert
             $sql = "delete gp, pc from graphplots gp, plotcomponents pc where gp.plotid=pc.plotid and gp.graphid = " . $gid;
             runQuery($sql);
         }
-        $output = array("status" => "ok", "gid" => $gid, "ghash"=> md5($gid . "mashrocks"));
+        $output = array("status" => "ok", "gid" => $gid, "ghash"=> $ghash);
 
         //insert plot and plot components records
         if(isset($_POST['plots'])){
@@ -1126,6 +1106,16 @@ function BuildChainLinks(&$chains){
     }
     return $recurse;
 }
+function makeGhash($gid){
+    return md5($gid . "mashrocks".microtime());
+}
+function setGhash($gid){  //does not check permissions!
+    $newHash = makeGhash($gid);
+    $sql = "update graphs set ghash = '" . $newHash . "' where graphid = " . $gid;
+    runQuery($sql, "setGhash");
+    return $newHash;
+};
+
 function getGraphs($userid, $ghash){
 //if $userid = 0, must be a public graph; otherwise must own graph
 //note that series data is returned only if ghash is specified (i.e. a single graph request)

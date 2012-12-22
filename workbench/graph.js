@@ -65,7 +65,10 @@ if(typeof console == 'undefined') console = {info: function(m){}, log: function(
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
     var panelId = $(node).closest('div.graph-panel').get(0).id;
-    if(oHighCharts[panelId]) oHighCharts[panelId].destroy();
+    if(oHighCharts[panelId]) {
+        oHighCharts[panelId].destroy();
+        $.contextMenu('destroy', '#' + panelId + ' div.chart');
+    }
     var oGraph = oPanelGraphs[panelId];
     var chart;
     var oChartOptions = createChartObject(oPanelGraphs[panelId]);
@@ -343,17 +346,17 @@ function intervalStartDt(graph){
     var dt =  new Date(parseInt(graph.lastdt));
     switch (graph.largestPeriod){
         case 'A':
-            return dt.setUTCFullYear(dt.getUTCFullYear()-graph.interval).getTime();
+            return dt.setUTCFullYear(dt.getUTCFullYear() - (graph.intervals -1));
         case 'SA':
-            return dt.setUTCMonth(dt.getUTCMonth()-graph.interval*6).getTime();
+            return dt.setUTCMonth(dt.getUTCMonth()-(graph.intervals-1)*6);
         case 'Q':
-            return dt.setUTCMonth(dt.getUTCMonth()-graph.interval*3).getTime();
+            return dt.setUTCMonth(dt.getUTCMonth()-(graph.intervals-1)*3);
         case 'M':
-            return dt.setUTCMonth(dt.getUTCMonth()-graph.interval).getTime();
+            return dt.setUTCMonth(dt.getUTCMonth()-(graph.intervals-1));
         case 'W':
-            return dt.setUTCDate(dt.getUTCDate()-graph.interval*7).getTime();
+            return dt.setUTCDate(dt.getUTCDate()-(graph.intervals-1)*7);
         default:
-            return dt.setUTCDate(dt.getUTCDate()-graph.interval).getTime();
+            return dt.setUTCDate(dt.getUTCDate()-(graph.intervals-1));
     }
 }
 function setCropSlider(panelId){  //get closest point to recorded js dt
@@ -513,7 +516,7 @@ function emptyGraph(){
     return  {
         annotations: [],
         title: '',
-        type: 'line',
+        type: 'auto',
         assets: {},
         analysis: null,
         mapconfig: {},
@@ -523,7 +526,7 @@ function emptyGraph(){
     };
 }
 function createChartObject(oGraph){
-    var i, j, allX = {};
+    var i, j, dt, allX = {};
 
     var	jschart = {
         chart:
@@ -726,47 +729,7 @@ function createChartObject(oGraph){
                 jschart.series[i].stack="stacked";
             }
         case "column":
-            /*var endingInterval = ((oGraph.end)?parseInt(oGraph.end):oGraph.lastdt);
-             var categories = [];
-             var colDates = [];*/
-            jschart.yAxis.min = 0;
-            /* var intervalCount = ((oGraph.interval.count)?parseInt(oGraph.interval.count):1);
-             for(i=intervalCount-1;i>=0;i--){
-             var colDate = new Date(endingInterval);
-             switch(((oGraph.interval.span=='null')?oGraph.smallestPeriod:oGraph.interval.span)){
-             case 'M':
-             colDate.setUTCMonth(colDate.getUTCMonth()-i);
-             break;
-             case 'A':
-             colDate.setUTCFullYear(colDate.getUTCFullYear()-i);
-             break;
-             }
-             categories.push(formatDateByPeriod(colDate.valueOf(),oGraph.smallestPeriod));
-             colDates.push(Date.parse(colDate));
-             }
-             var columnData;
-             for(i=0;i<jschart.series.length;i++){
-             columnData = [];
-             var serie = jschart.series[i];
-             var k = 0;
-             for(j=0;j<colDates.length;j++){
-             var datum;
-             while(k<serie.data.length){
-             datum = null;
-             if(serie.data[k][0]==colDates[j]){
-             datum = serie.data[k][1];
-             break;
-             }
-             if(serie.data[k][0]>colDates[j]) {
-             break;
-             }
-             k++;
-             }
-             columnData.push(datum);
-             }
-             serie.data = columnData;  //replace full linear time-value array with bar values
-             }
-             jschart.xAxis = {categories: categories};*/
+            //jschart.yAxis.min = 0;
             jschart.chart.type = 'column';
             break;
         case "area-percent":
@@ -776,9 +739,9 @@ function createChartObject(oGraph){
             jschart.chart.type = "area";
             break;
         case "auto":
-            if(oGraph.smallestPeriod!=oGraph.largestPeriod) {//default is all lines if they have the same periodicity
-                for(var i=0;i<jschart.series.length;i++){
-                    if(oGraph.largestPeriod == jschart.series[i].period){  //only convert the largest to column (ie. if monthly + quarterly + annual, only annual data become columns)
+            if(oGraph.smallestPeriod!=oGraph.largestPeriod ){
+                for(i=0;i<jschart.series.length;i++){
+                    if(oGraph.largestPeriod == jschart.series[i].period){  //only convert the largest to column (ie. if monthly + quarterly + annual, only annual data become columns) or very short series
                         jschart.series[i].type = 'column';
                         jschart.series[i].zIndex = 8;
                         jschart.series[i].pointRange = periodValue[jschart.series[i].period];
@@ -787,10 +750,26 @@ function createChartObject(oGraph){
                         jschart.series[i].groupPadding = 0.05; //default 0.2
                     }
                 }
+            } else {  //all periodicities the same; see if we have very short series
+                var maxCount = 0, onscreenCount;
+                for(i=0;i<jschart.series.length;i++){
+                    if(jschart.series[i].period){  //scatter series used for annotations does not have a period property = skip these
+                        onscreenCount = 0;
+                        for(j=0;j<jschart.series[i].data.length;j++){
+                            dt = jschart.series[i].data[j][0];
+                            if((!jschart.xAxis.min || jschart.xAxis.min<=dt) && (!jschart.xAxis.max || jschart.xAxis.max>=dt)) onscreenCount++;
+                        }
+                        maxCount = Math.max(maxCount, onscreenCount);
+                    }
+                }
+                if(maxCount<=5) jschart.chart.type = 'column';
+                /*{
+                    for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column';
+                }*/
             }
             break;
         case "logarithmic":
-            for(var i=0;i<jschart.yAxis.length;i++){jschart.yAxis[i].type='logarithmic'}
+            for(i=0;i<jschart.yAxis.length;i++){jschart.yAxis[i].type='logarithmic'}
             break;
         case "normalized-line":
 
@@ -1125,11 +1104,9 @@ function makeDataTable(panelId, type, mapData){  //create tables in data tab of 
                 for(regionCode in mapData.regionData[dt]){
                     regions.push({"regionCode": regionCode, "name": $map.getRegionName(regionCode)});
                 }
-/*
                 regions.sort(function(a,b){
-                    return (a.name < b.name);
+                    return a.name > b.name?1:-1;
                 }); //alphabetize by region name
-*/
                 break;  //only need first set to get all of the regions (note: all regions element present for each data object (i.e this is a square data set))
             }
             var showComponents = oGraph.mapsets.components.length>1 || (oGraph.mapsets.options.formula && oGraph.mapsets.options.formula.length>1) || oGraph.mapsets.options.units;
@@ -1514,17 +1491,17 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                     '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
                 '</fieldset>' +
                 '</div>' +
-                '<div class="downloads">' +
+                '<div class="sharing">' +
                 '<fieldset>' +
                 '<legend>&nbsp;Sharing&nbsp;</legend>' +
-
+                '<div class="share-links">' +
                 '<a href="#" class="post-facebook"><img src="http://www.eia.gov/global/images/icons/facebook.png" />facebook</a> ' +
                 '<a href="#" class="post-twitter"><img src="http://www.eia.gov/global/images/icons/twitter.png" />twitter</a> ' +
                 '<button class="email">email </button> ' +
                 '<button class="link">link </button>' +
                 //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
                 //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
-                '<br><div class="searchability">' +
+                '</div><div class="searchability">' +
                 '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">publicly searchable</label>' +
                 '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (orgName?'searcahable by members of '+ orgName:'not searchable') + '</label>' +
                 '</div>' +
@@ -1637,11 +1614,53 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             //mail to code here
         }
     });
-    $thisPanel.find('.link').button({icons: {primary: "ui-icon-link"},
-        click: function(){
+    $thisPanel.find('.link').button({icons: {primary: "ui-icon-link"}})
+        .click(function(){
+            if(oGraph.isDirty) {
+                dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
+                return;
+            }
             //show link div code here
-        }
-    });
+            var offset = $(this).offset();  //relative to document
+            var linkDivHTML =
+                '<div id="link-editor">' +
+                    '<button class="right" id="link-editor-close">close</button>' +
+                    '<button id="ghash-reset" class="ui-state-error right">reset link code</button>' +
+                    '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
+                    '<em>The code below will create a link to your graph</em>' +
+                    '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/view?g='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableDate graph')+'&lt;/a&gt;</textarea>' +
+                '</div>';
+
+            $.fancybox(linkDivHTML,
+                {
+                    width: 600,
+                    height: 100,
+                    showCloseButton: false,
+                    autoDimensions: false,
+                    autoScale: false,
+                    overlayOpacity: 0
+                });
+            $("#fancybox-wrap").css({
+                'top': parseInt(offset.top + $(this).height() -30) + 'px',
+                'left': parseInt(offset.left - 620 + $(this).width()) + 'px'
+            });
+            $('#link-editor-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){$.fancybox.close()});
+            $('#ghash-reset').button({icons: {secondary: 'ui-icon-refresh'}}).click(function(){
+                dialogShow("confirm link code reset",
+                    "If you have emailed a link to this graph or posted it on FaceBook or Twitter, those links will no longer work once the graph's link code is reset. Plese confirm to reset.",
+                    [ { text: "Confirm", click: function() {
+                        $( this ).dialog( "close" );
+                        $('#ghash-reset').button("disable");
+                        callApi({command: 'resetGhash', gid: oGraph.gid}, function(oReturn, textStatus, jqXH){
+                            var $linkHtml = $('#link-html');
+                            $linkHtml.html($linkHtml.html().replace(oGraph.ghash, oReturn.ghash));
+                            oGraph.ghash = oReturn.ghash;
+                            $('#link-ghash').html(oGraph.ghash);
+                        });
+                    }}, { text: "Cancel", click: function() { $( this ).dialog( "close" ); }} ]
+                );
+            });
+        });
     $thisPanel.find('.searchability').buttonset()
         .find('#'+ panelId +'-private').button('option', 'icons' , { primary: "ui-icon-locked"}).end()
         .find('#'+ panelId +'-searchable').button('option', 'icons' , { primary: "ui-icon-search"}).end()
@@ -1728,12 +1747,12 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
 
-    $thisPanel.find('button.graph-crop').click(function(){
+    $thisPanel.find('button.graph-crop').click(function(){  //TODO: replace this click event of hidden button with signals
         var graph = oPanelGraphs[panelId];
         graph.start = (graph.minZoom>graph.firstdt)?graph.minZoom:graph.firstdt;
         graph.end = (graph.maxZoom<graph.lastdt)?graph.maxZoom:graph.lastdt;
         $(this).attr("disabled","disabled");
-        //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].start,oPanelGraphs[panelId].end);
+        setCropSlider(panelId);
         oHighCharts[panelId]=chartPanel(this);
         buildAnnotations(panelId);
     });
@@ -1761,25 +1780,31 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 
     });
 
-    $thisPanel.find('.graph-analysis').change(function(){
-        oGraph.analysis=$(this).val();
-    });
-    //$thisPanel.find('input.graph-title').change(function(){titleChange(this);});
-
-    $thisPanel.find('.graph-analysis').change(function(){
+    $thisPanel.find('.graph-analysis').keydown(function(){
         oPanelGraphs[panelId].analysis=this.value;
-        $thisPanel.find('.graph-save').button("enable");
+        makeDirty();
     });
-    oGraph.isDirty = oGraph.gid;
-    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable').click(function(){
+    var makeDirty = function(){
+        oGraph.isDirty = true;
+        $('div#' + panelId + ' .graph-save').button("enable");
+    };
+    var makeClean = function(){
+        oGraph.isDirty = false;
+        $('div#' + panelId + ' .graph-save').button("disable");
+    };
+    var saveThisGraph = function(){
         saveGraph(oGraph);
         $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
+        makeClean();
+    };
+    oGraph.isDirty = (!oGraph.gid);
+    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable').click(function(){
+        saveThisGraph();
     });
     $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)}).click(function(){
         delete oGraph.gid;
         graphTitle.show(this, function(){
-            saveGraph(oGraph);
-            $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
+            saveThisGraph();
         });
     });
     $thisPanel.find('button.graph-close').button({icons: {secondary: "ui-icon-closethick"}}).click(function(){
@@ -3083,7 +3108,9 @@ function gun(desired, alpha){
 }
 function changeAnno(obj){
     var id = $(obj).closest('tr').attr('data');
-    var panelId = $(obj).closest('div.graph-panel').attr('id');
+    var $panel = $(obj).closest('div.graph-panel');
+    var panelId = $panel.attr('id');
+    $panel.find('.graph-save').button('enable');
     var oGraph = oPanelGraphs[panelId];
     var anno;
     for(var i=0;i< oGraph.annotations.length;i++){
