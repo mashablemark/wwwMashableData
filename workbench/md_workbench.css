@@ -372,7 +372,7 @@ div#pickers ul{background:none;}
 div.graph-chart{
     display: inline;
 }
-button.copy-to-clipboard{
+button.download-data{
     right: 10px;
     position: absolute;
     top: 10px;
@@ -438,6 +438,7 @@ div.map {
     padding: 5px;
     top: 0;
     z-index: 1;
+    margin-right: 10px;
 }
 div.jvmap {
     position: relative;
@@ -609,8 +610,8 @@ ol.graph-nav li:hover{
     height: 87px;
 }
 .graph-nav-sources{
-    background-position: 0 -203px;
-    height:  66px;
+    background-position: 0 -85px;
+    height: 108px;
 }
 .graph-nav-config{
     background-position: 0 -84px;
@@ -640,8 +641,22 @@ li.graph-nav-active{
 }
 .interval-crop-count{width: 25px;}
 div.map-prov{
-    background-color: orange;
+    background-color: #AAAAAA;
     border: thin black solid;
+}
+div.line-sample{
+    padding:0;
+    margin:0 10px 10px 0;
+    display:inline-block;
+    border-width:0;
+    width:38px;
+}
+button.config-apply{
+    float:right;
+}
+button.config-cancel{
+    float:right;
+    margin-right: 50px;
 }
 div.mapset, div.pointsets{
     background-color: #ffffff;
@@ -658,13 +673,33 @@ div.mapset, div.pointsets{
 li.component, li.mapset {
     margin-right: 100px;
 }
+ol.components{
+    list-style-type: lower-alpha;
+}
+input.plot-name{
+    width: 600px;
+}
+div.edit-block{
+    display: inline-block;
+    margin-right: 20px;
+}
+span.edit-label {
+    padding-right: 10px;
+    display: inline-block;
+}
+li.component{
+    background: #f0ffff !important;
+}
 .link {
     color: #2e83ff;
 }
 .link:hover{
     text-decoration: underline;
 }
-
+div.jvectormap-container{
+    margin-right: 15px;
+    border: thin black solid;
+}
 .ui-tabs .ui-tabs-nav li a {
     padding: .5em 2em .5em 1em;
 }
@@ -735,6 +770,7 @@ div#public-mapset-radio{
 .op-divide, .op-multiply, .op-addition, .op-subtraction {
     display: inline-block;
     background-image: url(images/ui-icons_2e83ff_256x240.png) !important;
+    text-indent: -99999px;
 }
 div.op, div.edit-math, div.edit-breaks {
     display: inline-block;
@@ -759,13 +795,12 @@ span.ui-button-text{
     background: #F39814;
     color: white;
 }
-span.edit-label {
-    width:200px;
-    display: inline-block;
-}
 ul.comp-op li{
     list-style-type: none;
     width: 200px;
+}
+button.ui-button-text-icon-secondary span.ui-button-text{
+    padding-right: 3em;
 }
 button.edit-plot, button.edit-comp, .right{ float: right;}
 .ui-icon-grip-dotted-vertical{

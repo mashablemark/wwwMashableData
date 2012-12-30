@@ -2092,7 +2092,7 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
         for(var i=0;i<quickViewSeries.length;i++){
             var handle = quickViewSeries[i].handle;
             oGraph.assets[handle] = $.extend(true, {}, quickViewSeries[i]); //make copy
-            oGraph.plots.push({components: [{handle: handle, k: 1, op: '+', options: {}}], name: null, options: {}});
+            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}, options: {}}]});
         }
     }  else {
 //building from MySeriesTable
@@ -2115,49 +2115,24 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
         }
 
         for(var handle in checkedSeries){
-            oGraph.plots.push({components: [{series: handle, options: {}, k: 1.0, op: '+'}], name: null, options: {}});
-            if(!(key in oGraph.assets)){
-                var oSeries;
-                var SeriesCopy = $.extend(true, {}, checkedSeries[handle]); //make copy
-                oGraph.assets[handle] = SeriesCopy;
-            }
+            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}, options: {}}]});
         }
     }
     //got all the data?  If not, fetch before creating graph
-    var aCidWithoutData = [];
-    var aSidWithoutData = [];
-    for(var key in oGraph.assets){
-        if(!oGraph.assets[key].data){
-            if(oGraph.uselatest='Y'){
-                aSidWithoutData.push(oGraph.assets[key].sid);
-            } else {
-                aCidWithoutData.push(oGraph.assets[key].cid);
-            }
-        }
-    }
-    if(aCidWithoutData.length==0 && aSidWithoutData.length==0){
-        graphBuilder(oGraph, panelId);
-        unmask();
-    } else {
-        callApi({'command':  'GetSeriesData',
-                    'cids':  aCidWithoutData.join(','),
-                    'sids':  aSidWithoutData.join(','),
-                    'modal': 'persist'
-                },
-                function(jsoData, textStatus, jqXH){
-                    for(var i=0;i<jsoData.seriesData.length;i++){
-                        //Local series will always have data.  Eventually, add support for 'U' series
-                        if(jsoData.seriesData[i].cid==jsoData.seriesData[i].lastestcid){
-                            //graph may not being using the latest, but mySeries always will
-                            oMySeries['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
-                        }
-                        oGraph.assets['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
-                    }
-                    graphBuilder(oGraph, panelId);
-                    unmask();
+    getAssets(oGraph,
+        function(jsoData, textStatus, jqXH){
+            for(var i=0;i<jsoData.seriesData.length;i++){
+                //Local series will always have data.  Eventually, add support for 'U' series
+                if(jsoData.seriesData[i].cid==jsoData.seriesData[i].lastestcid){
+                    //graph may not being using the latest, but mySeries always will
+                    oMySeries['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
                 }
-        );
-    }
+                oGraph.assets['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
+            }
+            graphBuilder(oGraph, panelId);
+            unmask();
+        }
+    );
 }
 
 function deleteCheckedSeries(){
@@ -2483,7 +2458,7 @@ function mask(){
         <!--span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Workbench</span-->
         <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
             <!--PICKER TABS-->
-            <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" style="background:none;border:0;display:inline;">
+            <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" style="background:none;border:0; display:inline-block; position:relative; top:2px;">
                 <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Series</a></li>
                 <li class="cloud-series ui-state-default ui-corner-top"><a data="#cloud-series">Public Series</a></li>
                 <li class="my-graphs ui-state-default ui-corner-top"><a data="#myGraphs">My Graphs</a></li>
