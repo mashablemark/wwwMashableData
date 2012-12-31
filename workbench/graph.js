@@ -2221,6 +2221,8 @@ function provenance(){
         for(i=0;i<grph.plots.length;i++){
             //outer PLOT loop
             plot = grph.plots[i];
+            //plotList += addPlotli(grph, plot);  //addPlotli will add plot one at a time and run each of the jqui transformations and jq bindings
+
             if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
             if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
             plotColor = plot.options.lineColor||oHighCharts[panelId].get('P'+i).color;
@@ -2235,7 +2237,7 @@ function provenance(){
                 componentHandle = plot.components[j].handle;
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
 
-                plotList += '<li class="component ui-state-default" data="P'+ i + ':C' + j + '">'
+                plotList += '<li class="component ui-state-default" data="P'+ i + '-C' + j + '">'
        //             + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
                     + '<span class="plot-op ui-icon ' + opUI[plot.components[j].options.op] + '">operation</span> '
                     + grph.assets[componentHandle].name + '</li>';
@@ -2405,7 +2407,7 @@ function componentMoved(ui){  //triggered when an item is move between lists or 
     var $prov = ui.item.closest(".provenance");
     if(ui.sender!=null){    // handle everything in the sorting call
         //is series already in here?  if not add
-        from = ui.item.attr('data').split(':');
+        from = ui.item.attr('data').split('-');
         fromP = from[0].substr(1);
         fromC = from[1].substr(1);
         oGraph = oPanelGraphs[visiblePanelId()];
@@ -2549,13 +2551,15 @@ function showComponentEditor(liComp){
     var $editDiv = $(editDiv);
     $liComp.find(".plot-op").hide().after(
         '<div class="op">'
-        +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'"><span class="ui-icon op-addition">add</span></label>'
-        +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'"><span class="ui-icon op-subtraction">subtract</span></label>'
-        +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'"><span class="ui-icon op-multiply">multiple summed series</span></label>'
-        +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'"><span class="ui-icon op-divide">divide summed series</span></label>'
+        +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" value="+" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'"><span class="ui-icon op-addition">add</span></label>'
+        +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'"><span class="ui-icon op-subtraction">subtract</span></label>'
+        +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'"><span class="ui-icon op-multiply">multiple summed series</span></label>'
+        +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'"><span class="ui-icon op-divide">divide summed series</span></label>'
         +   '</div>');
     //$editDiv.find("li[data='"+component.options.op+"']").attr('checked','checked');
-    $liComp.find("div.op").buttonset().find("input[data='"+component.options.op+"']").attr('checked','checked');
+    $liComp.find("div.op").buttonset()
+        .find("input[data='"+component.options.op+"']").click().end()
+        .find('input:radio').click(function(){grph.plotsEdits[plotIndex].components[iComp].options.op = $(this).val()});
     //$liComp.closest("div.provenance").find("button.plot-close, button.comp-close").click();  //close any open comp editors
     $editDiv.appendTo($liComp).slideDown();  //add the new comp editor and animate it open
     //add UI events
@@ -2569,11 +2573,11 @@ function showComponentEditor(liComp){
         if(components.length==0) $liComp.closest('li.plot').find('.plot-delete').click(); else $liComp.remove();
     });
     $liComp.find(".comp-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
-        var pLen =grph.plotsEdits.push({options: {}, components: [$.extend(true, {}, component, {options: {op: '+'}})]});
-        var compHandle = grph.plotsEdits[pLen-1].components[0].handle;
+        var p =grph.plotsEdits.push({options: {}, components: [$.extend(true, {}, component, {options: {op: '+'}})]}) - 1;
+        var compHandle = grph.plotsEdits[p].components[0].handle;
         var name = grph.assets[compHandle].name;
         //todo:  creating the string / object should be a function
-        var $newPlot = $('<li>'+ name + '<ol class="components" data="'+compHandle+'" plot="'+ pLen-1 +'"><li class="component"  data="'+compHandle+'" plot="'+pTargetHandle+'"></li></0l></li>');
+        var $newPlot = $('<li>'+ name + '<ol class="components" data="P'+ p +'"><li class="component"  data="P'+ p +'-C0"></li></0l></li>');
         $liComp.closest("ol.plots").append($newPlot);
     });
     /*$editDiv.find(".comp-close").click(function(evt){
@@ -2584,7 +2588,8 @@ function showComponentEditor(liComp){
 }
 function showPlotEditor(liPlot){
     var $liPlot = $(liPlot);
-    var oGraph = oPanelGraphs[panelIdContaining(liPlot)];
+    var panelId = panelIdContaining(liPlot);
+    var oGraph = oPanelGraphs[panelId];
     var oPlot = oGraph.plotsEdits[$liPlot.index()];
     var plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
     $liPlot.find(".edit-plot, .plot-info").hide();
@@ -2609,29 +2614,36 @@ function showPlotEditor(liPlot){
         + ((oPlot.components.length>1)?'<span class="edit-label">missing points:</span><br />':'')
         + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units" type="text" value="' + (oPlot.options.units||'') + '" /></div>'
         + '<div class="edit-block"><span class="edit-label">line breaks:</span><div class="edit-breaks">'
-        +   '<input type="radio" id="nulls" name="line-break" /><label for="nulls">on nulls</label>'
-        +   '<input type="radio" id="missing" name="line-break" /><label for="missing">on missing value and nulls</label>'
-        +   '<input type="radio" id="never" name="line-break" /><label for="never">never</label></div>'
+        +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" /><label for="nulls-'+panelId+'">on nulls</label>'
+        +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" /><label for="missing-'+panelId+'">on missing value and nulls</label>'
+        +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" /><label for="never-'+panelId+'">never</label></div>'
         + '</div>'
         + '<div class="edit-block"><span class="edit-label">component math:</span><div class="edit-math">'
-        +   '<input type="radio" id="required" name="comp-math" /><label for="required">all series values required</label>'
-        +   '<input type="radio" id="missingAsZero" name="comp-math" /><label for="missingAsZero">treat missing values as zeros in sums</label>'
-        +   '<input type="radio" id="nullsMissingAsZero" name="comp-math" /><label for="nullsMissingAsZero">treat missing and null values as zeros in sums</label></div>'
+        +   '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'" /><label for="required-'+panelId+'">all series values required</label>'
+        +   '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="missingAsZero-'+panelId+'">treat missing values as zeros in sums</label>'
+        +   '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="nullsMissingAsZero-'+panelId+'">treat missing and null values as zeros in sums</label></div>'
         + '</div>'
         +'</div>';
     var $editDiv = $(editDiv);    //instantiate the editor
-    $liPlot.closest("div.provenance").find("button.plot-close, button.comp-close").click();  //close any open
-    $editDiv.find(".plot-name").val(oPlot.name).change(function(){
-        oPlot.name = $(this).val();
+    $liPlot.closest("div.provenance").find("button.plot-close, button.comp-close").click();  //close any open editors
+    //text boxes
+    $editDiv.find("input.plot-name").change(function(){
+        if(plotName(oGraph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.name = $(this).val(); else delete oPlot.options.name;
     });
+    $editDiv.find("input.plot-units").change(function(){
+        if(plotUnits(oGraph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.units = $(this).val(); else delete oPlot.options.units;
+    });
+    //buttonsets
     if(!oPlot.options.componentData)oPlot.options.componentData='required'
-    $editDiv.find("div.edit-math").find("input[id='"+oPlot.options.componentData+"']").attr('checked','checked').end().buttonset().change(function(){
-        oPlot.options.componentData = $(this).find(".ui-state-active").attr("for");
+    $editDiv.find("div.edit-math").find("input[id='"+oPlot.options.componentData+"-"+panelId+"']").click().end().buttonset()
+        .find('input:radio').change(function(){
+        oPlot.options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
     });
     if(!oPlot.options.breaks)oPlot.options.breaks='nulls'
-    $editDiv.find("div.edit-breaks").find("input[id='"+oPlot.options.breaks+"']").attr('checked','checked').end().buttonset().change(function(){
-        oPlot.options.breaks = $(this).find(".ui-state-active").attr("for");
+    $editDiv.find("div.edit-breaks").find("input[id='"+oPlot.options.breaks+'-'+panelId+"']").click().end().buttonset().find('input:radio').change(function(){
+        oPlot.options.breaks = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
     });
+    //line color and style
     $editDiv.find(".edit-line legend").after($liPlot.find(".line-sample").hide().clone().css("display","inline-block").show());
     $editDiv.find("input.plot-color").colorPicker().change(function(){
         oPlot.options.lineColor = $(this).val();
@@ -2648,27 +2660,30 @@ function showPlotEditor(liPlot){
     $editDiv.find("select.plot-type").val(oPlot.options.type).change(function(){
         oPlot.options.type = $(this).val();
     });
-    $editDiv.find("input.plot-name").change(function(){
-        if(plotName(oGraph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.name = $(this).val(); else delete oPlot.options.name;
-    });
-    $editDiv.find("input.plot-units").change(function(){
-        if(plotUnits(oGraph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.units = $(this).val(); else delete oPlot.options.units;
-    });
-    $editDiv.prependTo($liPlot).slideDown();
-    $editDiv.find(".plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
+
+    //buttons
+    $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
         delete oPlot;
         $liPlot.remove();
     });
-    $editDiv.find(".plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
+    $editDiv.find("button.plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
         oPanelGraphs[panelIdContaining(liPlot)].plotsEdits.push($.extend(true,{},oPlot));
         var $newPlot = $liPlot.clone();
         $newPlot.remove(".plot-editor");  //.find("li.plot").attr('data', pTargetHandle).find("ol, li.component").attr("plot", pTargetHandle);
         $liPlot.closest("ol.plots").append($newPlot);
     });
-    $editDiv.find(".plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
-        $liPlot.find(".plot-editor").slideUp("default",function(){  $liPlot.find('.op.ui-buttonset').remove();$liPlot.find(".plot-editor").remove()});
+    $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
+        $liPlot.find(".edit-plot, .plot-info, .line-sample").show();
+        $liPlot.find(".plot-editor").slideUp("default",function(){
+            $liPlot.find('.op.ui-buttonset').remove();
+            $liPlot.find('.plot-op').show();
+            $liPlot.find(".plot-editor").remove();
+            $liPlot.find("li button").remove()
+        });
+        $liPlot.find(".comp-editor").slideUp("default",function(){$(this).remove()});
         $liPlot.find(".edit-plot").show();
     });
+    $editDiv.prependTo($liPlot).slideDown();
 }
 
 

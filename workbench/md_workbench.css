@@ -667,11 +667,11 @@ div.mapset, div.pointsets{
 .prov-float-btn{
     float: right;
     position: relative;
-    top: -10px;
     margin: 5px;
 }
 li.component, li.mapset {
-    margin-right: 100px;
+    margin: 5px;
+    padding: 5px;
 }
 ol.components{
     list-style-type: lower-alpha;
