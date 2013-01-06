@@ -23,37 +23,41 @@ var dashStyles = [
     'Long Dash Dot',
     'Long Dash Dot Dot'
 ];
-var periodValue = { //used to determine rank and to set column widths
-    N: 1000, //one second
-    D: 24*3600*1000,
-    W: 7*24*3600*1000,
-    M: 30*24*3600*1000,
-    Q: 365/4*24*3600*1000,
-    SA: 365/2*24*3600*1000,
-    A: 365*24*3600*1000
-};
-var periodName = {
-    N: 'non period data',
-    D: 'daily',
-    W: 'weekly',
-    M: 'monthly',
-    Q: 'quarterly',
-    SA: 'semiannual',
-    A: 'annual'
-} ;
-var periodUnits = {
-    'A': "years",
-    'SA': "half-years",
-    'Q': "quarters",
-    'M': "months",
-    'W': "weeks",
-    'D': "days"
+var period ={
+    value:  { //used to determine rank and to set column widths
+        N: 1000, //one second
+        D: 24*3600*1000,
+        W: 7*24*3600*1000,
+        M: 30*24*3600*1000,
+        Q: 365/4*24*3600*1000,
+        SA: 365/2*24*3600*1000,
+        A: 365*24*3600*1000
+    },
+    name: {
+        N: 'non period data',
+        D: 'daily',
+        W: 'weekly',
+        M: 'monthly',
+        Q: 'quarterly',
+        SA: 'semiannual',
+        A: 'annual'
+    },
+    units: {
+        'N': "non-periodic data",
+        'D': "days",
+        'W': "weeks",
+        'M': "months",
+        'Q': "quarters",
+        'SA': "half-years",
+        'A': "years"
+    }
 };
 var oPanelGraphs = {}; //MyGraph objects by panelID allows easy access to oMyCharts
 var oHighCharts = {}; //highchart objects by panelID
-var newPlotsIndex = -1; //index to generate unqiue local ids of new plot objects
-var opValues = {"+":1,"-":2,"*":3,"/":4};
-var opUI = {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"};
+var op = {
+    value: {"+":1,"-":2,"*":3,"/":4},
+    class: {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
+};
 var jVectorMapTemplates = {
     "European Union": "europe_mill_en",
     "US states": "us_aea_en",
@@ -69,10 +73,10 @@ var rowPosition = {
     date: 6,
     dataStart: 7
 };
-var vectorPattern = /[SU]/;
+var vectorPattern = /[SU]/;   //series or userseries handle test
 var handlePattern = /[MXSU]\d+/g;
 
-if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow conole.log call without triggering errors in IE or FireFox w/o Firebug
+if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
@@ -411,7 +415,7 @@ function setCropSlider(panelId){  //get closest point to recorded js dt
         }
     }
 
-    $('#' + panelId + ' span.interval-crop-period').html(periodUnits[oGraph.largestPeriod]);
+    $('#' + panelId + ' span.interval-crop-period').html(period.units[oGraph.largestPeriod]);
     $('#' + panelId + ' div.crop-slider')
         .slider("option", "max", chartOptions.x.length-1)
         .slider("option", "values", [leftIndex, rightIndex]);
@@ -454,8 +458,8 @@ function assetNeeded(handle, graph, assetsToFetch){
     }
 }
 function getAssets(graph, callBack){
-var assetsToFetch = {S:[],U:[], X:[], M:[]};
-var p, c, handle;
+    var assetsToFetch = {S:[],U:[], X:[], M:[]};
+    var p, c, handle;
     if(graph.plots){
         for(p=0;p<graph.plots.length;p++){
             for(c=0;c<graph.plots[p].components.length;c++){
@@ -645,15 +649,15 @@ function createChartObject(oGraph){
             var mddt = aData[j].split('|')[0];
             var addPoint = true;
             /* this is not possible unless we calc the data ahead of time and store in a temp pen
-            if(oGraph.type=='area'||oGraph.type=='area-percent'){
-                for(var handle in oGraph.assets){
-                    var dataString = '||' + oGraph.assets[handle].data;
-                    if(dataString.indexOf('||' + mddt + '|')=="-1"){
-                        addPoint = false;
-                        break;
-                    }
-                }
-            }*/
+             if(oGraph.type=='area'||oGraph.type=='area-percent'){
+             for(var handle in oGraph.assets){
+             var dataString = '||' + oGraph.assets[handle].data;
+             if(dataString.indexOf('||' + mddt + '|')=="-1"){
+             addPoint = false;
+             break;
+             }
+             }
+             }*/
 
             var udt = dateFromMdDate(mddt, periodicity);
             var y = aData[j].split('|')[1];
@@ -756,7 +760,7 @@ function createChartObject(oGraph){
                     if(oGraph.largestPeriod == jschart.series[i].period){  //only convert the largest to column (ie. if monthly + quarterly + annual, only annual data become columns) or very short series
                         jschart.series[i].type = 'column';
                         jschart.series[i].zIndex = 8;
-                        jschart.series[i].pointRange = periodValue[jschart.series[i].period];
+                        jschart.series[i].pointRange = period.value[jschart.series[i].period];
                         jschart.series[i].pointPlacement = 'between';
                         jschart.series[i].pointPadding = 0; //default 0.1
                         jschart.series[i].groupPadding = 0.05; //default 0.2
@@ -776,8 +780,8 @@ function createChartObject(oGraph){
                 }
                 if(maxCount<=5) jschart.chart.type = 'column';
                 /*{
-                    for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column';
-                }*/
+                 for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column';
+                 }*/
             }
             break;
         case "logarithmic":
@@ -1523,104 +1527,104 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     $thisPanel.html(
         '<div class="graph-nav">' +
             '<ol class="graph-nav">' +
-                '<li class="graph-nav-talk" data="graph-talk"></li>' +
-                '<li class="graph-nav-data" data="graph-data"></li>' +
-                '<li class="graph-nav-sources"  data="graph-sources"onclick="provenance();"></li>' +
-                '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
+            '<li class="graph-nav-talk" data="graph-talk"></li>' +
+            '<li class="graph-nav-data" data="graph-data"></li>' +
+            '<li class="graph-nav-sources"  data="graph-sources"onclick="provenance();"></li>' +
+            '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
             '</ol>' +
-        '</div>'+
-        '<div class="graph-talk graph-subpanel" style="display: none;">owner enables and reviews WordPress powered comments here</div>' +
-        '<div class="graph-data graph-subpanel" style="display: none;">' +
+            '</div>'+
+            '<div class="graph-talk graph-subpanel" style="display: none;">owner enables and reviews WordPress powered comments here</div>' +
+            '<div class="graph-data graph-subpanel" style="display: none;">' +
             '<div class="graph-data-inner">' +
-                '<ul>' +
-                    '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
-                    '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
-                    '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
-                '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-                '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">c-d</div>' +
-                '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions">r-d</div>' +
-                '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers">m-d</div>' +
+            '<ul>' +
+            '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
+            '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
+            '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
+            '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
+            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">c-d</div>' +
+            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions">r-d</div>' +
+            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers">m-d</div>' +
             '</div>' +
-        '</div>' +
-        '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
-        '<div class="graph-chart graph-subpanel">' +
+            '</div>' +
+            '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
+            '<div class="graph-chart graph-subpanel">' +
             '<div class="graph_control_panel" style="font-size: 11px !important;">' +
-                //'<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
-                //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
-                '<div class="graph-type">default graph type ' +
-                    '<select class="graph-type">' +
-                    '<option value="auto">auto (line &amp; column)</option>' +
-                    '<option value="line">line</option>' +
-                    '<option value="column">column</option>' +
-                    '<option value="stacked-column">stacked column</option>' +
-                    '<option value="area-percent">stacked percent</option>' +
-                    '<option value="area">stacked area</option>' +
-                    '<option value="logarithmic">logarithmic</option>' +
-                    '<option value="normalized-line">normalized line</option>' +
-                    '<option value="pie">pie</option>' +
-                    '</select>' +
-                '</div>' +
-                '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
-                '<table>' +
-                    '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
-                    '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
-                        '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
-                        '<div class="crop-slider"></div>' +
-                        '</td></tr>' +
-                    '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
-                        '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
-                '</table>' +
-                    '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
-                '</div>' +
-                '<div class="annotations"><fieldset><legend>Annotations</legend>' +
-                    '<table class="annotations"></table>' +
-                '</fieldset></div>' +
-                '<div class="downloads">' +
-                    '<fieldset>' +
-                    '<legend>&nbsp;Downloads&nbsp;</legend>' +
-                    'Data: ' +
-                    '<a title="tooltip" class="md-csv rico">CSV</a>' +
-                    //'<a class="md-xls rico">Excel</a><br>' +
-                    ' Image: ' +
-                    //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
-                    '<a onclick="exportChart(\'image/jpeg\')" class="md-jpg rico">JPG</a>' +
-                    '<a onclick="exportChart(\'image/svg+xml\')" class="md-svg rico">SVG</a>' +
-                    '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
-                '</fieldset>' +
-                '</div>' +
-                '<div class="sharing">' +
-                '<fieldset>' +
-                '<legend>&nbsp;Sharing&nbsp;</legend>' +
-                '<div class="share-links">' +
-                '<a href="#" class="post-facebook"><img src="http://www.eia.gov/global/images/icons/facebook.png" />facebook</a> ' +
-                '<a href="#" class="post-twitter"><img src="http://www.eia.gov/global/images/icons/twitter.png" />twitter</a> ' +
-                '<button class="email">email </button> ' +
-                '<button class="link">link </button>' +
-                //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
-                //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
-                '</div><div class="searchability">' +
-                '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">publicly searchable</label>' +
-                '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (orgName?'searcahable by members of '+ orgName:'not searchable') + '</label>' +
-                '</div>' +
-                '</fieldset>' +
-                '</div>' +
-                '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
+            //'<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
+            //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
+            '<div class="graph-type">default graph type ' +
+            '<select class="graph-type">' +
+            '<option value="auto">auto (line &amp; column)</option>' +
+            '<option value="line">line</option>' +
+            '<option value="column">column</option>' +
+            '<option value="stacked-column">stacked column</option>' +
+            '<option value="area-percent">stacked percent</option>' +
+            '<option value="area">stacked area</option>' +
+            '<option value="logarithmic">logarithmic</option>' +
+            '<option value="normalized-line">normalized line</option>' +
+            '<option value="pie">pie</option>' +
+            '</select>' +
+            '</div>' +
+            '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
+            '<table>' +
+            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
+            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
+            '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
+            '<div class="crop-slider"></div>' +
+            '</td></tr>' +
+            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
+            '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+            '</table>' +
+            '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
+            '</div>' +
+            '<div class="annotations"><fieldset><legend>Annotations</legend>' +
+            '<table class="annotations"></table>' +
+            '</fieldset></div>' +
+            '<div class="downloads">' +
+            '<fieldset>' +
+            '<legend>&nbsp;Downloads&nbsp;</legend>' +
+            'Data: ' +
+            '<a title="tooltip" class="md-csv rico">CSV</a>' +
+            //'<a class="md-xls rico">Excel</a><br>' +
+            ' Image: ' +
+            //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
+            '<a onclick="exportChart(\'image/jpeg\')" class="md-jpg rico">JPG</a>' +
+            '<a onclick="exportChart(\'image/svg+xml\')" class="md-svg rico">SVG</a>' +
+            '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
+            '</fieldset>' +
+            '</div>' +
+            '<div class="sharing">' +
+            '<fieldset>' +
+            '<legend>&nbsp;Sharing&nbsp;</legend>' +
+            '<div class="share-links">' +
+            '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' + //copy from http://www.eia.gov/global/images/icons/facebook.png
+            '<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' + //copy from http://www.eia.gov/global/images/icons/twitter.png
+            '<button class="email">email </button> ' +
+            '<button class="link">link </button>' +
+            //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
+            //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
+            '</div><div class="searchability">' +
+            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">publicly searchable</label>' +
+            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (orgName?'searcahable by members of '+ orgName:'not searchable') + '</label>' +
+            '</div>' +
+            '</fieldset>' +
+            '</div>' +
+            '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
             '</div>' +
             '<div class="chart-map" style="width:70%;display:inline;float:right;">' +
-                '<div class="chart"></div>' +
-                '<div class="map" style="display:none;">' +
-                    '<h3 class="map-title" style="color:black;"></h3>'+
-                    '<div class="container map-controls">' +
-                        '<div class="jvmap" style="display: inline-block;"></div>' +
-                        '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
-                        '<button class="map-play">play</button>' +
-                        '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
-                        '<button class="make-map">reset</button>' +
-                    '</div>' +
-                '</div>' +
-                '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
+            '<div class="chart"></div>' +
+            '<div class="map" style="display:none;">' +
+            '<h3 class="map-title" style="color:black;"></h3>'+
+            '<div class="container map-controls">' +
+            '<div class="jvmap" style="display: inline-block;"></div>' +
+            '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
+            '<button class="map-play">play</button>' +
+            '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
+            '<button class="make-map">reset</button>' +
             '</div>' +
-        '</div>');
+            '</div>' +
+            '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
+            '</div>' +
+            '</div>');
     var chart;
 //load
     $thisPanel.find('select.graph-type').val(oGraph.type);
@@ -1629,7 +1633,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         $thisPanel.find('.graph-subpanel').hide();
         $thisPanel.find('.' + $(this).attr('data')).show();
         if(this)
-        $(this).addClass('graph-nav-active');
+            $(this).addClass('graph-nav-active');
     });
 
     $thisPanel.find('.graph-data-inner')
@@ -1732,7 +1736,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                     '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
                     '<em>The code below will create a link to your graph</em>' +
                     '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/view?g='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableDate graph')+'&lt;/a&gt;</textarea>' +
-                '</div>';
+                    '</div>';
 
             $.fancybox(linkDivHTML,
                 {
@@ -1840,16 +1844,16 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     });
 
     $thisPanel.find('input.interval-crop-count').spinner({
-            min:1,
-            incrementalType: false,
-            stop: function(event, ui) {
-                $thisPanel.find('input#'+panelId+'-rad-interval-crop').attr('checked',true);
-                oGraph.intervals = $(this).val();
-                oGraph.start = null;
-                oGraph.end = null;
-                $thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
-            }
-        });
+        min:1,
+        incrementalType: false,
+        stop: function(event, ui) {
+            $thisPanel.find('input#'+panelId+'-rad-interval-crop').attr('checked',true);
+            oGraph.intervals = $(this).val();
+            oGraph.start = null;
+            oGraph.end = null;
+            $thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
+        }
+    });
 
     $thisPanel.find('button.graph-crop').click(function(){  //TODO: replace this click event of hidden button with signals
         var graph = oPanelGraphs[panelId];
@@ -1946,8 +1950,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
             }
         }
-        if(periodValue[oGraph.smallestPeriod]>periodValue[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
-        if(periodValue[oGraph.largestPeriod]<periodValue[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
+        if(period.value[oGraph.smallestPeriod]>period.value[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
+        if(period.value[oGraph.largestPeriod]<period.value[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
 
         jsdt = oGraph.assets[key].firstdt;
         min = Math.min(jsdt, min)  || jsdt;
@@ -2100,67 +2104,67 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         });
         $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}})
             .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
-            /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
-             If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
-             If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
-             OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
-             * */
+                /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
+                 If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
+                 If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
+                 OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
+                 * */
 
-            var selectedRegions = $map.getSelectedRegions();
-            var selectedMarkers = $map.getSelectedMarkers();
-            var grph = emptyGraph(), plt, formula;
-            grph.plots =[];
-            grph.title = 'from map of ' + oGraph.title;
-            for(var i=0;i<selectedMarkers.length;i++){
-                var compPattern = /[SU][0-9]+/g;
-                var comps = selectedMarkers[i].match(compPattern);  //!!!!point markers must use the formula of series handles as their ID
-                plt = {options:{}, components:[]};
-                formula = selectedMarkers[i];
-                for(var c=0;c<comps.length;c++){ //loops through the component for this marker
-                    formula.replace(comps[c], String.fromCharCode("a".charAt(0)+c));  //make the formula
-                    plt.components.push({options:{},handle: comps[c]});
-                    //find asset:  either directly in assets or part of a point or mapset
-                    if(oGraph.assets[comps[c]]){
-                        grph.assets[comps[c]] = oGraph.assets[comps[c]]
-                    } else {
-                        for(var aHandle in oGraph.assets){
-                            if(oGraph.assets[aHandle].data[comps[c]]){
-                                grph.assets[comps[c]] = oGraph.assets[aHandle].data[comps[c]];
-                                grph.assets[comps[c]].period = oGraph.assets[aHandle].period;
-                                grph.assets[comps[c]].units = oGraph.assets[aHandle].units;
-                                break;
-                            }
-                        }
-                    }
-                }
-                plt.options.name = calculatedMapData.markers[selectedMarkers[i]].name;
-                plt.options.formula = formula;
-                grph.plots.push(plt);
-            }
-            //regions (mapsets) are simply than markers (pointsets) because there is only one
-            if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
-                for(var i=0;i<selectedRegions.length;i++){
-                    for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
-                        if(calculatedMapData.regionData[dateSet][selectedRegions[i]]){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
-                            plt = $.extend(true, {}, oGraph.mapsets);
-                            for(var j=0;j<plt.components.length;j++){
-                                if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
-                                    var mapAsset = oGraph.assets[plt.components[j].handle];
-                                    var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
-                                    plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
-                                    grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
-                                } else {
-                                    grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
+                var selectedRegions = $map.getSelectedRegions();
+                var selectedMarkers = $map.getSelectedMarkers();
+                var grph = emptyGraph(), plt, formula;
+                grph.plots =[];
+                grph.title = 'from map of ' + oGraph.title;
+                for(var i=0;i<selectedMarkers.length;i++){
+                    var compPattern = /[SU][0-9]+/g;
+                    var comps = selectedMarkers[i].match(compPattern);  //!!!!point markers must use the formula of series handles as their ID
+                    plt = {options:{}, components:[]};
+                    formula = selectedMarkers[i];
+                    for(var c=0;c<comps.length;c++){ //loops through the component for this marker
+                        formula.replace(comps[c], String.fromCharCode("a".charAt(0)+c));  //make the formula
+                        plt.components.push({options:{},handle: comps[c]});
+                        //find asset:  either directly in assets or part of a point or mapset
+                        if(oGraph.assets[comps[c]]){
+                            grph.assets[comps[c]] = oGraph.assets[comps[c]]
+                        } else {
+                            for(var aHandle in oGraph.assets){
+                                if(oGraph.assets[aHandle].data[comps[c]]){
+                                    grph.assets[comps[c]] = oGraph.assets[aHandle].data[comps[c]];
+                                    grph.assets[comps[c]].period = oGraph.assets[aHandle].period;
+                                    grph.assets[comps[c]].units = oGraph.assets[aHandle].units;
+                                    break;
                                 }
                             }
-                            grph.plots.push(plt);
                         }
-                        break;
+                    }
+                    plt.options.name = calculatedMapData.markers[selectedMarkers[i]].name;
+                    plt.options.formula = formula;
+                    grph.plots.push(plt);
+                }
+                //regions (mapsets) are simply than markers (pointsets) because there is only one
+                if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
+                    for(var i=0;i<selectedRegions.length;i++){
+                        for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
+                            if(calculatedMapData.regionData[dateSet][selectedRegions[i]]){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
+                                plt = $.extend(true, {}, oGraph.mapsets);
+                                for(var j=0;j<plt.components.length;j++){
+                                    if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
+                                        var mapAsset = oGraph.assets[plt.components[j].handle];
+                                        var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
+                                        plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
+                                        grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
+                                    } else {
+                                        grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
+                                    }
+                                }
+                                grph.plots.push(plt);
+                            }
+                            break;
+                        }
                     }
                 }
-            }
-            if(grph.plots.length>0) quickGraph(grph, true);
-        });
+                if(grph.plots.length>0) quickGraph(grph, true);
+            });
         var $play = $thisPanel.find('.map-play');
         var player;
         $play.click(function(){
@@ -2207,93 +2211,105 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
-function provenance(){
-    var panelId, $tab, $prov, grph, i, j, plotList, mapList, componentHandle, plot, plotColor, okcancel;
+function provenance(plotIndex){  //redo entire panel is plotIndex omitted
+    var panelId, $tab, $prov, grph, i, j, plotList, mapList, plot, okcancel;
     panelId = visiblePanelId();
     $tab = $('#'+panelId);
     $prov =  $tab.find('.provenance').show(); //compensation for margins @ 15px + borders
     grph = oPanelGraphs[panelId];
     okcancel = '<button class="config-cancel">cancel</button> <button class="config-apply">apply</button><br>';
     plotList = '';
-    if(grph.plots){
-        plotList = '<div class="chart-plots">Chart:<ol class="plots">';
+    if(typeof plotIndex != 'undefined'){
+        $prov.find('ol.plots').append( plotHTML(grph, plotIndex) );
+    } else {
 
-        for(i=0;i<grph.plots.length;i++){
-            //outer PLOT loop
-            plot = grph.plots[i];
-            //plotList += addPlotli(grph, plot);  //addPlotli will add plot one at a time and run each of the jqui transformations and jq bindings
+        grph.plotsEdits = $.extend(true, [], grph.plots);  //this is the copy that the provenance panel will work with.  Will replace grph.plots on "OK"
+        if(grph.plots){
+            plotList = '<div class="chart-plots">Chart:<ol class="plots">';
 
-            if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
-            if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
-            plotColor = plot.options.lineColor||oHighCharts[panelId].get('P'+i).color;
-            plotList += '<li class="plot ui-state-highlight" data="P' + i + '">'
-                + '<button class="edit-plot">edit </button>'
-                + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
-                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(grph, plot)+'</span> <span class="plot-units">' + plotUnits(grph, plot) + '</span> (' + plotPeriodicity(grph, plot)+')</div>'
-                + '<ol class="components">';
-            for(j=0;j< plot.components.length;j++){
-                //inner COMPONENT SERIES loop
-                //TODO: add op icon and order by (+,-,*,/)
-                componentHandle = plot.components[j].handle;
-                if(plot.components[j].options.op==null)plot.components[j].options.op="+";
-
-                plotList += '<li class="component ui-state-default" data="P'+ i + '-C' + j + '">'
-       //             + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                    + '<span class="plot-op ui-icon ' + opUI[plot.components[j].options.op] + '">operation</span> '
-                    + grph.assets[componentHandle].name + '</li>';
+            for(i=0;i<grph.plots.length;i++){
+                //outer PLOT loop
+                plotList += plotHTML(grph, i);
             }
-            plotList +=   '</ol>';
-            plotList += '</li>';
         }
+
+        plotList += '</ol>'
+            +  '<ol class="blank-plot components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.  Double click on any series or plot line to edit its properties.</i></li></ol></div>';
+        mapList = provenanceOfMap(grph);
+        $prov.html(okcancel + plotList + mapList);
+        //sortable
+        $prov.find(".components")
+            .sortable({
+                containment: $prov.get(0),
+                connectWith: ".components",
+                axis: "y",
+                delay: 150,   //in ms to prevent accidentally drags
+                update: function(event, ui){ componentMoved(ui)}
+                /* receive: function(event, ui){alert("received")},
+                 remove: function(event, ui) {alert("removed")}*/
+            })
+            .disableSelection();
+        $prov.find(".plots").sortable({
+            axis: "y", dropOnEmpty: false}).disableSelection();
+        //main buttons
+        $prov.find("button.config-cancel").button({icons: {secondary: 'ui-icon-closethick'}}).click(function(){
+            provClose(this);
+        });
+        $prov.find("button.config-apply").button({icons: {secondary: 'ui-icon-check'}}).click(function(){
+            provOk(this);
+        });
     }
-
-    plotList += '</ol>'
-             +  '<ul class="blank-plot components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.  Double click on any series or plot line to edit its properties.</i></li></ul></div>';
-    mapList = provenanceOfMap(grph);
-    $prov.html(okcancel + plotList + mapList);
-    grph.plotsEdits = $.extend(true, [], grph.plots);  //this is the copy that the provenance panel will work with.  Will replace grph.plots on "OK"
-    $prov.find(".components").sortable({
-            containment: $prov.get(0),
-            connectWith: ".components",
-            axis: "y",
-            delay: 150,   //in ms to prevent accidentally drags
-            update: function(event, ui){ componentMoved(ui)}
-            /* receive: function(event, ui){alert("received")},
-             remove: function(event, ui) {alert("removed")}*/
-        })
-        .disableSelection();
-    $prov.find("button.config-cancel").button({icons: {secondary: 'ui-icon-closethick'}}).click(function(){
-        provClose(this);
-    });
-    $prov.find("button.config-apply").button({icons: {secondary: 'ui-icon-check'}}).click(function(){
-        provOk(this);
-    });
-
-    $prov.find("li.plot").click(function(evt){
+    //apply global
+    $prov.find("li.plot").off("click").click(function(evt){
         if(!evt.isPropagationStopped()){
             evt.stopPropagation();
             //alert("showPlotEditor(this");
         }
     });
-    $prov.find("li.component").click(function(evt){
+    $prov.find("li.component").off("click").click(function(evt){
         if(!evt.isPropagationStopped()){
             evt.stopPropagation();
             //alert("showComponentEditor(this");
         }
     });
-    $prov.find(".edit-comp").click(function(){
-    });
-    $prov.find(".edit-plot").button({icons: {secondary: 'ui-icon-pencil'}})
+    $prov.find(".edit-plot")
+        .button({icons: {secondary: 'ui-icon-pencil'}})
+        .off("click")
         .click(function(){
-        var $liPlot = $(this).closest("li");
-        showPlotEditor($liPlot);
-        $liPlot.find("li.component").each(function(){
-            showComponentEditor(this);
+            var $liPlot = $(this).closest("li");
+            showPlotEditor($liPlot);
+            $liPlot.find("li.component").each(function(){
+                showComponentEditor(this);
+            });
         });
-    });
-    $prov.find(".plots").sortable({
-        axis: "y", dropOnEmpty: false}).disableSelection();
 }
+
+function plotHTML(grph, i){
+    var plotColor, plotList = '', plot = grph.plotsEdits[i], componentHandle;
+    if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
+    if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
+    plotColor = plot.options.lineColor || (oHighCharts[panelId].get('P'+i)?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
+    plotList += '<li class="plot ui-state-highlight" data="P' + i + '">'
+        + '<button class="edit-plot">edit </button>'
+        + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
+        + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(grph, plot)+'</span> <span class="plot-units">' + plotUnits(grph, plot) + '</span> (' + plotPeriodicity(grph, plot)+')</div>'
+        + '<ol class="components">';
+    for(var j=0;j< plot.components.length;j++){
+        //inner COMPONENT SERIES loop
+        //TODO: add op icon and order by (+,-,*,/)
+        componentHandle = plot.components[j].handle;
+        if(plot.components[j].options.op==null)plot.components[j].options.op="+";
+
+        plotList += '<li class="component ui-state-default" data="P'+ i + '-C' + j + '">'
+            //             + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
+            + '<span class="plot-op ui-icon ' + op.class[plot.components[j].options.op] + '">operation</span> '
+            + grph.assets[componentHandle].name + '</li>';
+    }
+    plotList +=   '</ol>';
+    plotList += '</li>';
+    return plotList;
+}
+
 function plotName(oGraph, plot, forceCalculated){
     var handle, comp, c, calcName='';
     if(typeof(plot.options.name)!="undefined" && plot.options.name!='' && !forceCalculated){
@@ -2342,9 +2358,9 @@ function plotPeriodicity(oGraph, plot){
         fromPeriodicity = oGraph.assets[plot.components[0].handle].period;
     }
     if(typeof(plot.options.downshiftPeriod) == "undefined"){
-        return '<span class="plot-freq">'+periodName[fromPeriodicity]+'</span>';
+        return '<span class="plot-freq">'+period.name[fromPeriodicity]+'</span>';
     } else {
-        return '<span class="plot-freq">'+periodName[plot.options.downshiftPeriod]+'</span> <span class="plot-from-freq">'+plot.options.downshiftMethod+' down from '+periodName[fromPeriodicity]+'</span>';
+        return '<span class="plot-freq">'+period.name[plot.options.downshiftPeriod]+'</span> <span class="plot-from-freq">'+plot.options.downshiftMethod+' down from '+period.name[fromPeriodicity]+'</span>';
     }
 }
 function provenanceOfMap(grph){
@@ -2353,13 +2369,13 @@ function provenanceOfMap(grph){
         provHTML = '<div class="map-prov"><h3>Map of '+ grph.map +'</h3>';
         if(grph.mapsets){
             provHTML += '<div class="mapset">Mapset (regions)'
-            + '<ol class="mapsets">'
-            + '<li class="mapset ui-state-highlight">'
-            + '<button class="edit-mapset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
-            + '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
-            + '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.maxColor||'#0071A4') +';"></div>'
-            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-            + plotName(grph, grph.mapsets)+'</span> in ' + (grph.mapsets.options.units||plotUnits(grph, grph.mapsets)) + ' ' + (grph.mapsets.options.period||plotPeriodicity(grph, grph.mapsets))+'</div>';
+                + '<ol class="mapsets">'
+                + '<li class="mapset ui-state-highlight">'
+                + '<button class="edit-mapset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
+                + '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
+                + '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (grph.mapsets.options.maxColor||'#0071A4') +';"></div>'
+                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+                + plotName(grph, grph.mapsets)+'</span> in ' + (grph.mapsets.options.units||plotUnits(grph, grph.mapsets)) + ' ' + (grph.mapsets.options.period||plotPeriodicity(grph, grph.mapsets))+'</div>';
 
             provHTML += '<ol class="map-comp components" style="list-style-type: none;>';
             for(c=0;c<grph.mapsets.components.length;c++){
@@ -2367,28 +2383,28 @@ function provenanceOfMap(grph){
                 isSet = componentHandle.substr(0,1)=='M';
                 provHTML += '<li class="component ui-state-default" data="'+ componentHandle + '">'
                     + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                    + '<span class="plot-op ui-icon ' + opUI[grph.mapsets.components[c].options.op||'+'] + '">operation</span> '
+                    + '<span class="plot-op ui-icon ' + op.class[grph.mapsets.components[c].options.op||'+'] + '">operation</span> '
                     + grph.assets[componentHandle].name + '</li>';
             }
             provHTML += '</ol>'
                 + '</ol>'
-            + '</div>'; //close mapset
+                + '</div>'; //close mapset
         }
         if(grph.pointsets){
             provHTML += '<div class="pointsets">Pointsets (location markers)<ol class="pointsets">';
             for(p=0;p<grph.pointsets.length;p++){
                 pntset = grph.pointsets[p];
                 provHTML += '<li class="pointset ui-state-highlight">'
-                + '<button class="edit-pointset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
-                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                + plotName(grph, pntset)+'</span> in ' + (pntset.options.units||plotUnits(grph, pntset)) + ' ' + (pntset.options.period||plotPeriodicity(grph, pntset))+'</div>'
-                + '<ol class="point-comp components">';
+                    + '<button class="edit-pointset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
+                    + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+                    + plotName(grph, pntset)+'</span> in ' + (pntset.options.units||plotUnits(grph, pntset)) + ' ' + (pntset.options.period||plotPeriodicity(grph, pntset))+'</div>'
+                    + '<ol class="point-comp components">';
                 for(c=0;c<pntset.components.length;c++){
                     componentHandle = pntset.components[c].handle;
                     isSet = (/[XM]/).test(componentHandle);
                     provHTML += '<li class="component ui-state-default" data="'+ componentHandle  + '">'
                         + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                        + '<span class="plot-op ui-icon ' + opUI[pntset.components[c].options.op||'+'] + '">operation</span> '
+                        + '<span class="plot-op ui-icon ' + op.class[pntset.components[c].options.op||'+'] + '">operation</span> '
                         + grph.assets[componentHandle].name + '</li>';
                 }
                 provHTML += '</ol></li>';
@@ -2402,7 +2418,7 @@ function provenanceOfMap(grph){
 //TODO: FIX  componentMoved !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
     //first find out whether a sort or a move, and whether that move empty or created a new component.
-    var oGraph, $targetSeriesList, pFromHandle, fromIndex, pTargetHandle, sHandle, newPlotLi;
+    var oGraph, $targetSeriesList, pFromHandle, draggedComponent;
     var from, fromC, toC, fromP, toP, toOp;  //indexes
     var $prov = ui.item.closest(".provenance");
     if(ui.sender!=null){    // handle everything in the sorting call
@@ -2416,37 +2432,13 @@ function componentMoved(ui){  //triggered when an item is move between lists or 
         $targetSeriesList = ui.item.closest("ol.components");
         if($targetSeriesList.hasClass("blank-plot")){
             //NEW!! series was dragged onto new plot landing area:  need to create new blank plot object, provide handle, and create new li/ul structure
-            var newPlotName;
-            if(oGraph.plotsEdits[pFromHandle].components[fromIndex].options.newName){
-                newPlotName = oGraph.plotsEdits[pFromHandle].components[fromIndex].options.newName;
-            } else {
-                newPlotName = oGraph.assets[sHandle].name;
-            }
-            $newPlotLi = $('<li class="plot ui-state-highlight" data="' + pTargetHandle
-                + '">'+ newPlotName +'<ul class="components ui-sortable" style="list-style-type: none;" data="P' + oGraph.plotsEdits.length + ':C0'
-                + '"><li class="component ui-state-default" data="'+sHandle+'" plot="'+ pTargetHandle +'">'+ ui.item.html() +'</li></ul></li>');
-            $newPlotLi.find("." + opUI["/"] + ", ." + opUI["*"]).attr("class","plot-op ui-icon " + opUI["+"]);
-            $prov.find("ol.plots").append($newPlotLi);
-            ui.item.attr('data','P' + oGraph.plotsEdits.length + ':C0');
-
-            var draggedComponent = oGraph.plotsEdits[fromP].components.splice(toC, 1)[0];
-            oGraph.plotsEdits.push({components: [draggedComponent], options: {}});
-            //make sure the new items are sortable
-            //.sortable(destroy);
-            $prov.find(".components")
-                .sortable({
-                    connectWith: ".components",
-                    axis: "y",
-                    update: function(event, ui){ componentMoved(ui)}
-                })
-                .disableSelection();
-            //remove the body hanging out on the lower landing pad
-            ui.item.remove();
-            $prov.find(".plots")
-                .sortable({
-                    axis: "y",
-                    dropOnEmpty: false})
-                .disableSelection();
+            //1.remove component from donor plot object
+            draggedComponent = oGraph.plotsEdits[fromP].components.splice(toC, 1)[0];
+            draggedComponent.options.op = '+';
+            //2. add new plot
+            oGraph.plotsEdits.push({options:{}, components: [draggedComponent]});
+            //3. add it and event it
+            provenance(oGraph.plotsEdits.length-1);
         } else {
             // component was moved between plots
             toP = ui.item.closest('li.plot').index();
@@ -2469,24 +2461,21 @@ function componentMoved(ui){  //triggered when an item is move between lists or 
                     toOp = oGraph.plotsEdits[toP].components[c].options.op;
                     if(toOp=='+' || toOp=='-'){
                         if((oGraph.plotsEdits[toP].components[c].units||oGraph.assets[oGraph.plotsEdits[toP].components[c].handle].units)
-                                != (oGraph.plotsEdits[fromP].components[fromC].options.units||oGraph.assets[oGraph.plotsEdits[fromP].components[fromC].handle].units)){
+                            != (oGraph.plotsEdits[fromP].components[fromC].options.units||oGraph.assets[oGraph.plotsEdits[fromP].components[fromC].handle].units)){
                             oGraph.plotsEdits[fromP].components[fromC].options.op = '/';  //default to a ratio when units are different
-                            ui.item.find('.plot-op').removeClass().addClass('plot-op ui-icon' + opUI['/']);
+                            ui.item.find('.plot-op').removeClass().addClass('plot-op ui-icon' + op.class['/']);
                             break;
                         }
                     }
                 }
             }
 
-            var draggedComponent = oGraph.plotsEdits[fromP].components.splice(fromC, 1)[0];
+            draggedComponent = oGraph.plotsEdits[fromP].components.splice(fromC, 1)[0];
             oGraph.plotsEdits[toP].components.splice(toC, 0, draggedComponent);
-
-
-            //check to see if source if empty and kill if need be
-            if(oGraph.plotsEdits[fromP].components.length==0){
-                oGraph.plotsEdits.splice(fromP, 1);
-                $prov.find("li.plot[data='P"+ fromP +"']").remove();
-            }
+        }            //check to see if source if empty and kill if need be
+        if(oGraph.plotsEdits[fromP].components.length==0){
+            oGraph.plotsEdits.splice(fromP, 1);
+            $prov.find("li.plot[data='P"+ fromP +"']").remove();
         }
         sortSeriesUlByOp($targetSeriesList);
     }
@@ -2513,7 +2502,7 @@ function sortComponentsByOp(comp){
     comp.sort(function(a,b){
         if(!a.options.op)a.options.op="+";
         if(!b.options.op)b.options.op="+";
-        return opValues[a.options.op]-opValues[b.options.op];
+        return op.value[a.options.op]-op.value[b.options.op];
     })
 }
 function sortComponentsList(olComponents, oPlots){
@@ -2551,11 +2540,11 @@ function showComponentEditor(liComp){
     var $editDiv = $(editDiv);
     $liComp.find(".plot-op").hide().after(
         '<div class="op">'
-        +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" value="+" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'"><span class="ui-icon op-addition">add</span></label>'
-        +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'"><span class="ui-icon op-subtraction">subtract</span></label>'
-        +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'"><span class="ui-icon op-multiply">multiple summed series</span></label>'
-        +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'"><span class="ui-icon op-divide">divide summed series</span></label>'
-        +   '</div>');
+            +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" value="+" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'"><span class="ui-icon op-addition">add</span></label>'
+            +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'"><span class="ui-icon op-subtraction">subtract</span></label>'
+            +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'"><span class="ui-icon op-multiply">multiple summed series</span></label>'
+            +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'"><span class="ui-icon op-divide">divide summed series</span></label>'
+            +   '</div>');
     //$editDiv.find("li[data='"+component.options.op+"']").attr('checked','checked');
     $liComp.find("div.op").buttonset()
         .find("input[data='"+component.options.op+"']").click().end()
@@ -2566,7 +2555,7 @@ function showComponentEditor(liComp){
     $editDiv.find("ul.comp-op li").click(function(){
         $editDiv.find("li.selected").removeClass("selected");
         component.options.op = $(this).closest("li").addClass("selected").attr('data');
-        $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + opUI[component.options.op]);
+        $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + op.class[component.options.op]);
     });
     $liComp.find(".comp-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
         components.splice(iComp,1);
@@ -2581,10 +2570,10 @@ function showComponentEditor(liComp){
         $liComp.closest("ol.plots").append($newPlot);
     });
     /*$editDiv.find(".comp-close").click(function(evt){
-        sortComponentsList($liComp.closest("ul"), plotsEdits);
-        $liComp.find(".comp-editor").slideUp("default",function(){ $liComp.find(".comp-editor").remove()});
-        $liComp.find(".edit-comp").show();
-    });*/
+     sortComponentsList($liComp.closest("ul"), plotsEdits);
+     $liComp.find(".comp-editor").slideUp("default",function(){ $liComp.find(".comp-editor").remove()});
+     $liComp.find(".edit-comp").show();
+     });*/
 }
 function showPlotEditor(liPlot){
     var $liPlot = $(liPlot);
@@ -2637,8 +2626,8 @@ function showPlotEditor(liPlot){
     if(!oPlot.options.componentData)oPlot.options.componentData='required'
     $editDiv.find("div.edit-math").find("input[id='"+oPlot.options.componentData+"-"+panelId+"']").click().end().buttonset()
         .find('input:radio').change(function(){
-        oPlot.options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
-    });
+            oPlot.options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
+        });
     if(!oPlot.options.breaks)oPlot.options.breaks='nulls'
     $editDiv.find("div.edit-breaks").find("input[id='"+oPlot.options.breaks+'-'+panelId+"']").click().end().buttonset().find('input:radio').change(function(){
         oPlot.options.breaks = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
@@ -2663,14 +2652,12 @@ function showPlotEditor(liPlot){
 
     //buttons
     $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
-        delete oPlot;
+        oGraph.plotsEdits.splice($liPlot.index(),1);
         $liPlot.remove();
     });
     $editDiv.find("button.plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
-        oPanelGraphs[panelIdContaining(liPlot)].plotsEdits.push($.extend(true,{},oPlot));
-        var $newPlot = $liPlot.clone();
-        $newPlot.remove(".plot-editor");  //.find("li.plot").attr('data', pTargetHandle).find("ol, li.component").attr("plot", pTargetHandle);
-        $liPlot.closest("ol.plots").append($newPlot);
+        oGraph.plotsEdits.push($.extend(true,{},oPlot));
+        provenance(plotIndex);
     });
     $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
         $liPlot.find(".edit-plot, .plot-info, .line-sample").show();
