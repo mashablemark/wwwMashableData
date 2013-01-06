@@ -24,6 +24,8 @@
     <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.8.2.min.js"></script><!-- latest version is 1.9.4-->
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
+    <script type="text/javascript" src="common.js"></script>
+
     <!--script type="text/javascript" src="js/ColVis.min.js"></script-->
     <!--script type="text/javascript" src="js/ColReorder.min.js"></script-->
     <!--script type="text/javascript" src="js/ColReorderWithResize.js"></script-->
@@ -277,7 +279,11 @@ $(document).ready(function(){
         'transitionOut'		: 'none'
     });
     $("#show-hide-pickers").button({icons: {secondary: "browse-rollup"}});
-
+    $("#menu-account").button({icons: {secondary: "ui-icon-triangle-1-s"}})
+            .click({
+                account.showLogin
+            });
+    $("#menu-help").button({icons: {secondary: "ui-icon-help"}});
     $('#jsddm > li').bind('mouseover', jsddm_open);
     $('#jsddm > li').bind('mouseout',  jsddm_timer);
     lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).filter("[data='#local-series']").get(0);
@@ -1778,8 +1784,8 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
                     orgId = md_getUserId_results.orgid;
                     orgName = md_getUserId_results.orgname;
                     if(orgId&&orgName){$("#series_search_source").append('<option value="org">'+orgName+'</option>')};
-                    $("#login-display").html(fb_user.name);
-                    $("#mn_facebook").html("sign out");
+                    $("#menu-account .ui-button-text").html(fb_user.name);
+                    //$("#mn_facebook").html("sign out");
                     syncMyAccount();
                 } else {
                     console.log(md_getUserId_results);
@@ -2467,13 +2473,8 @@ function mask(){
         </div>
         <button style="position:absolute;left:650px;top:5px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu-->
-        <ul id="jsddm" class="menu" style="list-style-type: none;float:right;">
-            <li><span id="login-display">sign in</span><span class="sorting_asc"><span></span></span>
-                <ul><li><a id="mn_facebook" onclick="loginout()">Facebook</a></li></ul>
-            </li>
-            <li><a alt="help">?</a></li>
-            <li><a alt="preferences"><img src="images/gear.png"></a></li>
-        </ul>
+        <button id="menu-help" class="prov-float-btn">Help</button>
+        <button id="menu-account" class="prov-float-btn">Sign in</button>
     </div>
     <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER DATATABLES -->
         <!--BEGIN LOCAL SERIES-->
