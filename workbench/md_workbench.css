@@ -816,6 +816,12 @@ td.expanded{
 
 .ui-widget-overlay { background: #888888 url(images/overlay_stripes.png) 50% 50% repeat; opacity: .30;filter:Alpha(Opacity=30); }
 
+/* start ACCOUNT SCREENS */
+.llabel{
+       width: 200px;
+   }
+/* end ACCOUNT SCREENS */
+
 .charttools{
     width: 110px;
 }
