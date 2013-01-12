@@ -20,19 +20,14 @@
 
     <!--JavaScript files-->
     <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script><!-- latest verions is 1.8.3-->
-    <!--script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.8.16.custom.min.js"></script-->
     <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.8.2.min.js"></script><!-- latest version is 1.9.4-->
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
-    <script type="text/javascript" src="common.js"></script>
-
-    <!--script type="text/javascript" src="js/ColVis.min.js"></script-->
-    <!--script type="text/javascript" src="js/ColReorder.min.js"></script-->
-    <!--script type="text/javascript" src="js/ColReorderWithResize.js"></script-->
     <script type="text/javascript" src="js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
     <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
     <!--script  type="text/javascript" src="js/jquery-jvectormap-1.0.js"></script-->
     <script type="text/javascript" src="graph.js"></script>
+    <script type="text/javascript" src="common.js"></script>
 
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
 
@@ -158,49 +153,8 @@ var accessToken; //set in doc.ready after check that browser has localStorage
 var expiresIn = null;
 var myPreferences = {uselatest: 'N'};
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
-//top menu variables and routines.  Currently ony used for logm, but could be expanded to help and setting/preferences
-var ddmenuTimeout    = 500;
-var ddmenuClosetimer = 0;
-var ddmenuitem = 0;
-function jsddm_open(){jsddm_canceltimer();jsddm_close();ddmenuitem = $(this).find('ul').css('visibility', 'visible');}
-function jsddm_close(){  if(ddmenuitem) ddmenuitem.css('visibility', 'hidden');}
-function jsddm_timer(){  ddmenuClosetimer = window.setTimeout(jsddm_close, ddmenuTimeout);}
-function jsddm_canceltimer(){if(ddmenuClosetimer){window.clearTimeout(ddmenuClosetimer);ddmenuClosetimer = null;}}
-document.onclick = jsddm_close;
 
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};
-
-function addJQueryStringify(){ //stringify extension ensure stringify functionality for older browsers
-    jQuery.extend({
-        stringify  : function stringify(obj) {
-            if ("JSON" in window) {
-                return JSON.stringify(obj); //use the browser function whenever possible
-            }
-            var t = typeof (obj);
-            if (t != "object" || obj === null) {
-                // simple data type
-                if (t == "string") obj = '"' + obj + '"';
-                return String(obj);
-            } else {
-                // recurse array or object
-                var n, v, json = [], arr = (obj && obj.constructor == Array);
-                for (n in obj) {
-                    v = obj[n];
-                    t = typeof(v);
-                    if (obj.hasOwnProperty(n)) {
-                        if (t == "string") {
-                            v = '"' + v + '"';
-                        } else if (t == "object" && v !== null){
-                            v = jQuery.stringify(v);
-                        }
-                        json.push((arr ? "" : '"' + n + '":') + String(v));
-                    }
-                }
-                return (arr ? "[" : "{") + String(json) + (arr ? "]" : "}");
-            }
-        }
-    });
-}
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
     FB.init({
@@ -225,15 +179,7 @@ window.fbAsyncInit = function() { //called by facebook auth library after it loa
     });
 };
 
-// Load the SDK Asynchronously
-/*(function(d){
- var js, id = 'facebook-jssdk', ref = d.getElementsByTagName('script')[0];
- if (d.getElementById(id)) {return;}
- js = d.createElement('script'); js.id = id; js.async = true;
- js.src = "//connect.facebook.net/en_US/all.js";
- ref.parentNode.insertBefore(js, ref);
- }(document));*/
-
+// Load the Facebook SDK Asynchronously
 function initFacebook(){
     var js, id = 'facebook-jssdk'; if (document.getElementById(id)) {return;}
     js = document.createElement('script'); js.id = id; js.async = true;
@@ -280,25 +226,14 @@ $(document).ready(function(){
     });
     $("#show-hide-pickers").button({icons: {secondary: "browse-rollup"}});
     $("#menu-account").button({icons: {secondary: "ui-icon-triangle-1-s"}})
-            .click({
-                account.showLogin
+            .click(function(){
+                account.showSignInOut();
             });
-    $("#menu-help").button({icons: {secondary: "ui-icon-help"}});
-    $('#jsddm > li').bind('mouseover', jsddm_open);
-    $('#jsddm > li').bind('mouseout',  jsddm_timer);
-    lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).filter("[data='#local-series']").get(0);
-    //$pickerTabs = $("#pickers" ).tabs();
-    /*	$( "#graph_text" ).resizable({ minWidth: 705, maxWidth: 705,  minHeight: 30, maxHeight: 160, resize: function(event, ui) {
-     console.log(ui.size.height + ":" + ui.originalSize.height);
-     }
-     }); */
-    /*
-     //handle the textarea resize
-     var t = jQuery('#test');
-     t.data('x', t.outerWidth());
-     t.data('y', t.outerHeight());
-     */
+    $("#menu-help").button({icons: {secondary: "ui-icon-help"}})
+            .click(function(){
 
+            });
+    lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).filter("[data='#local-series']").get(0);
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
     resizeCanvas();
     setupMySeriesTable();
@@ -306,7 +241,6 @@ $(document).ready(function(){
     setupMyGraphsTable(); //loaded on sync account.  No local storage for graphs.
 
     var $tab_title_input = $('#tab_title'), $tab_content_input = $('#tab_content');
-
 
     // tabs init with a custom tab template and an "add" callback filling in the content
     $graphTabs = $('#canvas').tabs({

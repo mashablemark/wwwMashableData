@@ -1728,7 +1728,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 return;
             }
             //show link div code here
-            var offset = $(this).offset();  //relative to document
+            var offset = $(this).offset();  //button offset relative to document
             var linkDivHTML =
                 '<div id="link-editor">' +
                     '<button class="right" id="link-editor-close">close</button>' +
