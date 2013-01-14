@@ -134,8 +134,8 @@ account = {
     htmls: {
         subscription:
             '<div id="account-screen">' +
-                '<h2>Account Management:</h2>' +
-                '<h3>Basic information</h3>' +
+                '<h2>Account Management</h2>' +
+                '<h3>Basic information:</h3>' +
                 '<span class="over">display name:</span><input class="req uname" data="user name" type="text" /><br />' +
                 '<span class="over">main email:</span><input class="req email" data="email" type="text" /><br />' +
                 '<div class="account-auth">' +
@@ -154,38 +154,34 @@ account = {
                     '<input type="radio" name="account-twit" id="account-twitdiff" value="twitdiff" /><label for="account-twitdiff"><input class="twitemail" data="optional" type="text" /></label>' +
                 '</div>' +
                 '<div>' +
-                    '<h3>Subscription type</h3>' +
+                    '<h3>Subscription type:</h3>' +
                     '<input type="radio" name="account-level" id="account-lvl-trial" value="trial" />' +
                     '<label for="account-lvl-trial"><strong>free trial</strong> <em>Access to all features for a limited number of requests.</em></label><br />' +
                     '<input type="radio" name="account-level" id="account-lvl-ind" value="indiv" />' +
                     '<label for="account-lvl-ind"><strong>individual</strong> <em>Unlimited graphs, custom series, searches and downloads for US$10 every 6 months.</em></label><br />' +
-                    '<input type="radio" name="account-level" id="account-lvl-org" value="org" />' +
-                    '<label for="account-lvl-org"><strong>organization</strong> <em>Same unlimited usage and cost as per individual account, but shares your custom series and draft graphs within your organization.  All payments for organization members are processed by the organization\'s administrator, so only a single credit card is required.   Select this option to create a new organization account or join an existing one.</em></label><br />' +
-                    '<div class="account-org hidden">' +
-                        '<input type="radio" name="account-auth" id="account-org-join" value="join" />' +
-                        '<label for="account-org-join"><strong>join an existing organization.</strong></label><br />' +
-                        '<div class="regcode">' +
-                            'Registration code (required): <input class="req regcode" data="regcode" type="text" />' +
-                            '<em>(Your code is included in your invitation email sent by your organization\'s administrator.)</em><br />' +
-                        '</div>' +
-                        '<label for="account-org-create">' +
-                        '<input type="radio" name="account-auth" id="account-org-create" value="create" />' +
-                        '<strong>create an administrative account for a new organization.</strong> </label>' +
-                        '<em>This account will have tools to send invitations and to manage users and billing.</em>' +
-                        '<div class="joinmode hidden">' +
-                            '<h3>How will users join your organization.</h3>' +
-                            '<label for="account-emailorinvite">' +
-                            '<input type="radio" name="account-join" id="account-emailorinvite" value="emailorinvite" />' +
-                            '<strong>anyone with a verified email address of the same domain as your main email address OR by invitation</strong></label>' +
-                            '<br />' +
-                            '<input type="radio" name="account-join" id="account-inviteonly" value="inviteonly" />' +
-                            '<label for="account-inviteonly"><strong> by invitation only</strong><em>You can supply the email addresses for each member at anytime. MashableData will then send an email with a unique registration code and instructions to each invitee.</em></label><br />' +
-                            '<br />' +
-                        '</div>' +
+                    //'<input type="radio" name="account-level" id="account-lvl-org" value="org" />' +
+                    //'<label for="account-lvl-org"><strong>organization</strong> <em>Same unlimited usage and cost as per individual account, but shares your custom series and draft graphs within your organization.  All payments for organization members are processed by the organization\'s administrator, so only a single credit card is required.   Select this option to create a new organization account or join an existing one.</em></label><br />' +
+                    '<input type="radio" name="account-level" id="account-lvl-member" value="member" />' +
+                    '<label for="account-lvl-member"><strong>join my organization\'s corporate account</strong> </label><br />' +
+                    '<div class="regcode blue-inset hidden">' +
+                        'Registration code (required): <input class="req regcode" data="regcode" type="text" /><br />' +
+                        '<em>Your code is included in your invitation email sent by your organization\'s administrator.</em>' +
+                    '</div>' +
+                    '<input type="radio" name="account-level" id="account-lvl-admin" value="admin" />' +
+                    '<label for="account-lvl-admin"><strong>create a corporate account</strong> <em>Members will get unlimited usage plus confidential sharing of data and visualizations amoung members.  All billing and membership will be managed through this account, so only a single credit card is required.  Select this option to create and administer a new corporate account.</em></label><br />' +
+                    '<div class="joinmode blue-inset hidden">' +
+                        'How will users join your organization:<br />' +
+                        '<label for="account-emailorinvite">' +
+                        '<input type="radio" name="account-join" id="account-emailorinvite" value="emailorinvite" />' +
+                        '<strong>anyone with a verified email with the same domain as <span class="account-main-email"></span> OR by invitation</strong></label>' +
+                        '<br />' +
+                        '<input type="radio" name="account-join" id="account-inviteonly" value="inviteonly" />' +
+                        '<label for="account-inviteonly"><strong> by invitation only</strong></label>' +
+                        '<br /><em>You can supply the email addresses for each member at anytime. MashableData will then send an invitation via email with a unique registration code and instructions to each invitee.</em><br />' +
                     '</div>' +
                 '</div>' +
                 '<div class="payments hidden">' +
-                    '<h3>Payment method</h3>' +
+                    '<h3>Payment method:</h3>' +
                     '<span class="llabel">credit card number:</span> <input class="fbemail" data="optional" type="text" />' +
                     'Expiration:' +
                     '<select name="expmonth"><option val="1">Jan</option><option val="2">Feb</option><option val="3">Mar</option><option val="4">Apr</option><option val="5">May</option><option val="6">Jun</option><option val="7">Jul</option><option val="8">Aug</option><option val="9">Sep</option><option val="10">Oct</option><option val="11">Nov</option><option val="12">Dec</option></select>' +
@@ -195,6 +191,7 @@ account = {
                     '<span class="llabel">address:</span> <input type="text" class="address" /><br />' +
                     '<span class="llabel">city:</span> <input type="text" class="city" />	<span class="stateprov">state:</span><input type="text" class="stateprov" /> <span class="postal">ZIP code:</span><input type="text" class="postal" /></p>' +
                 '</div>' +
+            '<button class="ok">ok</button> <button class="cancel">cancel</button>' +
             '</div>',
         signIn:
             '<div id="signin-md">Email:<br><input id="signin-email"><br>Password:<br><input id="signin-pwd"><br><button id="signin-signin">Sign in</button> <input id="signin-stay" type="checkbox" /> stay signed in<br><br>New to MashableData? Create an <a href="javascript:void(0)">account</a></div> ' +
@@ -212,7 +209,8 @@ account = {
             {
                 showCloseButton: false,
                 autoScale: false,
-                overlayOpacity: ($btn?0:0.5)
+                overlayOpacity: ($btn?0:0.5),
+                hideOnOverlayClick: ($btn?true:false)
             });
         var $fancy = $("#fancybox-wrap");
         if($btn){
@@ -244,6 +242,12 @@ account = {
         $screen.find('input.email').val(fb_user.email);
         $screen.find('input.uname').val(fb_user.name);
         $screen.find('span.account-main-email').html(fb_user.email);
+        $screen.find('button.ok').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
+            alert('form validation here');
+        });
+        $screen.find('button.cancel').button({icons: {secondary: 'ui-icon-closethick'}}).click(function(){
+            $.fancybox.close();
+        });
         $screen.find('input:radio[name=auth]').click(function(){
             if(this.id == 'authmd')
                 $screen.find('div.account-pwd').slideDown();
@@ -251,10 +255,10 @@ account = {
                 $screen.find('div.account-pwd').slideUp();
         });
         $screen.find('input:radio[name=account-level]').click(function(){
-            if(this.id == 'account-lvl-org')
-                $screen.find('div.account-org').slideDown();
-            else
-                $screen.find('div.account-org').slideUp();
+            if(this.id == 'account-lvl-admin')$screen.find('div.joinmode').slideDown(); else $screen.find('div.joinmode').slideUp();
+            if(this.id == 'account-lvl-admin' || this.id == 'account-lvl-ind') $screen.find('div.payments').slideDown(); else $screen.find('div.payments').slideUp();
+            if(this.id == 'account-lvl-member')$screen.find('div.regcode').slideDown(); else $screen.find('div.regcode').slideUp();
+
         });
         $screen.find('input:radio[name=account-auth]').click(function(){
             if(this.id == 'account-org-create')
@@ -265,13 +269,49 @@ account = {
 
 
     },
-    login: function(username, password, callback){ //MD credential login will fetch and population account.info.  executes callback on success
+    signIn: function(username, password, callback){ //MD credential login will fetch and population account.info.  executes callback on success
 
+    },
+    signInFB: function(response){
+        if (response.authResponse) {
+            loggedIn = "Facebook";  //global variable
+            accessToken = response.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
+            expiresIn = response.authResponse.expiresIn;
+            FB.api('/me', function(response) {
+                fb_user = response;  //global variable
+                getUserId();
+            });
+            $.fancybox.close()
+        }
     },
     subscribe: function(password, callback){ //account.info must be populated
 
     },
-    logoff: function(){},
+    signOut: function(){
+        FB.logout(function(response) {
+            localStorage.removeItem('token');  //remove the FB token
+            localStorage.removeItem('mdtoken');  //remove the MD encryted token
+            window.location.reload();  // user is now logged out; reload will reset everything
+        });
+    },
+    loginout: function (){ //
+        if(loggedIn){
+            account.signOut();
+        } else {
+            FB.login(function(response) {
+                if (response.authResponse) {
+                    loggedIn = "facebook";  //global variable
+                    accessToken =  response.authResponse.accessToken;
+                    localStorage.setItem('fbtoken', accessToken); //used for uploading when Workbench is not open but user is authorized and has logged in
+                    expiresIn = response.authResponse.expiresIn;
+                    FB.api('/me', function(response) {
+                        fb_user = response;  //global variable
+                        getUserId(); //trigger an account sync on first call
+                    });
+                }
+            });
+        }
+    },
     info: {
         name: null,
         uid: null,
@@ -290,3 +330,4 @@ account = {
         md: null // MD token = encryption with Unix login TS;uid;orgid;subscription
     }
 };
+

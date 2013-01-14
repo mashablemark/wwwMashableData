@@ -167,15 +167,10 @@ window.fbAsyncInit = function() { //called by facebook auth library after it loa
     });
 
     FB.getLoginStatus(function(response) {
-        if (response.authResponse) {
-            loggedIn = "Facebook";  //global variable
-            accessToken = response.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
-            expiresIn = response.authResponse.expiresIn;
-            FB.api('/me', function(response) {
-                fb_user = response;  //global variable
-                getUserId();
-            });
-        }
+        account.signInFB(response);
+    });
+    FB.Event.subscribe('auth.login', function(response) {
+        account.signInFB(response);
     });
 };
 
@@ -2302,32 +2297,6 @@ function addLinearRegression(hChart, series){ //COPIED DIRECTLY FROM md_hcharter
     return(hChart.addSeries(newSeries,false));
 }
 
-function loginout(){ //
-    if(loggedIn){
-        FB.logout(function(response) {
-            localStorage.removeItem('token');  //remove the FB token
-            window.location.reload();  // user is now logged out; reload will reset everything
-            /*loggedIn = false;  //global variable
-             fb_user = null;
-             md_userId = null;
-             $("#mn_facebook").html("Facebook");
-             $("#login-display").html("sign in");*/
-        });
-    } else {
-        FB.login(function(response) {
-            if (response.authResponse) {
-                loggedIn = "facebook";  //global variable
-                accessToken =  response.authResponse.accessToken;
-                localStorage.setItem('token', accessToken); //used for uploading when Workbench is not open but user is authorized and has logged in
-                expiresIn = response.authResponse.expiresIn;
-                FB.api('/me', function(response) {
-                    fb_user = response;  //global variable
-                    getUserId(); //trigger an account sync on first call
-                });
-            }
-        });
-    }
-}
 function notLoggedInWarningDisplayed(){
     if(!loggedIn){
         $('#dialog').html('<span><p>You must be signed in to use this function.  You can sign into MashableData.com with your Facebook account.  (Google+ account federation coming soon!)</p>'
