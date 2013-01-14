@@ -422,7 +422,7 @@ function setCropSlider(panelId){  //get closest point to recorded js dt
 }
 function dateFromMdDate(dt, periodicity){
     var udt;
-    udt = new Date('1 1 ' + dt.substr(0,4) + ' UTC'); //language independent
+    udt = new Date('1/1/' + dt.substr(0,4) + ' UTC'); //language independent
     switch(periodicity){
         case "N": {
             udt.setUTCHours(dt.substr(9,2));
@@ -840,7 +840,7 @@ function createSerieFromPlot(oGraph, plotIndex){
     var components, i, j, sHandle, plot, calculatedSeries, data, point, plotData=[], dateKey, oComponentData = {};
     //TODO: this is stub code for a single series plot.  Vector math and transform code to be added
     plot = oGraph.plots[plotIndex];
-    calculatedSeries = {name: plot.name, units: plot.options.units};
+    calculatedSeries = {name: plotName(oGraph,plot), units: plotUnits(oGraph, plot)};
     components = plot.components;
 
     //get the units in this order : plot > transformed series > raw series

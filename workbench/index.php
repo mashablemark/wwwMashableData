@@ -1190,7 +1190,6 @@ function quickViewToChart(btn){
                                 handle:   oQuickViewSeries[i].handle,
                                 options: {k:1.0, op:'+'}
                             }],
-                    name: null,
                     options: {}
                 });
 
@@ -2027,7 +2026,7 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
         for(var i=0;i<quickViewSeries.length;i++){
             var handle = quickViewSeries[i].handle;
             oGraph.assets[handle] = $.extend(true, {}, quickViewSeries[i]); //make copy
-            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}, options: {}}]});
+            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}}],options: {}});
         }
     }  else {
 //building from MySeriesTable
@@ -2056,13 +2055,15 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
     //got all the data?  If not, fetch before creating graph
     getAssets(oGraph,
         function(jsoData, textStatus, jqXH){
-            for(var i=0;i<jsoData.seriesData.length;i++){
-                //Local series will always have data.  Eventually, add support for 'U' series
-                if(jsoData.seriesData[i].cid==jsoData.seriesData[i].lastestcid){
-                    //graph may not being using the latest, but mySeries always will
-                    oMySeries['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
+            if(jsoData){
+                for(var i=0;i<jsoData.seriesData.length;i++){
+                    //Local series will always have data.  Eventually, add support for 'U' series
+                    if(jsoData.seriesData[i].cid==jsoData.seriesData[i].lastestcid){
+                        //graph may not being using the latest, but mySeries always will
+                        oMySeries['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
+                    }
+                    oGraph.assets['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
                 }
-                oGraph.assets['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
             }
             graphBuilder(oGraph, panelId);
             unmask();
