@@ -1618,8 +1618,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '<div class="jvmap" style="display: inline-block;"></div>' +
             '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
             '<button class="map-play">play</button>' +
-            '<button class="map-graph-selected" title="graph selected regions and markers" disabled="disabled">graph</button>' +
-            '<button class="make-map">reset</button>' +
+            '<button class="map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
+            '<button class="make-map" disabled="disabled">reset</button>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -2053,18 +2053,18 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             onRegionSelected: function(e, code, isSelected){
                 var selectedMarkers = $map.getSelectedMarkers();
                 if(selectedMarkers.length>0){
-                    $thisPanel.find('.map-graph-selected').button('enable');
+                    $thisPanel.find('.map-graph-selected, .make-map').button('enable');
                     return;
                 }
                 var selectedRegions = $map.getSelectedRegions();
                 for(var i=0;i<selectedRegions.length;i++){
                     if(calculatedMapData.regionData[calculatedMapData.dates[0].s]&&calculatedMapData.regionData[calculatedMapData.dates[0].s][selectedRegions[i]]){
-                        $thisPanel.find('.map-graph-selected').button('enable');
+                        $thisPanel.find('.map-graph-selected, .make-map').button('enable');
                         return;
                     }
                 }
                 //default if no markers selected or region that have data are selected:
-                $thisPanel.find('.map-graph-selected').button('disable');
+                $thisPanel.find('.map-graph-selected, .make-map').button('disable');
             },
             onMarkerSelected: function(e, code, isSelected){
                 vectorMapSettings.onRegionSelected(e, code, isSelected)
@@ -2203,6 +2203,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             $map.remove();
             $thisPanel.find('div.jvmap').html('').vectorMap(vectorMapSettings);
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
+            $thisPanel.find('.map-graph-selected, .make-map').button('disable');
         });
     }
 };
