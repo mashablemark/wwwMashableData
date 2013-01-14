@@ -819,7 +819,38 @@ td.expanded{
 /* start ACCOUNT SCREENS */
 .llabel{
        width: 200px;
-   }
+}
+div#signin-fb, div#signin-or, div#signin-md{
+    display: inline-block;
+    float: left;
+    width: 250px;
+    height: 160px;
+    padding: 10px;
+}
+div#signin-or{
+    width: 100px;
+    text-align: center;
+}
+div#signedin-md{
+    width: 200px;
+    height: 100px;
+    padding: 10px;
+}
+div#account-screen{
+    width: 800px;
+    height: 600px;
+    padding: 10px;
+}
+div#account-screen h3{
+    color: black;
+    padding: 15px 0 0 2px;
+}
+div#account-screen>div{
+    width: 750px;
+}
+div#account-screen div.hidden{
+    display: none;
+}
 /* end ACCOUNT SCREENS */
 
 .charttools{

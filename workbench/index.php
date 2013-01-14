@@ -2406,7 +2406,7 @@ function mask(){
             </ul>
         </div>
         <button style="position:absolute;left:650px;top:5px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
-        <!--account and help menu-->
+        <!--account and help menu--><fb:login>
         <button id="menu-help" class="prov-float-btn">Help</button>
         <button id="menu-account" class="prov-float-btn">Sign in</button>
     </div>
