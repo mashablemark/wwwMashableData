@@ -9,7 +9,7 @@ var hcColors = [
     '#92A8CD',
     '#A47D7C',
     '#B5CA92'];
-var primeColors=['#008000', '#FF0000','#0000FF', '#FFFF00', '#FF9900', '#00FFFF', '#000000'];  //green, red, blue, yellow, orange, azure, black
+var primeColors=['#008000', '#FF0000','#0000FF', '#FFFF00', '#FF9900', '#00FFFF', '#FF0000'];  //green, red, blue, yellow, orange, azure, lime green
 var dashStyles = [
     'Solid',
     'Short Dash',
@@ -63,6 +63,7 @@ var jVectorMapTemplates = {
     "US states": "us_aea_en",
     "world": "world_mill_en"
 };
+var mapBackground = '#AAAAAA';
 var rowPosition = {
     name: 0,
     units: 1,
@@ -75,8 +76,64 @@ var rowPosition = {
 };
 var vectorPattern = /[SU]/;   //series or userseries handle test
 var handlePattern = /[MXSU]\d+/g;
+var SVGNS = "http://www.w3.org/2000/svg";
 
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
+
+//jVectorMaps helpers
+function modAddMarkers(){  // $vm.addMarker('thom', {point: {x:100, y:100}, fill: 'green'}, 123);
+    jvm.WorldMap.prototype.createMarkers = function(markers) { // accepts marker.point: {x: xvalue, y:yvalue} in addition to [lat, lng]
+        var group = this.canvas.addGroup(),
+            i,
+            marker,
+            point,
+            markerConfig,
+            markersArray,
+            map = this;
+
+        if ($.isArray(markers)) {
+            markersArray = markers.slice();
+            markers = {};
+            for (i = 0; i < markersArray.length; i++) {
+                markers[i] = markersArray[i];
+            }
+        }
+
+        for (i in markers) {
+            markerConfig = markers[i] instanceof Array ? {latLng: markers[i]} : markers[i];
+            point = (markerConfig.point)?markerConfig.point:this.latLngToPoint.apply(this, markerConfig.latLng || [0, 0]);
+
+            marker = this.canvas.addCircle({
+                "data-index": i,
+                cx: point.x,
+                cy: point.y
+            }, $.extend(true, {}, this.params.markerStyle, {initial: markerConfig.style || {}}), group);
+            marker.addClass('jvectormap-marker');
+            $(marker.node).bind('selected', function(e, isSelected){
+                map.container.trigger('markerSelected.jvectormap', [$(this).attr('data-index'), isSelected, map.getSelectedMarkers()]);
+            });
+            if (this.markers[i]) {
+                this.removeMarkers([i]);
+            }
+            this.markers[i] = {element: marker, config: markerConfig};
+        }
+    };
+}
+function geometricCenter(regions, $g){
+    var bBox, totalArea=0, xArm=0, yArm=0, center;
+    for(var i=0;i<regions.length;i++){  //iterate through the list
+        bBox = $g.find('path[data-code='+region[i]+']').get(0).getBBox();
+        xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
+        yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;
+        totalArea +=  bBox.width * bBox.height;
+    }
+    center = {
+        x: xArm / totalArea,
+        y: yArm / totalArea
+    };
+    return center;
+}
+
 
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
 function chartPanel(node){
@@ -1980,7 +2037,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     var $map;
     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
         calculatedMapData = calcMap(oGraph);
-
+        modAddMarkers();  //must be done after loaded by requires
         var jvmap_template;
         switch(oGraph.map){
             case "US states":
@@ -1994,7 +2051,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         }
         var vectorMapSettings = {
             map: jvmap_template,
-            backgroundColor: '#AAAAAA',
+            backgroundColor: mapBackground,
             markersSelectable: true,
             markerStyle: {initial: {r: 0}}, //default for null values in the data
             series: {
@@ -2077,6 +2134,35 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
         $thisPanel.find('div.jvmap').show().height(($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
         $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
+
+        //BBBUUUUBBBBBLLEESS!!!!!
+        var $g = $('#' + panelId).find('div.jvmap svg g:first');  //goes in createGraph closure
+        var regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
+        var center;
+        if(oGraph.mapset.options.type && oGraph.mapset.options.type=='bubble'){
+            var region, i, j, allMergedRegions = [];
+            if(oGraph.mapset.options.merges){
+                for(i=0;i<oGraph.mapset.options.merges.length;i++){
+                    center = geometricCenter(oGraph.mapset.options.merges[i], $g);
+                    $map.addMarker(oGraph.mapset.options.merges[i].join('+'), {point: {x: center.x, y:center.y}, fill: 'green'}, 10);  //TODO: calc value and set color
+                    for(j=0;j<oGraph.mapset.options.merges[i].length;j++){
+                        $g.find('path[data-code='+oGraph.mapset.options.merges[i][j]+']').attr("fill", regionColors[i]%regionColors.length); //paint the region
+                    }
+                    allMergedRegions = allMergedRegions.concat(oGraph.mapset.options.merges[i]);
+                }
+            }
+            $g.find('path[data-code]').each(function(){
+                region  = $(this).attr('data-code');
+                if(allMergedRegions.indexOf(region) == -1){
+                    center = geometricCenter([region], $g);
+                    $map.addMarker(region, {point: {x: center.x, y:center.y}, fill: 'green'}, 10); //TODO: calc value and set color
+                }
+                $(this).attr('fill', regionColors[i++]%regionColors.length);
+            });
+        }
+
+
+
         $thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
         var $slider = $thisPanel.find('.slider').show().slider({
             value: val,
