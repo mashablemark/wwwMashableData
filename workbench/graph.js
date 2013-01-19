@@ -81,17 +81,19 @@ var SVGNS = "http://www.w3.org/2000/svg";
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
 //jVectorMaps helpers
-function modAddMarkers(){  // $vm.addMarker('thom', {point: {x:100, y:100}, fill: 'green'}, 123);
+function modCreateMarkersMethod(){  // $vm.addMarker('thom', {point: {x:100, y:100}, fill: 'green'}, 123);
+//for JVM 1.1.1:  for v.1.2.1, only need to modify getMarkerPosition function
     jvm.WorldMap.prototype.createMarkers = function(markers) { // accepts marker.point: {x: xvalue, y:yvalue} in addition to [lat, lng]
-        var group = this.canvas.addGroup(),
-            i,
+        var i,
             marker,
             point,
             markerConfig,
             markersArray,
             map = this;
 
-        if ($.isArray(markers)) {
+        this.markersGroup = this.markersGroup || this.canvas.addGroup();
+
+        if (jvm.$.isArray(markers)) {
             markersArray = markers.slice();
             markers = {};
             for (i = 0; i < markersArray.length; i++) {
@@ -103,26 +105,39 @@ function modAddMarkers(){  // $vm.addMarker('thom', {point: {x:100, y:100}, fill
             markerConfig = markers[i] instanceof Array ? {latLng: markers[i]} : markers[i];
             point = (markerConfig.point)?markerConfig.point:this.latLngToPoint.apply(this, markerConfig.latLng || [0, 0]);
 
-            marker = this.canvas.addCircle({
-                "data-index": i,
-                cx: point.x,
-                cy: point.y
-            }, $.extend(true, {}, this.params.markerStyle, {initial: markerConfig.style || {}}), group);
-            marker.addClass('jvectormap-marker');
-            $(marker.node).bind('selected', function(e, isSelected){
-                map.container.trigger('markerSelected.jvectormap', [$(this).attr('data-index'), isSelected, map.getSelectedMarkers()]);
-            });
-            if (this.markers[i]) {
-                this.removeMarkers([i]);
+            if (point !== false) {
+                marker = this.canvas.addCircle({
+                    "data-index": i,
+                    cx: point.x,
+                    cy: point.y
+                }, jvm.$.extend(true, {}, this.params.markerStyle, {initial: markerConfig.style || {}}), this.markersGroup);
+                marker.addClass('jvectormap-marker jvectormap-element');
+                jvm.$(marker.node).bind('selected', function(e, isSelected){
+                    map.container.trigger('markerSelected.jvectormap', [jvm.$(this).attr('data-index'), isSelected, map.getSelectedMarkers()]);
+                });
+                if (this.markers[i]) {
+                    this.removeMarkers([i]);
+                }
+                this.markers[i] = {element: marker, config: markerConfig};
             }
-            this.markers[i] = {element: marker, config: markerConfig};
+        }
+    };
+
+    jvm.WorldMap.prototype.repositionMarkers = function() {
+        var i,
+            point;
+
+        for (i in this.markers) {
+            //OLD: point = this.latLngToPoint.apply(this, this.markers[i].config.latLng);
+            point = (this.markers[i].config.point)?this.markers[i].config.point:this.latLngToPoint.apply(this, this.markers[i].config.latLng);
+            this.markers[i].element.setStyle({cx: point.x, cy: point.y});
         }
     };
 }
 function geometricCenter(regions, $g){
     var bBox, totalArea=0, xArm=0, yArm=0, center;
     for(var i=0;i<regions.length;i++){  //iterate through the list
-        bBox = $g.find('path[data-code='+region[i]+']').get(0).getBBox();
+        bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
         xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
         yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;
         totalArea +=  bBox.width * bBox.height;
@@ -1677,6 +1692,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '<button class="map-play">play</button>' +
             '<button class="map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
             '<button class="make-map" disabled="disabled">reset</button>' +
+            '<button class="group hidden" disabled="disabled">group</button>' +
+            '<button class="ungroup hidden" disabled="disabled">ungroup</button>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -2037,7 +2054,9 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     var $map;
     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
         calculatedMapData = calcMap(oGraph);
-        modAddMarkers();  //must be done after loaded by requires
+        modCreateMarkersMethod();  //must be done after loaded by requires
+        bubbleCalc();
+        console.info(calculatedMapData);
         var jvmap_template;
         switch(oGraph.map){
             case "US states":
@@ -2125,6 +2144,9 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             },
             onMarkerSelected: function(e, code, isSelected){
                 vectorMapSettings.onRegionSelected(e, code, isSelected)
+            },
+            onZoom: function(e, scale){
+                transferTransform();
             }
         };
 
@@ -2137,31 +2159,84 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 
         //BBBUUUUBBBBBLLEESS!!!!!
         var $g = $('#' + panelId).find('div.jvmap svg g:first');  //goes in createGraph closure
-        var regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
-        var center;
-        if(oGraph.mapset.options.type && oGraph.mapset.options.type=='bubble'){
-            var region, i, j, allMergedRegions = [];
-            if(oGraph.mapset.options.merges){
-                for(i=0;i<oGraph.mapset.options.merges.length;i++){
-                    center = geometricCenter(oGraph.mapset.options.merges[i], $g);
-                    $map.addMarker(oGraph.mapset.options.merges[i].join('+'), {point: {x: center.x, y:center.y}, fill: 'green'}, 10);  //TODO: calc value and set color
-                    for(j=0;j<oGraph.mapset.options.merges[i].length;j++){
-                        $g.find('path[data-code='+oGraph.mapset.options.merges[i][j]+']').attr("fill", regionColors[i]%regionColors.length); //paint the region
-                    }
-                    allMergedRegions = allMergedRegions.concat(oGraph.mapset.options.merges[i]);
-                }
-            }
-            $g.find('path[data-code]').each(function(){
-                region  = $(this).attr('data-code');
-                if(allMergedRegions.indexOf(region) == -1){
-                    center = geometricCenter([region], $g);
-                    $map.addMarker(region, {point: {x: center.x, y:center.y}, fill: 'green'}, 10); //TODO: calc value and set color
-                }
-                $(this).attr('fill', regionColors[i++]%regionColors.length);
-            });
+
+        if(oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble'){
+            positionBubbles();
+            $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
         }
 
 
+        function bubbleCalc(){ //defined in the closure, there has access to calculatedMapData and other variabls specific to this panelGraph
+            var markerTitle, regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
+            calculatedMapData.regionsColorsForBubbles={};
+            var pnt = {x:100, y:100};  //somewhere in the US.  If this works, need to fetch geometric center of map (US, world, Europe..)
+            if(oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble'){
+                var region, mergedSum, i=0, d, j, allMergedRegions = [];
+                //co-opt the markers functionality
+                calculatedMapData.markerDataMin = calculatedMapData.regionDataMin;  //initialize, but also check merged series
+                calculatedMapData.markerDataMax = calculatedMapData.regionDataMax;  //initialize, but also check merged series
+                //create markerData
+                var markerData = {};
+                for(d=0;d<calculatedMapData.dates.length;d++){
+                    markerData[calculatedMapData.dates[d].s] = {};  //initalize
+                }
+                if(oGraph.mapsets.options.merges){
+                    for(i=0;i<oGraph.mapsets.options.merges.length;i++){
+                        markerTitle = calculatedMapData.title + ' - ' + oGraph.mapsets.options.merges[i].join(', ');
+                        calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};  //TODO: calc value and set color
+                        for(d=0;d<calculatedMapData.dates.length;d++){
+                            mergedSum = 0;  //merging regions only adds.  There is no complex math
+                            for(j=0;j<oGraph.mapsets.options.merges[i].length;j++){
+                                mergedSum += calculatedMapData.regionData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i][j]];
+                            }
+                            markerData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i].join('+')] = mergedSum;
+                        }
+                        for(j=0;j<oGraph.mapsets.options.merges[i].length;j++){
+                            calculatedMapData.regionsColorsForBubbles[oGraph.mapsets.options.merges[i][j]] = regionColors[i%regionColors.length];
+                        }
+                        allMergedRegions = allMergedRegions.concat(oGraph.mapsets.options.merges[i]);
+                    }
+                }
+                for(region in calculatedMapData.regionData[calculatedMapData.dates[0].s]){
+                    if(allMergedRegions.indexOf(region) == -1 && calculatedMapData.regionData[calculatedMapData.dates[0].s][region]){  //this region is not part of a amerge and also has data
+                        markerTitle = calculatedMapData.title + ' - ' + region;
+                        calculatedMapData.markers[region] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
+                        calculatedMapData.regionsColorsForBubbles[region] = regionColors[i++%regionColors.length];
+                        for(d=0;d<calculatedMapData.dates.length;d++){
+                            markerData[calculatedMapData.dates[d].s][region] = calculatedMapData.regionData[calculatedMapData.dates[d].s][region];
+                        }
+                    }
+                }
+                calculatedMapData.markerData = markerData;  //set (or replace if new merge)
+            }
+        }
+        function positionBubbles(){
+            var center;
+            if(oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble'){
+                var region, i=0, j, allMergedRegions = [];
+                if(oGraph.mapsets.options.merges){
+                    for(i=0;i<oGraph.mapsets.options.merges.length;i++){
+                        center = geometricCenter(oGraph.mapsets.options.merges[i], $g);
+                        calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')].point = {x: center.x, y:center.y};
+                        delete calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')].latLng;
+                        allMergedRegions = allMergedRegions.concat(oGraph.mapsets.options.merges[i]);
+                    }
+                }
+                $g.find('path[data-code]').each(function(){
+                    region  = $(this).attr('data-code');
+                    if(allMergedRegions.indexOf(region) == -1 && calculatedMapData.regionData[calculatedMapData.dates[0].s][region]){  //this region is not part of a amerge and also has data
+                        center = geometricCenter([region], $g);
+                        calculatedMapData.markers[region].point = {x: center.x, y:center.y}; //TODO: calc value and set color
+                    }
+                });
+/*                for(var m in calculatedMapData.markers){
+                    $map.addMarker()
+                }*/
+                $map.addMarkers(calculatedMapData.markers); //since the ids existing, this really repositions them
+                $thisPanel.find('div.jvmap circle').appendTo($thisPanel.find('div.jvmap g:first'));  //move circles from separate <g> into the same <g> as the map so it wil share all of the zoom and move transforms
+                $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
+            }
+        }
 
         $thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
         var $slider = $thisPanel.find('.slider').show().slider({
@@ -2171,8 +2246,12 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             step: 1,
             change: function( event, ui ) {
                 val = ui.value;
-                $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
-                $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
+                if(oGraph.mapsets && oGraph.mapsets.options.mode!='bubble'){
+                    $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
+                }
+                if(oGraph.pointsets || (oGraph.mapsets && oGraph.mapsets.options.mode=='bubble')){
+                    $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
+                }
                 if(oGraph.plots){
                     var timeAxis = oHighCharts[panelId].xAxis[0];
                     timeAxis.removePlotLine('timeLine');
@@ -2291,6 +2370,12 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
             $thisPanel.find('.map-graph-selected, .make-map').button('disable');
         });
+        $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).show().click(function(){
+
+        });
+        $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).show().click(function(){
+
+        });
     }
 };
 
@@ -2307,7 +2392,7 @@ function provenance(plotIndex){  //redo entire panel is plotIndex omitted
     okcancel = '<button class="config-cancel">cancel</button> <button class="config-apply">apply</button><br>';
     plotList = '';
     if(typeof plotIndex != 'undefined'){
-        $prov.find('ol.plots').append( plotHTML(grph, plotIndex) );
+        $prov.find('ol.plots').append( plotHTML(panelId, plotIndex) );
     } else {
 
         grph.plotsEdits = $.extend(true, [], grph.plots);  //this is the copy that the provenance panel will work with.  Will replace grph.plots on "OK"
@@ -2316,7 +2401,7 @@ function provenance(plotIndex){  //redo entire panel is plotIndex omitted
 
             for(i=0;i<grph.plots.length;i++){
                 //outer PLOT loop
-                plotList += plotHTML(grph, i);
+                plotList += plotHTML(panelId, i);
             }
         }
 
@@ -2371,7 +2456,8 @@ function provenance(plotIndex){  //redo entire panel is plotIndex omitted
         });
 }
 
-function plotHTML(grph, i){
+function plotHTML(panelId, i){
+    var grph = oPanelGraphs[panelId];
     var plotColor, plotList = '', plot = grph.plotsEdits[i], componentHandle;
     if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
     if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';

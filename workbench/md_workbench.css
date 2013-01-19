@@ -858,7 +858,7 @@ div.blue-inset{
     margin: 5px;
 }
 
-div#account-screen div.hidden{
+div#account-screen div.hidden, button.hidden{
     display: none;
 }
 /* end ACCOUNT SCREENS */
