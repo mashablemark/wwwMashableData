@@ -2127,6 +2127,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 $('.inlinesparkline').sparkline(vals, sparkOptions);
             },
             onRegionSelected: function(e, code, isSelected){
+                setMergablity();
                 var selectedMarkers = $map.getSelectedMarkers();
                 if(selectedMarkers.length>0){
                     $thisPanel.find('.map-graph-selected, .make-map').button('enable');
@@ -2143,7 +2144,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 $thisPanel.find('.map-graph-selected, .make-map').button('disable');
             },
             onMarkerSelected: function(e, code, isSelected){
-                vectorMapSettings.onRegionSelected(e, code, isSelected)
+                vectorMapSettings.onRegionSelected(e, code, isSelected);
             },
             onZoom: function(e, scale){
                 transferTransform();
@@ -2160,7 +2161,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         //BBBUUUUBBBBBLLEESS!!!!!
         var $g = $('#' + panelId).find('div.jvmap svg g:first');  //goes in createGraph closure
 
-        if(oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble'){
+        if(isBubble()){
             positionBubbles();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
         }
@@ -2170,7 +2171,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             var markerTitle, regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
             calculatedMapData.regionsColorsForBubbles={};
             var pnt = {x:100, y:100};  //somewhere in the US.  If this works, need to fetch geometric center of map (US, world, Europe..)
-            if(oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble'){
+            if(isBubble()){
                 var region, mergedSum, i=0, d, j, allMergedRegions = [];
                 //co-opt the markers functionality
                 calculatedMapData.markerDataMin = calculatedMapData.regionDataMin;  //initialize, but also check merged series
@@ -2212,7 +2213,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         }
         function positionBubbles(){
             var center;
-            if(oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble'){
+            if(isBubble()){
                 var region, i=0, j, allMergedRegions = [];
                 if(oGraph.mapsets.options.merges){
                     for(i=0;i<oGraph.mapsets.options.merges.length;i++){
@@ -2246,10 +2247,10 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             step: 1,
             change: function( event, ui ) {
                 val = ui.value;
-                if(oGraph.mapsets && oGraph.mapsets.options.mode!='bubble'){
+                if(isBubble()){
                     $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                 }
-                if(oGraph.pointsets || (oGraph.mapsets && oGraph.mapsets.options.mode=='bubble')){
+                if(oGraph.pointsets || isBubble()){
                     $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
                 }
                 if(oGraph.plots){
@@ -2370,11 +2371,122 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
             $thisPanel.find('.map-graph-selected, .make-map').button('disable');
         });
+        function isBubble(){
+            return  oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble';
+        }
+        var mergablity = {};
+        function setMergablity(){
+            var i, j, markerRegions;
+            mergablity = {
+                new: false,
+                growable: false,
+                splinter: false,
+                ungroupable: false
+            };  
+            var selectedMarkers = $map.getSelectedMarkers();
+            var selectedRegions = $map.getSelectedRegions();
+            //ungroupable
+            for(i=0;i<selectedMarkers.length;i++){
+                if(selectedMarkers[i].split('+').length>1) {
+                    mergablity.ungroupable = true;
+                    break;
+                }
+            }
+            if(oGraph.mapsets.options.merges){
+                for(i=0;i<selectedRegions.length;i++){
+                    for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                        if(oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i])>=0) {
+                            mergablity.ungroupable = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            //mergable
+            if(selectedMarkers.length>1){
+                mergablity.new=true;
+            } else {
+                if(selectedMarkers.length==1){ //must have selected regions the are not part of this marker to be mergablity
+                    markerRegions = selectedMarkers[0].split('+');
+                    for(i=0;i<selectedRegions.length;i++){
+                        if(markerRegions.indexOf(selectedRegions[i])==-1){
+                            mergablity.growable = true;
+                            break;
+                        }
+                    }
+                } else { // no selected markers, so check if selectedRegions not part of same marker (whether that marker is selected or not)
+                    if(selectedRegions.length>1){
+                        if(mergablity.ungroupable){
+                            mergablity.new = true;
+                        } else {
+                            mergablity.growable = true;
+                        }
+                    }
+                }
+            }
+            $thisPanel.find('button.group').button((mergablity.new||mergablity.growable)?'enable':'disable');
+            $thisPanel.find('button.ungroup').button(mergablity.ungroupable?'enable':'disable');
+        }
         $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).show().click(function(){
+            if(mergablity.new){
+                oGraph.mapsets.options.merges.push($map.getSelectedRegions());
+            }
+            if(mergablity.growable){
+                var i, j, newMerge = [];
+                var selectedMarkers = $map.getSelectedMarkers();
+                var selectedRegions = $map.getSelectedRegions();
+                //step 1.  remove the existing merges of compound markers
+                for(i=0;i<selectedMarkers.length;i++){
+                    newMerge = newMerge.concat(selectedMarkers[i].split("+"));
+                    if(selectedMarkers[i].split("+").length>1){
+                        for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                            if(selectedMarkers[i] == oGraph.mapsets.options.merges[j].join("+")){
+                                oGraph.mapsets.options.merges.splice(j, 1);
+                                break;
+                            }
+                        }
+                    }
+                }
+                for(i=0;i<selectedRegions.length;i++){
+                    if(newMerge.indexOf(selectedRegions[i])!=-1) newMerge.push(selectedRegions[i]);
+                }
+                oGraph.mapsets.options.merges.push(newMerge);
+            }
+            bubbleCalc();
+            positionBubbles();
+            $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
 
         });
         $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).show().click(function(){
+            var i, j;
+            var selectedMarkers = $map.getSelectedMarkers();
+            var selectedRegions = $map.getSelectedRegions();
 
+            for(i=0;i<selectedMarkers.length;i++){
+                if(selectedMarkers[i].split("+").length>1){
+                    for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                        if(selectedMarkers[i] == oGraph.mapsets.options.merges[j].join("+")){
+                            oGraph.mapsets.options.merges.splice(j, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+            for(i=0;i<selectedRegions.length;i++){
+                for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                    pos = oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i]);
+                    if(pos != -1){
+                        oGraph.mapsets.options.merges[j].splice(pos, 1);
+                        if(oGraph.mapsets.options.merges[j].length==0){
+                            oGraph.mapsets.options.merges.splice(j,1);
+                        }
+                        break;
+                    }
+                }
+            }
+            bubbleCalc();
+            positionBubbles();
+            $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
         });
     }
 };
