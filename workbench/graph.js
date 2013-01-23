@@ -2412,7 +2412,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
             //mergable
             if(selectedMarkers.length>1){
-                mergablity.new=true;
+                mergablity.growable = true;
             } else {
                 if(selectedMarkers.length==1){ //must have selected regions the are not part of this marker to be mergablity
                     markerRegions = selectedMarkers[0].split('+');
@@ -2455,8 +2455,18 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                         }
                     }
                 }
+                //step 2 add merges to which a selected region belongs
                 for(i=0;i<selectedRegions.length;i++){
-                    if(newMerge.indexOf(selectedRegions[i])!=-1) newMerge.push(selectedRegions[i]);
+                    for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                        if(oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i])>-1){
+                            newMerge = newMerge.concat(oGraph.mapsets.options.merges.splice(j,1)[0]);
+                            break;
+                        }
+                    }
+                }
+                //step 3 add in new regions
+                for(i=0;i<selectedRegions.length;i++){
+                    if(newMerge.indexOf(selectedRegions[i])==-1) newMerge.push(selectedRegions[i]);
                 }
                 oGraph.mapsets.options.merges.push(newMerge);
             }
