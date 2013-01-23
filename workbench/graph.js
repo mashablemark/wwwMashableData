@@ -1692,8 +1692,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '<button class="map-play">play</button>' +
             '<button class="map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
             '<button class="make-map" disabled="disabled">reset</button>' +
-            '<button class="group hidden" disabled="disabled">group</button>' +
-            '<button class="ungroup hidden" disabled="disabled">ungroup</button>' +
+            '<button class="merge group hidden" disabled="disabled">group</button>' +
+            '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -2055,7 +2055,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
         calculatedMapData = calcMap(oGraph);
         modCreateMarkersMethod();  //must be done after loaded by requires
-        bubbleCalc();
+        if(isBubble()) bubbleCalc();
         console.info(calculatedMapData);
         var jvmap_template;
         switch(oGraph.map){
@@ -2073,6 +2073,13 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             backgroundColor: mapBackground,
             markersSelectable: true,
             markerStyle: {initial: {r: 0}}, //default for null values in the data
+            regionStyle: {
+                selected: {
+                    "stroke-width": 2,
+                    stroke: 'black',
+                    fill: "#ffff80"
+                }
+            },
             series: {
                 regions:  [{
                     attribute: "fill",
@@ -2164,12 +2171,13 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         if(isBubble()){
             positionBubbles();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
+            $thisPanel.find('button.merge').show();
         }
-
 
         function bubbleCalc(){ //defined in the closure, there has access to calculatedMapData and other variabls specific to this panelGraph
             var markerTitle, regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
             calculatedMapData.regionsColorsForBubbles={};
+            calculatedMapData.markers={};
             var pnt = {x:100, y:100};  //somewhere in the US.  If this works, need to fetch geometric center of map (US, world, Europe..)
             if(isBubble()){
                 var region, mergedSum, i=0, d, j, allMergedRegions = [];
@@ -2427,7 +2435,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             $thisPanel.find('button.group').button((mergablity.new||mergablity.growable)?'enable':'disable');
             $thisPanel.find('button.ungroup').button(mergablity.ungroupable?'enable':'disable');
         }
-        $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).show().click(function(){
+        $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).click(function(){
             if(mergablity.new){
                 oGraph.mapsets.options.merges.push($map.getSelectedRegions());
             }
@@ -2458,7 +2466,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             positionBubbles();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
         });
-        $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).show().click(function(){
+        $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).click(function(){
             var i, j;
             var selectedMarkers = $map.getSelectedMarkers();
             var selectedRegions = $map.getSelectedRegions();
