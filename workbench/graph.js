@@ -2417,9 +2417,9 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 } else { // no selected markers, so check if selectedRegions not part of same marker (whether that marker is selected or not)
                     if(selectedRegions.length>1){
                         if(mergablity.ungroupable){
-                            mergablity.new = true;
-                        } else {
                             mergablity.growable = true;
+                        } else {
+                            mergablity.new = true;
                         }
                     }
                 }
@@ -2452,10 +2452,11 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 }
                 oGraph.mapsets.options.merges.push(newMerge);
             }
+            $map.removeAllMarkers();
+            $map.clearSelectedRegions();
             bubbleCalc();
             positionBubbles();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
-
         });
         $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).show().click(function(){
             var i, j;
@@ -2484,6 +2485,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                     }
                 }
             }
+            $map.removeAllMarkers();
+            $map.clearSelectedRegions();
             bubbleCalc();
             positionBubbles();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
