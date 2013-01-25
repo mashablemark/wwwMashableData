@@ -506,6 +506,12 @@ function dateFromMdDate(dt, periodicity){
             udt.setUTCDate(dt.substr(6,2));
         }
         case "Q":
+            udt.setUTCMonth((dt.substr(5,1)-1)*3);
+            break;
+        case "SA":
+            udt.setUTCMonth((dt.substr(5,1)-1)*6);
+            break;
+        case "Q":
         case "SA":
         case "M": {
             udt.setUTCMonth(dt.substr(4,2));
