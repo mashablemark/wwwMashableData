@@ -1727,17 +1727,46 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         .tabs(oGraph.pointsets?"enable":"disable",2);
 
     $thisPanel.find('.graph-nav-data').click(function(){
-        var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled)').attr('href'));
+        var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
         $dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
     });
     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
         var grids = [];
-        if(oGraph.plots)grids.push({title: 'chart', grid: makeDataGrid(panelId, 'charts', calculatedMapData)});
-        if(oGraph.mapsets)grids.push({title: 'regions', grid: makeDataGrid(panelId, 'regions', calculatedMapData)});
-        if(oGraph.pointsets)grids.push({title: 'markers', grid: makeDataGrid(panelId, 'markers', calculatedMapData)});
-        callAPI({command: 'makeExcel', grids: grids, title: oGraph.title}, function(oReturn, textStatus, jqXH){
-            //do the highcharts trick to download a file
+        if(oGraph.plots) grids.push({name: 'chart', grid: makeDataGrid(panelId, 'chart', calculatedMapData)});
+        if(oGraph.mapsets) grids.push({name: 'regions', grid: makeDataGrid(panelId, 'regions', calculatedMapData)});
+        if(oGraph.pointsets) grids.push({name: 'markers', grid: makeDataGrid(panelId, 'markers', calculatedMapData)});
+        //do the highcharts trick to download a file
+        var options = {
+            filename: oGraph.title,
+            data: grids,
+            url: 'excel.php'
+        };
+        var createElement = Highcharts.createElement;
+        // create the form
+        var form = createElement('form', {
+                method: 'post',
+                action: options.url
+            }, {
+                display: 'none'
+            },
+            document.body
+        );
+        Highcharts.each(['filename', 'data'], function (name) {
+            createElement('input', {
+                type: 'hidden',
+                name: name,
+                value: {
+                    filename: options.filename || 'mashableData',
+                    data: JSON.stringify(grids)
+                }[name]
+            }, null, form);
         });
+
+        // submit
+        form.submit();
+
+        // clean up
+        Highcharts.discardElement(form);
     });
     $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
         .find('.chart-map').width($thisPanel.width()-40-350); //
@@ -2090,14 +2119,14 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 regions:  [{
                     attribute: "fill",
                     values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
-                    scale: ['#C8EEFF', '#0071A4'],
+                    scale: ['#C8EEFF', '#ff0000'],
                     normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
                     min: calculatedMapData.regionDataMin,
                     max: calculatedMapData.regionDataMax
                 }],
                 markers:  [{
                     attribute: 'r',
-                    scale: [1, 20],
+                    scale: [1, (isBubble()?50:20)],
                     values: getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[calculatedMapData.dates.length-1].s),
                     min: calculatedMapData.markerDataMin,
                     max: calculatedMapData.markerDataMax
@@ -2188,8 +2217,8 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             if(isBubble()){
                 var region, mergedSum, i=0, d, j, allMergedRegions = [];
                 //co-opt the markers functionality
-                calculatedMapData.markerDataMin = calculatedMapData.regionDataMin;  //initialize, but also check merged series
-                calculatedMapData.markerDataMax = calculatedMapData.regionDataMax;  //initialize, but also check merged series
+                calculatedMapData.markerDataMin = calculatedMapData.regionDataMin;  //initialize, but also checked merges below
+                calculatedMapData.markerDataMax = calculatedMapData.regionDataMax;  //initialize, but also checked merges below
                 //create markerData
                 var markerData = {};
                 for(d=0;d<calculatedMapData.dates.length;d++){
@@ -2205,6 +2234,10 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                                 mergedSum += calculatedMapData.regionData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i][j]];
                             }
                             markerData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i].join('+')] = mergedSum;
+                            if(mergedSum!==null){ //Math object methods treat nulls as zero
+                                calculatedMapData.markerDataMin = Math.min(calculatedMapData.markerDataMin, mergedSum);
+                                calculatedMapData.markerDataMax = Math.max(calculatedMapData.markerDataMax, mergedSum);
+                            }
                         }
                         for(j=0;j<oGraph.mapsets.options.merges[i].length;j++){
                             calculatedMapData.regionsColorsForBubbles[oGraph.mapsets.options.merges[i][j]] = regionColors[i%regionColors.length];
@@ -2247,7 +2280,11 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
 /*                for(var m in calculatedMapData.markers){
                     $map.addMarker()
                 }*/
-                $map.addMarkers(calculatedMapData.markers); //since the ids existing, this really repositions them
+                $map.series.markers[0].maxValue = calculatedMapData.markerDataMax;
+                $map.series.markers[0].minValue = calculatedMapData.markerDataMin;
+                $map.series.markers[0].clearMaxValue = calculatedMapData.markerDataMax;
+                $map.series.markers[0].clearMinValue = calculatedMapData.markerDataMin;
+                $map.addMarkers(calculatedMapData.markers); //if the marker id exists, this method will reposition the marker
                 $thisPanel.find('div.jvmap circle').appendTo($thisPanel.find('div.jvmap g:first'));  //move circles from separate <g> into the same <g> as the map so it wil share all of the zoom and move transforms
                 $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
             }
@@ -2261,7 +2298,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             step: 1,
             change: function( event, ui ) {
                 val = ui.value;
-                if(isBubble()){
+                if(!isBubble()){
                     $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                 }
                 if(oGraph.pointsets || isBubble()){
@@ -2357,7 +2394,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                         clearInterval(player);
                         $play.button({text: false, icons: {primary: "ui-icon-play"}});
                     }
-                }, 1000);
+                }, Math.min(10000/calculatedMapData.dates.length, 500));  //total animation will take no more than 10 seconds
             } else {
                 clearInterval(player);
                 $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
@@ -2480,6 +2517,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             $map.clearSelectedRegions();
             bubbleCalc();
             positionBubbles();
+            makeDirty();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
         });
         $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).click(function(){
@@ -2514,6 +2552,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             bubbleCalc();
             positionBubbles();
             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
+            makeDirty();
         });
     }
 };
@@ -2546,7 +2585,7 @@ function provenance(plotIndex){  //redo entire panel is plotIndex omitted
 
         plotList += '</ol>'
             +  '<ol class="blank-plot components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.  Double click on any series or plot line to edit its properties.</i></li></ol></div>';
-        mapList = provenanceOfMap(grph);
+        mapList = provenanceOfMap(panelId);
         $prov.html(okcancel + plotList + mapList);
         //sortable
         $prov.find(".components")
@@ -2560,6 +2599,11 @@ function provenance(plotIndex){  //redo entire panel is plotIndex omitted
                  remove: function(event, ui) {alert("removed")}*/
             })
             .disableSelection();
+        $prov.find('.map-mode').buttonset()
+            .find('input').click(function(){
+                grph.mapsets.options.mode = $(this).val();
+                if(grph.mapsets.options.mode=='bubble' && !grph.mapsets.options.merges) grph.mapsets.options.merges = [];
+            });
         $prov.find(".plots").sortable({
             axis: "y", dropOnEmpty: false}).disableSelection();
         //main buttons
@@ -2675,12 +2719,17 @@ function plotPeriodicity(oGraph, plot){
         return '<span class="plot-freq">'+period.name[plot.options.downshiftPeriod]+'</span> <span class="plot-from-freq">'+plot.options.downshiftMethod+' down from '+period.name[fromPeriodicity]+'</span>';
     }
 }
-function provenanceOfMap(grph){
+function provenanceOfMap(panelId){
+    grph = oPanelGraphs[panelId];
     var provHTML = "", c, p, plt, componentHandle, isSet;
     if(grph.map&&(grph.mapsets||grph.pointsets)){ //map!!
         provHTML = '<div class="map-prov"><h3>Map of '+ grph.map +'</h3>';
         if(grph.mapsets){
-            provHTML += '<div class="mapset">Mapset (regions)'
+            provHTML += '<div class="mapset">Mapset '
+                + '<div class="map-mode right">'
+                + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="choropleth" '+ ((!grph.mapsets.options.mode || grph.mapsets.options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">choropleth</label>'
+                + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" '+ ((grph.mapsets.options.mode && grph.mapsets.options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubble (mergable into regional sums)</label>'
+                + '</div>'
                 + '<ol class="mapsets">'
                 + '<li class="mapset ui-state-highlight">'
                 + '<button class="edit-mapset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'

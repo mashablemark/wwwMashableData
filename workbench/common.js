@@ -177,7 +177,7 @@ account = {
                         '<br />' +
                         '<input type="radio" name="account-join" id="account-inviteonly" value="inviteonly" />' +
                         '<label for="account-inviteonly"><strong> by invitation only</strong></label>' +
-                        '<br /><em>You can supply the email addresses for each member at anytime. MashableData will then send an invitation via email with a unique registration code and instructions to each invitee.</em><br />' +
+                        '<br /><em>You can supply email addresses for new members at anytime. MashableData will then send an invitation via email with a unique registration code and instructions to each invitee.</em><br />' +
                     '</div>' +
                 '</div>' +
                 '<div class="payments hidden">' +

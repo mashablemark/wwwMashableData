@@ -927,16 +927,16 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     color:black;
 }
 
-#series-tabs li.local-series.ui-tabs-selected{
+#series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover{
      background:darkTurquoise;
  }
-#series-tabs li.cloud-series.ui-tabs-selected{
+#series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover{
     background:gold;
 }
-#series-tabs li.my-graphs.ui-tabs-selected{
+#series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover{
     background:LightCoral;
 }
-#series-tabs li.public-graphs.ui-tabs-selected{
+#series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover{
     background:#80C030;
 }
 /*picker class*/

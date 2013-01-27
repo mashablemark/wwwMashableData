@@ -116,6 +116,14 @@ switch($command){
                 requiresLogin(); //sets $orgid.  Dies if not logged in
                 $sql .= " AND orgid = " . $orgid;
 
+            } else {  //open search = must filter out orgs series that are not my org
+                if(isset($_POST["uid"])){
+                    requiresLogin(); //sets $orgid.  Dies if not logged in, but we should be because a uid was passed in
+                    $sql .= " AND (orgid is null or orgid = " . $orgid . ") ";
+                } else {
+                    $sql .= " AND orgid is null ";
+                }
+
             }
         }
         if($periodicity != "all") {
