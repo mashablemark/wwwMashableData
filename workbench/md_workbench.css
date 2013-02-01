@@ -838,8 +838,10 @@ div#signedin-md{
 }
 div#account-screen{
     width: 800px;
-    height: 600px;
-    padding: 10px;
+    padding: 5px 10px;
+}
+div#account-screen button{
+    margin: 15px 5px 0 0;
 }
 div#account-screen h3{
     color: black;
@@ -849,8 +851,27 @@ div#account-screen h2{
     padding: 0;
     margin: 0;
 }
-div#account-screen>div{
+
+div.payments{
+    background: #fcefa1;
+    padding: 10px;
+    margin: 5px;
+}
+/*div#account-screen>div{
     width: 750px;
+}*/
+span.over{
+    width: 200px;
+    display: inline-block;
+}
+input.short{
+    width:  75px;
+}
+input.medium{
+    width:  200px;
+}
+input.long{
+    width:  400px;
 }
 div.blue-inset{
     background-color: #a6c9e2;

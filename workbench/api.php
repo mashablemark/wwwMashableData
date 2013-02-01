@@ -2,7 +2,7 @@
 $event_logging = true;
 $sql_logging = true;
 include_once("../global/php/common_functions.php");
-
+date_default_timezone_set('UTC');
 
 
 //$usageTracking = trackUsage("count_datadown");
@@ -406,6 +406,19 @@ switch($command){
         while($api = $result->fetch_assoc()) array_push($apis, $api);
         $output =  array("status"=>"ok","sources" => $apis);
         break;
+    case "CardSelects":
+        $sql = "SELECT iso3166 AS code, name FROM mapgeographies mg, geographies g WHERE g.geoid = mg.geoid AND mg.map =  'world' ORDER BY name";
+        $result = runQuery($sql);
+        $countries = array();
+        while($country = $result->fetch_assoc()) array_push($countries, $country);
+        $output =  array("status"=>"ok","countries" => $countries, "years" => array());
+        $assoc_date = getdate();
+        for($i=$assoc_date["year"];$i<$assoc_date["year"]+10;$i++){
+            array_push($output["years"], $i);
+        }
+        break;
+
+
     case "GetMySeries":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
