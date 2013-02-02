@@ -167,10 +167,12 @@ account = {
                     '<span class="over">My Facebook account\'s email is:</span>' +
                     '<input type="radio" name="account-fb" id="account-fbsame" value="fbsame" /><label for="account-fbsame"><span class="account-main-email"></span></label>' +
                     '<input type="radio" name="account-fb" id="account-fbdiff" value="fbdiff" /><label for="account-fbdiff"><input id="account-fbemail" class="medium" data="optional" type="text" /></label>' +
+                    '<input type="radio" name="account-fb" id="account-fbnone" value="fbskip" /><label for="account-fbnone">skip</label>' +
                     '<br />' +
                     '<span class="over">My Twitter account\'s email is: </span>' +
                     '<input type="radio" name="account-twit" id="account-twitsame" value="twitmain" /><label for="account-twitsame"><span class="account-main-email"></span></label>' +
                     '<input type="radio" name="account-twit" id="account-twitdiff" value="twitdiff" /><label for="account-twitdiff"><input id="account-twitemail" class="medium" data="optional" type="text" /></label>' +
+                    '<input type="radio" name="account-twit" id="account-twitnone" value="twitskip" /><label for="account-twitnone">skip</label>' +
                 '</div>' +
                 '<div>' +
                     '<h3>Subscription type:</h3>' +
