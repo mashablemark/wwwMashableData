@@ -74,11 +74,14 @@ $command =  $_REQUEST['command'];
 $con = getConnection();
 switch($command){
     case "SearchSeries":
-        $usageTracking = trackUsage("count_seriessearch");
-        if(!$usageTracking["approved"]){
+        if(isset($_POST["uid"])  && intval($_POST["uid"])>0 && $_POST["uid"]!=null){
+            $usageTracking = trackUsage("count_seriessearch");
+        }
+/*        if(!$usageTracking["approved"]){
             $output = array("status"=>$usageTracking["msg"]);
             break;
         }
+*/
         $search =  rawurldecode($_POST['search']);
         $periodicity =  $_POST['periodicity'];
         $apiid =  $_POST['apiid'];
@@ -117,7 +120,7 @@ switch($command){
                 $sql .= " AND orgid = " . $orgid;
 
             } else {  //open search = must filter out orgs series that are not my org
-                if(isset($_POST["uid"])){
+                if(isset($_POST["uid"]) && intval($_POST["uid"])>0){
                     requiresLogin(); //sets $orgid.  Dies if not logged in, but we should be because a uid was passed in
                     $sql .= " AND (orgid is null or orgid = " . $orgid . ") ";
                 } else {
@@ -417,7 +420,67 @@ switch($command){
             array_push($output["years"], $i);
         }
         break;
+    case "Subscribe":
+        $validRegCode = false;
+        $uid=0;
+        $orgId = null;
+        if(isset($_POST["uid"])) { //new accounts do not have to be logged in, but if user claims a userid, verify accesstoken
+            requiresLogin();
+            $uid = intval($_POST["uid"]);
+        }
+        if(isset($_POST["regCode"]) && count($_POST["regCode"])>0){
+            $sql = "select * from users where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode");
+            $result = runQuery($sql);
+            if($result->num_rows==1){
+                $user = $result->fetch_assoc();
+                if($uid>0 && $uid!=$user["userid"]){ //logged account different from invitation account
+                    if($user[""]){
 
+                    }
+                    //delete invitation user and transfer
+                }
+                $validRegCode = true;
+                $orgId = $user["orgid"];
+                $sql = "update users set emailverify = now() where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode") . " and emailverify is null";
+                runQuery($sql); //only stamp it verified the first time
+            } else {
+                die('{"status":"The registration code is invalid or did not match the primary email address provided."}');
+            }
+        } elseif(isset($_POST["uid"]) && intval($_POST["uid"])>0){
+            $sql = "select * from users where email=".safeSQLFromPost("email")." and userid<>".intval($_POST["uid"]);
+            $result = runQuery($sql);
+            if($result->num_rows==1){
+                die('{"status":"An account already exists for '. $_POST["email"] .'.  If this is your account, please sign in to manage it."}');
+            }
+        }
+
+
+
+
+
+
+        break;
+/*
+        command: 'Subscribe',
+                    name: $screen.find('input.uname').val().trim(),
+                    email: $screen.find('input.email').val().trim(),
+                    auth: $screen.find('input[name=auth]:checked').val(),
+                    pwd: $screen.find('pwd').val().trim(),
+                    fbemail: $screen.find('input[name=account-fb]:checked').val()=='fbdiff'?$screen.find('input#account-fbemail').val().trim():$screen.find('input.email').val().trim(),
+                    twitemail: $screen.find('input[name=account-twit]:checked').val()=='twitdiff'?$screen.find('input#account-twitemail').val().trim():$screen.find('input.email').val().trim(),
+                    accountLevel: accountLevel,
+                    regCode: $screen.find('input.regcode').val(),
+                    accountJoinMode: $screen.find('input[name=account-join]:checked').val(),
+                    cardNum: $screen.find('input.cardNum').val(),
+                    cardMonth: $screen.find('input.cardMonth').val(),
+                    cardYear: $screen.find('input.cardYear').val(),
+                    cardCCV: $screen.find('input.cardCCV').val(),
+                    cardName: $screen.find('input.cardName').val(),
+                    cardAddress: $screen.find('input.cardAddress').val(),
+                    cardCity: $screen.find('input.cardCity').val(),
+                    cardStateProv: $screen.find('input.cardStateProv').val(),
+                    cardPostal: $screen.find('input.cardPostal').val(),
+                    cardCountry: $screen.find('input.cardCountry').val()*/
 
     case "GetMySeries":
         requiresLogin();
