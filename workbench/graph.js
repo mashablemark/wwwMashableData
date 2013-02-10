@@ -80,92 +80,23 @@ var SVGNS = "http://www.w3.org/2000/svg";
 
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
-//jVectorMaps helpers
-function modCreateMarkersMethod(){  // $vm.addMarker('thom', {point: {x:100, y:100}, fill: 'green'}, 123);
-//for JVM 1.1.1:  for v.1.2.1, only need to modify getMarkerPosition function
-    jvm.WorldMap.prototype.createMarkers = function(markers) { // accepts marker.point: {x: xvalue, y:yvalue} in addition to [lat, lng]
-        var i,
-            marker,
-            point,
-            markerConfig,
-            markersArray,
-            map = this;
-
-        this.markersGroup = this.markersGroup || this.canvas.addGroup();
-
-        if (jvm.$.isArray(markers)) {
-            markersArray = markers.slice();
-            markers = {};
-            for (i = 0; i < markersArray.length; i++) {
-                markers[i] = markersArray[i];
-            }
-        }
-
-        for (i in markers) {
-            markerConfig = markers[i] instanceof Array ? {latLng: markers[i]} : markers[i];
-            point = (markerConfig.point)?markerConfig.point:this.latLngToPoint.apply(this, markerConfig.latLng || [0, 0]);
-
-            if (point !== false) {
-                marker = this.canvas.addCircle({
-                    "data-index": i,
-                    cx: point.x,
-                    cy: point.y
-                }, jvm.$.extend(true, {}, this.params.markerStyle, {initial: markerConfig.style || {}}), this.markersGroup);
-                marker.addClass('jvectormap-marker jvectormap-element');
-                jvm.$(marker.node).bind('selected', function(e, isSelected){
-                    map.container.trigger('markerSelected.jvectormap', [jvm.$(this).attr('data-index'), isSelected, map.getSelectedMarkers()]);
-                });
-                if (this.markers[i]) {
-                    this.removeMarkers([i]);
-                }
-                this.markers[i] = {element: marker, config: markerConfig};
-            }
-        }
-    };
-
-    jvm.WorldMap.prototype.repositionMarkers = function() {
-        var i,
-            point;
-
-        for (i in this.markers) {
-            //OLD: point = this.latLngToPoint.apply(this, this.markers[i].config.latLng);
-            point = (this.markers[i].config.point)?this.markers[i].config.point:this.latLngToPoint.apply(this, this.markers[i].config.latLng);
-            this.markers[i].element.setStyle({cx: point.x, cy: point.y});
-        }
-    };
-}
-function geometricCenter(regions, $g){
-    var bBox, totalArea=0, xArm=0, yArm=0, center;
-    for(var i=0;i<regions.length;i++){  //iterate through the list
-        bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
-        xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
-        yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;
-        totalArea +=  bBox.width * bBox.height;
-    }
-    center = {
-        x: xArm / totalArea,
-        y: yArm / totalArea
-    };
-    return center;
-}
-
-
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
-function chartPanel(node){
-    var panelId = $(node).closest('div.graph-panel').get(0).id;
+function chartPanel(panel){  //panel can either be a DOM node anywhere is the panel or a panelID
+    var panelId = typeof panel == 'string'?panel:$(panel).closest('div.graph-panel').get(0).id;
     if(oHighCharts[panelId]) {
         oHighCharts[panelId].destroy();
         $.contextMenu('destroy', '#' + panelId + ' div.chart');
     }
     var oGraph = oPanelGraphs[panelId];
     var chart;
-    var oChartOptions = createChartObject(oPanelGraphs[panelId]);
+    var oChartOptions = makeChartOptionsObject(oPanelGraphs[panelId]);
     var $chart = $('#' + panelId + ' div.chart');
     if(oChartOptions.series.length==0){
         $chart.hide();
         return void 0;
     }
     $chart.show().height();
+    //final additions to the HC Chart Object
     oChartOptions.chart.renderTo = $chart.get(0);
     oChartOptions.plotOptions.series.point = {
         events: {
@@ -182,14 +113,16 @@ function chartPanel(node){
                  for(var i=0;i<selectedPoints.length;i++){
                  selectedPoints[i].select(false);
                  }*/
+            },
+            click: function(evt){
+                setMapDate(this.x, calcMapData)//value only available during chart's click event:  need point click for full coverage
             }
         }
     };
-
     oChartOptions.chart.events={
-        /*        click:   function(e) {
-         console.info(Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', e.xAxis[0].value) + ", " + e.yAxis[0].value); //value only available during chart's click event
-         },*/
+        click:   function(e) {
+            setMapDate(e.xAxis[0].value, calcMapData)//value only available during chart's click event:  need point click for full coverage
+        },
         selection: function(event){
             var min;
             var max;
@@ -245,7 +178,7 @@ function chartPanel(node){
                             chart.yAxis[i].removePlotBand('hb'+bandNo);
                             chart.yAxis[i].addPlotBand({
                                 id: 'hb'+bandNo,
-                                color: makeRGBA(colorsPlotBands[0]),
+                                color: equivalentRGBA(colorsPlotBands[0]),
                                 from: parseFloat(bandStartPoint),
                                 to: axisValue,
                                 label: {text: '', zIndex: 3}
@@ -259,6 +192,7 @@ function chartPanel(node){
     $.contextMenu({
         selector: '#' + panelId + ' div.chart',
         build: function($trigger, e) {  //menu is built or cancelled dynamically in build function startin on the following line
+            var i, x, y, top, left, isIE = /msie/i.test(navigator.userAgent) && !window.opera;
             var axisName, axisValue, userValue;
             var pointSelected = chart.mouseoverPoint;  //grab reference (set by a HighCharts' event) before point's mouseout event can delete it
             var onPoint = (typeof(chart.mouseoverPoint)!="undefined");
@@ -282,14 +216,13 @@ function chartPanel(node){
                         return {items: {info: {name:"Mouse-over a series before right-clicking to terminate a vertical band.",callback: function(key, opt){ }}}}
                     }
                 } else {
-                    for(var i=0;i<chart.yAxis.length;i++){ //find the yAxis that we are banding
+                    for(i=0;i<chart.yAxis.length;i++){ //find the yAxis that we are banding
                         axisName = chart.yAxis[i].userOptions.title.text;
                         if(banding=='y-'+axisName){
-                            var isIE = /msie/i.test(navigator.userAgent) && !window.opera,
-                                top = $(chart.container).offset().top,
-                                left = $(chart.container).offset().left;
-                            var x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft,
-                                y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
+                            top = $(chart.container).offset().top;
+                            left = $(chart.container).offset().left;
+                            x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft;
+                            y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
                             if(y >= 0 && y <= chart.plotSizeY ) {
                                 axisValue =  parseFloat(parseFloat(chart.yAxis[i].translate(chart.plotHeight-y, true).toPrecision(2))) ;
                                 return {  //show the termination / cancel menu
@@ -310,7 +243,7 @@ function chartPanel(node){
                                                         chart.yAxis[i].removePlotBand('hb'+bandNo);
                                                         chart.yAxis[i].addPlotBand({
                                                             id: 'hb'+bandNo,
-                                                            color: makeRGBA(colorsPlotBands[0]),
+                                                            color: equivalentRGBA(colorsPlotBands[0]),
                                                             from: parseFloat(bandStartPoint),
                                                             to: parseFloat(userValue),
                                                             label: {text: '', zIndex: 3}
@@ -365,13 +298,12 @@ function chartPanel(node){
                             callback: function(key, opt){ alert("Clicked on " + key); } }
                     }
                 };
-                var isIE = /msie/i.test(navigator.userAgent) && !window.opera,
-                    top = $(chart.container).offset().top,
-                    left = $(chart.container).offset().left;
-                var x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft,
-                    y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
+                top = $(chart.container).offset().top;
+                left = $(chart.container).offset().left;
+                x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft;
+                y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
                 if(y >= 0 && y <= chart.plotSizeY ) {
-                    for(var i=0;i<chart.yAxis.length;i++){
+                    for(i=0;i<chart.yAxis.length;i++){
                         axisName = chart.yAxis[i].userOptions.title.text;
                         axisValue =  parseFloat(parseFloat(chart.yAxis[i].translate(chart.plotHeight-y, true).toPrecision(2))) ;
                         mnu.items.hline.items['hltext'+i] = {name: '<b>'+ axisName + ':</b>', type: 'text', value: axisValue};
@@ -406,7 +338,7 @@ function chartPanel(node){
                                 banding = 'y-'+axisName;
                                 chart.yAxis[parseInt(key.substr(5))].addPlotBand({
                                     id: 'hb'+bandNo,
-                                    color: makeRGBA(colorsPlotBands[0]),
+                                    color: equivalentRGBA(colorsPlotBands[0]),
                                     from: bandStartPoint,
                                     to: bandStartPoint
                                 });
@@ -429,6 +361,12 @@ function chartPanel(node){
     });
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
     return chart;
+
+    function setMapDate(jsDateClicked, mapData){
+        if(oGraph.mapsets || oGraph.pointsets){
+            closestDate(jsDateClicked, mapData.dates)
+        }
+    }
 }
 function intervalStartDt(graph){
     var dt =  new Date(parseInt(graph.lastdt));
@@ -506,13 +444,15 @@ function dateFromMdDate(dt, periodicity){
             udt.setUTCDate(dt.substr(6,2));
         }
         case "Q":
-            udt.setUTCMonth((dt.substr(5,1)-1)*3);
-            break;
+            if(dt[4]=='Q'){
+                udt.setUTCMonth((dt.substr(5,1)-1)*3)
+                break;
+            }
         case "SA":
-            udt.setUTCMonth((dt.substr(5,1)-1)*6);
-            break;
-        case "Q":
-        case "SA":
+            if(dt[4]=='H'){
+                udt.setUTCMonth((dt.substr(5,1)-1)*6);
+                break;
+            }
         case "M": {
             udt.setUTCMonth(dt.substr(4,2));
         }
@@ -520,8 +460,10 @@ function dateFromMdDate(dt, periodicity){
     return udt
 }
 function closestDate(nearbyDate, seriesData, closestYet){
+    var x;
     for(var i=0;i<seriesData.length;i++){
-        if(Math.abs(nearbyDate-seriesData[i][0])<Math.abs(nearbyDate-closestYet) || closestYet===undefined) closestYet = seriesData[i][0];
+        x = Array.isArray(seriesData[i])?seriesData[i][0]:seriesData[i].dt.getTime();
+        if(Math.abs(nearbyDate-x)<Math.abs(nearbyDate-closestYet) || closestYet===undefined) closestYet = x;
     }
     return closestYet;
 }
@@ -595,7 +537,7 @@ function getAssets(graph, callBack){
 }
 function createMyGraph(gid, onComplete){
     var oMyGraph = oMyGraphs['G' + gid];
-    var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"];
+    var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
     if(oMyGraph.map) fileAssets.push('js/maps/jquery_jvectormap_'+ jVectorMapTemplates[oMyGraph.map] +'.js');   //get the map too if needed
     require(fileAssets); //parallel load while getting db assets
     getAssets(oMyGraph, function(){
@@ -619,7 +561,7 @@ function emptyGraph(){
         published: 'N'
     };
 }
-function createChartObject(oGraph){
+function makeChartOptionsObject(oGraph){
     var i, j, dt, allX = {};
 
     var	jschart = {
@@ -791,7 +733,7 @@ function createChartObject(oGraph){
         lineIndex++
     }
     //these scatter plot series are used to show annotations
-    for(var i=0;i<jschart.yAxis.length;i++){
+    for(i=0;i<jschart.yAxis.length;i++){
         jschart.series.push({
             type: 'scatter',
             id: ('labelsY-' + i),
@@ -806,7 +748,7 @@ function createChartObject(oGraph){
             var oPieSeries = [{type: 'pie', data: []}];
             var timePoint = ((oGraph.end)?parseInt(oGraph.end):oGraph.lastdt);
             for(i=0;i<jschart.series.length;i++){
-                var oSerie = jschart.series[i];
+                oSerie = jschart.series[i];
                 for(j=oSerie.data.length-1;j>=0;j--){
                     if(oSerie.data[j][0]== timePoint){
                         oPieSeries[0].data.push([oSerie.name, oSerie.data[j][1]]);
@@ -1065,40 +1007,11 @@ function plotFormula(plot){//returns a formula for eval, with lcase S & U and uc
 
 }
 
-function addDataToGrid(grid, mdData, period){  //helper function for
-    makeSquare(grid);
-    var d, mdPoint, row, jsdt, mdDate;
-    var dataArray = mdData.split('||');
-    for(var d=0; d<dataArray.length; d++){
-        addPointToGrid(grid, dataArray[d], period);
-    }
-}
-
-function addPointToGrid(grid, point, period){
-    var jsdt, mdDate, row;
-    mdPoint = point.split('|');
-    jsdt = dateFromMdDate(mdPoint[0], period);
-    mdDate = formatDateByPeriod(jsdt.getTime(), period);
-    for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
-        if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
-        if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row
-            grid.splice(row,0,new Array(grid[0].length));
-            grid[row][0] = {dt: jsdt, s: mdDate};
-            break;
-        }
-    }
-    if(row==grid.length){  //need to append new row
-        grid.push(new Array(grid[0].length));
-        grid[row][0] = {dt: jsdt, s: mdDate};
-    }
-    if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
-    grid[row][grid[0].length-1] = mdPoint[1];  //actually set the value!
-}
-
 function makeDataGrid(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
     var hasMap, hasChart, m, r, i, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
     var oGraph = oPanelGraphs[panelId];
     var assets = oGraph.assets;
+    var vals, transposedRegionData = {}, regionCode, region, dt, regions = [], period;
     if(oGraph.plots){
         var chart = oHighCharts[panelId];
         hasChart = true;
@@ -1151,7 +1064,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     grid[rowPosition.region].push(component.iso1366?component.iso1366:'');
                     grid[rowPosition.lat_lon].push((component.lat)?'"' + component.lat + ', ' + component.lon + '"':'');
                     grid[rowPosition.date].push(showComponentsAndPlot?String.fromCharCode('a'.charCodeAt(0)+c):'values');
-                    makeSquare(grid);
+                    makeSquare();
                     compData = component.data.split('||');
                     for(d=0;d<compData.length;d++){
                         mdPoint = compData[d].split('|');
@@ -1186,7 +1099,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     grid[rowPosition.region].push('');
                     grid[rowPosition.lat_lon].push('');
                     grid[rowPosition.date].push((plot.options.formula?plot.options.formula:'y=a'));
-                    makeSquare(grid);
+                    makeSquare();
                     for(d=0;d<serie.data.length;d++){
                         mdDate = formatDateByPeriod(serie.data[d].x, serie.options.period);
                         //search to see if this date is in gridArray
@@ -1212,8 +1125,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
             break;
 //REGIONS
         case 'regions':
-            var vals, transposedRegionData = {}, regionCode, region, dt, regions = [];
-            var period = mapData.period;
+            period = mapData.period;
             for(dt in mapData.regionData){
                 for(regionCode in mapData.regionData[dt]){
                     regions.push({"regionCode": regionCode, "name": $map.getRegionName(regionCode)});
@@ -1246,7 +1158,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                         grid[rowPosition.region].push(asset.iso1366?asset.iso1366:'');
                     }
                     if(asset){  //mapsets may be not have all regions
-                        makeSquare(grid);
+                        makeSquare();
                         grid[rowPosition.lat_lon].push((asset.lat)?'"' + asset.lat + ', ' + asset.lon + '"':'');
                         grid[rowPosition.name].push((showComponents?'':'<b>') + asset.name + (showComponents?'':'</b>'));
                         grid[rowPosition.date].push(showComponents?String.fromCharCode('a'.charCodeAt(0)+c):'values');
@@ -1280,7 +1192,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     grid[rowPosition.lat_lon].push('');
                     grid[rowPosition.name].push('<b>' + 'calculated' + '</b>');
                     grid[rowPosition.date].push(oGraph.mapsets.options.formula || 'y = a');
-                    makeSquare(grid);
+                    makeSquare();
                     for(i=0;i<mapData.dates.length;i++){
                         if(mapData.regionData[mapData.dates[i].s]) {
                             jsdt = mapData.dates[i].dt;
@@ -1305,8 +1217,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
             }
             break;
         case 'markers':
-            var vals, transposedRegionData = {}, regionCode, region, dt, regions = [];
-            var period = mapData.period;
+            period = mapData.period;
             var vectors = [];
             for(p=0;p<oGraph.pointsets.length;p++){
                 for(c=0;c<oGraph.pointsets[p].components.length;c++){
@@ -1322,7 +1233,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                 grid[rowPosition.region].push(asset.geoid);//TODO: get geoname from db when fetching asset
                 grid[rowPosition.lat_lon].push(asset.lat ? asset.lat + ', ' + asset.lon : '' );
                 grid[rowPosition.date].push(vectors[v]);
-                addDataToGrid(grid, asset.data, asset.period);  // everything happens here!
+                addDataToGrid(asset.data, asset.period);  // everything happens here!
             }
             var markers = [];  //used to order from East to West
             for(m in mapData.markers) {
@@ -1334,7 +1245,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                 handles =  markerKey.match(handlePattern);
                 for(i=0; i<handles.length;i++){
                     if(vectors.indexOf(handles[i]) == -1){ //make sure series is in pointset and not a 1D vector
-                        for(key in oGraph.assets){
+                        for(var key in oGraph.assets){
                             if(key[0]=='X'){
                                 if(oGraph.assets[key].data[handles[i]]){
                                     grid[rowPosition.name].push(oGraph.assets[key].data[handles[i]].name);
@@ -1344,7 +1255,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                                     grid[rowPosition.region].push('');//TODO: get geoname from db when fetching asset
                                     grid[rowPosition.lat_lon].push(oGraph.assets[key].coordinates[handles[i]].latLng ? oGraph.assets[key].coordinates[handles[i]].latLng[0] + ', ' + oGraph.assets[key].coordinates[handles[i]].latLng[1] : '' );
                                     grid[rowPosition.date].push('values');
-                                    addDataToGrid(grid, oGraph.assets[key].data[handles[i]].data, oGraph.assets[key].period);  // everything else happens here!
+                                    addDataToGrid(oGraph.assets[key].data[handles[i]].data, oGraph.assets[key].period);  // everything else happens here!
                                     break;
                                 }
                             }
@@ -1362,9 +1273,9 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     grid[rowPosition.region].push('');//TODO: get geoname from db when fetching asset
                     grid[rowPosition.lat_lon].push(mapData.markers[markerKey].latLng[0] + ', ' + mapData.markers[markerKey].latLng[1]);
                     grid[rowPosition.date].push(markerKey);
-                    makeSquare(grid);
+                    makeSquare();
                     for(date in mapData.markerData){
-                        addPointToGrid(grid, date + '|' + mapData.markerData[date][markerKey], mapData.period);  // everything else happens here!
+                        addPointToGrid(date + '|' + mapData.markerData[date][markerKey], mapData.period);  // everything else happens here!
                     }
                 }
             }
@@ -1374,13 +1285,46 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
         grid[row][0] = grid[row][0].s;  //replace the object with its MDdate string
     }
     return grid;
-}
-function makeSquare(gridArray){
-    var length = gridArray[0].length;
-    for(var row=1;row<gridArray.length;row++){
-        if(gridArray[row].length<length)gridArray[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
+
+    //helper functions
+    function addDataToGrid(mdData, period){  //helper function for
+        makeSquare();
+        var d, mdPoint, row, jsdt, mdDate;
+        var dataArray = mdData.split('||');
+        for(d=0; d<dataArray.length; d++){
+            addPointToGrid(gdataArray[d], period);
+        }
+    }
+
+    function makeSquare(){
+        var length = grid[0].length;
+        for(var row=1;row<grid.length;row++){
+            if(grid[row].length<length)grid[row].push('');  //even out array to ensure the grid is square 2-D array of arrays
+        }
+    }
+
+    function addPointToGrid(point, period){
+        var jsdt, mdDate, row;
+        mdPoint = point.split('|');
+        jsdt = dateFromMdDate(mdPoint[0], period);
+        mdDate = formatDateByPeriod(jsdt.getTime(), period);
+        for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
+            if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
+            if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row
+                grid.splice(row,0,new Array(grid[0].length));
+                grid[row][0] = {dt: jsdt, s: mdDate};
+                break;
+            }
+        }
+        if(row==grid.length){  //need to append new row
+            grid.push(new Array(grid[0].length));
+            grid[row][0] = {dt: jsdt, s: mdDate};
+        }
+        if(grid[row][0].s.length<mdDate.length) grid[row][0].s = mdDate;  //replace year with month or longer formatted output
+        grid[row][grid[0].length-1] = mdPoint[1];  //actually set the value!
     }
 }
+
 function makeTableFromArray(grid){
     var r, c;
     if(grid[rowPosition.lat_lon].join('')=='lat, lon:') grid.splice(rowPosition.lat_lon,1);
@@ -1400,7 +1344,7 @@ function calcMap(graph){
     var regionData = {};  //2D object array:  [mashable-date][region-code]=value
 
     //local vars
-    var mapRegionNames = {};
+    var mapRegionNames = {}, i, point, points, mddt, handle;
     var mapMin=null, mapMax=null;
     var pointMin=null, pointMax=null;
     var oMapDates = {};
@@ -1413,9 +1357,9 @@ function calcMap(graph){
             mapUnits = mapset.units;
             for(var regionCode in mapset.data){
                 mapRegionNames[regionCode] = mapset.data[regionCode].geoname;
-                var points = mapset.data[regionCode].data.split("||");
-                for(var i=0;i<points.length;i++){
-                    var point = points[i].split("|");
+                points = mapset.data[regionCode].data.split("||");
+                for(i=0;i<points.length;i++){
+                    point = points[i].split("|");
                     if(!regionData[point[0]]) regionData[point[0]] = {};
                     regionData[point[0]][regionCode]= (point[1]=="null")?null:parseFloat(point[1]);
                     if(mapMin==null || (point[1]!='null' && mapMin>parseFloat(point[1])))
@@ -1429,7 +1373,7 @@ function calcMap(graph){
                 }
             }
             //fill holes in the matrix with nulls, otherwise jVectorMap leaves the last valid value when changing date
-            for(var mddt in regionData){
+            for(mddt in regionData){
                 for(var map_code in mapRegionNames){
                     if(typeof regionData[mddt][map_code] == "undefined") regionData[mddt][map_code]=null;
                 }
@@ -1440,7 +1384,7 @@ function calcMap(graph){
     }
     if(graph.pointsets){
         var index = 0, pointPlot, cmp;
-        for(var i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
+        for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
             pointPlot = graph.pointsets[i];
             cmp = pointPlot.components[0];  //TODO: allow for multiple components and compmath
             markers = $.extend(markers, graph.assets[cmp.handle].coordinates);
@@ -1450,10 +1394,10 @@ function calcMap(graph){
             }
             index++;
 
-            for(var handle in graph.assets[cmp.handle].data){
-                var points = graph.assets[cmp.handle].data[handle].data.split("||");
-                for(var i=0;i<points.length;i++){
-                    var point = points[i].split("|");
+            for(handle in graph.assets[cmp.handle].data){
+                points = graph.assets[cmp.handle].data[handle].data.split("||");
+                for(i=0;i<points.length;i++){
+                    point = points[i].split("|");
                     if(!pointData[point[0]]) pointData[point[0]] = {};
                     pointData[point[0]][handle]= (point[1]=="null")?null:parseFloat(point[1]);
                     if(pointMin==null || (point[1]!='null' && pointMin>parseFloat(point[1])))
@@ -1472,8 +1416,8 @@ function calcMap(graph){
         aMapDates.sort(function(a,b){return a.dt - b.dt});
 
         //fill holes in the matrix with nulls, otherwise jVectorMap leaves the last valid value when changing date
-        for(var mddt in pointData){
-            for(var handle in markers){
+        for(mddt in pointData){
+            for(handle in markers){
                 if(typeof pointData[mddt][handle] == "undefined") pointData[mddt][handle]=null;
             }
         }
@@ -1547,13 +1491,17 @@ function downloadMap(panelID, format){
         svg = svg.replace(/xmlns="[^"]+"/, '');
     }
 
-    var options = {
+    downloadMadeFile({
         type: format,
         filename: 'MashableDataMap',
         width: 800,
         svg: svg,
         url: 'export/index.php'
-    };
+    });
+
+}
+
+function downloadMadeFile(options){
     var createElement = Highcharts.createElement;
     // create the form
     var form = createElement('form', {
@@ -1564,26 +1512,22 @@ function downloadMap(panelID, format){
         },
         document.body
     );
-    Highcharts.each(['filename', 'type', 'width', 'svg'], function (name) {
+
+    for(var name in options){
         createElement('input', {
             type: 'hidden',
             name: name,
-            value: {
-                filename: options.filename || 'chart',
-                type: options.type,
-                width: options.width,
-                svg: svg
-            }[name]
+            value: options[name]
         }, null, form);
-    });
-
+    }
     // submit
     form.submit();
 
     // clean up
     Highcharts.discardElement(form);
 }
-var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
+
+function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
     var title, calculatedMapData;
     if(oGraph.title.length==0){ // set title if blank and just one asset to name of asset
         var key, assetCount=0;
@@ -1706,15 +1650,16 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             '</div>' +
             '</div>');
     var chart;
-//load
+
+//configure and bind the controls
     $thisPanel.find('select.graph-type').val(oGraph.type);
-    $thisPanel.find('ol.graph-nav').children('li').click(function(){
-        $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
-        $thisPanel.find('.graph-subpanel').hide();
-        $thisPanel.find('.' + $(this).attr('data')).show();
-        if(this)
-            $(this).addClass('graph-nav-active');
-    });
+    $thisPanel.find('ol.graph-nav').children('li')
+        .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
+            $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
+            $thisPanel.find('.graph-subpanel').hide();
+            $thisPanel.find('.' + $(this).attr('data')).show();
+            if(this) $(this).addClass('graph-nav-active');
+        });
 
     $thisPanel.find('.graph-data-inner')
         .tabs({
@@ -1726,108 +1671,84 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         .tabs(oGraph.mapsets?"enable":"disable",1)
         .tabs(oGraph.pointsets?"enable":"disable",2);
 
-    $thisPanel.find('.graph-nav-data').click(function(){
-        var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
-        $dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
-    });
-    $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
-        var grids = [];
-        if(oGraph.plots) grids.push({name: 'chart', grid: makeDataGrid(panelId, 'chart', calculatedMapData)});
-        if(oGraph.mapsets) grids.push({name: 'regions', grid: makeDataGrid(panelId, 'regions', calculatedMapData)});
-        if(oGraph.pointsets) grids.push({name: 'markers', grid: makeDataGrid(panelId, 'markers', calculatedMapData)});
-        //do the highcharts trick to download a file
-        var options = {
-            filename: oGraph.title,
-            data: grids,
-            url: 'excel.php'
-        };
-        var createElement = Highcharts.createElement;
-        // create the form
-        var form = createElement('form', {
-                method: 'post',
-                action: options.url
-            }, {
-                display: 'none'
-            },
-            document.body
-        );
-        Highcharts.each(['filename', 'data'], function (name) {
-            createElement('input', {
-                type: 'hidden',
-                name: name,
-                value: {
-                    filename: options.filename || 'mashableData',
-                    data: JSON.stringify(grids)
-                }[name]
-            }, null, form);
+    $thisPanel.find('.graph-nav-data')
+        .click(function(){
+            var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
+            $dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
         });
-
-        // submit
-        form.submit();
-
-        // clean up
-        Highcharts.discardElement(form);
-    });
-    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
-        .find('.chart-map').width($thisPanel.width()-40-350); //
+    $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
+        .click(function(){
+            var grids = [];
+            if(oGraph.plots) grids.push({name: 'chart', grid: makeDataGrid(panelId, 'chart', calculatedMapData)});
+            if(oGraph.mapsets) grids.push({name: 'regions', grid: makeDataGrid(panelId, 'regions', calculatedMapData)});
+            if(oGraph.pointsets) grids.push({name: 'markers', grid: makeDataGrid(panelId, 'markers', calculatedMapData)});
+            //do the highcharts trick to download a file
+            downloadMadeFile({
+                filename: oGraph.title,
+                data: grids,
+                url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
+            });
+        });
+    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.chart-map').width($thisPanel.width()-40-350); //
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
-//add events
-    $thisPanel.find('button.interval-selector').click(function(){
-        if(this.innerHTML=='on'){
-            //chart.options.tooltip.shared=true;
-            chart.options.tooltip.crosshairs=[true,false];
-            $thisPanel.find('button.interval-selector-on').addClass('toggle-active').removeClass('toggle-inactive');
-            $thisPanel.find('button.interval-selector-off').addClass('toggle-inactive').removeClass('toggle-active');
-        } else {
-            //chart.options.tooltip.shared=false;
-            chart.options.tooltip.crosshairs=null;
-            $thisPanel.find('button.interval-selector-on').addClass('toggle-inactive').removeClass('toggle-active');
-            $thisPanel.find('button.interval-selector-off').addClass('toggle-active').removeClass('toggle-inactive');
-        }
-        chart.redraw();
-    });
-    $thisPanel.find('a.post-facebook').click(function(){
-        annoSync();
-        var svg = oHighCharts[panelId].getSVG();
-        $.ajax({
-            type: 'POST',
-            url:"export/index.php",
-            dataType: 'json',
-            data:  {
-                type: 'FB',  //'image/jpeg',
-                width: "800",
-                svg: svg},
-            success: function(chartInfo, textStatus, jqXH){
-                var body = oPanelGraphs[visiblePanelId()].analysis;
-                var caption =  oPanelGraphs[visiblePanelId()].title;
-                //check permissions first with: FB.api('/me/permissions', function(response) {if(response.data[0])});
-
-                // calling the API ...
-                var obj = {
-                    method: 'feed',
-                    link: 'http://www.mashabledata.com/workbench/view.php?g='+ oPanelGraphs[visiblePanelId()].ghash,
-                    picture: chartInfo.imageURL,
-                    message: body,
-                    name: 'Facebook Dialogs',
-                    caption: caption,
-                    description: body
-                };
-
-                function callback(response) {
-                    alert("Post ID: " + response['post_id']);
-                }
-
-                FB.ui(obj, callback);
-            },
-            error: function(response, textStatus, jqXH){
-                console.log(textStatus);
+    $thisPanel.find('button.interval-selector')
+        .click(function(){
+            if(this.innerHTML=='on'){
+                //chart.options.tooltip.shared=true;
+                chart.options.tooltip.crosshairs=[true,false];
+                $thisPanel.find('button.interval-selector-on').addClass('toggle-active').removeClass('toggle-inactive');
+                $thisPanel.find('button.interval-selector-off').addClass('toggle-inactive').removeClass('toggle-active');
+            } else {
+                //chart.options.tooltip.shared=false;
+                chart.options.tooltip.crosshairs=null;
+                $thisPanel.find('button.interval-selector-on').addClass('toggle-inactive').removeClass('toggle-active');
+                $thisPanel.find('button.interval-selector-off').addClass('toggle-active').removeClass('toggle-inactive');
             }
+            chart.redraw();
         });
-    });
+    $thisPanel.find('a.post-facebook')
+        .click(function(){
+            annoSync();
+            var svg = oHighCharts[panelId].getSVG();
+            $.ajax({
+                type: 'POST',
+                url:"export/index.php",
+                dataType: 'json',
+                data:  {
+                    type: 'FB',  //'image/jpeg',
+                    width: "800",
+                    svg: svg},
+                success: function(chartInfo, textStatus, jqXH){
+                    var body = oPanelGraphs[panelId].analysis;
+                    var caption =  oPanelGraphs[panelId].title;
+                    //check permissions first with: FB.api('/me/permissions', function(response) {if(response.data[0])});
+
+                    // calling the API ...
+                    var obj = {
+                        method: 'feed',
+                        link: 'http://www.mashabledata.com/workbench/view.php?g='+ oPanelGraphs[panelId].ghash,
+                        picture: chartInfo.imageURL,
+                        message: body,
+                        name: 'Facebook Dialogs',
+                        caption: caption,
+                        description: body
+                    };
+
+                    function callback(response) {
+                        alert("Post ID: " + response['post_id']);
+                    }
+
+                    FB.ui(obj, callback);
+                },
+                error: function(response, textStatus, jqXH){
+                    console.log(textStatus);
+                }
+            });
+        });
     $thisPanel.find('.email').button({icons: {primary: "ui-icon-mail-closed"},
         click: function(){
-            //mail to code here
+            //TODO: mail to code here
         }
     });
     $thisPanel.find('.link').button({icons: {primary: "ui-icon-link"}})
@@ -1924,9 +1845,10 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
             }
         });
 
-    $('#'+panelId+'-rad-hard-crop').change(function(){
-        hardCropFromSlider();
-    });
+    $('#'+panelId+'-rad-hard-crop')
+        .change(function(){
+            hardCropFromSlider();
+        });
 
     $('#'+panelId+'-rad-interval-crop').change(function(){
         var interval = parseInt($(this).val());
@@ -1937,7 +1859,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         oGraph.intervals = interval;
         oGraph.start = null;
         oGraph.end = null;
-        oHighCharts[panelId]=chartPanel(this);
+        oHighCharts[panelId] = chartPanel(panelId);
         buildAnnotations(panelId);
     });
     $('#'+panelId+'-rad-no-crop').change(function(){
@@ -1947,7 +1869,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         oGraph.minZoom = oGraph.firstdt;
         oGraph.maxZoom = oGraph.lastdt;
         //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].firstdt,oPanelGraphs[panelId].lastdt);
-        oHighCharts[panelId]=chartPanel(this);
+        oHighCharts[panelId] = chartPanel(panelId);
         buildAnnotations(panelId);
         //$thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
     });
@@ -1970,113 +1892,162 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         graph.end = (graph.maxZoom<graph.lastdt)?graph.maxZoom:graph.lastdt;
         $(this).attr("disabled","disabled");
         setCropSlider(panelId);
-        oHighCharts[panelId]=chartPanel(this);
+        oHighCharts[panelId] = chartPanel(panelId);
         buildAnnotations(panelId);
     });
+// *** crop routine end ***
 
-// *** crop rountine end ***
 
-
-    $thisPanel.find('input.graph-publish').change(function(){
-        oGraph.published = (this.checked?'Y':'N');
-    });
-    $thisPanel.find('select.graph-type').change(function(){
-        if($(this).val()=='logarithmic'){
-            for(var y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                if(oHighCharts[panelId].yAxis[y].getExtremes().dataMin<=0){
-                    $thisPanel.find('select.graph-type').val(oGraph.type);
-                    dialogShow("Logarithmic scaling not available", "Logarithmic Y-axis scaling is not allowed if negative values are present");
-                    return false;
+    $thisPanel.find('input.graph-publish')
+        .change(function(){
+            oGraph.published = (this.checked?'Y':'N');
+        });
+    $thisPanel.find('select.graph-type')
+        .change(function(){
+            if($(this).val()=='logarithmic'){
+                for(var y=0;y<oHighCharts[panelId].yAxis.length;y++){
+                    if(oHighCharts[panelId].yAxis[y].getExtremes().dataMin<=0){
+                        $thisPanel.find('select.graph-type').val(oGraph.type);
+                        dialogShow("Logarithmic scaling not available", "Logarithmic Y-axis scaling is not allowed if negative values are present");
+                        return false;
+                    }
                 }
             }
+            oGraph.type=$(this).val();
+            oHighCharts[panelId] = chartPanel(panelId);
+            buildAnnotations(panelId);
+        });
 
-        }
-        oGraph.type=$(this).val();
-        oHighCharts[panelId]=chartPanel(this);
-        buildAnnotations(panelId);
-
-    });
-
-    $thisPanel.find('.graph-analysis').keydown(function(){
-        oPanelGraphs[panelId].analysis=this.value;
-        makeDirty();
-    });
-    var makeDirty = function(){
+    $thisPanel.find('.graph-analysis')
+        .keydown(function(){
+            oPanelGraphs[panelId].analysis = this.value;
+            makeDirty();
+        });
+    function makeDirty(){
         oGraph.isDirty = true;
-        $('div#' + panelId + ' .graph-save').button("enable");
-    };
-    var makeClean = function(){
+        $thisPanel.find('.graph-save').button("enable");
+    }
+    function makeClean(){
         oGraph.isDirty = false;
-        $('div#' + panelId + ' .graph-save').button("disable");
-    };
-    var saveThisGraph = function(){
+        $thisPanel.find('.graph-save').button("disable");
+    }
+    function saveThisGraph(){
         saveGraph(oGraph);
         $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
         makeClean();
-    };
-    oGraph.isDirty = (!oGraph.gid);
-    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable').click(function(){
-        saveThisGraph();
-    });
-    $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)}).click(function(){
-        delete oGraph.gid;
-        graphTitle.show(this, function(){
+    }
+    oGraph.isDirty = (!oGraph.gid); //initialize
+    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable')
+        .click(function(){
             saveThisGraph();
         });
-    });
-    $thisPanel.find('button.graph-close').button({icons: {secondary: "ui-icon-closethick"}}).click(function(){
-        $('ul#graph-tabs a[href=#' + panelId + ']').siblings('span').click();
-    });
-    $thisPanel.find('button.graph-delete').button({icons: {secondary: "ui-icon-trash"}, disabled: (!oGraph.gid)}).click(function(){
-        dialogShow("Permanently Delete Graph", "Are you sure you want to delete this graph?",
-            [
-                {
-                    text: 'Delete',
-                    id: 'btn-dia-enable',
-                    click: function() {
-                        deleteMyGraph(panelId);
-                        $(this).dialog('close');
-                    }
-                },
-                {
-                    text: 'Cancel',
-                    id:'btn-dia-disable',
-                    click:  function() {
-                        $(this).dialog('close');
-                    }
-                }
-            ]);
-    });
-    oGraph.smallestPeriod = "A";
-    oGraph.largestPeriod = "N";
-    var min, max, key, jsdt, handle;
-    for(var key in oGraph.assets){
-        if(!oGraph.assets[key].firstdt && (key.charAt(0)=='M' || key.charAt(0)=='X')){
-            for(handle in oGraph.assets[key].data){
-                jsdt = oGraph.assets[key].data[handle].firstdt;
-                oGraph.assets[key].firstdt = Math.min(oGraph.assets[key].firstdt, jsdt)||jsdt;
-                jsdt = oGraph.assets[key].data[handle].lastdt;
-                oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
-            }
-        }
-        if(period.value[oGraph.smallestPeriod]>period.value[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
-        if(period.value[oGraph.largestPeriod]<period.value[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
 
-        jsdt = oGraph.assets[key].firstdt;
-        min = Math.min(jsdt, min)  || jsdt;
-        jsdt = oGraph.assets[key].lastdt;
-        max = Math.max(jsdt, max)  || jsdt;
+    //This object performs all of the task associated with editing and setting the chart title
+    var graphTitle = {
+        show: function(oTitle, callback){
+            $('.showTitleEditor').click();
+            var thisPanelID = $(oTitle).closest('div.graph-panel').get(0).id;
+            /*
+             $(oTitle).closest('div.highcharts-container').prepend('<div class="title-editor" style="position:absolute;z-index:100;border:thin solid black;background-color:white;left:0px;top:0px;margin:20px;width:90%;"><input type="text"><input type="text" name="title" value="'
+             + oPanelGraphs[thisPanelID].title + '" /> <button onclick="graphTitle.changeOk(this)">OK</button> <button onclick="graphTitle.changeCancel(this)">cancel</button></div>');
+             */
+
+            $('#titleEditor input').attr('data',thisPanelID).val(oPanelGraphs[thisPanelID].title);
+            $("#fancybox-wrap").stop().css({
+                'top': '55px',
+                'left': '50px'
+            });
+            $('#titleEditor input').css("width","450px").focus();
+            this.callback = callback;
+        },
+        callBack: false,
+        changeOk: function(){
+            var thisPanelID =  $('#titleEditor input').attr('data');
+            oPanelGraphs[thisPanelID].title = $('#titleEditor input').val();
+            if(oPanelGraphs[thisPanelID].title.length==0){
+                oHighCharts[thisPanelID].setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
+                var untitledTitle = "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1);
+                $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',untitledTitle).html(untitledTitle);
+            } else {
+                oHighCharts[thisPanelID].setTitle({text: oPanelGraphs[thisPanelID].title, style: {color: 'black', font: 'normal'}});
+                $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',oPanelGraphs[thisPanelID].title).html(oPanelGraphs[thisPanelID].title);
+            }
+            if(this.callback) this.callback();
+            $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
+            this.changeCancel();
+        },
+        changeCancel: function(){
+            $.fancybox.close();
+            this.callBack = false;
+        }
+    };
+    $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)})
+        .click(function(){
+            delete oGraph.gid;
+            graphTitle.show(this, function(){
+                saveThisGraph();
+            });
+        });
+    $thisPanel.find('button.graph-close').button({icons: {secondary: "ui-icon-closethick"}})
+        .click(function(){
+            $('ul#graph-tabs a[href=#' + panelId + ']').siblings('span').click();
+        });
+    $thisPanel.find('button.graph-delete').button({icons: {secondary: "ui-icon-trash"}, disabled: (!oGraph.gid)})
+        .click(function(){
+            dialogShow("Permanently Delete Graph", "Are you sure you want to delete this graph?",
+                [
+                    {
+                        text: 'Delete',
+                        id: 'btn-dia-enable',
+                        click: function() {
+                            deleteMyGraph(panelId);
+                            $(this).dialog('close');
+                        }
+                    },
+                    {
+                        text: 'Cancel',
+                        id:'btn-dia-disable',
+                        click:  function() {
+                            $(this).dialog('close');
+                        }
+                    }
+                ]);
+        });
+
+    function calcGraphMinMaxZoomPeriod(oGraph){
+        oGraph.smallestPeriod = "A";
+        oGraph.largestPeriod = "N";
+        var min, max, jsdt, handle;
+        for(key in oGraph.assets){
+            if(!oGraph.assets[key].firstdt && (key.charAt(0)=='M' || key.charAt(0)=='X')){
+                for(handle in oGraph.assets[key].data){
+                    jsdt = oGraph.assets[key].data[handle].firstdt;
+                    oGraph.assets[key].firstdt = Math.min(oGraph.assets[key].firstdt, jsdt)||jsdt;
+                    jsdt = oGraph.assets[key].data[handle].lastdt;
+                    oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
+                }
+            }
+            if(period.value[oGraph.smallestPeriod]>period.value[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
+            if(period.value[oGraph.largestPeriod]<period.value[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
+
+            jsdt = oGraph.assets[key].firstdt;
+            min = Math.min(jsdt, min)  || jsdt;
+            jsdt = oGraph.assets[key].lastdt;
+            max = Math.max(jsdt, max)  || jsdt;
+        }
+        oGraph.firstdt = min;
+        oGraph.lastdt = max;
+        oGraph.minZoom = oGraph.start || oGraph.firstdt;
+        oGraph.maxZoom = oGraph.end || oGraph.lastdt;
     }
-    oGraph.firstdt = min;
-    oGraph.lastdt = max;
-    oGraph.minZoom = oGraph.start || oGraph.firstdt;
-    oGraph.maxZoom = oGraph.end || oGraph.lastdt;
+    calcGraphMinMaxZoomPeriod(oGraph);
     $thisPanel.find('tr.graph-crop-none-row td.graph-from').html(formatDateByPeriod(min, oGraph.smallestPeriod));
     $thisPanel.find('tr.graph-crop-none-row td.graph-to').html(formatDateByPeriod(max, oGraph.smallestPeriod));
     oPanelGraphs[panelId]=oGraph;  //oPanelGraphs will be synced will oMyGraphs on save
 
+    //DRAW THE CHART
     if(oGraph.plots){
-        oHighCharts[panelId]=chartPanel($thisPanel.find('select.graph-type').get(0));
+        oHighCharts[panelId] = chartPanel(panelId);
         buildAnnotations(panelId);
         setCropSlider(panelId);
         $thisPanel.find('div.highcharts-container').mousedown(function (b) {
@@ -2089,7 +2060,6 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
     var $map;
     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
         calculatedMapData = calcMap(oGraph);
-        modCreateMarkersMethod();  //must be done after loaded by requires
         if(isBubble()) bubbleCalc();
         console.info(calculatedMapData);
         var jvmap_template;
@@ -2201,7 +2171,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
         $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
 
         //BBBUUUUBBBBBLLEESS!!!!!
-        var $g = $('#' + panelId).find('div.jvmap svg g:first');  //goes in createGraph closure
+        var $g = $thisPanel.find('div.jvmap svg g:first');  //goes in createGraph closure
 
         if(isBubble()){
             positionBubbles();
@@ -2258,34 +2228,48 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 calculatedMapData.markerData = markerData;  //set (or replace if new merge)
             }
         }
+        function geometricCenter(regions){
+            var bBox, totalArea=0, xArm=0, yArm=0, center;
+            for(var i=0;i<regions.length;i++){  //iterate through the list
+                bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
+                xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
+                yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;
+                totalArea +=  bBox.width * bBox.height;
+            }
+            center = {
+                x: (xArm / totalArea + $map.transX) * $map.scale,
+                y: (yArm / totalArea + $map.transY) * $map.scale
+            };
+            return center;
+        }
         function positionBubbles(){
-            var center;
+            var center, latLng;
             if(isBubble()){
                 var region, i=0, j, allMergedRegions = [];
                 if(oGraph.mapsets.options.merges){
                     for(i=0;i<oGraph.mapsets.options.merges.length;i++){
-                        center = geometricCenter(oGraph.mapsets.options.merges[i], $g);
-                        calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')].point = {x: center.x, y:center.y};
-                        delete calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')].latLng;
+                        center = geometricCenter(oGraph.mapsets.options.merges[i]);
+                        latLng = $map.pointToLatLng(center.x, center.y);
+                            calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')].latLng = [latLng.lat, latLng.lng];
                         allMergedRegions = allMergedRegions.concat(oGraph.mapsets.options.merges[i]);
                     }
                 }
                 $g.find('path[data-code]').each(function(){
                     region  = $(this).attr('data-code');
                     if(allMergedRegions.indexOf(region) == -1 && calculatedMapData.regionData[calculatedMapData.dates[0].s][region]){  //this region is not part of a amerge and also has data
-                        center = geometricCenter([region], $g);
-                        calculatedMapData.markers[region].point = {x: center.x, y:center.y}; //TODO: calc value and set color
+                        center = geometricCenter([region]);
+                        latLng = $map.pointToLatLng(center.x, center.y);
+                        calculatedMapData.markers[region].latLng = [latLng.lat, latLng.lng]; //TODO: calc value and set color
                     }
                 });
-/*                for(var m in calculatedMapData.markers){
-                    $map.addMarker()
-                }*/
+                /*                for(var m in calculatedMapData.markers){
+                 $map.addMarker()
+                 }*/
                 $map.series.markers[0].maxValue = calculatedMapData.markerDataMax;
                 $map.series.markers[0].minValue = calculatedMapData.markerDataMin;
                 $map.series.markers[0].clearMaxValue = calculatedMapData.markerDataMax;
                 $map.series.markers[0].clearMinValue = calculatedMapData.markerDataMin;
                 $map.addMarkers(calculatedMapData.markers); //if the marker id exists, this method will reposition the marker
-                $thisPanel.find('div.jvmap circle').appendTo($thisPanel.find('div.jvmap g:first'));  //move circles from separate <g> into the same <g> as the map so it wil share all of the zoom and move transforms
                 $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
             }
         }
@@ -2433,7 +2417,7 @@ var buildGraphPanel = function(oGraph, panelId){ //all highcharts, jvm, and colo
                 growable: false,
                 splinter: false,
                 ungroupable: false
-            };  
+            };
             var selectedMarkers = $map.getSelectedMarkers();
             var selectedRegions = $map.getSelectedRegions();
             //ungroupable
@@ -3038,13 +3022,6 @@ function showPlotEditor(liPlot){
 
 
 
-
-
-
-
-
-
-
 function panelIdContaining(cntl){  //uniform way of getting ID of active panel for user events
     var visPan = $(cntl).closest('div.graph-panel:visible');
     if(visPan.length==1){
@@ -3054,57 +3031,6 @@ function panelIdContaining(cntl){  //uniform way of getting ID of active panel f
     }
 }
 
-function exportChart(type){
-    var panelID = visiblePanelId();
-    if(oPanelGraphs[panelID].map){
-        downloadMap(panelID, type);
-    } else {
-        var thisChart = oHighCharts[panelID];
-        annoSync();
-        thisChart.exportChart({type: type});
-    }
-}
-
-
-//This object performs all of the task associated with editing and setting the chart title
-var graphTitle = {
-    show: function(oTitle, callback){
-        $('.showTitleEditor').click();
-        var thisPanelID = $(oTitle).closest('div.graph-panel').get(0).id;
-        /*
-         $(oTitle).closest('div.highcharts-container').prepend('<div class="title-editor" style="position:absolute;z-index:100;border:thin solid black;background-color:white;left:0px;top:0px;margin:20px;width:90%;"><input type="text"><input type="text" name="title" value="'
-         + oPanelGraphs[thisPanelID].title + '" /> <button onclick="graphTitle.changeOk(this)">OK</button> <button onclick="graphTitle.changeCancel(this)">cancel</button></div>');
-         */
-
-        $('#titleEditor input').attr('data',thisPanelID).val(oPanelGraphs[thisPanelID].title);
-        $("#fancybox-wrap").stop().css({
-            'top': '55px',
-            'left': '50px'
-        });
-        $('#titleEditor input').css("width","450px").focus();
-        this.callback = callback;
-    },
-    callBack: false,
-    changeOk: function(){
-        var thisPanelID =  $('#titleEditor input').attr('data');
-        oPanelGraphs[thisPanelID].title = $('#titleEditor input').val();
-        if(oPanelGraphs[thisPanelID].title.length==0){
-            oHighCharts[thisPanelID].setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
-            var untitledTitle = "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1);
-            $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',untitledTitle).html(untitledTitle);
-        } else {
-            oHighCharts[thisPanelID].setTitle({text: oPanelGraphs[thisPanelID].title, style: {color: 'black', font: 'normal'}});
-            $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',oPanelGraphs[thisPanelID].title).html(oPanelGraphs[thisPanelID].title);
-        }
-        if(this.callback) this.callback();
-        $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
-        this.changeCancel();
-    },
-    changeCancel: function(){
-        $.fancybox.close();
-        this.callBack = false;
-    }
-};
 //HELPER FUNCTIONS
 function visiblePanelId(){  //uniform way of getting ID of active panel for user events
     var visPan = $('div.graph-panel:visible');
@@ -3135,15 +3061,15 @@ function periodWidth(period){
     }
 }
 function UTCFromReadableDate(dateString){
-    var dt = new Date(dateString + " UTC");  //this should work for year, month, day, and hours
+    var pat, dt = new Date(dateString + " UTC");  //this should work for year, month, day, and hours
     if(dt.toString()!="NaN")return dt;
-    var pat = /^W[0-5]{0-1}[0-9]{1}\s[0-9]{4}/i;
+    pat = /^W[0-5]{0-1}[0-9]{1}\s[0-9]{4}/i;
     if(pat.test(dateString)){
         dt = new Date(parseInt(dateString.substr(3))+' UTC');
         return dt.setUTCMonth((parseInt(dateString.charAt(1))-1)*3);
     }
     //quarter?
-    var pat = /^Q[1-4]{1}\s[0-9]{4}/i;
+    pat = /^Q[1-4]{1}\s[0-9]{4}/i;
     if(pat.test(dateString)){
         dt = new Date(parseInt(dateString.substr(3))+' UTC');
         return dt.setUTCMonth((parseInt(dateString.charAt(1))-1)*3);
@@ -3214,14 +3140,9 @@ function formatDateByPeriod(val, period) { //helper function for the data tables
     }
 }
 
-//TODO: wrap the annotations functions and variables in an anonymous object
-var bandNo = 0;
-var lineNo = 0;
-var banding = false;
-var bandStartPoint;
 var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
 $(document).ready(function(){
-    require(["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.1.1.min.js"], function(){
+    require(["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"], function(){
         require(["/global/js/highcharts/js/modules/exporting.2.1.6.src.js"]);
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
         Highcharts.setOptions({
@@ -3237,32 +3158,391 @@ $(document).ready(function(){
     });
 });
 
-//ANNOTATION CODE
-function addStandardAnnotation(annoid){
-    callApi({command: "GetAnnotation", annoid: annoid}, function(data){
+//TODO: wrap the annotations functions and variables in an anonymous object
+function getAnnotationsObject(){
+
+    return annotatons;
+}
+var annotations = {
+    bandNo: 0,
+    lineNo: 0,
+    banding: false,
+    bandStartPoint: void(0),
+    addStandard: function addStandardAnnotation(annoid){
+        callApi({command: "GetAnnotation", annoid: annoid}, function(data){
+            var panelId = visiblePanelId();
+            standardAnno = jQuery.parseJSON(data.annotation);
+            for(var i=0;i<standardAnno.length;i++){
+                oPanelGraphs[panelId].annotations.push(standardAnno[i]);
+            }
+            buildAnnotations(panelId, 'new');
+        });
+    },
+    sync: function annoSync(){  //sync plot lines and bands to options.  must be done prior to printing or exporting
+        var thisChart = oHighCharts[visiblePanelId()];
+        var axis = thisChart.options.xAxis,
+            plotLines = (axis.plotLines = []),
+            plotBands = (axis.plotBands = []);
+        var anno;
+        for(var i=0;i<thisChart.xAxis[0].plotLinesAndBands.length;i++){
+            anno = thisChart.xAxis[0].plotLinesAndBands[i];
+            if(anno.id.substr(0,1)=='xb'){
+                plotBands.push(anno.options)
+            } else {
+                plotLines.push(anno.options)
+            }
+        }
+    },
+    addPoint: function annotatePoint(selectedPoint){
         var panelId = visiblePanelId();
-        standardAnno = jQuery.parseJSON(data.annotation);
-        for(var i=0;i<standardAnno.length;i++){
-            oPanelGraphs[panelId].annotations.push(standardAnno[i]);
+        var oGraph = oPanelGraphs[panelId];
+        if(typeof(selectedPoint) != "undefined"){
+            //remove all current point annotations
+            var point;
+            for(var i=0;i<oGraph.annotations.length;i++){
+                if(oGraph.annotations[i].type=='point'){
+                    point = oHighCharts[panelId].get(oGraph.annotations[i].id);
+                    if(point){point.update([point.x, point.y], false)}
+                    delete oGraph.annotations[i].id
+                }
+            }
+            //add annotation to oGraph object
+            oGraph.annotations.push({
+                type:	'point',
+                text: 	'',
+                id: null, //gets reordered and set in buildAnnotations
+                series: selectedPoint.series.options.id,
+                color: 	'#000000',
+                from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
+            });
+            // redraw the point annotations in order and entire annotations table
+            buildAnnotations(panelId,'point');
         }
-        buildAnnotations(panelId, 'new');
-    });
-}
-function annoSync(){  //sync plot lines and bands to options.  must be done prior to printing or exporting
-    var thisChart = oHighCharts[visiblePanelId()];
-    var axis = thisChart.options.xAxis,
-        plotLines = (axis.plotLines = []),
-        plotBands = (axis.plotBands = []);
-    var anno;
-    for(var i=0;i<thisChart.xAxis[0].plotLinesAndBands.length;i++){
-        anno = thisChart.xAxis[0].plotLinesAndBands[i];
-        if(anno.id.substr(0,1)=='xb'){
-            plotBands.push(anno.options)
+    },
+    addXLine:  function annotateXLine(selectedPoint){
+        var panelId = visiblePanelId();
+        var oGraph = oPanelGraphs[panelId];
+        oHighCharts[panelId].xAxis[0].addPlotLine({
+            value:  selectedPoint.x,
+            color:  '#'+colorsPlotBands[0],
+            id: 'xl' + lineNo,
+            width: 2,
+            label: {text: ' ', y: 0, zIndex: 3}
+        });
+        oGraph.annotations.push({
+            type:	'line',
+            text: 	'',
+            id: 'xl' + lineNo,
+            color: 	colorsPlotBands[0],
+            from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
+        });
+        lineNo++;
+        buildAnnotations(panelId,'table-only');
+    },
+    startXBand: function annotateXBandStart(pointSelected){
+        var panelId = visiblePanelId();
+        var oGraph = oPanelGraphs[panelId];
+        bandStartPoint = pointSelected;
+        oHighCharts[panelId].xAxis[0].addPlotBand({
+            from:  bandStartPoint.x,
+            to: bandStartPoint.x,
+            color:  equivalentRGBA(colorsPlotBands[0]),
+            id: 'xb' + bandNo,
+            label: {text: ' ', y: 0, zIndex: 3}
+        });
+        banding = 'x-Time';
+    },
+    build: function buildAnnotations(panelId, redrawAnnoTypes){
+        var y, yOffset, $annotations = $('div#' + panelId + ' table.annotations');
+        if($annotations.html().length!=0) { //enable on all calls except initial build
+            $('div#' + panelId + ' .graph-save').button("enable");
+            oPanelGraphs[panelId].isDirty = true;
+        }
+        if(!redrawAnnoTypes) redrawAnnoTypes='all';
+        var oGraph = oPanelGraphs[panelId];
+// builds and return a fresh annotations table HTML string from oGraph
+        var sTable = '';
+        var annoLetter = 'A';
+        var i, anno, point, annoSeries, annoScatter;
+        var scatterData = {};
+        for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
+            scatterData['labelsY-'+i] = [];
+        }
+        //make a sorted list of annotations by start date
+        oGraph.annotations.sort(function(a,b){
+            if(a.type.charAt(0)=='h' && a.type.charAt(0)=='h')return b.from - a.from;
+            if(a.type.charAt(0)=='h') return -1;
+            if(b.type.charAt(0)=='h') return 1;
+            return annoDateParse(a.from) - annoDateParse(b.from)
+        });
+        for(i=0;i< oGraph.annotations.length;i++){
+            anno = oGraph.annotations[i];
+            switch(anno.type){
+                case 'point':
+                    if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
+                        annoSeries = oHighCharts[panelId].get(anno.series);
+                        if(annoSeries==null){//cut anno out if we can't find it's reference series
+                            oGraph.annotations.splice(i,1);
+                            i--;
+                            break;
+                        }
+                        annoScatter =  oHighCharts[panelId].get('labelsY-' + annoSeries.options.yAxis);
+                        for(var j=0;j<annoSeries.data.length;j++){
+                            if(annoSeries.data[j] ){  //prevent errors on cropped graphs
+                                if(annoSeries.data[j].x == annoDateParse(anno.from)){
+                                    point = annoSeries.data[j];
+                                    scatterData['labelsY-' + annoSeries.options.yAxis].push({
+                                        x: point.x,
+                                        y: point.y,
+                                        id: annoLetter,
+                                        marker: {
+                                            fillColor: anno.color,
+                                            lineColor: anno.color,
+                                            radius: 8,
+                                            symbol: 'circle',
+                                            enabled: true,
+                                            'states': {
+                                                hover: {
+                                                    enabled: true,
+                                                    marker: {
+                                                        enabled: true,
+                                                        fillColor: anno.color,
+                                                        lineColor: anno.color,
+                                                        radius: 8
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        anno.id =  annoLetter;
+                    }
+                    sTable+='<tr data="' + annoLetter + '"><td align="center"><b>'+annoLetter+'</b></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+                    annoLetter=String.fromCharCode(annoLetter.charCodeAt(0)+1);
+                    break;
+                case 'line':
+                    if(redrawAnnoTypes=='line'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
+                        anno.id ='xl' + lineNo;
+                        lineNo++;
+                        yOffset = annotationY(oHighCharts[panelId], anno);
+                        oHighCharts[panelId].xAxis[0].addPlotLine({
+                            color: anno.color,
+                            value: annoDateParse(anno.from),
+                            id: anno.id,
+                            width: 2,
+                            label: {text: anno.text, y: yOffset, zIndex: 3}
+                        });
+                    }
+                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+
+                    break;
+                case 'hline':
+                    if(redrawAnnoTypes=='hline'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
+                        anno.id ='hl' + lineNo;
+                        lineNo++;
+                        //var yOffset = annotationY(oHighCharts[panelId], anno);
+                        for(y=0;y<oHighCharts[panelId].yAxis.length;y++){
+                            if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
+                                oHighCharts[panelId].yAxis[y].addPlotLine({
+                                    color: anno.color,
+                                    value: anno.from,
+                                    id: anno.id,
+                                    width: 2,
+                                    label: {text: anno.text, zIndex: 3}
+                                });
+                            }
+                        }
+                    }
+                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from + ' ' + anno.yAxis + '</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+                    break;
+                case 'band':
+                    if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
+                        anno.id ='xb' + bandNo;
+                        bandNo++;
+                        yOffset = annotationY(oHighCharts[panelId], anno);
+                        oHighCharts[panelId].xAxis[0].addPlotBand({
+                            color: equivalentRGBA(anno.color),
+                            from: annoDateParse(anno.from),
+                            to: annoDateParse(anno.to),
+                            id: anno.id,
+                            label: {text: anno.text, y: yOffset, zIndex: 3}
+                        });
+                    }
+                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+                    break;
+                case 'hband':
+                    if(redrawAnnoTypes=='hband'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
+                        anno.id ='hb' + bandNo;
+                        bandNo++;
+                        for(y=0;y<oHighCharts[panelId].yAxis.length;y++){
+                            if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
+                                oHighCharts[panelId].yAxis[y].addPlotBand({
+                                    color: equivalentRGBA(anno.color),
+                                    from: anno.from,
+                                    to: anno.to,
+                                    id: anno.id,
+                                    label: {text: anno.text, zIndex: 3}
+                                });
+                            }
+                        }
+                    }
+                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+' '+anno.yAxis+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+                    break;
+            }
+        }
+        if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
+            for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
+                oHighCharts[panelId].get(key).setData(scatterData[key], false);
+            }
+            oHighCharts[panelId].redraw(); //redraw after all have been updated
+        }
+        if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" style="font-style:italic;color:aaaaaa#">right-click on the chart to annotate a point, a band, or an event</td></tr>';
+        $annotations.html(sTable).find('input, select').change(function(){changeAnno(this)});
+        $annotations.find('.annotation-color-picker').colorPicker();
+        $annotations.find('.ui-icon-trash')
+            .click(function(){
+                deleteAnno(this)
+            });
+    },
+    change: function changeAnno(obj){
+        var i, yOffset, y, id = $(obj).closest('tr').attr('data');
+        var $panel = $(obj).closest('div.graph-panel');
+        var panelId = $panel.attr('id');
+        $panel.find('.graph-save').button('enable');
+        var oGraph = oPanelGraphs[panelId];
+        var anno;
+        for(i=0;i< oGraph.annotations.length;i++){
+            if(id == oGraph.annotations[i].id){
+                anno = oGraph.annotations[i];
+                break;
+            }
+        }
+        anno.text = $(obj).closest('tr').find('input.anno-text').val();
+        anno.color = $(obj).closest('tr').find('.annotation-color-picker').val();
+        switch(id.substr(0,2)){
+            case 'xb':
+                yOffset = annotationY(oHighCharts[panelId], anno);
+                oHighCharts[panelId].xAxis[0].removePlotBand(id);
+                oHighCharts[panelId].xAxis[0].addPlotBand({
+                    color: equivalentRGBA(anno.color),
+                    from: annoDateParse(anno.from),
+                    to: annoDateParse(anno.to),
+                    id: anno.id,
+                    label: {text: anno.text, y: yOffset, zIndex: 3}
+                });
+                break;
+            case 'hb':
+                for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
+                    if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
+                        oHighCharts[panelId].yAxis[0].removePlotBand(id);
+                        oHighCharts[panelId].yAxis[0].addPlotBand({
+                            color: equivalentRGBA(anno.color),
+                            from: parseFloat(anno.from),
+                            to: parseFloat(anno.to),
+                            id: anno.id,
+                            label: {text: anno.text, zIndex: 3}
+                        });
+                    }
+                }
+                break;
+            case 'hl':
+                for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
+                    if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
+                        oHighCharts[panelId].yAxis[0].removePlotLine(id);
+                        oHighCharts[panelId].yAxis[0].addPlotLine({
+                            color: anno.color,
+                            value: parseFloat(anno.from),
+                            id: anno.id,
+                            width: 2,
+                            label: {text: anno.text, zIndex: 3}
+                        });
+                    }
+                }
+                break;
+            case 'xl':
+                yOffset = annotationY(oHighCharts[panelId], anno);
+                oHighCharts[panelId].xAxis[0].removePlotLine(id);
+                oHighCharts[panelId].xAxis[0].addPlotLine({
+                    color: anno.color,
+                    value: annoDateParse(anno.from),
+                    id: anno.id,
+                    width: 2,
+                    label: {text: anno.text, y: yOffset, zIndex: 3}
+                });
+        }
+    },
+    delete: function deleteAnno(deleteAnchor){
+        var idToDelete = $(deleteAnchor).closest('tr').attr('data');
+        var panelId = $(deleteAnchor).closest('div.graph-panel').attr('id');
+        var oGraph = oPanelGraphs[panelId];
+        for(var i=0;i< oGraph.annotations.length;i++){
+            if(idToDelete == oGraph.annotations[i].id){
+                oGraph.annotations.splice(i,1);
+                break;
+            }
+        }
+        if(idToDelete[1]=='b' || idToDelete[1]=='l'){ //band or line:  simply try to delete for all axis until found
+            for(a=0;a<oHighCharts[panelId].axes.length;a++){
+                oHighCharts[panelId].axes[a].removePlotLine(idToDelete);  //does not error if not found
+                oHighCharts[panelId].axes[a].removePlotBand(idToDelete);
+                buildAnnotations(panelId, "none");
+            }
         } else {
-            plotLines.push(anno.options)
+            buildAnnotations(panelId, "point");
         }
+    },
+    parseDate: function annoDateParse(partialDateString){
+        if(partialDateString.length==4){partialDateString = '1 Jan ' + partialDateString + ' UTC'}
+        else if(partialDateString.length==8){partialDateString = '1 ' + partialDateString + ' UTC'}
+        else {partialDateString += ' UTC'}
+        return Date.parse(partialDateString);
+    },
+    labelOffset: function annotationY(chart, anno){
+        var yStart = 10;
+        var yInc = 20;
+        var annoMargin = 0.20;  // 20% of graph width
+        if(anno.text==" "||anno.text==" ") return 0;
+        var plotLinesAndBands = chart.xAxis[0].plotLinesAndBands;
+        var extremes = chart.xAxis[0].getExtremes();
+        var minSeparation = (extremes.max-extremes.min) * annoMargin;
+        var annoCenter;
+        var overlappingAnnos = [];
+        if(anno.to){
+            annoCenter = (annoDateParse(anno.from) + annoDateParse(anno.to))/2;
+        } else {
+            annoCenter = annoDateParse(anno.from);
+        }
+        var overlaps = 0;
+        for(var i=0;i<plotLinesAndBands.length;i++){
+            var thisCenter;
+            if(plotLinesAndBands[i].options.to){
+                thisCenter = (plotLinesAndBands[i].options.from + plotLinesAndBands[i].options.to)/2;
+            } else {
+                thisCenter = plotLinesAndBands[i].options.from;
+            }
+            if(plotLinesAndBands[i].options.label.text.length>0 && (Math.abs(thisCenter-annoCenter) < minSeparation)){
+                overlaps++;
+                overlappingAnnos.push(plotLinesAndBands[i]);
+            }
+        }
+        var y = yStart;
+        for(var j=0;j<overlappingAnnos.length;j++){ //make sure there is no existing annotation in this y-space
+            if(overlappingAnnos[j].options.label.y == y){
+                y += yInc;
+                j = -1;  //restarts the loops
+            }
+        }
+        return y;
     }
+
+
 }
+//ANNOTATION CODE
+
+
+
 function XXXclickHCSeries(evt){
     if(banding){
         banding = false;  //band was already drawn in the mouseOver event
@@ -3305,278 +3585,18 @@ function mouseOverHCPoint(e, point){
         chart.xAxis[0].addPlotBand({
             from:  bandStartPoint.x,
             to: point.x,
-            color:  makeRGBA(colorsPlotBands[0]),
+            color:  equivalentRGBA(colorsPlotBands[0]),
             id: 'xb' + bandNo,
             label:  {text: ' ', y: 0, zIndex: 3}
         });
     }
 }
-function annotatePoint(selectedPoint){
-    var panelId = visiblePanelId();
-    var oGraph = oPanelGraphs[panelId];
-    if(typeof(selectedPoint) != "undefined"){
-        //remove all current point annotations
-        var point;
-        for(var i=0;i<oGraph.annotations.length;i++){
-            if(oGraph.annotations[i].type=='point'){
-                point = oHighCharts[panelId].get(oGraph.annotations[i].id);
-                if(point){point.update([point.x, point.y], false)}
-                delete oGraph.annotations[i].id
-            }
-        }
-        //add annotation to oGraph object
-        oGraph.annotations.push({
-            type:	'point',
-            text: 	'',
-            id: null, //gets reordered and set in buildAnnotations
-            series: selectedPoint.series.options.id,
-            color: 	'#000000',
-            from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
-        });
-        // redraw the point annotations in order and entire annotations table
-        buildAnnotations(panelId,'point');
-    }
-}
-function annotateXLine(selectedPoint){
-    var panelId = visiblePanelId();
-    var oGraph = oPanelGraphs[panelId];
-    oHighCharts[panelId].xAxis[0].addPlotLine({
-        value:  selectedPoint.x,
-        color:  '#'+colorsPlotBands[0],
-        id: 'xl' + lineNo,
-        width: 2,
-        label: {text: ' ', y: 0, zIndex: 3}
-    });
-    oGraph.annotations.push({
-        type:	'line',
-        text: 	'',
-        id: 'xl' + lineNo,
-        color: 	colorsPlotBands[0],
-        from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
-    });
-    lineNo++;
-    buildAnnotations(panelId,'table-only');
-}
-function annotateXBandStart(pointSelected){
-    var panelId = visiblePanelId();
-    var oGraph = oPanelGraphs[panelId];
-    bandStartPoint = pointSelected;
-    oHighCharts[panelId].xAxis[0].addPlotBand({
-        from:  bandStartPoint.x,
-        to: bandStartPoint.x,
-        color:  makeRGBA(colorsPlotBands[0]),
-        id: 'xb' + bandNo,
-        label: {text: ' ', y: 0, zIndex: 3}
-    });
-    banding = 'x-Time';
-}
-function annotationY(chart, anno){
-    var yStart = 10;
-    var yInc = 20;
-    var annoMargin = 0.20;  // 20% of graph width
-    if(anno.text==" "||anno.text==" ") return 0;
-    var plotLinesAndBands = chart.xAxis[0].plotLinesAndBands;
-    var extremes = chart.xAxis[0].getExtremes();
-    var minSeparation = (extremes.max-extremes.min) * annoMargin;
-    var annoCenter;
-    var overlappingAnnos = [];
-    if(anno.to){
-        annoCenter = (annoDateParse(anno.from) + annoDateParse(anno.to))/2;
-    } else {
-        annoCenter = annoDateParse(anno.from);
-    }
-    var overlaps = 0;
-    for(var i=0;i<plotLinesAndBands.length;i++){
-        var thisCenter;
-        if(plotLinesAndBands[i].options.to){
-            thisCenter = (plotLinesAndBands[i].options.from + plotLinesAndBands[i].options.to)/2;
-        } else {
-            thisCenter = plotLinesAndBands[i].options.from;
-        }
-        if(plotLinesAndBands[i].options.label.text.length>0 && (Math.abs(thisCenter-annoCenter) < minSeparation)){
-            overlaps++;
-            overlappingAnnos.push(plotLinesAndBands[i]);
-        }
-    }
-    var y = yStart;
-    for(var j=0;j<overlappingAnnos.length;j++){ //make sure there is no existing annotation in this y-space
-        if(overlappingAnnos[j].options.label.y == y){
-            y += yInc;
-            j = -1;  //restarts the loops
-        }
-    }
-    return y;
-}
-function buildAnnotations(panelId, redrawAnnoTypes){
-    if($('div#' + panelId + ' table.annotations').html().length!=0) { //enable on all calls except initial build
-        $('div#' + panelId + ' .graph-save').button("enable");
-        oPanelGraphs[panelId].isDirty = true;
-    }
-    if(!redrawAnnoTypes) redrawAnnoTypes='all';
-    var oGraph = oPanelGraphs[panelId];
-// builds and return a fresh annotations table HTML string from oGraph
-    var sTable = '';
-    var annoLetter = 'A';
-    var i, anno, point, annoSeries, annoScatter;
-    var scatterData = {};
-    for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
-        scatterData['labelsY-'+i] = [];
-    }
-    //make a sorted list of annotations by start date
-    oGraph.annotations.sort(function(a,b){
-        if(a.type.charAt(0)=='h' && a.type.charAt(0)=='h')return b.from - a.from;
-        if(a.type.charAt(0)=='h') return -1;
-        if(b.type.charAt(0)=='h') return 1;
-        return annoDateParse(a.from) - annoDateParse(b.from)
-    });
-    for(i=0;i< oGraph.annotations.length;i++){
-        anno = oGraph.annotations[i];
-        switch(anno.type){
-            case 'point':
-                if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-                    annoSeries = oHighCharts[panelId].get(anno.series);
-                    if(annoSeries==null){//cut anno out if we can't find it's reference series
-                        oGraph.annotations.splice(i,1);
-                        i--;
-                        break;
-                    }
-                    annoScatter =  oHighCharts[panelId].get('labelsY-' + annoSeries.options.yAxis);
-                    for(var j=0;j<annoSeries.data.length;j++){
-                        if(annoSeries.data[j] ){  //prevent errors on cropped graphs
-                            if(annoSeries.data[j].x == annoDateParse(anno.from)){
-                                point = annoSeries.data[j];
-                                scatterData['labelsY-' + annoSeries.options.yAxis].push({
-                                    x: point.x,
-                                    y: point.y,
-                                    id: annoLetter,
-                                    marker: {
-                                        fillColor: anno.color,
-                                        lineColor: anno.color,
-                                        radius: 8,
-                                        symbol: 'circle',
-                                        enabled: true,
-                                        'states': {
-                                            hover: {
-                                                enabled: true,
-                                                marker: {
-                                                    enabled: true,
-                                                    fillColor: anno.color,
-                                                    lineColor: anno.color,
-                                                    radius: 8
-                                                }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    }
-                    anno.id =  annoLetter;
-                }
-                sTable+='<tr data="' + annoLetter + '"><td align="center"><b>'+annoLetter+'</b></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>'
-                annoLetter=String.fromCharCode(annoLetter.charCodeAt(0)+1);
-                break;
-            case 'line':
-                if(redrawAnnoTypes=='line'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                    anno.id ='xl' + lineNo;
-                    lineNo++;
-                    var yOffset = annotationY(oHighCharts[panelId], anno);
-                    oHighCharts[panelId].xAxis[0].addPlotLine({
-                        color: anno.color,
-                        value: annoDateParse(anno.from),
-                        id: anno.id,
-                        width: 2,
-                        label: {text: anno.text, y: yOffset, zIndex: 3}
-                    });
-                }
-                sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
 
-                break;
-            case 'hline':
-                if(redrawAnnoTypes=='hline'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                    anno.id ='hl' + lineNo;
-                    lineNo++;
-                    //var yOffset = annotationY(oHighCharts[panelId], anno);
-                    for(var y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                        if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
-                            oHighCharts[panelId].yAxis[y].addPlotLine({
-                                color: anno.color,
-                                value: anno.from,
-                                id: anno.id,
-                                width: 2,
-                                label: {text: anno.text, zIndex: 3}
-                            });
-                        }
-                    }
-                }
-                sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from + ' ' + anno.yAxis + '</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                break;
-            case 'band':
-                if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                    anno.id ='xb' + bandNo;
-                    bandNo++;
-                    var yOffset = annotationY(oHighCharts[panelId], anno);
-                    oHighCharts[panelId].xAxis[0].addPlotBand({
-                        color: makeRGBA(anno.color),
-                        from: annoDateParse(anno.from),
-                        to: annoDateParse(anno.to),
-                        id: anno.id,
-                        label: {text: anno.text, y: yOffset, zIndex: 3}
-                    });
-                }
-                sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                break;
-            case 'hband':
-                if(redrawAnnoTypes=='hband'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                    anno.id ='hb' + bandNo;
-                    bandNo++;
-                    for(var y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                        if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
-                            oHighCharts[panelId].yAxis[y].addPlotBand({
-                                color: makeRGBA(anno.color),
-                                from: anno.from,
-                                to: anno.to,
-                                id: anno.id,
-                                label: {text: anno.text, zIndex: 3}
-                            });
-                        }
-                    }
-                }
-                sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+' '+anno.yAxis+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                break;
-        }
+
+function equivalentRGBA(hexColor){
+    function gun(desired, alpha){
+        return  parseInt(desired/alpha - (1-alpha)*255/alpha);
     }
-    if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-        for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
-            oHighCharts[panelId].get(key).setData(scatterData[key], false);
-        }
-        oHighCharts[panelId].redraw(); //redraw after all have been updated
-    }
-    if(oGraph.annotations.length==0){sTable+='<tr><td colspan="3" style="font-style:italic;color:aaaaaa#">right-click on the chart to annotate a point, a band, or an event</td></tr>'};
-    $('div#' + panelId + ' table.annotations').html(sTable).find('input, select').change(function(){changeAnno(this)});
-    $('div#' + panelId + ' .annotation-color-picker').colorPicker();
-    $('div#' + panelId + ' table.annotations a.ui-icon-trash').click(function(){deleteAnno(this)});
-}
-function annoDateParse(partialDateString){
-    if(partialDateString.length==4){partialDateString = '1 Jan ' + partialDateString + ' UTC'}
-    else if(partialDateString.length==8){partialDateString = '1 ' + partialDateString + ' UTC'}
-    else {partialDateString += ' UTC'}
-    return Date.parse(partialDateString);
-}
-function deleteAnno(deleteAnchor){
-    var id = $(deleteAnchor).closest('tr').attr('data');
-    var panelId = $(deleteAnchor).closest('div.graph-panel').attr('id');
-    var oGraph = oPanelGraphs[panelId];
-    for(var i=0;i< oGraph.annotations.length;i++){
-        if(id == oGraph.annotations[i].id){
-            oGraph.annotations.splice(i,1);
-            break;
-        }
-    }
-    oHighCharts[panelId]=chartPanel(deleteAnchor);
-    buildAnnotations(panelId);
-}
-function makeRGBA(hexColor){
     var r, g, b, a;
     a = 0.5;
     if(hexColor.substr(0,1)=='#')hexColor=hexColor.substr(1);  //get rid of any potential # prefix
@@ -3589,73 +3609,4 @@ function makeRGBA(hexColor){
         return 'rgb(' + parseInt(hexColor.substr(0,2),16) +','+  parseInt(hexColor.substr(2,2),16) +','+  parseInt(hexColor.substr(4,2),16) +')';
     }
 }
-function gun(desired, alpha){
-    return  parseInt(desired/alpha - (1-alpha)*255/alpha);
-}
-function changeAnno(obj){
-    var id = $(obj).closest('tr').attr('data');
-    var $panel = $(obj).closest('div.graph-panel');
-    var panelId = $panel.attr('id');
-    $panel.find('.graph-save').button('enable');
-    var oGraph = oPanelGraphs[panelId];
-    var anno;
-    for(var i=0;i< oGraph.annotations.length;i++){
-        if(id == oGraph.annotations[i].id){
-            anno = oGraph.annotations[i];
-            break;
-        }
-    }
-    anno.text = $(obj).closest('tr').find('input.anno-text').val();
-    anno.color = $(obj).closest('tr').find('.annotation-color-picker').val();
-    switch(id.substr(0,2)){
-        case 'xb':
-            var yOffset = annotationY(oHighCharts[panelId], anno);
-            oHighCharts[panelId].xAxis[0].removePlotBand(id);
-            oHighCharts[panelId].xAxis[0].addPlotBand({
-                color: makeRGBA(anno.color),
-                from: annoDateParse(anno.from),
-                to: annoDateParse(anno.to),
-                id: anno.id,
-                label: {text: anno.text, y: yOffset, zIndex: 3}
-            });
-            break;
-        case 'hb':
-            for(var i=0;i<oHighCharts[panelId].yAxis.length;i++){
-                if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
-                    oHighCharts[panelId].yAxis[0].removePlotBand(id);
-                    oHighCharts[panelId].yAxis[0].addPlotBand({
-                        color: makeRGBA(anno.color),
-                        from: parseFloat(anno.from),
-                        to: parseFloat(anno.to),
-                        id: anno.id,
-                        label: {text: anno.text, zIndex: 3}
-                    });
-                }
-            }
-            break;
-        case 'hl':
-            for(var i=0;i<oHighCharts[panelId].yAxis.length;i++){
-                if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
-                    oHighCharts[panelId].yAxis[0].removePlotLine(id);
-                    oHighCharts[panelId].yAxis[0].addPlotLine({
-                        color: anno.color,
-                        value: parseFloat(anno.from),
-                        id: anno.id,
-                        width: 2,
-                        label: {text: anno.text, zIndex: 3}
-                    });
-                }
-            }
-            break;
-        case 'xl':
-            var yOffset = annotationY(oHighCharts[panelId], anno);
-            oHighCharts[panelId].xAxis[0].removePlotLine(id);
-            oHighCharts[panelId].xAxis[0].addPlotLine({
-                color: anno.color,
-                value: annoDateParse(anno.from),
-                id: anno.id,
-                width: 2,
-                label: {text: anno.text, y: yOffset, zIndex: 3}
-            });
-    }
-}
+

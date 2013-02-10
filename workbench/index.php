@@ -12,7 +12,7 @@
     <link  rel="stylesheet" href="/global/css/colorPicker.css" />
     <link  rel="stylesheet" href="/global/css/jquery.handsontable.css" />
     <link rel="stylesheet" media="screen" href="/global/css/jquery.contextMenu.css">
-    <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-1.1.1.css">
+    <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-1.2.2.css">
     <link  rel="stylesheet" href="md_workbench.css" />
     <link rel="stylesheet" href="js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css" type="text/css">
@@ -140,7 +140,7 @@ var $graphTabs;  //jQuery UI tabs object allows adding, remove, and reordering o
 var tab_counter = 1; //incemented with each new $graphTabs and used to create unqiueID.  Not a count, as tab can be deleted!
 //var $pickerTabs; ul#series-tabs ("My Series|Public Series|My Graphs|Public Graphs")  tabs are set and managed seriesPanel() (not ny jQuery UI)
 
-var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Add to my Series" and "add ot Graph" button functions.
+var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Add to my Series" and "add to Graph" button functions.
 var quickChart;
 var newPlotIDCounter = -1; //new plots get negative ids (i.e. 'P-8-') which get positive DB identifers on save (the trailing '-' prevents search and replace confusion
 //authentication variables
