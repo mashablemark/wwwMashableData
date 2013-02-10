@@ -2014,32 +2014,6 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 ]);
         });
 
-    function calcGraphMinMaxZoomPeriod(oGraph){
-        oGraph.smallestPeriod = "A";
-        oGraph.largestPeriod = "N";
-        var min, max, jsdt, handle;
-        for(key in oGraph.assets){
-            if(!oGraph.assets[key].firstdt && (key.charAt(0)=='M' || key.charAt(0)=='X')){
-                for(handle in oGraph.assets[key].data){
-                    jsdt = oGraph.assets[key].data[handle].firstdt;
-                    oGraph.assets[key].firstdt = Math.min(oGraph.assets[key].firstdt, jsdt)||jsdt;
-                    jsdt = oGraph.assets[key].data[handle].lastdt;
-                    oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
-                }
-            }
-            if(period.value[oGraph.smallestPeriod]>period.value[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
-            if(period.value[oGraph.largestPeriod]<period.value[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
-
-            jsdt = oGraph.assets[key].firstdt;
-            min = Math.min(jsdt, min)  || jsdt;
-            jsdt = oGraph.assets[key].lastdt;
-            max = Math.max(jsdt, max)  || jsdt;
-        }
-        oGraph.firstdt = min;
-        oGraph.lastdt = max;
-        oGraph.minZoom = oGraph.start || oGraph.firstdt;
-        oGraph.maxZoom = oGraph.end || oGraph.lastdt;
-    }
     calcGraphMinMaxZoomPeriod(oGraph);
     $thisPanel.find('tr.graph-crop-none-row td.graph-from').html(formatDateByPeriod(min, oGraph.smallestPeriod));
     $thisPanel.find('tr.graph-crop-none-row td.graph-to').html(formatDateByPeriod(max, oGraph.smallestPeriod));
@@ -3608,5 +3582,33 @@ function equivalentRGBA(hexColor){
     } else {
         return 'rgb(' + parseInt(hexColor.substr(0,2),16) +','+  parseInt(hexColor.substr(2,2),16) +','+  parseInt(hexColor.substr(4,2),16) +')';
     }
+}
+
+
+function calcGraphMinMaxZoomPeriod(oGraph){
+    oGraph.smallestPeriod = "A";
+    oGraph.largestPeriod = "N";
+    var min, max, jsdt, handle;
+    for(key in oGraph.assets){
+        if(!oGraph.assets[key].firstdt && (key.charAt(0)=='M' || key.charAt(0)=='X')){
+            for(handle in oGraph.assets[key].data){
+                jsdt = oGraph.assets[key].data[handle].firstdt;
+                oGraph.assets[key].firstdt = Math.min(oGraph.assets[key].firstdt, jsdt)||jsdt;
+                jsdt = oGraph.assets[key].data[handle].lastdt;
+                oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
+            }
+        }
+        if(period.value[oGraph.smallestPeriod]>period.value[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
+        if(period.value[oGraph.largestPeriod]<period.value[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
+
+        jsdt = oGraph.assets[key].firstdt;
+        min = Math.min(jsdt, min)  || jsdt;
+        jsdt = oGraph.assets[key].lastdt;
+        max = Math.max(jsdt, max)  || jsdt;
+    }
+    oGraph.firstdt = min;
+    oGraph.lastdt = max;
+    oGraph.minZoom = oGraph.start || oGraph.firstdt;
+    oGraph.maxZoom = oGraph.end || oGraph.lastdt;
 }
 
