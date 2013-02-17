@@ -77,11 +77,12 @@ var rowPosition = {
 var vectorPattern = /[SU]/;   //series or userseries handle test
 var handlePattern = /[MXSU]\d+/g;
 var SVGNS = "http://www.w3.org/2000/svg";
+var isIE = /msie/i.test(navigator.userAgent) && !window.opera;
 
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
 //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
-function chartPanel(panel){  //panel can either be a DOM node anywhere is the panel or a panelID
+function chartPanel(panel, annotations){  //panel can either be a DOM node anywhere is the panel or a panelID
     var panelId = typeof panel == 'string'?panel:$(panel).closest('div.graph-panel').get(0).id;
     if(oHighCharts[panelId]) {
         oHighCharts[panelId].destroy();
@@ -101,27 +102,28 @@ function chartPanel(panel){  //panel can either be a DOM node anywhere is the pa
     oChartOptions.plotOptions.series.point = {
         events: {
             mouseOver: function(evt) {
-                oHighCharts[panelId].mouseoverPoint = this;
-                mouseOverHCPoint(evt, this);
-                /* this.select();
-                 */
+                annotations.mouseoverPoint = this;
+                annotations.mouseOverHCPoint(evt, this);
             },
             mouseOut: function(evt) {
-                delete oHighCharts[panelId].mouseoverPoint;
-                /*                this.select(false);*/
-                /*   var selectedPoints = this.series.chart.getSelectedPoints();
-                 for(var i=0;i<selectedPoints.length;i++){
-                 selectedPoints[i].select(false);
-                 }*/
+                delete annotations.mouseoverPoint;
             },
             click: function(evt){
-                setMapDate(this.x, calcMapData)//value only available during chart's click event:  need point click for full coverage
+                if(annotations.banding){
+                    annotations.endBanding(evt);
+                } else {
+                    setMapDate(this.x);
+                } //value only available during chart's click event:  need point click for full coverage
             }
         }
     };
     oChartOptions.chart.events={
         click:   function(e) {
-            setMapDate(e.xAxis[0].value, calcMapData)//value only available during chart's click event:  need point click for full coverage
+            if(annotations.banding){
+                annotations.endBanding(e);
+            } else {
+                setMapDate(e.xAxis[0].value);
+            } //value only available during chart's click event:  need point click for full coverage
         },
         selection: function(event){
             var min;
@@ -162,140 +164,75 @@ function chartPanel(panel){  //panel can either be a DOM node anywhere is the pa
     };
     chart = new Highcharts.Chart(oChartOptions);
     //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
-    $('#' + panelId + ' div.chart').mouseover(function(e){
-        if(banding){
-            if(banding.substr(0,2)=='y-'){
-                var chart = oHighCharts[visiblePanelId()];
-                var isIE = /msie/i.test(navigator.userAgent) && !window.opera,
-                    top = $(chart.container).offset().top,
-                    left = $(chart.container).offset().left;
-                var x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft,
-                    y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
-                if(y >= 0 && y <= chart.plotSizeY ) {
-                    for(var i=0;i<chart.yAxis.length;i++){
-                        var axisValue =  chart.yAxis[i].translate(chart.plotHeight-y, true);
-                        if(chart.yAxis[i].userOptions.title.text = banding.substr(2)){
-                            chart.yAxis[i].removePlotBand('hb'+bandNo);
-                            chart.yAxis[i].addPlotBand({
-                                id: 'hb'+bandNo,
-                                color: equivalentRGBA(colorsPlotBands[0]),
-                                from: parseFloat(bandStartPoint),
-                                to: axisValue,
-                                label: {text: '', zIndex: 3}
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    });
-    $.contextMenu({
-        selector: '#' + panelId + ' div.chart',
-        build: function($trigger, e) {  //menu is built or cancelled dynamically in build function startin on the following line
-            var i, x, y, top, left, isIE = /msie/i.test(navigator.userAgent) && !window.opera;
-            var axisName, axisValue, userValue;
-            var pointSelected = chart.mouseoverPoint;  //grab reference (set by a HighCharts' event) before point's mouseout event can delete it
-            var onPoint = (typeof(chart.mouseoverPoint)!="undefined");
-            if(banding){ // false if not actively x or y banding
-                if(banding=='x-Time'){
-                    if(onPoint){
-                        banding = false;  //band was already drawn in the mouseOver event
-                        bandNo++;
-                        var panelId = visiblePanelId();
-                        oPanelGraphs[panelId].annotations.push({
-                            type:	'band',
-                            text: 	'',
-                            id: 'xb' + bandNo,
-                            color: 	'#'+colorsPlotBands[0],
-                            from: 	formatDateByPeriod(bandStartPoint.x,bandStartPoint.series.options.period),
-                            to: formatDateByPeriod(pointSelected.x, pointSelected.series.options.period)
-                        });
-                        buildAnnotations(panelId,'table-only');  //redraw the annotation table only
-                        return false;  //no need to show a menu
-                    } else { //clicked to end time band, but not over point to provide xValue
-                        return {items: {info: {name:"Mouse-over a series before right-clicking to terminate a vertical band.",callback: function(key, opt){ }}}}
-                    }
-                } else {
-                    for(i=0;i<chart.yAxis.length;i++){ //find the yAxis that we are banding
-                        axisName = chart.yAxis[i].userOptions.title.text;
-                        if(banding=='y-'+axisName){
-                            top = $(chart.container).offset().top;
-                            left = $(chart.container).offset().left;
-                            x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft;
-                            y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
-                            if(y >= 0 && y <= chart.plotSizeY ) {
-                                axisValue =  parseFloat(parseFloat(chart.yAxis[i].translate(chart.plotHeight-y, true).toPrecision(2))) ;
-                                return {  //show the termination / cancel menu
-                                    items: {
-                                        axis: {
-                                            name: '<b>'+ axisName + ':</b>',
-                                            type: 'text',  //allow the user to edit the end value
-                                            value: axisValue
-                                        },
-                                        ok: {
-                                            name: '<button>ok</button>',
-                                            callback: function(key, opt){
-                                                userValue = $.contextMenu.getInputValues(opt)['axis']; //edited value
-                                                banding = false;  //band was already drawn in the mouseOver event, but need to redraw it up in case user edited terminal value
-                                                //do increment bandNo:  this was done at start of banding
-                                                for(var i=0;i<chart.yAxis.length;i++){
-                                                    if(chart.yAxis[i].userOptions.title.text = axisName){
-                                                        chart.yAxis[i].removePlotBand('hb'+bandNo);
-                                                        chart.yAxis[i].addPlotBand({
-                                                            id: 'hb'+bandNo,
-                                                            color: equivalentRGBA(colorsPlotBands[0]),
-                                                            from: parseFloat(bandStartPoint),
-                                                            to: parseFloat(userValue),
-                                                            label: {text: '', zIndex: 3}
-                                                        });
-                                                        oGraph.annotations.push({
-                                                            id: 'hb' + bandNo,
-                                                            type:	'hband',
-                                                            yAxis: axisName,
-                                                            text: 	'',
-                                                            color: 	'#'+colorsPlotBands[0],
-                                                            from: 	bandStartPoint,
-                                                            to: userValue
-                                                        });
-                                                        buildAnnotations(visiblePanelId(),'table-only');  //redraw the annotation table only
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        cancel: {
-                                            name: '<button>cancel</button>',
-                                            callback: function(key, opt){chart.yAxis[i].removePlotBand('hb'+bandNo);}
-                                        }
-                                    }
-                                };
-                            } else {
-                                return false;
+    $chart
+        .mouseover(function(e){
+            if(annotations.banding){
+                if(annotations.banding.substr(0,2)=='y-'){
+                    var chart = oHighCharts[panelId],
+                        top = $(chart.container).offset().top,
+                        left = $(chart.container).offset().left;
+                    var x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft,
+                        y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
+                    if(y >= 0 && y <= chart.plotSizeY ) {
+                        for(var i=0;i<chart.yAxis.length;i++){
+                            if(chart.yAxis[i].userOptions.title.text == annotations.banding.substr(2)){
+                                var axisValue =  chart.yAxis[i].translate(chart.plotHeight-y, true);
+                                chart.yAxis[i].removePlotBand('hb'+annotations.bandNo);
+                                chart.yAxis[i].addPlotBand({
+                                    id: 'hb'+annotations.bandNo,
+                                    color: equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
+                                    from: parseFloat(annotations.bandStartPoint),
+                                    to: axisValue,
+                                    label: {text: '', zIndex: 3}
+                                });
                             }
                         }
                     }
                 }
+            }
+        })
+        .keydown(function(e){
+            if(annotations.banding && e){
+                for(var a=0;a<oHighCharts[panelId].axes.length;a++){
+                    chart.axes[a].removePlotLine(annotations.banding);  //does not error if not found
+                    chart.axes[a].removePlotBand(annotations.banding);
+                }
+                annotations.banding = false;
+            }
+        });
+
+
+    $.contextMenu({
+        selector: '#' + panelId + ' div.chart',
+        build: function($trigger, e) {  //menu is built or cancelled dynamically in build function startin on the following line
+            var i, x, y, top, left;
+            var axisName, axisValue, userValue;
+            var pointSelected = annotations.mouseoverPoint;  //grab reference (set by a HighCharts' event) before point's mouseout event can delete it
+            var onPoint = (typeof(annotations.mouseoverPoint)!="undefined");
+            if(annotations.banding){ // false if not actively x or y banding
+                return annotations.endBanding(e);
             } else {
                 var mnu = {
                     items: {
                         point: {name: "annotate point",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotatePoint(pointSelected) } },
+                            callback: function(key, opt){ annotations.addPoint(pointSelected) } },
+                        "sep0": "---------",
                         vline: {name: "add vertical line",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotateXLine(pointSelected) } },
+                            callback: function(key, opt){ annotations.addXLine(pointSelected) } },
                         vband: {name: "start vertical band",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotateXBandStart(pointSelected); } },
+                            callback: function(key, opt){ annotations.startXBand(pointSelected); } },
                         "sep1": "---------",
                         hline: {name: "add horizontal line", items:{} },
                         hband: {name: "start horizontal band", items:{} },
                         "sep2": "---------",
-                        regression: {name: "add linear regression as zoomed",
+                        regression: {name: "add linear regression",
                             disabled: !onPoint,
-                            callback: function(key, opt){ alert("Clicked on " + key); } },
-                        rolling: {name: "add rolling average",
-                            disabled: !onPoint,
-                            callback: function(key, opt){ alert("Clicked on " + key); } }
+                            callback: function(key, opt){ annotations.startLinearRegression(pointSelected); } },
+                        rolling: {name: "add rolling average", disabled: !onPoint, items: {}},  //add choices depending on periodicity
+                        standard: {name: "add standard annotations", items: {}}
                     }
                 };
                 top = $(chart.container).offset().top;
@@ -308,39 +245,40 @@ function chartPanel(panel){  //panel can either be a DOM node anywhere is the pa
                         axisValue =  parseFloat(parseFloat(chart.yAxis[i].translate(chart.plotHeight-y, true).toPrecision(2))) ;
                         mnu.items.hline.items['hltext'+i] = {name: '<b>'+ axisName + ':</b>', type: 'text', value: axisValue};
                         mnu.items.hline.items['hladd'+i] = {
-                            name: '<button>add</button>', callback: function(key, opt){
+                            name: '<button>add</button>',
+                            callback: function(key, opt){
                                 var value = parseFloat($.contextMenu.getInputValues(opt)['hltext'+key.substr(5)]);
+                                var id = 'hl' + annotations.lineNo++;
                                 chart.yAxis[parseInt(key.substr(5))].addPlotLine({
+                                    id: id,
                                     color: '#FF0000',
                                     width: 2,
                                     value: value
                                 });
-                                lineNo++;
                                 oGraph.annotations.push({
-                                    id: 'hl' + lineNo,
+                                    id: id,
                                     type: 'hline',
                                     color: '#FF0000',
                                     from:  value,
                                     yAxis: chart.yAxis[parseInt(key.substr(5))].userOptions.title.text,
                                     text: ''
                                 });
-                                buildAnnotations(visiblePanelId(), 'table-only');
+                                annotations.build('table-only');
                             }
                         };
+
                         mnu.items.hband.items['hbtext'+i] = {name: '<b>'+ axisName + ':</b>', type: 'text', value: axisValue};
                         mnu.items.hband.items['hbadd'+i] = {
-
                             name: '<button>start</button>',
                             callback: function(key, opt){
                                 //START AN HBAND
-                                bandNo++;
-                                bandStartPoint = parseFloat($.contextMenu.getInputValues(opt)['hbtext'+key.substr(5)]);
-                                banding = 'y-'+axisName;
+                                annotations.bandStartPoint = parseFloat($.contextMenu.getInputValues(opt)['hbtext'+key.substr(5)]);
+                                annotations.banding = 'y-'+chart.yAxis[key.substr(5)].userOptions.title.text;
                                 chart.yAxis[parseInt(key.substr(5))].addPlotBand({
-                                    id: 'hb'+bandNo,
-                                    color: equivalentRGBA(colorsPlotBands[0]),
-                                    from: bandStartPoint,
-                                    to: bandStartPoint
+                                    id: 'hb'+annotations.bandNo++,
+                                    color: equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
+                                    from: annotations.bandStartPoint,
+                                    to: annotations.bandStartPoint
                                 });
                             }
                         };
@@ -355,6 +293,15 @@ function chartPanel(panel){  //panel can either be a DOM node anywhere is the pa
                     mnu.items.hline.disabled = true;
                     mnu.items.hband.disabled = true;
                 }
+                //standard annos
+                for(i=0;i<annotations.standards.length;i++){
+                    mnu.items.standard.items["SA"+annotations.standards[i].annoid] = {
+                        name: annotations.standards[i].name,
+                        callback: function(key, opt){
+                            annotations.addStandard(parseInt(key.substr(2)));
+                        }
+                    }
+                }
                 return mnu;
             }
         }
@@ -362,11 +309,17 @@ function chartPanel(panel){  //panel can either be a DOM node anywhere is the pa
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
     return chart;
 
-    function setMapDate(jsDateClicked, mapData){
+    function setMapDate(jsDateClicked){
         if(oGraph.mapsets || oGraph.pointsets){
-            closestDate(jsDateClicked, mapData.dates)
+            var jsDate = closestDate(jsDateClicked, oGraph.calculatedMapData.dates);
+            for(var i=0;i<oGraph.calculatedMapData.dates.length;i++){
+                if(oGraph.calculatedMapData.dates[i]['dt'].getTime()==jsDate){
+                    $('#' + panelId + ' .slider').slider('value',i);
+                }
+            }
         }
     }
+
 }
 function intervalStartDt(graph){
     var dt =  new Date(parseInt(graph.lastdt));
@@ -584,8 +537,6 @@ function makeChartOptionsObject(oGraph){
             },
             series: {
                 zIndex: 10,
-                //point: {events: {mouseOver: function(){mouseOverHCPoint(this)}}},
-                //events: {click:  function(event){clickHCSeries(event)}},
                 marker: {
                     enabled: true,
                     radius: 2,
@@ -1422,8 +1373,7 @@ function calcMap(graph){
             }
         }
     }
-
-    return {
+    graph.calculatedMapData = {
         title: mapTitle,
         period: mapPeriod,
         units: mapUnits,
@@ -1435,7 +1385,8 @@ function calcMap(graph){
         regionDataMax:mapMax,
         markerDataMin:pointMin,
         markerDataMax:pointMax
-    }
+    };
+    return graph.calculatedMapData;
 }
 function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match and then step back if weekly->monthly->annual or if monthly->annual
 //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
@@ -1546,6 +1497,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         destroyChartObject(panelId);
     }
     var $thisPanel = $('#' + panelId);
+    var annotations = new AnnotationsController(panelId);
     $thisPanel.html(
         '<div class="graph-nav">' +
             '<ol class="graph-nav">' +
@@ -1709,7 +1661,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         });
     $thisPanel.find('a.post-facebook')
         .click(function(){
-            annoSync();
+            annotations.sync();
             var svg = oHighCharts[panelId].getSVG();
             $.ajax({
                 type: 'POST',
@@ -1859,8 +1811,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         oGraph.intervals = interval;
         oGraph.start = null;
         oGraph.end = null;
-        oHighCharts[panelId] = chartPanel(panelId);
-        buildAnnotations(panelId);
+        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        annotations.build();
     });
     $('#'+panelId+'-rad-no-crop').change(function(){
         oGraph.intervals = null;
@@ -1869,8 +1821,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         oGraph.minZoom = oGraph.firstdt;
         oGraph.maxZoom = oGraph.lastdt;
         //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].firstdt,oPanelGraphs[panelId].lastdt);
-        oHighCharts[panelId] = chartPanel(panelId);
-        buildAnnotations(panelId);
+        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        annotations.build();
         //$thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
     });
 
@@ -1892,8 +1844,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         graph.end = (graph.maxZoom<graph.lastdt)?graph.maxZoom:graph.lastdt;
         $(this).attr("disabled","disabled");
         setCropSlider(panelId);
-        oHighCharts[panelId] = chartPanel(panelId);
-        buildAnnotations(panelId);
+        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        annotations.build();
     });
 // *** crop routine end ***
 
@@ -1914,8 +1866,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 }
             }
             oGraph.type=$(this).val();
-            oHighCharts[panelId] = chartPanel(panelId);
-            buildAnnotations(panelId);
+            oHighCharts[panelId] = chartPanel(panelId, annotations);
+            annotations.build();
         });
 
     $thisPanel.find('.graph-analysis')
@@ -1923,6 +1875,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             oPanelGraphs[panelId].analysis = this.value;
             makeDirty();
         });
+    oGraph.isDirty = (!oGraph.gid); //initialize
     function makeDirty(){
         oGraph.isDirty = true;
         $thisPanel.find('.graph-save').button("enable");
@@ -1936,7 +1889,6 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
         makeClean();
     }
-    oGraph.isDirty = (!oGraph.gid); //initialize
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable')
         .click(function(){
             saveThisGraph();
@@ -2015,14 +1967,16 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         });
 
     calcGraphMinMaxZoomPeriod(oGraph);
+/* replace by slider
     $thisPanel.find('tr.graph-crop-none-row td.graph-from').html(formatDateByPeriod(min, oGraph.smallestPeriod));
     $thisPanel.find('tr.graph-crop-none-row td.graph-to').html(formatDateByPeriod(max, oGraph.smallestPeriod));
+*/
     oPanelGraphs[panelId]=oGraph;  //oPanelGraphs will be synced will oMyGraphs on save
 
     //DRAW THE CHART
     if(oGraph.plots){
-        oHighCharts[panelId] = chartPanel(panelId);
-        buildAnnotations(panelId);
+        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        annotations.build();
         setCropSlider(panelId);
         $thisPanel.find('div.highcharts-container').mousedown(function (b) {
             if(b.which==3){}  //???
@@ -2033,7 +1987,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
     var $map;
     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
-        calculatedMapData = calcMap(oGraph);
+        calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData obejct
         if(isBubble()) bubbleCalc();
         console.info(calculatedMapData);
         var jvmap_template;
@@ -3113,477 +3067,6 @@ function formatDateByPeriod(val, period) { //helper function for the data tables
         return null;
     }
 }
-
-var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
-$(document).ready(function(){
-    require(["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"], function(){
-        require(["/global/js/highcharts/js/modules/exporting.2.1.6.src.js"]);
-        $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
-        Highcharts.setOptions({
-            tooltip: {
-                formatter: function(){  //shorten the data accord to period; add commas to number; show units
-                    var tooltip = formatDateByPeriod(this.point.x, this.series.options.period) + '<br>'
-                        + this.series.name + ':<br>'
-                        + Highcharts.numberFormat(this.y,'','.',',') + ' ' + this.series.yAxis.options.title.text;
-                    return tooltip;
-                }
-            }
-        });
-    });
-});
-
-//TODO: wrap the annotations functions and variables in an anonymous object
-function getAnnotationsObject(){
-
-    return annotatons;
-}
-var annotations = {
-    bandNo: 0,
-    lineNo: 0,
-    banding: false,
-    bandStartPoint: void(0),
-    addStandard: function addStandardAnnotation(annoid){
-        callApi({command: "GetAnnotation", annoid: annoid}, function(data){
-            var panelId = visiblePanelId();
-            standardAnno = jQuery.parseJSON(data.annotation);
-            for(var i=0;i<standardAnno.length;i++){
-                oPanelGraphs[panelId].annotations.push(standardAnno[i]);
-            }
-            buildAnnotations(panelId, 'new');
-        });
-    },
-    sync: function annoSync(){  //sync plot lines and bands to options.  must be done prior to printing or exporting
-        var thisChart = oHighCharts[visiblePanelId()];
-        var axis = thisChart.options.xAxis,
-            plotLines = (axis.plotLines = []),
-            plotBands = (axis.plotBands = []);
-        var anno;
-        for(var i=0;i<thisChart.xAxis[0].plotLinesAndBands.length;i++){
-            anno = thisChart.xAxis[0].plotLinesAndBands[i];
-            if(anno.id.substr(0,1)=='xb'){
-                plotBands.push(anno.options)
-            } else {
-                plotLines.push(anno.options)
-            }
-        }
-    },
-    addPoint: function annotatePoint(selectedPoint){
-        var panelId = visiblePanelId();
-        var oGraph = oPanelGraphs[panelId];
-        if(typeof(selectedPoint) != "undefined"){
-            //remove all current point annotations
-            var point;
-            for(var i=0;i<oGraph.annotations.length;i++){
-                if(oGraph.annotations[i].type=='point'){
-                    point = oHighCharts[panelId].get(oGraph.annotations[i].id);
-                    if(point){point.update([point.x, point.y], false)}
-                    delete oGraph.annotations[i].id
-                }
-            }
-            //add annotation to oGraph object
-            oGraph.annotations.push({
-                type:	'point',
-                text: 	'',
-                id: null, //gets reordered and set in buildAnnotations
-                series: selectedPoint.series.options.id,
-                color: 	'#000000',
-                from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
-            });
-            // redraw the point annotations in order and entire annotations table
-            buildAnnotations(panelId,'point');
-        }
-    },
-    addXLine:  function annotateXLine(selectedPoint){
-        var panelId = visiblePanelId();
-        var oGraph = oPanelGraphs[panelId];
-        oHighCharts[panelId].xAxis[0].addPlotLine({
-            value:  selectedPoint.x,
-            color:  '#'+colorsPlotBands[0],
-            id: 'xl' + lineNo,
-            width: 2,
-            label: {text: ' ', y: 0, zIndex: 3}
-        });
-        oGraph.annotations.push({
-            type:	'line',
-            text: 	'',
-            id: 'xl' + lineNo,
-            color: 	colorsPlotBands[0],
-            from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
-        });
-        lineNo++;
-        buildAnnotations(panelId,'table-only');
-    },
-    startXBand: function annotateXBandStart(pointSelected){
-        var panelId = visiblePanelId();
-        var oGraph = oPanelGraphs[panelId];
-        bandStartPoint = pointSelected;
-        oHighCharts[panelId].xAxis[0].addPlotBand({
-            from:  bandStartPoint.x,
-            to: bandStartPoint.x,
-            color:  equivalentRGBA(colorsPlotBands[0]),
-            id: 'xb' + bandNo,
-            label: {text: ' ', y: 0, zIndex: 3}
-        });
-        banding = 'x-Time';
-    },
-    build: function buildAnnotations(panelId, redrawAnnoTypes){
-        var y, yOffset, $annotations = $('div#' + panelId + ' table.annotations');
-        if($annotations.html().length!=0) { //enable on all calls except initial build
-            $('div#' + panelId + ' .graph-save').button("enable");
-            oPanelGraphs[panelId].isDirty = true;
-        }
-        if(!redrawAnnoTypes) redrawAnnoTypes='all';
-        var oGraph = oPanelGraphs[panelId];
-// builds and return a fresh annotations table HTML string from oGraph
-        var sTable = '';
-        var annoLetter = 'A';
-        var i, anno, point, annoSeries, annoScatter;
-        var scatterData = {};
-        for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
-            scatterData['labelsY-'+i] = [];
-        }
-        //make a sorted list of annotations by start date
-        oGraph.annotations.sort(function(a,b){
-            if(a.type.charAt(0)=='h' && a.type.charAt(0)=='h')return b.from - a.from;
-            if(a.type.charAt(0)=='h') return -1;
-            if(b.type.charAt(0)=='h') return 1;
-            return annoDateParse(a.from) - annoDateParse(b.from)
-        });
-        for(i=0;i< oGraph.annotations.length;i++){
-            anno = oGraph.annotations[i];
-            switch(anno.type){
-                case 'point':
-                    if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-                        annoSeries = oHighCharts[panelId].get(anno.series);
-                        if(annoSeries==null){//cut anno out if we can't find it's reference series
-                            oGraph.annotations.splice(i,1);
-                            i--;
-                            break;
-                        }
-                        annoScatter =  oHighCharts[panelId].get('labelsY-' + annoSeries.options.yAxis);
-                        for(var j=0;j<annoSeries.data.length;j++){
-                            if(annoSeries.data[j] ){  //prevent errors on cropped graphs
-                                if(annoSeries.data[j].x == annoDateParse(anno.from)){
-                                    point = annoSeries.data[j];
-                                    scatterData['labelsY-' + annoSeries.options.yAxis].push({
-                                        x: point.x,
-                                        y: point.y,
-                                        id: annoLetter,
-                                        marker: {
-                                            fillColor: anno.color,
-                                            lineColor: anno.color,
-                                            radius: 8,
-                                            symbol: 'circle',
-                                            enabled: true,
-                                            'states': {
-                                                hover: {
-                                                    enabled: true,
-                                                    marker: {
-                                                        enabled: true,
-                                                        fillColor: anno.color,
-                                                        lineColor: anno.color,
-                                                        radius: 8
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-                            }
-                        }
-                        anno.id =  annoLetter;
-                    }
-                    sTable+='<tr data="' + annoLetter + '"><td align="center"><b>'+annoLetter+'</b></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                    annoLetter=String.fromCharCode(annoLetter.charCodeAt(0)+1);
-                    break;
-                case 'line':
-                    if(redrawAnnoTypes=='line'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                        anno.id ='xl' + lineNo;
-                        lineNo++;
-                        yOffset = annotationY(oHighCharts[panelId], anno);
-                        oHighCharts[panelId].xAxis[0].addPlotLine({
-                            color: anno.color,
-                            value: annoDateParse(anno.from),
-                            id: anno.id,
-                            width: 2,
-                            label: {text: anno.text, y: yOffset, zIndex: 3}
-                        });
-                    }
-                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-
-                    break;
-                case 'hline':
-                    if(redrawAnnoTypes=='hline'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                        anno.id ='hl' + lineNo;
-                        lineNo++;
-                        //var yOffset = annotationY(oHighCharts[panelId], anno);
-                        for(y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                            if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
-                                oHighCharts[panelId].yAxis[y].addPlotLine({
-                                    color: anno.color,
-                                    value: anno.from,
-                                    id: anno.id,
-                                    width: 2,
-                                    label: {text: anno.text, zIndex: 3}
-                                });
-                            }
-                        }
-                    }
-                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from + ' ' + anno.yAxis + '</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                    break;
-                case 'band':
-                    if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                        anno.id ='xb' + bandNo;
-                        bandNo++;
-                        yOffset = annotationY(oHighCharts[panelId], anno);
-                        oHighCharts[panelId].xAxis[0].addPlotBand({
-                            color: equivalentRGBA(anno.color),
-                            from: annoDateParse(anno.from),
-                            to: annoDateParse(anno.to),
-                            id: anno.id,
-                            label: {text: anno.text, y: yOffset, zIndex: 3}
-                        });
-                    }
-                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                    break;
-                case 'hband':
-                    if(redrawAnnoTypes=='hband'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                        anno.id ='hb' + bandNo;
-                        bandNo++;
-                        for(y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                            if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
-                                oHighCharts[panelId].yAxis[y].addPlotBand({
-                                    color: equivalentRGBA(anno.color),
-                                    from: anno.from,
-                                    to: anno.to,
-                                    id: anno.id,
-                                    label: {text: anno.text, zIndex: 3}
-                                });
-                            }
-                        }
-                    }
-                    sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+' '+anno.yAxis+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-                    break;
-            }
-        }
-        if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-            for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
-                oHighCharts[panelId].get(key).setData(scatterData[key], false);
-            }
-            oHighCharts[panelId].redraw(); //redraw after all have been updated
-        }
-        if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" style="font-style:italic;color:aaaaaa#">right-click on the chart to annotate a point, a band, or an event</td></tr>';
-        $annotations.html(sTable).find('input, select').change(function(){changeAnno(this)});
-        $annotations.find('.annotation-color-picker').colorPicker();
-        $annotations.find('.ui-icon-trash')
-            .click(function(){
-                deleteAnno(this)
-            });
-    },
-    change: function changeAnno(obj){
-        var i, yOffset, y, id = $(obj).closest('tr').attr('data');
-        var $panel = $(obj).closest('div.graph-panel');
-        var panelId = $panel.attr('id');
-        $panel.find('.graph-save').button('enable');
-        var oGraph = oPanelGraphs[panelId];
-        var anno;
-        for(i=0;i< oGraph.annotations.length;i++){
-            if(id == oGraph.annotations[i].id){
-                anno = oGraph.annotations[i];
-                break;
-            }
-        }
-        anno.text = $(obj).closest('tr').find('input.anno-text').val();
-        anno.color = $(obj).closest('tr').find('.annotation-color-picker').val();
-        switch(id.substr(0,2)){
-            case 'xb':
-                yOffset = annotationY(oHighCharts[panelId], anno);
-                oHighCharts[panelId].xAxis[0].removePlotBand(id);
-                oHighCharts[panelId].xAxis[0].addPlotBand({
-                    color: equivalentRGBA(anno.color),
-                    from: annoDateParse(anno.from),
-                    to: annoDateParse(anno.to),
-                    id: anno.id,
-                    label: {text: anno.text, y: yOffset, zIndex: 3}
-                });
-                break;
-            case 'hb':
-                for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
-                    if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
-                        oHighCharts[panelId].yAxis[0].removePlotBand(id);
-                        oHighCharts[panelId].yAxis[0].addPlotBand({
-                            color: equivalentRGBA(anno.color),
-                            from: parseFloat(anno.from),
-                            to: parseFloat(anno.to),
-                            id: anno.id,
-                            label: {text: anno.text, zIndex: 3}
-                        });
-                    }
-                }
-                break;
-            case 'hl':
-                for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
-                    if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
-                        oHighCharts[panelId].yAxis[0].removePlotLine(id);
-                        oHighCharts[panelId].yAxis[0].addPlotLine({
-                            color: anno.color,
-                            value: parseFloat(anno.from),
-                            id: anno.id,
-                            width: 2,
-                            label: {text: anno.text, zIndex: 3}
-                        });
-                    }
-                }
-                break;
-            case 'xl':
-                yOffset = annotationY(oHighCharts[panelId], anno);
-                oHighCharts[panelId].xAxis[0].removePlotLine(id);
-                oHighCharts[panelId].xAxis[0].addPlotLine({
-                    color: anno.color,
-                    value: annoDateParse(anno.from),
-                    id: anno.id,
-                    width: 2,
-                    label: {text: anno.text, y: yOffset, zIndex: 3}
-                });
-        }
-    },
-    delete: function deleteAnno(deleteAnchor){
-        var idToDelete = $(deleteAnchor).closest('tr').attr('data');
-        var panelId = $(deleteAnchor).closest('div.graph-panel').attr('id');
-        var oGraph = oPanelGraphs[panelId];
-        for(var i=0;i< oGraph.annotations.length;i++){
-            if(idToDelete == oGraph.annotations[i].id){
-                oGraph.annotations.splice(i,1);
-                break;
-            }
-        }
-        if(idToDelete[1]=='b' || idToDelete[1]=='l'){ //band or line:  simply try to delete for all axis until found
-            for(a=0;a<oHighCharts[panelId].axes.length;a++){
-                oHighCharts[panelId].axes[a].removePlotLine(idToDelete);  //does not error if not found
-                oHighCharts[panelId].axes[a].removePlotBand(idToDelete);
-                buildAnnotations(panelId, "none");
-            }
-        } else {
-            buildAnnotations(panelId, "point");
-        }
-    },
-    parseDate: function annoDateParse(partialDateString){
-        if(partialDateString.length==4){partialDateString = '1 Jan ' + partialDateString + ' UTC'}
-        else if(partialDateString.length==8){partialDateString = '1 ' + partialDateString + ' UTC'}
-        else {partialDateString += ' UTC'}
-        return Date.parse(partialDateString);
-    },
-    labelOffset: function annotationY(chart, anno){
-        var yStart = 10;
-        var yInc = 20;
-        var annoMargin = 0.20;  // 20% of graph width
-        if(anno.text==" "||anno.text==" ") return 0;
-        var plotLinesAndBands = chart.xAxis[0].plotLinesAndBands;
-        var extremes = chart.xAxis[0].getExtremes();
-        var minSeparation = (extremes.max-extremes.min) * annoMargin;
-        var annoCenter;
-        var overlappingAnnos = [];
-        if(anno.to){
-            annoCenter = (annoDateParse(anno.from) + annoDateParse(anno.to))/2;
-        } else {
-            annoCenter = annoDateParse(anno.from);
-        }
-        var overlaps = 0;
-        for(var i=0;i<plotLinesAndBands.length;i++){
-            var thisCenter;
-            if(plotLinesAndBands[i].options.to){
-                thisCenter = (plotLinesAndBands[i].options.from + plotLinesAndBands[i].options.to)/2;
-            } else {
-                thisCenter = plotLinesAndBands[i].options.from;
-            }
-            if(plotLinesAndBands[i].options.label.text.length>0 && (Math.abs(thisCenter-annoCenter) < minSeparation)){
-                overlaps++;
-                overlappingAnnos.push(plotLinesAndBands[i]);
-            }
-        }
-        var y = yStart;
-        for(var j=0;j<overlappingAnnos.length;j++){ //make sure there is no existing annotation in this y-space
-            if(overlappingAnnos[j].options.label.y == y){
-                y += yInc;
-                j = -1;  //restarts the loops
-            }
-        }
-        return y;
-    }
-
-
-}
-//ANNOTATION CODE
-
-
-
-function XXXclickHCSeries(evt){
-    if(banding){
-        banding = false;  //band was already drawn in the mouseOver event
-        bandNo++;
-        var panelId = visiblePanelId();
-        oPanelGraphs[panelId].annotations.push({
-            type:	'band',
-            text: 	'',
-            id: 'xb' + bandNo,
-            color: 	'#'+colorsPlotBands[0],
-            from: 	formatDateByPeriod(bandStartPoint.x,bandStartPoint.series.options.period),
-            to: formatDateByPeriod(evt.point.x, evt.point.series.options.period)
-        });
-        buildAnnotations(panelId,'none');  //redraw the annotation table only
-    } else {
-        if(standardAnnotations.length==0){
-            callApi({command: "GetAnnotations"}, function(results){
-                standardAnnotations = results.annotations;
-                for(var i=0;i<standardAnnotations.length;i++){
-                    $("div#annotationMenu table").append('<tr style="margin: 5px 0px;"><td><a style="cursor: pointer;" onclick="addStandardAnnotation('+standardAnnotations[i].annoid+')" title="'+standardAnnotations[i].description+'">'+standardAnnotations[i].name+'</a></td></tr>');
-                }
-            });
-        }
-        var x = evt.pageX-20;  // account for fancybox padding divs
-        var y = evt.pageY-20;
-        $('.showAnnotationMenu').click();
-        $("#fancybox-wrap").stop().css({
-            'top': y +'px',
-            'left': x + 'px'
-        });
-        evt.point.select(true);
-    }
-}
-function mouseOverHCPoint(e, point){
-    var chart = oHighCharts[visiblePanelId()];
-    if(banding=='x-Time'){
-        try{
-            chart.xAxis[0].removePlotBand('xb'+bandNo);
-        }catch(err){}
-        chart.xAxis[0].addPlotBand({
-            from:  bandStartPoint.x,
-            to: point.x,
-            color:  equivalentRGBA(colorsPlotBands[0]),
-            id: 'xb' + bandNo,
-            label:  {text: ' ', y: 0, zIndex: 3}
-        });
-    }
-}
-
-
-function equivalentRGBA(hexColor){
-    function gun(desired, alpha){
-        return  parseInt(desired/alpha - (1-alpha)*255/alpha);
-    }
-    var r, g, b, a;
-    a = 0.5;
-    if(hexColor.substr(0,1)=='#')hexColor=hexColor.substr(1);  //get rid of any potential # prefix
-    r = gun(parseInt(hexColor.substr(0,2),16),a);
-    g = gun(parseInt(hexColor.substr(2,2),16),a);
-    b = gun(parseInt(hexColor.substr(4,2),16),a);
-    if(r>0&&g>0&&b>0){
-        return 'rgba(' + r +','+  g +','+  b +','+a+')';
-    } else {
-        return 'rgb(' + parseInt(hexColor.substr(0,2),16) +','+  parseInt(hexColor.substr(2,2),16) +','+  parseInt(hexColor.substr(4,2),16) +')';
-    }
-}
-
 
 function calcGraphMinMaxZoomPeriod(oGraph){
     oGraph.smallestPeriod = "A";

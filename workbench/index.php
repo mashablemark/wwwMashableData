@@ -25,9 +25,11 @@
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
     <script type="text/javascript" src="js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
     <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
-    <!--script  type="text/javascript" src="js/jquery-jvectormap-1.0.js"></script-->
     <script type="text/javascript" src="graph.js"></script>
     <script type="text/javascript" src="common.js"></script>
+    <script type="text/javascript" src="shims.js"></script>
+    <script type="text/javascript" src="account.js"></script>
+    <script type="text/javascript" src="annotations.js"></script>
 
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
 
@@ -106,7 +108,6 @@ var layoutDimensions= {
     }
 };
 var MY_SERIES_DATE = 9, MY_SERIES_CHECK_COL = 1;  //important column indexes used for ordering
-var standardAnnotations = [];  //filled by API call on first use
 var nonWhitePattern = /\S/;  //handy pattern to check for non-whitespace
 //Datatable variables set after onReady calls to... , setupMySeriesTable, setupMySeriesTable, and setupMySeriesTable,
 var dtMySeries = null; //...setupMySeriesTable
@@ -1873,6 +1874,7 @@ function saveGraph(oGraph) {
         }
     }
     delete params.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
+    delete params.calculatedMapData; //ditto
     callApi(params,
             function(jsoData, textStatus, jqXH){
                 //first find to whether this is a new row or an update
@@ -1880,6 +1882,7 @@ function saveGraph(oGraph) {
                 oGraph.ghash = jsoData.ghash;
                 oGraph.isDirty = false;
                 var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
+                delete objForDataTable.assets;
                 objForDataTable.updatedt = new Date().getTime();
                 if(('G' + oGraph.gid) in oMyGraphs){
                     var trMyGraph;
