@@ -23,7 +23,7 @@ var dashStyles = [
     'Long Dash Dot',
     'Long Dash Dot Dot'
 ];
-var period ={
+var period = {
     value:  { //used to determine rank and to set column widths
         N: 1000, //one second
         D: 24*3600*1000,
@@ -44,12 +44,12 @@ var period ={
     },
     units: {
         'N': "non-periodic data",
-        'D': "days",
-        'W': "weeks",
-        'M': "months",
-        'Q': "quarters",
-        'SA': "half-years",
-        'A': "years"
+        'D': "day",
+        'W': "week",
+        'M': "month",
+        'Q': "quarter",
+        'SA': "half-year",
+        'A': "year"
     }
 };
 var oPanelGraphs = {}; //MyGraph objects by panelID allows easy access to oMyCharts
@@ -163,7 +163,9 @@ function chartPanel(panel, annotations){  //panel can either be a DOM node anywh
         }
     };
     chart = new Highcharts.Chart(oChartOptions);
-    //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
+    oHighCharts[panelId] = chart;
+    annotations.plotAllLinearRegressions();
+        //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
     $chart
         .mouseover(function(e){
             if(annotations.banding){
@@ -206,7 +208,7 @@ function chartPanel(panel, annotations){  //panel can either be a DOM node anywh
         selector: '#' + panelId + ' div.chart',
         build: function($trigger, e) {  //menu is built or cancelled dynamically in build function startin on the following line
             var i, x, y, top, left;
-            var axisName, axisValue, userValue;
+            var axisName, axisValue, isRegression;
             var pointSelected = annotations.mouseoverPoint;  //grab reference (set by a HighCharts' event) before point's mouseout event can delete it
             var onPoint = (typeof(annotations.mouseoverPoint)!="undefined");
             if(annotations.banding){ // false if not actively x or y banding
@@ -216,25 +218,39 @@ function chartPanel(panel, annotations){  //panel can either be a DOM node anywh
                     items: {
                         point: {name: "annotate point",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotations.addPoint(pointSelected) } },
+                            callback: function(key, opt){ annotations.addPoint(pointSelected) }
+                        },
                         "sep0": "---------",
                         vline: {name: "add vertical line",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotations.addXLine(pointSelected) } },
+                            callback: function(key, opt){ annotations.addXLine(pointSelected) }
+                        },
                         vband: {name: "start vertical band",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotations.startXBand(pointSelected); } },
+                            callback: function(key, opt){ annotations.startXBand(pointSelected); }
+                        },
                         "sep1": "---------",
                         hline: {name: "add horizontal line", items:{} },
                         hband: {name: "start horizontal band", items:{} },
                         "sep2": "---------",
-                        regression: {name: "add linear regression",
+                        regression: {name: "start linear regression",
                             disabled: !onPoint,
-                            callback: function(key, opt){ annotations.startLinearRegression(pointSelected); } },
-                        rolling: {name: "add rolling average", disabled: !onPoint, items: {}},  //add choices depending on periodicity
+                            callback: function(key, opt){
+                                if(!isRegression){
+                                    annotations.startLinearRegression(pointSelected);
+                                } else {
+                                    annotations.deleteRegression(pointSelected);
+                                }
+                            }
+                        },
+                        //rolling: {name: "add rolling average", disabled: !onPoint, items: {}},  //add choices depending on periodicity
                         standard: {name: "add standard annotations", items: {}}
                     }
                 };
+                if(onPoint && pointSelected.series.options.regression) {
+                    mnu.items.regression.name = "delete linear regression";
+                    isRegression = true
+                }
                 top = $(chart.container).offset().top;
                 left = $(chart.container).offset().left;
                 x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft;
@@ -378,7 +394,7 @@ function setCropSlider(panelId){  //get closest point to recorded js dt
         }
     }
 
-    $('#' + panelId + ' span.interval-crop-period').html(period.units[oGraph.largestPeriod]);
+    $('#' + panelId + ' span.interval-crop-period').html(period.units[oGraph.largestPeriod]+'s');
     $('#' + panelId + ' div.crop-slider')
         .slider("option", "max", chartOptions.x.length-1)
         .slider("option", "values", [leftIndex, rightIndex]);
@@ -415,7 +431,15 @@ function dateFromMdDate(dt, periodicity){
 function closestDate(nearbyDate, seriesData, closestYet){
     var x;
     for(var i=0;i<seriesData.length;i++){
-        x = Array.isArray(seriesData[i])?seriesData[i][0]:seriesData[i].dt.getTime();
+        if(Array.isArray(seriesData[i])){
+            x = seriesData[i][0]
+        } else {
+            if(seriesData[i].dt) {
+                x = seriesData[i].dt.getTime();
+            } else {
+                x = seriesData[i].x;
+            }
+        }
         if(Math.abs(nearbyDate-x)<Math.abs(nearbyDate-closestYet) || closestYet===undefined) closestYet = x;
     }
     return closestYet;
@@ -1811,7 +1835,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         oGraph.intervals = interval;
         oGraph.start = null;
         oGraph.end = null;
-        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        chartPanel(panelId, annotations);
         annotations.build();
     });
     $('#'+panelId+'-rad-no-crop').change(function(){
@@ -1821,7 +1845,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         oGraph.minZoom = oGraph.firstdt;
         oGraph.maxZoom = oGraph.lastdt;
         //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].firstdt,oPanelGraphs[panelId].lastdt);
-        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        chartPanel(panelId, annotations);
         annotations.build();
         //$thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
     });
@@ -1844,7 +1868,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         graph.end = (graph.maxZoom<graph.lastdt)?graph.maxZoom:graph.lastdt;
         $(this).attr("disabled","disabled");
         setCropSlider(panelId);
-        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        chartPanel(panelId, annotations);
         annotations.build();
     });
 // *** crop routine end ***
@@ -1866,7 +1890,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 }
             }
             oGraph.type=$(this).val();
-            oHighCharts[panelId] = chartPanel(panelId, annotations);
+            chartPanel(panelId, annotations);
             annotations.build();
         });
 
@@ -1975,7 +1999,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
 
     //DRAW THE CHART
     if(oGraph.plots){
-        oHighCharts[panelId] = chartPanel(panelId, annotations);
+        chartPanel(panelId, annotations);
         annotations.build();
         setCropSlider(panelId);
         $thisPanel.find('div.highcharts-container').mousedown(function (b) {

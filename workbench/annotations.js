@@ -118,11 +118,12 @@ function AnnotationsController(panelId){
         startXBand: function annotateXBandStart(pointSelected){
             var oGraph = oPanelGraphs[panelId];
             this.bandStartPoint = pointSelected;
+            this.bandColor = equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY);
             oHighCharts[panelId].xAxis[0].addPlotBand({
                 from:  this.bandStartPoint.x,
                 to: this.bandStartPoint.x,
-                color:  equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
-                id: 'xb' + this.bandNo++,
+                color: this.bandColor,
+                id: 'xb' + this.bandNo,
                 label: {text: ' ', y: 0, zIndex: 3}
             });
             this.banding = 'x-Time';
@@ -364,6 +365,37 @@ function AnnotationsController(panelId){
                 this.build( "point");
             }
         },
+        startLinearRegression: function(point){
+            var seriesColor = point.series.color;
+            r = parseInt(seriesColor.substr(1,2),16);
+            g = parseInt(seriesColor.substr(3,2),16);
+            b = parseInt(seriesColor.substr(5,2),16);
+            this.bandColor = 'rgba(' + r +','+  g +','+  b +',0.5)';
+            this.banding = 'linreg-' + point.series.index;
+            this.bandStartPoint = point;
+            oHighCharts[panelId].xAxis[0].addPlotBand({
+                from:  this.bandStartPoint.x,
+                to: point.x,
+                color:  this.bandColor,
+                id: 'lr' + this.bandNo++,
+                label:  {text: ' ', y: 0, zIndex: 3}
+            })
+        },
+        deleteRegression: function(pointSelected){
+            var fromX, toX, i, linRegressions, plotId = pointSelected.series.options.regression;
+            if(plotId){
+                fromX = pointSelected.series.data[0][0];
+                toX = pointSelected.series.data[pointSelected.series.data.length-1][0];
+                pointSelected.series.remove();
+                linRegressions = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.linRegressions;
+                for(i=0;i<linRegressions.length;i++){
+                    if(linRegressions[i][0]==toX && linRegressions[i][1]==fromX){
+                        linRegressions.splice(i,1);
+                        return true;
+                    }
+                }
+            }
+        },
         parseDate: function annoDateParse(partialDateString){
             if(partialDateString.length==4){partialDateString = '1 Jan ' + partialDateString + ' UTC'}
             else if(partialDateString.length==8){partialDateString = '1 ' + partialDateString + ' UTC'}
@@ -409,6 +441,7 @@ function AnnotationsController(panelId){
         },
         mouseOverHCPoint: function mouseOverHCPoint(e, point){
             var chart = oHighCharts[panelId];
+            if(!this.banding) return;
             if(this.banding=='x-Time'){
                 try{
                     chart.xAxis[0].removePlotBand('xb'+this.bandNo);
@@ -416,8 +449,22 @@ function AnnotationsController(panelId){
                 chart.xAxis[0].addPlotBand({
                     from:  this.bandStartPoint.x,
                     to: point.x,
-                    color:  equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
+                    color: this.bandColor,
                     id: 'xb' + this.bandNo,
+                    label:  {text: ' ', y: 0, zIndex: 3}
+                });
+                return;
+            }
+            if(this.banding.substr(0,7)=='linreg-'){
+                try{
+                    chart.xAxis[0].removePlotBand('lr'+this.bandNo);
+                }catch(err){}
+                this.endingX = closestDate(point.x, this.bandStartPoint.series.data);
+                chart.xAxis[0].addPlotBand({
+                    from:  this.bandStartPoint.x,
+                    to: this.endingX,
+                    color: this.bandColor,
+                    id: 'lr' + this.bandNo,
                     label:  {text: ' ', y: 0, zIndex: 3}
                 });
             }
@@ -447,6 +494,22 @@ function AnnotationsController(panelId){
                 } else { //clicked to end time band, but not over point to provide xValue
                     return {items: {info: {name:"Mouse-over a series before right-clicking to terminate a vertical band.",callback: function(key, opt){ }}}}
                 }
+            }
+            if(this.banding && this.banding.substr(0,7)=='linreg-'){
+                //ending linear regression
+                oHighCharts[panelId].xAxis[0].removePlotBand('lr'+this.bandNo);
+                var fromX = Math.min(this.bandStartPoint.x, this.endingX);
+                var toX = Math.max(this.bandStartPoint.x, this.endingX);
+                if(fromX<toX){
+                    this.plotLinearRegression(this.bandStartPoint.series, fromX, toX, true);
+                    var plotOptions = oGraph.plots[parseInt(this.bandStartPoint.series.options.id.substr(1))].options;
+                    if(!plotOptions.linRegressions) plotOptions.linRegressions= [];
+                    plotOptions.linRegressions.push([fromX, toX]);
+                } else {
+                    dialogShow("Error","The starting point and ending points of a Linear Regression must be different." );
+                }
+                this.banding = false;
+                return;
             } else {
                 var top, left, x, y, i, chart = oHighCharts[panelId];
                 for(i=0;i<chart.yAxis.length;i++){ //find the yAxis that we are banding
@@ -518,6 +581,88 @@ function AnnotationsController(panelId){
                     }
                 }
             }
+        },
+        plotAllLinearRegressions: function(){  //COPIED DIRECTLY FROM md_hcharter.js.  NEEDS ADAPTING
+            var p, i, LR;
+            var chart = oHighCharts[panelId];
+            var oGraph = oPanelGraphs[panelId];
+            if(oGraph.plots && oGraph.plots.length>0){
+                for(p=0;p<oGraph.plots.length;p++){
+                    if(oGraph.plots[p].options.linRegressions){
+                        for(i=0;i<oGraph.plots[p].options.linRegressions.length;i++){
+                            LR = oGraph.plots[p].options.linRegressions[i];
+                            this.plotLinearRegression(chart.get("P"+p), LR[0], LR[1]);
+                        }
+                    }
+                }
+            }
+            chart.redraw()
+        },
+        plotLinearRegression: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
+            if(!redraw) redraw = false;
+            var hChart = oHighCharts[panelId];
+            var sumX = 0, minX = null, maxX = null;
+            var sumY = 0, minY = null, maxY = null;
+            var j, data=[], points = 0;
+            if(typeof start == "undefined" || typeof end == "undefined"){
+                data = series.data;
+            } else {
+                for(j=0;j<series.data.length;j++){
+                    if(series.data[j].x>=start && series.data[j].x<=end){
+                        data.push(series.data[j]);
+                    }
+                }
+            }
+            //console.log(series);
+            for(j=0;j<data.length;j++){
+                if(data[j].x != null && data[j].y != null){
+                    sumX +=  data[j].x;
+                    sumY +=  data[j].y;
+                    if(minX == null){minX=data[j].x;}
+                    if(maxX == null){maxX=data[j].x;}
+                    if(minY == null){minY=data[j].y;}
+                    if(maxY == null){maxY=data[j].y;}
+                    if(minX>data[j].x){minX=data[j].x;}
+                    if(maxX<data[j].x){maxX=data[j].x;}
+                    if(minY>data[j].y){minY=data[j].y;}
+                    if(maxY<data[j].y){maxY=data[j].y;}
+                    points++;
+                }
+            }
+            var avgX = sumX / points;
+            var avgY = sumY / points;
+            //console.log("avg y: " + avgY);
+            var num = 0;
+            var den = 0;
+            for(j=0;j<data.length;j++){
+                if(data[j].x != null && data[j].y != null){
+                    num += (data[j].x - avgX) * (data[j].y - avgY);
+                    den += (data[j].x - avgX)*(data[j].x - avgX);
+                }
+            }
+            var b1 = num / den;  //sum((x_i-x_avg)*(y_i-y_avg)) / sum((x_i-x_avg)^2)
+            //console.log(b1 + "=" + num + "/" + den);
+            var b0 = avgY - b1 * avgX;
+
+            var newSeries = {
+                name:  "Linear regression of " + series.name + "<BR>(m="+b1*period.value[series.options.period]+" per "+period.units[series.options.period]+")",
+                dashStyle: 'LongDash',
+                period: series.options.period,
+                lineWidth: 1,
+                color: series.color,
+                data: [],
+                id: "LR"+this.bandNo++,
+                regression: series.options.id,
+                shadow: false,
+                marker: {enabled: false}
+            };
+            for(j=0;j<data.length;j++){
+                if(data[j].x != null && data[j].y != null){
+                    newSeries.data.push([data[j].x , (b1*data[j].x  + b0)]);  //y = b1*x + b0
+                }
+            }
+            //newSeries.data.push([minX, (b1*minX + b0)]);  //y = b1*x + b0
+            return(hChart.addSeries(newSeries, redraw));
         }
     };
     controller.fetchStandards();
