@@ -1602,7 +1602,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
             '</div><div class="searchability">' +
             '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">publicly searchable</label>' +
-            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (orgName?'searcahable by members of '+ orgName:'not searchable') + '</label>' +
+            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'searcahable by members of '+ account.info.orgName:'not searchable') + '</label>' +
             '</div>' +
             '</fieldset>' +
             '</div>' +
@@ -1872,8 +1872,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         graph.end = (graph.maxZoom<graph.lastdt)?graph.maxZoom:graph.lastdt;
         $(this).attr("disabled","disabled");
         setCropSlider(panelId);
-        chartPanel(panelId, annotations);
-        annotations.build();
+        $('#'+panelId+'-rad-hard-crop').click();
+        //chartPanel(panelId, annotations);
+        //annotations.build();
     });
 // *** crop routine end ***
 

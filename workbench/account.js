@@ -8,16 +8,23 @@
 
 account = {
     info: {
-        name: null,
-        uid: null,
+        username: null,
+        userid: null,
+        auth: null,  //FB or MD
         email: null,
         fbemail: null,
         fbid: null,
         admin: null,
+        ccName: null,
+        ccadresss: null,
+        cccity: null,
+        ccstateprov: null,
+        ccpostal: null,
+        cccountry: null,
         ccType: null,
         ccLast4: null,
         ccExpMMYY: null,
-        subscription: null,  //[Trial|Free|Xpired|Admin]
+        subscription: null,  //[T|I|C|X] for trial|individual|corporate|canceled
         expire: null,
         orgid: null,
         organization: null,
@@ -121,7 +128,7 @@ account = {
     },
     showSignInOut: function(){
         var $btn = $('#menu-account');
-        if(loggedIn){
+        if(this.loggedIn()){
             account.showPanel(account.htmls.signedIn, $btn);
             $('#signedin-signout').button().addClass('ui-state-error').click(function(){account.signOut()});
             $('#signedin-subscribe').click(function(){
@@ -273,11 +280,15 @@ account = {
     },
     signInFB: function(response){
         if (response.authResponse) {
-            loggedIn = "Facebook";  //global variable
-            accessToken = response.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
+            account.info.authmode = "Facebook";  //global variable
+            var accessToken = response.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
             expiresIn = response.authResponse.expiresIn;
             FB.api('/me', function(response) {
-                fb_user = response;  //global variable
+                account.fb_user = response;
+                account.fb_user.accessToken = accessToken;
+                account.info.accesstoken = accessToken;
+                account.info.name = response.name;
+                account.info.email = response.email;
                 getUserId();
             });
             $.fancybox.close()
@@ -310,6 +321,9 @@ account = {
                 }
             });
         }
+    },
+    loggedIn:  function(){
+        return (this.info.userId!=null)
     },
     sendVerificationCode: function(email){
         callApi({command: 'sendVerificationCode', email: email}, function(jsoData, textStatus, jqXH){

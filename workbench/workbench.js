@@ -89,21 +89,14 @@ var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Ad
 var quickChart;
 var newPlotIDCounter = -1; //new plots get negative ids (i.e. 'P-8-') which get positive DB identifers on save (the trailing '-' prevents search and replace confusion
 //authentication variables
-var loggedIn = false;
-var fb_user = null;
-var fbAppId = '209270205811334';
-var md_userId = null;
-var orgId, orgName;
-var accessToken; //set in doc.ready after check that browser has localStorage
-var expiresIn = null;
 var myPreferences = {uselatest: 'N'};
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 
-if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};
+if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //prevents IE from breaking
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
     FB.init({
-        appId      : fbAppId, // App ID
+        appId      : '209270205811334', // App ID
         channelURL : '//www.mashabledata.com/fb_channel.php', // Channel File
         status     : true, // check login status
         cookie     : true, // enable cookies to allow the server to access the session
@@ -191,26 +184,13 @@ $(document).ready(function(){
         }
     });
 
-    //authorization/log in sequence
-    if(window.localStorage.getItem('authorized')==null){
-        // modal dialog init: custom buttons and a "close" callback reseting the form inside
-        showAuthorizeDialogue();
+    //TODO: remove this localhost workaround
+    if(document.URL.indexOf('localhost')>=0){
+        account.info.userId = 2;
+        account.info.accessToken = 'AAACZBVIRHioYBAKJp0bvvwdDKYmnUAwYcjRn4dCeCZCriYZAiDIU85IucIt0pDrEK7wvIqRAImAvbQdbltGhcvbGxZCUDusDFdw6BSt5wwZDZD';
+        syncMyAccount();
     } else {
-        if(window.localStorage.getItem('authorized')=="no"){
-            $('#dialog').prepend('<span style="color:red;">The MashableData service has been disabled on this computer. It must be enabled to use the workbench.</span><br><br>');
-            showAuthorizeDialogue();
-            $('#btn-dia-disable').remove();
-        } else {
-            //TODO: remove this localhost workaround
-            if(document.URL.indexOf('localhost')>=0){
-                loggedIn = true;
-                md_userId = 2;
-                accessToken = 'AAACZBVIRHioYBAKJp0bvvwdDKYmnUAwYcjRn4dCeCZCriYZAiDIU85IucIt0pDrEK7wvIqRAImAvbQdbltGhcvbGxZCUDusDFdw6BSt5wwZDZD';
-                syncMyAccount();
-            } else {
-                initFacebook();  //intialized the FB JS SDK.  (Does not make user login, but will automatically authenticate a FB user who is (1) logged into FB and (2) has authorized FB to grant MashableData basic permissions
-            }
-        }
+        initFacebook();  //intialized the FB JS SDK.  (Does not make user login, but will automatically authenticate a FB user who is (1) logged into FB and (2) has authorized FB to grant MashableData basic permissions
     }
 
     $(window).bind("resize load", resizeCanvas()).bind("focus", function(event){
@@ -235,6 +215,7 @@ $(document).ready(function(){
         showGraphEditor()
     });
 });
+
 function resizeCanvas(){
     var winHeight = Math.max(window.innerHeight-10, layoutDimensions.widths.windowMinimum);
     var winWidth = Math.max(window.innerWidth-10, layoutDimensions.widths.windowMinimum);
@@ -355,15 +336,13 @@ function setupPublicSeriesTable(){
             var thisSearch =  $("#tblPublicSeries_filter input").val();
             aoData.push({name: "command", value: "SearchSeries"});
             aoData.push({name: "uid", value: getUserId()});
-            aoData.push({name: "accessToken", value: accessToken});
+            aoData.push({name: "accessToken", value: account.info.accessToken});
             aoData.push({name: "periodicity", value: $("#series_search_periodicity").val()});
             aoData.push({name: "apiid", value: $("#series_search_source").val()});
             aoData.push({name: "catid", value: searchCatId});
             aoData.push({name: "mapset", value: $("input:radio[name=public-mapset-radio]:checked").val()});
             aoData.push({name: "lastSearch", value: lastSeriesSearch});
             aoData.push({name: "search", value: thisSearch});
-            aoData.push({name: "uid", value: getUserId()});
-            aoData.push({name: "accessToken", value: accessToken});
             if(lastSeriesSearch!=thisSearch) {
                 lastSeriesSearch = thisSearch;
                 dtPublicSeries.fnSort([]);   //this clear sort order and triggers a fnServerData call
@@ -843,7 +822,7 @@ function loadMySeriesByKey(key){   //key is either 'newSeries' or 'localSeries'
             /*            try{*/
             mySerie = createMdoFromLS(aryIds[i]);
             if(mySerie.sid!=null){ //mySerie has already been captured
-                if (loggedIn || accessToken) {          // ...add to MySeries in cloud
+                if (account.loggedIn()) {          // ...add to MySeries in cloud
                     var params = {
                         command:'ManageMySeries',
                         jsts: new Date().getTime(),
@@ -1636,16 +1615,16 @@ function publicCat(catName, catId, apiId){
 
 //USER ACCOUNT FUNCTIONS
 function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library loads and determines that user is authenticated
-    if(md_userId != null) return md_userId;
-    if(fb_user != null){
+    if(account.loggedIn()) return account.info.userId;
+    if(account.fb_user){
         var params = {
             'command':	'GetUserId',
-            'accounttype': 'Facebook',
-            'username': fb_user.id,
-            'name':  fb_user.name,
-            'email':	fb_user.email,
+            'authmode': 'FB',
+            'username': account.fb_user.id,
+            'name':  account.fb_user.name,
+            'email':	account.fb_user.email,
             'company':	'',
-            'accesstoken': accessToken
+            'accesstoken': account.fb_user.accessToken
         };
         $.ajax({type: 'POST',  //cannot use CallAPI -> infinite loop
             url: "api.php",
@@ -1653,12 +1632,10 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
             dataType: 'json',
             success: function(md_getUserId_results, textStatus, jqXH){
                 if(md_getUserId_results.status=='ok'){
-                    md_userId = md_getUserId_results.userid;  //no further action required (assumes success)
-                    orgId = md_getUserId_results.orgid;
-                    orgName = md_getUserId_results.orgname;
-                    if(orgId&&orgName){$("#series_search_source").append('<option value="org">'+orgName+'</option>')};
-                    $("#menu-account .ui-button-text").html(fb_user.name);
-                    //$("#mn_facebook").html("sign out");
+                    $.extend(account.info, account.fb_user, md_getUserId_results);  //no further action required (assumes success)
+                    //account.info.userId = account.info.userid;  //smoe capitalization problems coming out of the db
+                    if(account.info.orgId&&account.info.orgName){$("#series_search_source").append('<option value="org">'+account.info.orgName+'</option>')};
+                    $("#menu-account .ui-button-text").html(account.info.name);
                     syncMyAccount();
                 } else {
                     console.log(md_getUserId_results);
@@ -2029,7 +2006,7 @@ function deleteCheckedSeries(){
         var trSeries = $(this).closest('tr').get(0);  //this is the checked table cell
         delete oMySeries[$(trSeries).find("td.dt-vw a").attr("data")]; //delete from oMySeries
         var obj = dtMySeries.fnGetData(trSeries);
-        if(loggedIn){
+        if(account.loggedIn()){
             obj.save = null;
             updateMySeries(obj);  //delete from DB
         }
@@ -2174,7 +2151,7 @@ function seriesPanel(anchorClicked){
 }
 
 function notLoggedInWarningDisplayed(){
-    if(!loggedIn){
+    if(!account.loggedIn()){
         $('#dialog').html('<span><p>You must be signed in to use this function.  You can sign into MashableData.com with your Facebook account.  (Google+ account federation coming soon!)</p>'
             + '<p>Logging in does <em>not</em> grant MashableData automatic access to your email or to post to your account.</p>' //  Using Facebook\'s secure <a href="http://developers.facebook.com/docs/authentication/" target="_blank">authorization service</a> means neither of us has to remember yet another username and password.</p>'
             + '</span><br>');
@@ -2200,13 +2177,13 @@ function notLoggedInWarningDisplayed(){
         });
         $('.ui-dialog-titlebar-close').remove();
     }
-    return  (!loggedIn);
+    return  (!account.loggedIn());
 }
 function callApi(params, callBack){ //modal waiting screen is shown by default. params.modal option can modify this behavior
     if(params.modal!='none')mask();
     $.ajax({type: 'POST',
         url: "api.php",
-        data:$.extend({uid: getUserId(),accessToken: accessToken}, params),
+        data:$.extend({uid: getUserId(),accessToken: account.info.accessToken}, params),
         dataType: 'json',
         success: function(jsoData, textStatus, jqXHR){
             if(jsoData.status=="ok"){

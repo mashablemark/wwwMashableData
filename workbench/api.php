@@ -823,51 +823,47 @@ switch($command){
 	case "GetUserId":
 		$username =  $_REQUEST['username'];
 		$accesstoken =  $_REQUEST['accesstoken'];
+        $email =  $_REQUEST['email'];
         $expires =  $_REQUEST['expires'];
-        $accounttype = $_REQUEST['accounttype'];
+        $authmode = $_REQUEST['authmode'];   //currently, FB (Facebook) and MD (MashableData) are supported
 		//get account type
         if(strlen($username)==0){
             $output = array("status" => "invalid user name");
             break;
         }
-		$sql = "select accounttypeid from accounttypes where name = " . safeStringSQL($accounttype);
-		$result = runQuery($sql, "GetUserId: accounttypeid");
-		if($result->num_rows==1){
-			$row = $result->fetch_assoc();
-			$output = $row;
-			$accounttypeid = $row["accounttypeid"];
-		} else {
-			$output = array("status" => "invalid account service.  Err 105");
-			break;
-		}
-        //currently, only Facebook is supported
-        $fb_command = "https://graph.facebook.com/".$username."/permissions?access_token=".(($accesstoken==null)?'null':$accesstoken);
-        logEvent("GetUserId: fb call", $fb_command);
-        $fbstatus = json_decode(httpGet($fb_command));
-        if(array_key_exists ("data",$fbstatus)){
-            $sql = "select u.userid, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
-                . " where u.accounttypeid = " . $accounttypeid
-                . " and u.username = '" . $db->real_escape_string($username) . "'";
-            logEvent("GetUserId: lookup user", $sql);
-            $result = runQuery($sql);
-            if($result->num_rows==1){
-                $row = $result->fetch_assoc();
-                $sql = "update users set accesstoken = '" . $db->real_escape_string($accesstoken) . "' where userid=" .  $row["userid"];
-                runQuery($sql, "GetUserId: update accesstoken");
-                $output = array("status" => "ok", "userid" => $row["userid"], "orgid" => $row["orgid"], "orgname" => $row["orgname"]);
+
+        if($authmode=='FB'){
+            $fb_command = "https://graph.facebook.com/".$username."/permissions?access_token=".(($accesstoken==null)?'null':$accesstoken);
+            logEvent("GetUserId: fb call", $fb_command);
+            $fbstatus = json_decode(httpGet($fb_command));
+            if(array_key_exists ("data", $fbstatus)){
+                $sql = "select u.userid, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
+                    . " where u.authmode = " . safeSQLFromPost('authmode')
+                    . " and u.username = '" . $db->real_escape_string($username) . "'";
+                logEvent("GetUserId: lookup user", $sql);
+                $result = runQuery($sql);
+                if($result->num_rows==1){
+                    $row = $result->fetch_assoc();
+                    $sql = "update users set accesstoken = '" . $db->real_escape_string($accesstoken) . "' where userid=" .  $row["userid"];
+                    runQuery($sql, "GetUserId: update accesstoken");
+                    $output = array("status" => "ok", "userId" => $row["userid"], "orgId" => $row["orgid"], "orgName" => $row["orgname"]);
+                } else {
+                    $sql = "INSERT INTO users(username, accesstoken, name, email, authmode, company) VALUES ("
+                        . safeSQLFromPost("username") . ","
+                        . safeSQLFromPost("accesstoken") . ","
+                        . safeSQLFromPost("name") . ","
+                        . safeSQLFromPost("email") . ","
+                        . safeSQLFromPost('authmode') . ","
+                        . safeSQLFromPost("company") . ")";
+                    $result = runQuery($sql, "GetUserId: create new user record");
+                    $output = array("status" => "ok", "userid" => $db->insert_id);
+                }
             } else {
-                $sql = "INSERT INTO users(username, accesstoken, name, email, accounttypeid, company) VALUES ("
-                    . safeSQLFromPost("username") . ","
-                    . safeSQLFromPost("accesstoken") . ","
-                    . safeSQLFromPost("name") . ","
-                    . safeSQLFromPost("email") . ","
-                    . $accounttypeid . ","
-                    . safeSQLFromPost("company") . ")";
-                $result = runQuery($sql, "GetUserId: create new user record");
-                $output = array("status" => "ok", "userid" => $db->insert_id);
+                $output = array("status" => "error:  Facebook validation failed", "facebook"=> $fbstatus["error"]["message"]);
             }
-		} else {
-            $output = array("status" => "error:  Facebook validation failed", "facebook"=> $fbstatus["error"]["message"]);
+        }
+        if($authmode=='MD'){
+            //todo: add MD authentication
         }
 		break;
     /*case "UploadMyMashableData":

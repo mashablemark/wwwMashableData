@@ -140,7 +140,7 @@ function AnnotationsController(panelId){
 // builds and return a fresh annotations table HTML string from oGraph
             var sTable = '';
             var annoLetter = 'A';
-            var i, anno, point, annoSeries, annoScatter;
+            var i, anno, point, annoSeries, annoScatter, fromJS, toJS;
             var scatterData = {};
             for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
                 scatterData['labelsY-'+i] = [];
@@ -200,20 +200,22 @@ function AnnotationsController(panelId){
                         annoLetter=String.fromCharCode(annoLetter.charCodeAt(0)+1);
                         break;
                     case 'line':
-                        if(redrawAnnoTypes=='line'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                            anno.id ='xl' + this.lineNo;
-                            this.lineNo++;
-                            yOffset = this.labelOffset(oHighCharts[panelId], anno);
-                            oHighCharts[panelId].xAxis[0].addPlotLine({
-                                color: anno.color,
-                                value: this.parseDate(anno.from),
-                                id: anno.id,
-                                width: 2,
-                                label: {text: anno.text, y: yOffset, zIndex: 3}
-                            });
+                        fromJS = this.parseDate(anno.from);
+                        if(fromJS>=parseInt(oGraph.start||oGraph.firstdt) && fromJS<=parseInt(oGraph.end||oGraph.lastdt)){
+                            if(redrawAnnoTypes=='line'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
+                                anno.id ='xl' + this.lineNo;
+                                this.lineNo++;
+                                yOffset = this.labelOffset(oHighCharts[panelId], anno);
+                                oHighCharts[panelId].xAxis[0].addPlotLine({
+                                    color: anno.color,
+                                    value: this.parseDate(anno.from),
+                                    id: anno.id,
+                                    width: 2,
+                                    label: {text: anno.text, y: yOffset, zIndex: 3}
+                                });
+                            }
+                            sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
                         }
-                        sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
-
                         break;
                     case 'hline':
                         if(redrawAnnoTypes=='hline'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
@@ -235,18 +237,22 @@ function AnnotationsController(panelId){
                         sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from + ' ' + anno.yAxis + '</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
                         break;
                     case 'band':
-                        if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
+                        fromJS = this.parseDate(anno.from);
+                        toJS = this.parseDate(anno.to);
+                        if((fromJS>=parseInt(oGraph.start||oGraph.firstdt) && fromJS<=parseInt(oGraph.end||oGraph.lastdt)) || (toJS>=parseInt(oGraph.start||oGraph.firstdt) && toJS<=parseInt(oGraph.to||oGraph.lastdt))){
+                            if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
                             anno.id ='xb' + this.bandNo++;
                             yOffset = this.labelOffset(oHighCharts[panelId], anno);
                             oHighCharts[panelId].xAxis[0].addPlotBand({
                                 color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
-                                from: this.parseDate(anno.from),
-                                to: this.parseDate(anno.to),
+                                from: fromJS,
+                                to: toJS,
                                 id: anno.id,
                                 label: {text: anno.text, y: yOffset, zIndex: 3}
                             });
                         }
                         sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+                        }
                         break;
                     case 'hband':
                         if(redrawAnnoTypes=='hband'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
@@ -591,7 +597,9 @@ function AnnotationsController(panelId){
                     if(oGraph.plots[p].options.linRegressions){
                         for(i=0;i<oGraph.plots[p].options.linRegressions.length;i++){
                             LR = oGraph.plots[p].options.linRegressions[i];
-                            this.plotLinearRegression(chart.get("P"+p), LR[0], LR[1]);
+                            if((LR[0]>=parseInt(oGraph.start||oGraph.firstdt) && LR[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (LR[1]>=parseInt(oGraph.start||oGraph.firstdt) && LR[1]<=parseInt(oGraph.to||oGraph.lastdt))){
+                                this.plotLinearRegression(chart.get("P"+p), LR[0], LR[1]);
+                            }
                         }
                     }
                 }
