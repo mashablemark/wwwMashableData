@@ -380,6 +380,7 @@ button.download-data{
 div.graph-subpanel, div.graph-data-inner{
     height: 100%;
     width: 100%;
+    font-size: 12px;
 }
 div.graph-sources{
     background-color: #FFFFFF;
@@ -416,6 +417,8 @@ div.graph_control_panel{
 ol.plots li.plot{
     margin: 5px 0;
     padding: 5px;
+    border: 1px solid #fcefa1;
+    background: #fbf9ee url(images/ui-bg_glass_55_fbf9ee_1x400.png) 50% 50% repeat-x;
 }
 ul.series li.serie{
     margin: 5px;
@@ -611,7 +614,7 @@ ol.graph-nav li:hover{
 }
 .graph-nav-sources{
     background-position: 0 -85px;
-    height: 108px;
+    height: 106px;
 }
 .graph-nav-config{
     background-position: 0 -84px;
@@ -659,10 +662,10 @@ button.config-cancel{
     margin-right: 50px;
 }
 div.mapset, div.pointsets{
-    background-color: #ffffff;
     margin: 10px;
     padding: 5px;
-    border: thin black solid;
+    border: 1px solid #fcefa1;
+    background: #fbf9ee url(images/ui-bg_glass_55_fbf9ee_1x400.png) 50% 50% repeat-x;
 }
 .prov-float-btn{
     float: right;
@@ -672,12 +675,57 @@ div.mapset, div.pointsets{
 li.component, li.mapset {
     margin: 5px;
     padding: 5px;
+    border: 1px solid #d3d3d3;
+}
+button.edit-mapset, button.edit-plot{
+    margin-right: 5px;
 }
 ol.components{
-    list-style-type: lower-alpha;
+    list-style-type: upper-alpha;
+    font-size: 12px;
+    font-weight: bold;
+}
+span.merge-formula{
+    padding: 0 20px;
+}
+ol.numer li{
+    border-color: blue;
+}
+ol.denom li{
+    border-color: green;
+}
+li.component-landing{
+    list-style: none;
+    font-style: italic;
+    color: #808080;
+    font-weight: normal;
+}
+ol.blank-plot{
+    list-style-type: none;
+}
+.plot-type{
+    margin: 5px;
+}
+.plot-title{
+    font-weight: bold;
+    font-size: 14px;
+}
+.plot-units{
+    font-size: 14px;
+}
+.plot-freq{
+    font-size: 12px;
+}
+.plot-formula{
+    border: thin black solid;
+    font-weight: bold;
+    font-size: 14px;
+    margin: 0 10px;
+    padding: 0 10px;
 }
 input.plot-name{
     width: 600px;
+    font-weight: bold;
 }
 div.edit-block{
     display: inline-block;
@@ -695,6 +743,12 @@ li.component{
 }
 .link:hover{
     text-decoration: underline;
+}
+.map_legend_gradient{
+    width: 50px;
+    height: 10px;
+    display: inline-block;
+    margin-right: 5px;
 }
 div.jvectormap-container{
     margin-right: 15px;
@@ -798,6 +852,9 @@ span.ui-button-text{
 ul.comp-op li{
     list-style-type: none;
     width: 200px;
+}
+span.comp-name{
+    font-weight: normal;
 }
 button.ui-button-text-icon-secondary span.ui-button-text{
     padding-right: 3em;

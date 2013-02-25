@@ -7,8 +7,13 @@
  */
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
+var SigmaCode = '&#931;';
 function ProvenanceController(panelId){
     var controller = {
+        HTML: {
+            nLanding: '<li class="component-landing">drag numerator series here</li>',
+            dLanding: '<li class="component-landing">drag denominator series here</li>'
+        },
         graph: oPanelGraphs[panelId],
         $prov: $('#'+panelId + ' .provenance'),
         build:  function build(plotIndex){  //redo entire panel is plotIndex omitted
@@ -20,9 +25,12 @@ function ProvenanceController(panelId){
             if(typeof plotIndex != 'undefined'){
                 self.$prov.find('ol.plots').append( self.plotHTML(plotIndex) );
             } else {
-                self.graph.plotsEdits = $.extend(true, [], self.graph.plots);  //this is the copy that the provenance panel will work with.  Will replace graph.plots on "OK"
+                self.plotsEdits = $.extend(true, [], self.graph.plots);  //this is the copy that the provenance panel will work with.  Will replace graph.plots on "OK"
+                self.annoEdits = $.extend(true, [], self.graph.annotations);
+                self.mapsetEdits = $.extend(true, [], self.graph.mapsets);
+                self.pointsetsEdits = $.extend(true, [], self.graph.pointsets);
                 if(self.graph.plots){
-                    plotList = '<div class="chart-plots">Chart:<ol class="plots">';
+                    plotList = '<div class="chart-plots"><H4>Chart</H4><ol class="plots">';
 
                     for(i=0;i<self.graph.plots.length;i++){
                         //outer PLOT loop
@@ -31,7 +39,7 @@ function ProvenanceController(panelId){
                 }
 
                 plotList += '</ol>'
-                    +  '<ol class="blank-plot components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.  Double click on any series or plot line to edit its properties.</i></li></ol></div>';
+                    +  '<ol class="blank-plot landing components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.</i></li></ol></div>';
                 mapList = self.provenanceOfMap();
                 self.$prov.html(okcancel + plotList + mapList);
                 //sortable
@@ -39,20 +47,112 @@ function ProvenanceController(panelId){
                     .sortable({
                         containment: self.$prov.get(0),
                         connectWith: ".components",
+                        cancel: ".component-landing",
                         axis: "y",
                         delay: 150,   //in ms to prevent accidentally drags
+                        start: function(event, ui){
+                            var plotIndex, compIndex, type, obj;
+                            //determinate source type
+                            if(ui.item.parent().hasClass("map-comp")){type="map"; obj = self.mapsetEdits}
+                            if(ui.item.parent().hasClass("plot-comp")){type="plot"; obj = self.plotsEdits[ui.item.closest("li.plot").index()]}
+                            if(ui.item.parent().hasClass("point-comp")){type="point"; obj = self.pointsetsEdits[ui.item.closest("li.plot").index()]}
+                            //determine source model obj
+                            if(type=='plot'||type=='point'){
+                                plotIndex = ui.item.closest("li.plot").index();
+                            } else {
+                                plotIndex = null;
+                            }
+                            //determine comp index
+                            if(ui.item.parent().hasClass("numer")){
+                                compIndex = ui.item.index();
+                            } else {
+                                var numerLength = ui.item.closest("ol.components").parent().find("ol.numer li.component").length;
+                                compIndex = ui.item.index() + numerLength;
+                            }
+                             /*else {  //THIS WILL NEVER HAPPEN:  MOVE TO PLOTS START
+                                if(ui.item.hasClass("plot"))type="plot";
+                                if(ui.item.hasClass("pointset"))type="point";
+                                compIndex = null;
+                                plotIndex = ui.item.closest("li.plot").index();
+                            }*/
+                            self.dragging = {
+                                type: type,
+                                plotIndex: plotIndex,
+                                compIndex: compIndex,
+                                obj: obj,
+                                $ol: ui.item.parent()
+                            }
+                        },
                         update: function(event, ui){ self.componentMoved(ui)}
-                        /* receive: function(event, ui){alert("received")},
-                         remove: function(event, ui) {alert("removed")}*/
                     })
                     .disableSelection();
                 self.$prov.find('.map-mode').buttonset()
                     .find('input').click(function(){
                         self.graph.mapsets.options.mode = $(this).val();
-                        if(self.graph.mapsets.options.mode=='bubble' && !self.graph.mapsets.options.merges) self.graph.mapsets.options.merges = [];
+                        if(self.graph.mapsets.options.mode=='bubble' && !self.graph.mapsets.options.merges) {
+                            self.graph.mapsets.options.merges = [];
+                        } else {
+                            $merge.show();
+                        }
                     });
-                self.$prov.find(".plots").sortable({
-                    axis: "y", dropOnEmpty: false}).disableSelection();
+                var $merge = self.$prov.find('.merge-mode').buttonset()
+                    .find('input').click(function(){
+                        self.graph.mapsets.options.merge = $(this).val();
+                    });
+                if(self.graph.mapsets && (!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode=='bubble')) $merge.hide();
+                self.$prov.find(".plots")
+                    .sortable({
+                        axis: "y",
+                        dropOnEmpty: false,
+                        connectWith: ".plots",
+                        start: function(event, ui){
+                            self.dragging = {
+                                type: "plot",
+                                plotIndex: ui.item.index(),
+                                compIndex: null,
+                                $ol: ui.item.parent()
+                            }
+                        },
+                        update: function(event, ui){  //only within!
+                            var i, oldAnnoIndex;
+                            var movedPlot = self.plotsEdits.splice(self.dragging.plotIndex, 1)[0];
+                            self.plotsEdits.splice(ui.item.index(),0,movedPlot);
+                            var shift = (ui.item.index()>self.dragging.plotIndex)?-1:1;
+                            for(i=0;i<self.annoEdits.length;i++){
+                                if(self.annoEdits[i].type=="point"){
+                                    oldAnnoIndex = parseInt(self.annoEdits[i].series.substr(1));
+                                    if(oldAnnoIndex==self.dragging.plotIndex){
+                                        self.annoEdits[i].series = "P" +  ui.item.index();
+                                    } else {
+                                        self.annoEdits[i].series = "P" + (oldAnnoIndex+shift).toString();
+                                    }
+                                }
+                            }
+
+                        }
+                    })
+                    .disableSelection();
+                self.$prov.find(".pointsets")
+                    .sortable({
+                        axis: "y",
+                        dropOnEmpty: false,
+                        connectWith: ".pointsets",
+                        start: function(event, ui){
+                            self.dragging = {
+                                type: "point",
+                                plotIndex: ui.item.index(),
+                                compIndex: null,
+                                $ol: ui.item.parent(),
+                                obj: self.pointsetsEdits[ui.item.index()]
+                            }
+                        },
+                        update: function(event, ui){  //only within!
+                            var movedPointset = self.pointsetEdits.splice(self.dragging.plotIndex,1);
+                            self.pointsetEdits.splice(ui.item.index(),0,movedPointset);
+                        }
+                    })
+                    .disableSelection();
+
                 //main buttons
                 self.$prov.find("button.config-cancel").button({icons: {secondary: 'ui-icon-closethick'}}).click(function(){
                     self.provClose(this);
@@ -62,7 +162,7 @@ function ProvenanceController(panelId){
                 });
             }
 
-            //apply global
+            //all matching prov components, therefore unbind before binding
             self.$prov.find("li.plot").off("click").click(function(evt){
                 if(!evt.isPropagationStopped()){
                     evt.stopPropagation();
@@ -72,7 +172,6 @@ function ProvenanceController(panelId){
             self.$prov.find("li.component").off("click").click(function(evt){
                 if(!evt.isPropagationStopped()){
                     evt.stopPropagation();
-                    //alert("showComponentEditor(this");
                 }
             });
             self.$prov.find(".edit-plot")
@@ -85,31 +184,45 @@ function ProvenanceController(panelId){
                         self.showComponentEditor(this);
                     });
                 });
+
+            self.$prov.find(".edit-mapset")
+                .button({icons: {secondary: 'ui-icon-pencil'}})
+                .off("click")
+                .click(function(){
+                    var $liPlot = $(this).closest("li");
+                    self.showMapSetEditor($liPlot);
+                    $liPlot.find("li.component").each(function(){
+                        self.showComponentEditor(this);
+                    });
+                });
         },
         plotHTML:  function plotHTML(i){
             var self = this;
             var graph = self.graph;
-            var plotColor, plotList = '', plot = graph.plotsEdits[i], componentHandle;
+            var plotColor, plotList = '', plot = self.plotsEdits[i], componentHandle;
             if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
             if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
             plotColor = plot.options.lineColor || (oHighCharts[panelId].get('P'+i)?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
-            plotList += '<li class="plot ui-state-highlight" data="P' + i + '">'
-                + '<button class="edit-plot">edit </button>'
+            plotList += '<li class="plot" data="P' + i + '">'
+                + '<button class="edit-plot">configure</button>'
                 + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
-                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(graph, plot)+'</span> <span class="plot-units">' + plotUnits(graph, plot) + '</span> (' + self.plotPeriodicity(plot)+')</div>'
-                + '<ol class="components">';
+                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in ' + plotUnits(graph, plot) + '</div>'
+                + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>';
+            var numer='', denom='', cmp, isDenom=false;
             for(var j=0;j< plot.components.length;j++){
                 //inner COMPONENT SERIES loop
-                //TODO: add op icon and order by (+,-,*,/)
                 componentHandle = plot.components[j].handle;
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
 
-                plotList += '<li class="component ui-state-default" data="P'+ i + '-C' + j + '">'
+                cmp = '<li class="component ui-state-default" data="P'+ i + '-C' + j + '">'
                     //             + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
                     + '<span class="plot-op ui-icon ' + op.class[plot.components[j].options.op] + '">operation</span> '
                     + graph.assets[componentHandle].name + '</li>';
+                if(plot.components[j].options.dn=='d'||isDenom){isDenom= true; denom += cmp} else {numer += cmp}
             }
-            plotList +=   '</ol>';
+            plotList += '<ol class="components plot-comp numer">'+(numer||self.HTML.nLanding) + '</ol>';
+            plotList += '<hr>';
+            plotList += '<ol class="components plot-comp denom">'+(denom||self.HTML.dLanding) + '</ol>';
             plotList += '</li>';
             return plotList;
         },
@@ -133,30 +246,44 @@ function ProvenanceController(panelId){
             if(self.graph.map&&(self.graph.mapsets||self.graph.pointsets)){ //map!!
                 provHTML = '<div class="map-prov"><h3>Map of '+ self.graph.map +'</h3>';
                 if(self.graph.mapsets){
-                    provHTML += '<div class="mapset">Mapset '
-                        + '<div class="map-mode right">'
-                        + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="choropleth" '+ ((!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">choropleth</label>'
+                    provHTML += '<div class="mapset">'
+                        + '<button class="edit-mapset right">configure</button>'
+                        + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
+                        + hContinuousColor(self.graph.mapsets.options.minColor||'#C8EEFF', self.graph.mapsets.options.maxColor||'#0071A4')
+                        //+ '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
+                        //+ '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.maxColor||'#0071A4') +';"></div>'
+                        + '<div class="plot-info" style="display:inline-block;">'
+                        + '<span class="plot-title">' + plotName(self.graph, self.graph.mapsets)+ '</span> (' + self.plotPeriodicity(self.graph.mapsets)+') in <span class="plot-units">' + (self.graph.mapsets.options.units||plotUnits(self.graph, self.graph.mapsets)) +'</span></div>'
+                        + '<span class="plot-formula">= ' + plotFormula(self.graph.mapsets).formula + '</span><br>';
+
+
+                    /*  The TYPE AND MERGE MODE WILL BE AVAILABLE IN CONFIGURATION MODE, NOT THE INTIAL VIEW
+                        + 'type: ' + ((!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode!='bubble')?'heat map':'bubbles with user defined region');
+                    if(self.graph.mapsets.options.mode || self.graph.mapsets.options.mode=='bubble') {
+                        if(self.graph.mapsets.options.merge && self.graph.mapsets.options.merge=='sumnsumd'){
+                            provHTML += '<span class="merge-formula">merge formula = &#931; numerator / &#931; denominator</span>';
+                        } else {
+                            provHTML += '<span class="merge-formula">&#931; (numerator / denominator)</span>';
+                        }
+                    }*/
+                    /*+ '<div class="map-mode">'
+                        + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="choropleth" '+ ((!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">heat map</label>'
                         + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" '+ ((self.graph.mapsets.options.mode && self.graph.mapsets.options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubble (mergable into regional sums)</label>'
                         + '</div>'
-                        + '<ol class="mapsets">'
-                        + '<li class="mapset ui-state-highlight">'
-                        + '<button class="edit-mapset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
-                        + '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
-                        + '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.maxColor||'#0071A4') +';"></div>'
-                        + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                        + plotName(self.graph, self.graph.mapsets)+'</span> in ' + (self.graph.mapsets.options.units||plotUnits(self.graph, self.graph.mapsets)) + ' ' + (self.graph.mapsets.options.period||self.plotPeriodicity(self.graph.mapsets))+'</div>';
-
-                    provHTML += '<ol class="map-comp components" style="list-style-type: none;>';
+                        + '<div class="merge-mode">'
+                        + '<input type="radio" name="'+ panelId +'-merge-mode" id="'+ panelId +'-merge-mode-sumnsumd" value="sumnsumd" '+ ((self.graph.mapsets.options.merge || self.graph.mapsets.options.merge!='simplesum')?'checked':'') +' /><label for="'+ panelId +'-merge-mode-sumnsumd">sum numerators / sum denominators</label>'
+                        + '<input type="radio" name="'+ panelId +'-merge-mode" id="'+ panelId +'-merge-mode-sum" value="simplesum" '+ ((!self.graph.mapsets.options.merge || self.graph.mapsets.options.merge=='simplesum')?'checked':'') +' /><label for="'+ panelId +'-merge-mode-sum">sum values</label>'
+                    + '</div>'*/
+                    provHTML += '<ol class="map-comp components">';
                     for(c=0;c<self.graph.mapsets.components.length;c++){
                         componentHandle = self.graph.mapsets.components[c].handle;
                         isSet = componentHandle.substr(0,1)=='M';
-                        provHTML += '<li class="component ui-state-default" data="'+ componentHandle + '">'
-                            + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
+                        provHTML += '<li class="component" data="'+ componentHandle + '">'
+                            //+ String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
                             + '<span class="plot-op ui-icon ' + op.class[self.graph.mapsets.components[c].options.op||'+'] + '">operation</span> '
-                            + self.graph.assets[componentHandle].name + '</li>';
+                            + (isSet?iconsHMTL.mapset:'') + '<span class="comp-name">' + self.graph.assets[componentHandle].name + '</span></li>';
                     }
                     provHTML += '</ol>'
-                        + '</ol>'
                         + '</div>'; //close mapset
                 }
                 if(self.graph.pointsets){
@@ -187,143 +314,186 @@ function ProvenanceController(panelId){
         componentMoved:  function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
             //first find out whether a sort or a move, and whether that move empty or created a new component.
             var self = this;
-            var oGraph, $targetSeriesList, pFromHandle, draggedComponent;
-            var from, fromC, toC, fromP, toP, toOp;  //indexes
-            var $prov = ui.item.closest(".provenance");
-            if(ui.sender!=null){    // handle everything in the sorting call
-                //is series already in here?  if not add
-                from = ui.item.attr('data').split('-');
-                fromP = from[0].substr(1);
-                fromC = from[1].substr(1);
-                oGraph = oPanelGraphs[visiblePanelId()];
+            var $targetSeriesList, pFromHandle, draggedComponent;
+            var i, handle, thisHandle, from, fromC, toC, fromP, toP, toOp, toType, toPlotObject;  //indexes
+            var $prov = self.$prov;
+            var oGraph = self.graph;
 
+            if(ui.sender==null) return; //prevent double call
 
-                $targetSeriesList = ui.item.closest("ol.components");
-                if($targetSeriesList.hasClass("blank-plot")){
-                    //NEW!! series was dragged onto new plot landing area:  need to create new blank plot object, provide handle, and create new li/ul structure
-                    //1.remove component from donor plot object
-                    draggedComponent = oGraph.plotsEdits[fromP].components.splice(toC, 1)[0];
-                    draggedComponent.options.op = '+';
-                    //2. add new plot
-                    oGraph.plotsEdits.push({options:{}, components: [draggedComponent]});
-                    //3. add it and event it
-                    self.build(oGraph.plotsEdits.length-1);
-                } else {
-                    // component was moved between plots
-                    toP = ui.item.closest('li.plot').index();
-                    toC = ui.item.index();
-                    var targetHandle = oGraph.plotsEdits[fromP].components[fromC].handle;
-                    //cancel drop in asset already in the target plot
-                    for(var c=0;c<oGraph.plotsEdits[toP].components.length;c++){
-                        if(oGraph.plotsEdits[toP].components[c].handle == targetHandle){
-                            ui.item.closest(".provenance").find(".components[data='"+ pFromHandle +"']").sortable('cancel'); //do nothing else
-                            return;
-                        }
+            //cancel if adding to a plot that already has the same series
+            toP = ui.item.closest('.plot').index();
+
+            //check to see if this is a new plot
+            var newPlot = ui.item.parent().hasClass('blank-plot');
+
+            //component landing type has to be either a plot, a mapset or a pointset
+            if(ui.item.parent().hasClass("map-comp")){
+                toType="map";
+                if(!newPlot) toPlotObject = self.mapsetEdits;
+            }
+            if(ui.item.parent().hasClass("plot-comp")){
+                toType="plot";
+                if(!newPlot) toPlotObject = self.plotsEdits[toP];
+            }
+            if(ui.item.parent().hasClass("point-comp")){
+                toType="point";
+                if(!newPlot) toPlotObject = self.pointsetsEdits[toP]
+            }
+
+            //pointset and mapset type series must belong to a pointset or a mapset respectively
+            thisHandle = ui.item.attr('data');
+            if(thisHandle[0]=='M' && toType!='map'){
+                self.$prov.find(".components").sortable("cancel");
+                dialogShow('mapset restrictions', 'A mapset is a grouping of series, each correspond to an area on a map, such as a state or country.  Mapsets cannot be mixed with marker sets or displayed on a line graph.<br><br>Note that from from the map, you can easily select and chart any of this mapsets\' component series.');
+                return;
+            }
+            if(thisHandle[0]=='M' && toType!='map'){
+                self.$prov.find(".components").sortable("cancel");
+                dialogShow('mapset restrictions', 'A pointset is a grouping of series, each correspond to a precise location determined by longitude and latitude values.  Pointsets cannot be mixed with area mapsets or displayed a line graph.<br><br>Note that from from the map, you can easily select and chart any of this pointsets\' component series.');
+                return;
+            }
+
+            //duplicate series in same plot not permitted
+            if(toP!=self.dragging.plotIndex && self.dragging.type!=toType && !newPlot){
+                for(i=0;i<toPlotObject.components.length;i++){
+                    if(toPlotObject.components[i].handle == thisHandle) {
+                        self.$prov.find(".components").sortable("cancel");
+                        return;
                     }
-                    ui.item.attr('data','P' + toP + ':C' + toC);
-                    //check to see operation / units for compatibility (all + or - op series must have matching units (either native or transformed)
-                    var incomingOp, incomingUnits, thisUnits, thisOp, thisHandle, toPlot;
-                    incomingOp = oGraph.plotsEdits[fromP].components[fromC].options.op || '+';  //addition default for same units
-                    if(incomingOp=='+'||incomingOp=='-'){
-                        for(c=0;c<oGraph.plotsEdits[toP].components.length;c++){
-                            oGraph.plotsEdits[toP].components[c].options.op = oGraph.plotsEdits[toP].components[c].options.op || '+';
-                            toOp = oGraph.plotsEdits[toP].components[c].options.op;
-                            if(toOp=='+' || toOp=='-'){
-                                if((oGraph.plotsEdits[toP].components[c].units||oGraph.assets[oGraph.plotsEdits[toP].components[c].handle].units)
-                                    != (oGraph.plotsEdits[fromP].components[fromC].options.units||oGraph.assets[oGraph.plotsEdits[fromP].components[fromC].handle].units)){
-                                    oGraph.plotsEdits[fromP].components[fromC].options.op = '/';  //default to a ratio when units are different
-                                    ui.item.find('.plot-op').removeClass().addClass('plot-op ui-icon' + op.class['/']);
-                                    break;
-                                }
+                    if(self.graph.assets[thisHandle].period!=self.graph.assets[toPlotObject.components[i].handle].period){
+                        self.$prov.find(".components").sortable("cancel");
+                        dialogShow('frequency discrepancy', 'When performing array math, the sample frequency of all component series must be the same.');
+                        return;
+                    }
+                }
+            }
+
+            //we are good to move!  So...
+
+            //1. remove unneeded landing <li>s
+            ui.item.parent().find('.component-landing').remove();
+            //2. add a landing to the source <ol> if needed
+            if(self.dragging.$ol.children("li").length==0){
+                if(self.dragging.$ol.hasClass('numer')){
+                    self.dragging.$ol.append(self.HTML.nLanding);
+                } else {
+                    self.dragging.$ol.append(self.HTML.dLanding);
+                }
+            }
+            //3. remove the component
+            var cmp = self.dragging.obj.components.splice(self.dragging.compIndex,1)[0];
+            //4. set the numer/denom flag and add the component
+            if(ui.item.closest('ol').hasClass('numer') || newPlot){
+                cmp.options.dn='n';
+                toC = ui.item.index();
+            } else {
+                cmp.options.dn='d';
+                var numerLength = ui.item.closest('ol').parent().find('ol.numer').children('li.component').length;
+                toC = ui.item.index() + numerLength;
+                ui.item.closest('ol').attr("start", numerLength+1);
+            }
+            if(newPlot){
+                var toPlotObject = {options: {}, components: [cmp]};
+                self.plotsEdits.push(toPlotObject);
+                self.$prov.find('ol.plots').append(self.plotHTML(self.plotsEdits.length-1));
+            } else {
+                toPlotObject.components.splice(toC,0,cmp);
+            }
+
+            ui.item.closest(".plot").find("span.plot-formula").html(' = ' + plotFormula(toPlotObject).formula);
+            //5. check for no components > delete object; remove plot; adjust annotations
+            if(self.dragging.obj.components.length==0){
+                if(self.dragging.type=='plot'){
+                    self.plotsEdits.splice(self.dragging.plotIndex,1);
+                    self.$prov.find("ol.plots li.plot")[self.dragging.plotIndex].remove();
+                    //check annotations
+                    var oldAnnoIndex;
+                    for(i=0;i<self.annoEdits.length;i++){
+                        if(self.annoEdits[i].type=="point"){
+                            oldAnnoIndex = parseInt(self.annoEdits[i].series.substr(1));
+                            if(oldAnnoIndex==self.dragging.plotIndex){
+                                self.annoEdits.splice(i,1);
+                                i--;
+                            }
+                            if(oldAnnoIndex>self.dragging.plotIndex){
+                                self.annoEdits[i].series = "P" +  --oldAnnoIndex;
                             }
                         }
                     }
-
-                    draggedComponent = oGraph.plotsEdits[fromP].components.splice(fromC, 1)[0];
-                    oGraph.plotsEdits[toP].components.splice(toC, 0, draggedComponent);
-                }            //check to see if source if empty and kill if need be
-                if(oGraph.plotsEdits[fromP].components.length==0){
-                    oGraph.plotsEdits.splice(fromP, 1);
-                    $prov.find("li.plot[data='P"+ fromP +"']").remove();
                 }
-                self.sortSeriesUlByOp($targetSeriesList);
+                if(self.dragging.type=='point'){
+                    self.pointsetsEdits.splice(self.dragging.plotIndex,1);
+                    self.$prov.find("ol.pointsets li.plot")[self.dragging.plotIndex].remove();
+                }
+                //not possible to kill a mapset by dragging off its mapset components
             }
-        },
-        sortSeriesUlByOp:  function sortSeriesUlByOp($list){
+            if(newPlot) ui.item.remove();  //the spare component in the new plot landing zone
 
         },
         provOk: function provOk(btn){//save change to graph object and rechart
             //TODO: save and rechart
             var self = this;
-            self.graph.plots = self.graph.plotsEdits;
-            delete this.graph.plotsEdits;
-            delete this.graph.mapSetEdits;
-            delete this.graph.pointSetEdits;
+            self.graph.plots = self.plotsEdits;
+            self.graph.annotations = self.annoEdits;
+            delete self.plotsEdits;
+            delete self.annoEdits;
+            delete self.mapsetEdits;
+            delete self.pointsetsEdits;
             var $panel= $(btn).closest("div.graph-panel");
             this.provClose(btn);
             $panel.find(".graph-type").change();  //trigger redaw
         },
         provClose:  function provClose(btn){ //called directly from cancel btn = close without saving
             var self = this;
-            delete self.graph.plotsEdits;
-            self.$prov.find("ol, ul").sortable("destroy");
+            delete self.plotsEdits;
+            $("ol.ui-sortable").sortable("destroy");
             self.$prov.closest('div.graph-panel').find('.graph-nav-graph').click();
         },
-        sortComponentsByOp:  function sortComponentsByOp(comp){
-            comp.sort(function(a,b){
-                if(!a.options.op)a.options.op="+";
-                if(!b.options.op)b.options.op="+";
-                return op.value[a.options.op]-op.value[b.options.op];
-            })
-        },
-        sortComponentsList:  function sortComponentsList(olComponents, oPlots){
-            var $olComponents = $(olComponents);
-            var plotIndex =  $olComponents.closest('li.plot').index();
-            this.sortComponentsByOp(oPlots[plotIndex].components);
-            for(var i=0;i<oPlots[plotIndex].components.length;i++){
-                if($olComponents.find("li[data='"+ oPlots[plotIndex].components[i].handle +"']").index()!=i){
-                    $olComponents.find("li[data='"+ oPlots[plotIndex].components[i].handle +"']").insertBefore($ul.find("li:eg("+i+")"));
-                }
+        compIndex: function(liComp){
+            $liComp = $(liComp);
+            var cmpIndex = $liComp.index();
+            if($liComp.parent().hasClass('denom')) {
+                cmpIndex += $liComp.parent().parent().find('ol.numer li.component').length;
             }
+            return cmpIndex;
         },
         showComponentEditor:  function showComponentEditor(liComp){
             var self = this;
             var $liComp = $(liComp);
-            var plotsEdits = self.graph.plotsEdits;
+            var plotsEdits = self.plotsEdits;
             var compHandle = $(liComp).attr('data');
             var plotIndex = $(liComp).closest('li.plot').index();
-            var iComp = $liComp.index(); //could have just gotten index of liComp as the object should be in sync
+            var iComp = self.compIndex($liComp); //could have just gotten index of liComp as the object should be in sync
             var components = plotsEdits[plotIndex].components;
             var component = components[iComp];
             //$liComp.find(".edit-comp").hide();
             var editDiv =  '<button class="comp-copy prov-float-btn">make copy</button>'
                 + '<button class="comp-delete prov-float-btn" style="background-color: #FF0000;">remove series</button>'
                 + '<div class="comp-editor" style="display: none;">'
-                /*        + '<span class="edit-label">operation:</span><ul class="comp-op selectable">'
-                 +       '<li data="+" class="ui-widget-content"><span class="ui-icon op-addition"></span> add</li>'
-                 +       '<li data="-" class="ui-widget-content"><span class="ui-icon op-subtraction"></span> subtract</li>'
-                 +       '<li data="*" class="ui-widget-content"><span class="ui-icon op-multiply"></span> multiple summed series</li>'
-                 +       '<li data="/" class="ui-widget-content"><span class="ui-icon op-divide"></span> divide summed series</li>'
-                 + '</ul>'*/
-                +   '<span class="edit-label">units:</span><br />'
+                +   '<span class="edit-label">units:</span> '
                 +   '<span class="edit-label">frequency:</span>'
                 + '</div>';
             var $editDiv = $(editDiv);
             $liComp.find(".plot-op").hide().after(
                 '<div class="op">'
-                    +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" value="+" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'"><span class="ui-icon op-addition">add</span></label>'
-                    +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'"><span class="ui-icon op-subtraction">subtract</span></label>'
-                    +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'"><span class="ui-icon op-multiply">multiple summed series</span></label>'
-                    +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'"><span class="ui-icon op-divide">divide summed series</span></label>'
+                    +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" value="+" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'">+</label>'
+                    +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'">-</label>'
+                    +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'">*</label>'
+                    +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'">/</label>'
                     +   '</div>');
             //$editDiv.find("li[data='"+component.options.op+"']").attr('checked','checked');
-            $liComp.find("div.op").buttonset()
-                .find("input[data='"+component.options.op+"']")
-                .click()
+            console.info($liComp.find("div.op").find("input[data='"+component.options.op+"']")  );
+            $liComp.find("div.op").find("input[data='"+component.options.op+"']").attr('checked','checked')
                 .end()
+                .buttonset()
                 .find('input:radio')
                 .click(function(){
-                    plotsEdits[plotIndex].components[iComp].options.op = $(this).val()
+                    var cmpIndex = self.compIndex($liComp);
+                    var pltIndex = $liComp.closest(".plot").index();
+                    plotsEdits[pltIndex].components[cmpIndex].options.op = $(this).val();
+                    $liComp.closest(".plot").find("span.plot-formula").html(' = ' + plotFormula(self.plotsEdits[pltIndex]).formula);
+                    $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.class[plotsEdits[pltIndex].components[cmpIndex].options.op]);
                 });
             //$liComp.closest("div.provenance").find("button.plot-close, button.comp-close").click();  //close any open comp editors
             $editDiv.appendTo($liComp).slideDown();  //add the new comp editor and animate it open
@@ -338,8 +508,8 @@ function ProvenanceController(panelId){
                 if(components.length==0) $liComp.closest('li.plot').find('.plot-delete').click(); else $liComp.remove();
             });
             $liComp.find(".comp-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
-                var p = self.graph.plotsEdits.push({options: {}, components: [$.extend(true, {}, component, {options: {op: '+'}})]}) - 1;
-                var compHandle = self.graph.plotsEdits[p].components[0].handle;
+                var p = self.plotsEdits.push({options: {}, components: [$.extend(true, {}, component, {options: {op: '+'}})]}) - 1;
+                var compHandle = self.plotsEdits[p].components[0].handle;
                 var name = self.graph.assets[compHandle].name;
                 //todo:  creating the string / object should be a function
                 var $newPlot = $('<li>'+ name + '<ol class="components" data="P'+ p +'"><li class="component"  data="P'+ p +'-C0"></li></0l></li>');
@@ -354,7 +524,7 @@ function ProvenanceController(panelId){
         showPlotEditor:  function showPlotEditor(liPlot){
             var self = this;
             var $liPlot = $(liPlot);
-            var oPlot = self.graph.plotsEdits[$liPlot.index()];
+            var oPlot = self.plotsEdits[$liPlot.index()];
             var plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
             $liPlot.find(".edit-plot, .plot-info").hide();
             //line thickness selector
@@ -375,17 +545,16 @@ function ProvenanceController(panelId){
                 + '</fieldset>'
                 + '<div class="edit-block"><span style="margin:0 10px">name:</span><input class="plot-name" type="text" value="' + plotName(self.graph, oPlot) + '" /></div>'
                 + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
-                + ((oPlot.components.length>1)?'<span class="edit-label">missing points:</span><br />':'')
-                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units" type="text" value="' + (oPlot.options.units||'') + '" /></div>'
-                + '<div class="edit-block"><span class="edit-label">line breaks:</span><div class="edit-breaks">'
+                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + (oPlot.options.units||'') + '" /></div><br>'
+                  + '<div class="edit-block"><span class="edit-label">calculations:</span><div class="edit-math">'
+                +   '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'" /><label for="required-'+panelId+'">all series values required</label>'
+                +   '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="missingAsZero-'+panelId+'">treat missing values as zeros</label>'
+                +   '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="nullsMissingAsZero-'+panelId+'">treat missing and null values as zeros</label></div>'
+                + '</div>'
+                + '<div class="edit-block"><span class="edit-label">break line:</span><div class="edit-breaks">'
                 +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" /><label for="nulls-'+panelId+'">on nulls</label>'
                 +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" /><label for="missing-'+panelId+'">on missing value and nulls</label>'
                 +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" /><label for="never-'+panelId+'">never</label></div>'
-                + '</div>'
-                + '<div class="edit-block"><span class="edit-label">component math:</span><div class="edit-math">'
-                +   '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'" /><label for="required-'+panelId+'">all series values required</label>'
-                +   '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="missingAsZero-'+panelId+'">treat missing values as zeros in sums</label>'
-                +   '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="nullsMissingAsZero-'+panelId+'">treat missing and null values as zeros in sums</label></div>'
                 + '</div>'
                 +'</div>';
             var $editDiv = $(editDiv);    //instantiate the editor
@@ -427,11 +596,11 @@ function ProvenanceController(panelId){
 
             //buttons
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
-                self.graph.plotsEdits.splice($liPlot.index(),1);
+                self.plotsEdits.splice($liPlot.index(),1);
                 $liPlot.remove();
             });
             $editDiv.find("button.plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
-                self.graph.plotsEdits.push($.extend(true,{},oPlot));
+                self.plotsEdits.push($.extend(true,{},oPlot));
                 self.build(plotIndex);
             });
             $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
@@ -449,4 +618,9 @@ function ProvenanceController(panelId){
         }
     };
     return controller;
+}
+
+function hContinuousColor(a, b){
+    return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='+a+', endColorstr='+b+', gradientType=1);filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='+a+', endColorstr='+b+', gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from('+a+'), to('+b+'));background-image: -webkit-linear-gradient(left, '+a+', '+b+');background-image: -moz-linear-gradient(left, '+a+', '+b+');background-image:  -o-linear-gradient(left, '+a+', '+b+';background-image: linear-gradient(to left, '+a+','+b+');"></span>';
+    //return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1); filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from(#7ce3ff), to(#00355b));background-image: -webkit-linear-gradient(left, #7ce3ff, #00355b);background-image:    -moz-linear-gradient(left, #7ce3ff, #00355b);background-image:      -o-linear-gradient(left, #7ce3ff, #00355b;background-image:         linear-gradient(to left, #7ce3ff,#00355b);"></span>';
 }

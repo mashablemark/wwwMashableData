@@ -864,7 +864,6 @@ function createSerieFromPlot(oGraph, plotIndex){
     if(components.length==1){
         calculatedSeries.data = oGraph.assets[components[0].handle].data;
     } else {  //a whole lot of calculating!
-        sortComponentsByOp(components);  //for good measure...
         //1. rearrange series data into single object by date keys
         for(i=0;i<components.length;i++ ){
             sHandle = components[i].handle;
@@ -931,55 +930,85 @@ function createSerieFromPlot(oGraph, plotIndex){
     }
     return calculatedSeries;
 }
-function plotFormula(plot){//returns a formula for eval, with lcase S & U and ucase for M & X objects; false if not period/unit problem
-    var cmp, variable, lastOp=null, lastUnits=null, formula='';
+function plotFormula(plot){//returns a formula object for display and eval
+    var cmp, variable, isDenom = false, inDivision=false, numFormula='', denomFormula='', term='', formula='', patMultiterm = /[+-/*]+/;
     for(var i=0;i<plot.components.length;i++){
         cmp = plot.components[i];
-        variable  = (cmp.handle.match(/MX/))?String.fromCharCode('A'.charCodeAt(0)+i):variable = String.fromCharCode('a'.charCodeAt(0)+i);
+        //variable  = (cmp.handle.match(/MX/))?String.fromCharCode('A'.charCodeAt(0)+i):variable = String.fromCharCode('a'.charCodeAt(0)+i);
+        variable  = String.fromCharCode('A'.charCodeAt(0)+i);
+        if(!isDenom && cmp.options.dn && cmp.options.dn=='d'){ //first denom component causes all following components forced to denom even if their flag is nto set
+            if(inDivision){
+                inDivision = false;
+                if(patMultiterm.test(term)) term = '(' + term + ')';
+                formula += term;
+            }
+            numFormula = formula;
+            formula = '';
+            isDenom = true;
+        }
         if(formula.length==0){
             switch(cmp.options.op){
                 case '/':
-                    formula = (isNaN(cmp.k)||cmp.k==1)?'1/' + variable:'1/('+cmp.k.toString()+'*' + variable + ')';
+                    inDivision = true;
+                    term = subTerm();
+                    formula = '1/';
                     break;
                 case '-':
-                    formula = (isNaN(cmp.k)||cmp.k==1)?'-' + variable:'-('+cmp.k.toString()+')*' + variable;
+                    formula = '-'+subTerm();
                     break;
                 case '+':
                 case '*':
                 default:
-                    formula = (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+')*' + variable;
+                    formula = subTerm();
             }
         } else {
             switch(cmp.options.op){
                 case "+":
-                    if(lastOp!='+') return false;  //unordered!
-                    formula += cmp.options.op + (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+')*' + variable;
-                    break;
                 case '-':
-                    if(lastOp!='+'&&lastOp!='-') return false;  //unordered!
-                    formula += cmp.options.op + (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+')*' + variable;
+                    if(inDivision){
+                        inDivision = false;
+                        if(patMultiterm.test(term)) term = '(' + term + ')';
+                        formula += (formula==''?'1/':'/') + term + ' ' + cmp.options.op + ' ' + subTerm();
+                    } else {
+                        formula += cmp.options.op
+                    }
                     break;
                 case '*':
-                    if(lastOp=='/') return false;  //unordered!
-                    if((lastOp=='+'&&lastOp!='-')&&i>1){
-                        formula = '('+formula+')' + cmp.options.op + (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+'*' + variable + ')';
+                    if(inDivision){
+                        term += '*' + subTerm();
                     } else {
-                        formula += cmp.options.op + (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+'*' + variable + ')';
+                        formula += '*' + subTerm();
                     }
                     break;
                 case '/':
-                    if((lastOp=='+'&&lastOp!='-')&&i>1){
-                        formula = '('+formula+')' + cmp.options.op + (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+'*' + variable + ')';
+                    if(inDivision){
+                        term += '*' + subTerm();
                     } else {
-                        formula += cmp.options.op + (isNaN(cmp.k)||cmp.k==1)?variable:'('+cmp.k.toString()+'*' + variable + ')';
+                        inDivision = true;
+                        formula += "/";
+                        term = subTerm();
                     }
             }
-
         }
-        lastOp = cmp.options.op;
     }
-    return formula;
+    if(inDivision){
+        inDivision = false;
+        if(patMultiterm.test(term)) term = '(' + term + ')';
+        formula += term;
+    }
+    if(isDenom){
+        denomFormula = formula
+    } else {
+        numFormula = formula;
+    }
+    formula = (numFormula==''?1:numFormula) + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
+    return {
+        formula: formula,
+        denomFormula: denomFormula,
+        numFormula: numFormula
+    };
 
+    function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
 }
 
 function makeDataGrid(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
@@ -2533,7 +2562,7 @@ function plotUnits(graph, plot, forceCalculated){
             //TODO: nominator / denominator cancellations & user formula
             if(c==0 ||(comp.options.op=='*' ||comp.options.op=='/')){
                 if(c>0) plot.options.calcUnits +=' ';
-                seriesUnits = (typeof(comp.options.userUnits)!="undefined")?comp.options.userUnits:graph.graph.assets[sHandle].units;
+                seriesUnits = (typeof(comp.options.userUnits)!="undefined")?comp.options.userUnits:graph.assets[sHandle].units;
                 if(comp.options.op=='/'){
                     plot.options.calcUnits+='per ' + seriesUnits;
                 } else {
