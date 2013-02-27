@@ -16,7 +16,7 @@ function ProvenanceController(panelId){
         },
         graph: oPanelGraphs[panelId],
         $prov: $('#'+panelId + ' .provenance'),
-        build:  function build(plotIndex){  //redo entire panel is plotIndex omitted
+        build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
             var self = this;
             var i, j, plotList, mapList, plot, okcancel;
             self.$prov.show(); //compensation for margins @ 15px + borders
@@ -147,6 +147,7 @@ function ProvenanceController(panelId){
                             }
                         },
                         update: function(event, ui){  //only within!
+                            if(ui.sender==null) return;
                             var movedPointset = self.pointsetEdits.splice(self.dragging.plotIndex,1);
                             self.pointsetEdits.splice(ui.item.index(),0,movedPointset);
                         }
@@ -195,35 +196,54 @@ function ProvenanceController(panelId){
                         self.showComponentEditor(this);
                     });
                 });
+
+            self.$prov.find(".edit-pointset")
+                .button({icons: {secondary: 'ui-icon-pencil'}})
+                .off("click")
+                .click(function(){
+                    var $liPlot = $(this).closest("li");
+                    self.showPointSetEditor($liPlot);
+                    $liPlot.find("li.component").each(function(){
+                        self.showComponentEditor(this);
+                    });
+                });
         },
         plotHTML:  function plotHTML(i){
             var self = this;
             var graph = self.graph;
-            var plotColor, plotList = '', plot = self.plotsEdits[i], componentHandle;
+            var plotColor, plotList = '', plot = self.plotsEdits[i];
             if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
             if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
             plotColor = plot.options.lineColor || (oHighCharts[panelId].get('P'+i)?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
             plotList += '<li class="plot" data="P' + i + '">'
-                + '<button class="edit-plot">configure</button>'
-                + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
-                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in ' + plotUnits(graph, plot) + '</div>'
-                + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>';
-            var numer='', denom='', cmp, isDenom=false;
+            + '<button class="edit-plot">configure</button>'
+            + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
+            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in ' + plotUnits(graph, plot) + '</div>'
+            + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>'
+            + self.componentsHTML(plot)
+            + '</li>';
+            return plotList;
+        },
+        componentsHTML: function(plot){
+            var plotList, type='plot', numer='', denom='', compHTML, isDenom=false, graph = this.graph;
             for(var j=0;j< plot.components.length;j++){
-                //inner COMPONENT SERIES loop
-                componentHandle = plot.components[j].handle;
+                //inner COMPONENT loop
+                comp = plot.components[j];
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
-
-                cmp = '<li class="component ui-state-default" data="P'+ i + '-C' + j + '">'
-                    //             + String.fromCharCode('a'.charCodeAt(0)+j) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
+                if(comp.handle[0]=='M')type='map';
+                if(comp.handle[0]=='X')type='point';
+                compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">'
                     + '<span class="plot-op ui-icon ' + op.class[plot.components[j].options.op] + '">operation</span> '
-                    + graph.assets[componentHandle].name + '</li>';
-                if(plot.components[j].options.dn=='d'||isDenom){isDenom= true; denom += cmp} else {numer += cmp}
+                    + (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:''))
+                    + graph.assets[comp.handle].name
+                    + ' ('+period.name[graph.assets[comp.handle].period]+') in '
+                    + graph.assets[comp.handle].units
+                    + '</li>';
+                if(plot.components[j].options.dn=='d'||isDenom){isDenom= true; denom += compHTML} else {numer += compHTML}
             }
-            plotList += '<ol class="components plot-comp numer">'+(numer||self.HTML.nLanding) + '</ol>';
+            plotList += '<ol class="components '+type+'-comp numer">'+(numer||this.HTML.nLanding) + '</ol>';
             plotList += '<hr>';
-            plotList += '<ol class="components plot-comp denom">'+(denom||self.HTML.dLanding) + '</ol>';
-            plotList += '</li>';
+            plotList += '<ol class="components '+type+'-comp denom">'+(denom||this.HTML.dLanding) + '</ol>';
             return plotList;
         },
         plotPeriodicity:   function plotPeriodicity(plot){
@@ -242,19 +262,19 @@ function ProvenanceController(panelId){
         },
         provenanceOfMap:  function provenanceOfMap(){
             var self = this;
-            var provHTML = "", c, p, plt, componentHandle, isSet;
+            var provHTML = '', ps, pointset;
             if(self.graph.map&&(self.graph.mapsets||self.graph.pointsets)){ //map!!
                 provHTML = '<div class="map-prov"><h3>Map of '+ self.graph.map +'</h3>';
                 if(self.graph.mapsets){
                     provHTML += '<div class="mapset">'
-                        + '<button class="edit-mapset right">configure</button>'
-                        + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
-                        + hContinuousColor(self.graph.mapsets.options.minColor||'#C8EEFF', self.graph.mapsets.options.maxColor||'#0071A4')
-                        //+ '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
-                        //+ '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.maxColor||'#0071A4') +';"></div>'
-                        + '<div class="plot-info" style="display:inline-block;">'
-                        + '<span class="plot-title">' + plotName(self.graph, self.graph.mapsets)+ '</span> (' + self.plotPeriodicity(self.graph.mapsets)+') in <span class="plot-units">' + (self.graph.mapsets.options.units||plotUnits(self.graph, self.graph.mapsets)) +'</span></div>'
-                        + '<span class="plot-formula">= ' + plotFormula(self.graph.mapsets).formula + '</span><br>';
+                    + '<button class="edit-mapset right">configure</button>'
+                    + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
+                    + hContinuousColor(self.graph.mapsets.options.minColor||'#C8EEFF', self.graph.mapsets.options.maxColor||'#0071A4')
+                    //+ '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
+                    //+ '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.maxColor||'#0071A4') +';"></div>'
+                    + '<div class="plot-info" style="display:inline-block;">'
+                    + '<span class="plot-title">' + plotName(self.graph, self.graph.mapsets)+ '</span> (' + self.plotPeriodicity(self.graph.mapsets)+') in <span class="plot-units">' + (self.graph.mapsets.options.units||plotUnits(self.graph, self.graph.mapsets)) +'</span></div>'
+                    + '<span class="plot-formula">= ' + plotFormula(self.graph.mapsets).formula + '</span><br>';
 
 
                     /*  The TYPE AND MERGE MODE WILL BE AVAILABLE IN CONFIGURATION MODE, NOT THE INTIAL VIEW
@@ -274,36 +294,19 @@ function ProvenanceController(panelId){
                         + '<input type="radio" name="'+ panelId +'-merge-mode" id="'+ panelId +'-merge-mode-sumnsumd" value="sumnsumd" '+ ((self.graph.mapsets.options.merge || self.graph.mapsets.options.merge!='simplesum')?'checked':'') +' /><label for="'+ panelId +'-merge-mode-sumnsumd">sum numerators / sum denominators</label>'
                         + '<input type="radio" name="'+ panelId +'-merge-mode" id="'+ panelId +'-merge-mode-sum" value="simplesum" '+ ((!self.graph.mapsets.options.merge || self.graph.mapsets.options.merge=='simplesum')?'checked':'') +' /><label for="'+ panelId +'-merge-mode-sum">sum values</label>'
                     + '</div>'*/
-                    provHTML += '<ol class="map-comp components">';
-                    for(c=0;c<self.graph.mapsets.components.length;c++){
-                        componentHandle = self.graph.mapsets.components[c].handle;
-                        isSet = componentHandle.substr(0,1)=='M';
-                        provHTML += '<li class="component" data="'+ componentHandle + '">'
-                            //+ String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                            + '<span class="plot-op ui-icon ' + op.class[self.graph.mapsets.components[c].options.op||'+'] + '">operation</span> '
-                            + (isSet?iconsHMTL.mapset:'') + '<span class="comp-name">' + self.graph.assets[componentHandle].name + '</span></li>';
-                    }
-                    provHTML += '</ol>'
-                        + '</div>'; //close mapset
+                    provHTML += self.componentsHTML(self.graph.mapsets)
+                    + '</div>'; //close mapset
                 }
                 if(self.graph.pointsets){
                     provHTML += '<div class="pointsets">Pointsets (location markers)<ol class="pointsets">';
-                    for(p=0;p<self.graph.pointsets.length;p++){
-                        pntset = self.graph.pointsets[p];
+                    for(ps=0;ps<self.graph.pointsets.length;ps++){
+                        pointset = self.graph.pointsets[ps];
                         provHTML += '<li class="pointset ui-state-highlight">'
-                            + '<button class="edit-pointset" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></button>'
-                            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                            + plotName(self.graph, pntset)+'</span> in ' + (pntset.options.units||plotUnits(self.graph, pntset)) + ' ' + (pntset.options.period||self.plotPeriodicity(pntset))+'</div>'
-                            + '<ol class="point-comp components">';
-                        for(c=0;c<pntset.components.length;c++){
-                            componentHandle = pntset.components[c].handle;
-                            isSet = (/[XM]/).test(componentHandle);
-                            provHTML += '<li class="component ui-state-default" data="'+ componentHandle  + '">'
-                                + String.fromCharCode((isSet?'A':'a').charCodeAt(0)+c) + ' '  //all series use lcase variables; ucase indicate a vector compnent such as a pointset or mapset
-                                + '<span class="plot-op ui-icon ' + op.class[pntset.components[c].options.op||'+'] + '">operation</span> '
-                                + self.graph.assets[componentHandle].name + '</li>';
-                        }
-                        provHTML += '</ol></li>';
+                        + '<button class="edit-pointset right">edit</button>'
+                        + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+                        + plotName(self.graph, pointset)+'</span> in ' + (pointset.options.units||plotUnits(self.graph, pointset)) + ' ' + (pointset.options.period||self.plotPeriodicity(pointset))+'</div>'
+                        + self.componentsHTML(self.graph.pointsets[ps])
+                        + '</li>';
                     }
                     provHTML += '</ol></div>';
                 }
@@ -483,7 +486,6 @@ function ProvenanceController(panelId){
                     +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'">/</label>'
                     +   '</div>');
             //$editDiv.find("li[data='"+component.options.op+"']").attr('checked','checked');
-            console.info($liComp.find("div.op").find("input[data='"+component.options.op+"']")  );
             $liComp.find("div.op").find("input[data='"+component.options.op+"']").attr('checked','checked')
                 .end()
                 .buttonset()

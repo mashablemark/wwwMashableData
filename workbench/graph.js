@@ -970,7 +970,7 @@ function plotFormula(plot){//returns a formula object for display and eval
                         if(patMultiterm.test(term)) term = '(' + term + ')';
                         formula += (formula==''?'1/':'/') + term + ' ' + cmp.options.op + ' ' + subTerm();
                     } else {
-                        formula += cmp.options.op
+                        formula += cmp.options.op + subTerm();
                     }
                     break;
                 case '*':
@@ -1447,6 +1447,7 @@ function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match an
         if(mapData[mdDate]) return mapData[mdDate];
         mdDate = mdDate.substr(0,mdDate.length-2);
     }
+    return {};
 }
 
 function downloadMap(panelID, format){
@@ -2124,16 +2125,18 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     for(i=0;i<calculatedMapData.dates.length;i++){
                         if(calculatedMapData.markerData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code]);
                     }
-                    var y = containingDateData[code];
-                    label.html(
-                        '<span style="display: inline-block;"><b>'+label.html()+':</b><br />'
-                            + Highcharts.numberFormat(containingDateData[code], (parseInt(containingDateData[code])==containingDateData[code])?0:2)
-                            + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
-                            + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
-                    ).css("z-Index",400);
-                    var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
-                    sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
-                    $('.inlinesparkline').sparkline(vals, sparkOptions);
+                    if(containingDateData && containingDateData[code]){
+                        var y = containingDateData[code];
+                        label.html(
+                            '<span style="display: inline-block;"><b>'+label.html()+':</b><br />'
+                                + Highcharts.numberFormat(containingDateData[code], (parseInt(containingDateData[code])==containingDateData[code])?0:2)
+                                + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
+                                + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
+                        ).css("z-Index",400);
+                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
+                        sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                        $('.inlinesparkline').sparkline(vals, sparkOptions);
+                    }
                 },
                 onRegionSelected: function(e, code, isSelected){
                     setMergablity();
