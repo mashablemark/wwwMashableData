@@ -414,7 +414,8 @@ div.graph_control_panel{
     position: relative;
     z-index: 1;
 }
-ol.plots li.plot{
+ol.plots li.plot, ol.pointsets li.pointset{
+    /*list-style-type: none;*/
     margin: 5px 0;
     padding: 5px;
     border: 1px solid #fcefa1;
@@ -659,13 +660,21 @@ button.config-apply{
 }
 button.config-cancel{
     float:right;
-    margin-right: 50px;
+    margin-right: 10px;
 }
-div.mapset, div.pointsets{
+h4{
+    margin: 0 0 20px 0;
+}
+div.mapset{
     margin: 10px;
     padding: 5px;
     border: 1px solid #fcefa1;
     background: #fbf9ee url(images/ui-bg_glass_55_fbf9ee_1x400.png) 50% 50% repeat-x;
+}div.pointsets{
+    margin: 10px;
+    padding: 5px;
+    border: 1px solid #808080;
+    background: #FFFFFF;
 }
 .prov-float-btn{
     float: right;
@@ -693,6 +702,10 @@ ol.numer li{
 }
 ol.denom li{
     border-color: green;
+}
+span.landing{
+    font-size: 10px;
+    margin-left: 200px;
 }
 li.component-landing{
     list-style: none;

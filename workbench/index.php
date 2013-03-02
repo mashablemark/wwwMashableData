@@ -67,7 +67,7 @@
 <div id="fb-root"></div>
 <div id="wrapper" class="wrapper">
     <div id="title-bar" class="title-bar" style="background-color:#000;border:0px;">
-        <a href="/" target="_blank"><img height="32px" style="margin:0 10px 0 20px;" src="/global/images/logo/md_logo_sm.png"></a>
+        <a href="/" target="_blank"><img height="32px" width="132px" style="margin:0 10px 0 20px;" src="/global/images/logo/md_logo_sm.png"></a>
         <!--span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Workbench</span-->
         <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
             <!--PICKER TABS-->

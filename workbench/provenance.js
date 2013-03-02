@@ -11,8 +11,8 @@ var SigmaCode = '&#931;';
 function ProvenanceController(panelId){
     var controller = {
         HTML: {
-            nLanding: '<li class="component-landing">drag numerator series here</li>',
-            dLanding: '<li class="component-landing">drag denominator series here</li>'
+            nLanding: '<li class="component-landing"><span class="landing">drag numerator series here</span></li>',
+            dLanding: '<li class="component-landing"><span class="landing">drag denominator series here</span></li>'
         },
         graph: oPanelGraphs[panelId],
         $prov: $('#'+panelId + ' .provenance'),
@@ -20,7 +20,7 @@ function ProvenanceController(panelId){
             var self = this;
             var i, j, plotList, mapList, plot, okcancel;
             self.$prov.show(); //compensation for margins @ 15px + borders
-            okcancel = '<button class="config-cancel">cancel</button> <button class="config-apply">apply</button><br>';
+            okcancel = '<button class="config-cancel">cancel edits</button>';
             plotList = '';
             if(typeof plotIndex != 'undefined'){
                 self.$prov.find('ol.plots').append( self.plotHTML(plotIndex) );
@@ -29,6 +29,9 @@ function ProvenanceController(panelId){
                 self.annoEdits = $.extend(true, [], self.graph.annotations);
                 self.mapsetEdits = $.extend(true, [], self.graph.mapsets);
                 self.pointsetsEdits = $.extend(true, [], self.graph.pointsets);
+                self.mapconfigEdits= $.extend(true, [], self.graph.mapconfig);
+
+
                 if(self.graph.plots){
                     plotList = '<div class="chart-plots"><H4>Chart</H4><ol class="plots">';
 
@@ -42,50 +45,6 @@ function ProvenanceController(panelId){
                     +  '<ol class="blank-plot landing components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.</i></li></ol></div>';
                 mapList = self.provenanceOfMap();
                 self.$prov.html(okcancel + plotList + mapList);
-                //sortable
-                self.$prov.find(".components")
-                    .sortable({
-                        containment: self.$prov.get(0),
-                        connectWith: ".components",
-                        cancel: ".component-landing",
-                        axis: "y",
-                        delay: 150,   //in ms to prevent accidentally drags
-                        start: function(event, ui){
-                            var plotIndex, compIndex, type, obj;
-                            //determinate source type
-                            if(ui.item.parent().hasClass("map-comp")){type="map"; obj = self.mapsetEdits}
-                            if(ui.item.parent().hasClass("plot-comp")){type="plot"; obj = self.plotsEdits[ui.item.closest("li.plot").index()]}
-                            if(ui.item.parent().hasClass("point-comp")){type="point"; obj = self.pointsetsEdits[ui.item.closest("li.plot").index()]}
-                            //determine source model obj
-                            if(type=='plot'||type=='point'){
-                                plotIndex = ui.item.closest("li.plot").index();
-                            } else {
-                                plotIndex = null;
-                            }
-                            //determine comp index
-                            if(ui.item.parent().hasClass("numer")){
-                                compIndex = ui.item.index();
-                            } else {
-                                var numerLength = ui.item.closest("ol.components").parent().find("ol.numer li.component").length;
-                                compIndex = ui.item.index() + numerLength;
-                            }
-                             /*else {  //THIS WILL NEVER HAPPEN:  MOVE TO PLOTS START
-                                if(ui.item.hasClass("plot"))type="plot";
-                                if(ui.item.hasClass("pointset"))type="point";
-                                compIndex = null;
-                                plotIndex = ui.item.closest("li.plot").index();
-                            }*/
-                            self.dragging = {
-                                type: type,
-                                plotIndex: plotIndex,
-                                compIndex: compIndex,
-                                obj: obj,
-                                $ol: ui.item.parent()
-                            }
-                        },
-                        update: function(event, ui){ self.componentMoved(ui)}
-                    })
-                    .disableSelection();
                 self.$prov.find('.map-mode').buttonset()
                     .find('input').click(function(){
                         self.graph.mapsets.options.mode = $(this).val();
@@ -100,63 +59,13 @@ function ProvenanceController(panelId){
                         self.graph.mapsets.options.merge = $(this).val();
                     });
                 if(self.graph.mapsets && (!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode=='bubble')) $merge.hide();
-                self.$prov.find(".plots")
-                    .sortable({
-                        axis: "y",
-                        dropOnEmpty: false,
-                        connectWith: ".plots",
-                        start: function(event, ui){
-                            self.dragging = {
-                                type: "plot",
-                                plotIndex: ui.item.index(),
-                                compIndex: null,
-                                $ol: ui.item.parent()
-                            }
-                        },
-                        update: function(event, ui){  //only within!
-                            var i, oldAnnoIndex;
-                            var movedPlot = self.plotsEdits.splice(self.dragging.plotIndex, 1)[0];
-                            self.plotsEdits.splice(ui.item.index(),0,movedPlot);
-                            var shift = (ui.item.index()>self.dragging.plotIndex)?-1:1;
-                            for(i=0;i<self.annoEdits.length;i++){
-                                if(self.annoEdits[i].type=="point"){
-                                    oldAnnoIndex = parseInt(self.annoEdits[i].series.substr(1));
-                                    if(oldAnnoIndex==self.dragging.plotIndex){
-                                        self.annoEdits[i].series = "P" +  ui.item.index();
-                                    } else {
-                                        self.annoEdits[i].series = "P" + (oldAnnoIndex+shift).toString();
-                                    }
-                                }
-                            }
 
-                        }
-                    })
-                    .disableSelection();
-                self.$prov.find(".pointsets")
-                    .sortable({
-                        axis: "y",
-                        dropOnEmpty: false,
-                        connectWith: ".pointsets",
-                        start: function(event, ui){
-                            self.dragging = {
-                                type: "point",
-                                plotIndex: ui.item.index(),
-                                compIndex: null,
-                                $ol: ui.item.parent(),
-                                obj: self.pointsetsEdits[ui.item.index()]
-                            }
-                        },
-                        update: function(event, ui){  //only within!
-                            if(ui.sender==null) return;
-                            var movedPointset = self.pointsetEdits.splice(self.dragging.plotIndex,1);
-                            self.pointsetEdits.splice(ui.item.index(),0,movedPointset);
-                        }
-                    })
-                    .disableSelection();
 
                 //main buttons
-                self.$prov.find("button.config-cancel").button({icons: {secondary: 'ui-icon-closethick'}}).click(function(){
-                    self.provClose(this);
+                self.$prov.find("button.config-cancel")
+                    .button({icons: {secondary: 'ui-icon-closethick'}}).addClass('ui-state-error')
+                    .click(function(){
+                        self.provClose(this);
                 });
                 self.$prov.find("button.config-apply").button({icons: {secondary: 'ui-icon-check'}}).click(function(){
                     self.provOk(this);
@@ -207,6 +116,7 @@ function ProvenanceController(panelId){
                         self.showComponentEditor(this);
                     });
                 });
+            self.sortableOn();
         },
         plotHTML:  function plotHTML(i){
             var self = this;
@@ -225,7 +135,7 @@ function ProvenanceController(panelId){
             return plotList;
         },
         componentsHTML: function(plot){
-            var plotList, type='plot', numer='', denom='', compHTML, isDenom=false, graph = this.graph;
+            var plotList, comp, type='plot', numer='', denom='', compHTML, isDenom=false, graph = this.graph;
             for(var j=0;j< plot.components.length;j++){
                 //inner COMPONENT loop
                 comp = plot.components[j];
@@ -241,9 +151,9 @@ function ProvenanceController(panelId){
                     + '</li>';
                 if(plot.components[j].options.dn=='d'||isDenom){isDenom= true; denom += compHTML} else {numer += compHTML}
             }
-            plotList += '<ol class="components '+type+'-comp numer">'+(numer||this.HTML.nLanding) + '</ol>';
-            plotList += '<hr>';
-            plotList += '<ol class="components '+type+'-comp denom">'+(denom||this.HTML.dLanding) + '</ol>';
+            plotList = '<ol class="components '+type+'-comp numer">'+(numer||this.HTML.nLanding) + '</ol>'
+            + '<hr>'
+            + '<ol class="components '+type+'-comp denom">'+(denom||this.HTML.dLanding) + '</ol>';
             return plotList;
         },
         plotPeriodicity:   function plotPeriodicity(plot){
@@ -266,45 +176,31 @@ function ProvenanceController(panelId){
             if(self.graph.map&&(self.graph.mapsets||self.graph.pointsets)){ //map!!
                 provHTML = '<div class="map-prov"><h3>Map of '+ self.graph.map +'</h3>';
                 if(self.graph.mapsets){
+                    var mapset = self.graph.mapsets;
                     provHTML += '<div class="mapset">'
-                    + '<button class="edit-mapset right">configure</button>'
                     + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
-                    + hContinuousColor(self.graph.mapsets.options.minColor||'#C8EEFF', self.graph.mapsets.options.maxColor||'#0071A4')
+                    + '<button class="edit-mapset right">configure</button>'
+                    + 'type: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined regions')
+                    + hContinuousColor(mapset.options.minColor||'#C8EEFF', mapset.options.maxColor||'#0071A4')
+                    + 'type: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined region')
                     //+ '<div class="color min" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.minColor||'#C8EEFF') +';"></div> to '
                     //+ '<div class="color max" style="padding:0;margin:0;border: thin black solid; height: 10px; width: 10px;display:inline-block;background-color:'+ (self.graph.mapsets.options.maxColor||'#0071A4') +';"></div>'
                     + '<div class="plot-info" style="display:inline-block;">'
-                    + '<span class="plot-title">' + plotName(self.graph, self.graph.mapsets)+ '</span> (' + self.plotPeriodicity(self.graph.mapsets)+') in <span class="plot-units">' + (self.graph.mapsets.options.units||plotUnits(self.graph, self.graph.mapsets)) +'</span></div>'
-                    + '<span class="plot-formula">= ' + plotFormula(self.graph.mapsets).formula + '</span><br>';
-
-
-                    /*  The TYPE AND MERGE MODE WILL BE AVAILABLE IN CONFIGURATION MODE, NOT THE INTIAL VIEW
-                        + 'type: ' + ((!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode!='bubble')?'heat map':'bubbles with user defined region');
-                    if(self.graph.mapsets.options.mode || self.graph.mapsets.options.mode=='bubble') {
-                        if(self.graph.mapsets.options.merge && self.graph.mapsets.options.merge=='sumnsumd'){
-                            provHTML += '<span class="merge-formula">merge formula = &#931; numerator / &#931; denominator</span>';
-                        } else {
-                            provHTML += '<span class="merge-formula">&#931; (numerator / denominator)</span>';
-                        }
-                    }*/
-                    /*+ '<div class="map-mode">'
-                        + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="choropleth" '+ ((!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">heat map</label>'
-                        + '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" '+ ((self.graph.mapsets.options.mode && self.graph.mapsets.options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubble (mergable into regional sums)</label>'
-                        + '</div>'
-                        + '<div class="merge-mode">'
-                        + '<input type="radio" name="'+ panelId +'-merge-mode" id="'+ panelId +'-merge-mode-sumnsumd" value="sumnsumd" '+ ((self.graph.mapsets.options.merge || self.graph.mapsets.options.merge!='simplesum')?'checked':'') +' /><label for="'+ panelId +'-merge-mode-sumnsumd">sum numerators / sum denominators</label>'
-                        + '<input type="radio" name="'+ panelId +'-merge-mode" id="'+ panelId +'-merge-mode-sum" value="simplesum" '+ ((!self.graph.mapsets.options.merge || self.graph.mapsets.options.merge=='simplesum')?'checked':'') +' /><label for="'+ panelId +'-merge-mode-sum">sum values</label>'
-                    + '</div>'*/
-                    provHTML += self.componentsHTML(self.graph.mapsets)
+                    + '<span class="plot-title">' + plotName(self.graph, mapset)+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + (mapset.options.units||plotUnits(self.graph, mapset)) +'</span></div>'
+                    + '<span class="plot-formula">= ' + plotFormula(mapset).formula + '</span><br>'
+                    + self.componentsHTML(mapset)
                     + '</div>'; //close mapset
                 }
                 if(self.graph.pointsets){
-                    provHTML += '<div class="pointsets">Pointsets (location markers)<ol class="pointsets">';
+                    provHTML += '<div class="pointsets"><h4>'+iconsHMTL.pointset+' mapped set of markers (defined latitude and longitude)</h4>'
+                        + '<ol class="pointsets">';
                     for(ps=0;ps<self.graph.pointsets.length;ps++){
                         pointset = self.graph.pointsets[ps];
                         provHTML += '<li class="pointset ui-state-highlight">'
-                        + '<button class="edit-pointset right">edit</button>'
-                        + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                        + plotName(self.graph, pointset)+'</span> in ' + (pointset.options.units||plotUnits(self.graph, pointset)) + ' ' + (pointset.options.period||self.plotPeriodicity(pointset))+'</div>'
+                        + '<button class="edit-pointset right">configure</button>'
+                        + '<div class="plot-info" style="display:inline-block;">'
+                        + '<span class="plot-title">' + plotName(self.graph, pointset)+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + (pointset.options.units||plotUnits(self.graph, pointset)) + '</span>'
+                        + '<span class="plot-formula">= ' + plotFormula(pointset).formula + '</span></div>'
                         + self.componentsHTML(self.graph.pointsets[ps])
                         + '</li>';
                     }
@@ -313,6 +209,114 @@ function ProvenanceController(panelId){
                 provHTML += '</div>'
             }
             return provHTML;
+        },
+        sortableOff: function(){
+            var self = this;
+            self.$prov.find(".plots").sortable('disable').enableSelection();
+            self.$prov.find(".components").sortable('disable').enableSelection();
+            self.$prov.find(".pointsets").sortable('disable').enableSelection();
+        },
+        sortableOn: function(){
+            var self = this;
+            self.$prov.find(".components")
+                .sortable({
+                    containment: self.$prov.get(0),
+                    connectWith: ".components",
+                    disabled: false,
+                    cancel: ".component-landing",
+                    axis: "y",
+                    delay: 150,   //in ms to prevent accidentally drags
+                    start: function(event, ui){
+                        var plotIndex, compIndex, type, obj;
+                        //determinate source type
+                        if(ui.item.parent().hasClass("map-comp")){type="map"; obj = self.mapsetEdits}
+                        if(ui.item.parent().hasClass("plot-comp")){type="plot"; obj = self.plotsEdits[ui.item.closest("li.plot").index()]}
+                        if(ui.item.parent().hasClass("point-comp")){type="point"; obj = self.pointsetsEdits[ui.item.closest("li.plot").index()]}
+                        //determine source model obj
+                        if(type=='plot'||type=='point'){
+                            plotIndex = ui.item.closest("li.plot").index();
+                        } else {
+                            plotIndex = null;
+                        }
+                        //determine comp index
+                        if(ui.item.parent().hasClass("numer")){
+                            compIndex = ui.item.index();
+                        } else {
+                            var numerLength = ui.item.closest("ol.components").parent().find("ol.numer li.component").length;
+                            compIndex = ui.item.index() + numerLength;
+                        }
+                        /*else {  //THIS WILL NEVER HAPPEN:  MOVE TO PLOTS START
+                         if(ui.item.hasClass("plot"))type="plot";
+                         if(ui.item.hasClass("pointset"))type="point";
+                         compIndex = null;
+                         plotIndex = ui.item.closest("li.plot").index();
+                         }*/
+                        self.dragging = {
+                            type: type,
+                            plotIndex: plotIndex,
+                            compIndex: compIndex,
+                            obj: obj,
+                            $ol: ui.item.parent()
+                        }
+                    },
+                    update: function(event, ui){ self.componentMoved(ui)}
+                })
+                .disableSelection();
+            self.$prov.find(".plots")
+                .sortable({
+                    axis: "y",
+                    dropOnEmpty: false,
+                    connectWith: ".plots",
+                    disabled: false,
+                    start: function(event, ui){
+                        self.dragging = {
+                            type: "plot",
+                            plotIndex: ui.item.index(),
+                            compIndex: null,
+                            $ol: ui.item.parent()
+                        }
+                    },
+                    update: function(event, ui){  //only within!
+                        var i, oldAnnoIndex;
+                        var movedPlot = self.plotsEdits.splice(self.dragging.plotIndex, 1)[0];
+                        self.plotsEdits.splice(ui.item.index(),0,movedPlot);
+                        var shift = (ui.item.index()>self.dragging.plotIndex)?-1:1;
+                        for(i=0;i<self.annoEdits.length;i++){
+                            if(self.annoEdits[i].type=="point"){
+                                oldAnnoIndex = parseInt(self.annoEdits[i].series.substr(1));
+                                if(oldAnnoIndex==self.dragging.plotIndex){
+                                    self.annoEdits[i].series = "P" +  ui.item.index();
+                                } else {
+                                    self.annoEdits[i].series = "P" + (oldAnnoIndex+shift).toString();
+                                }
+                            }
+                        }
+
+                    }
+                })
+                .disableSelection();
+            self.$prov.find(".pointsets")
+                .sortable({
+                    axis: "y",
+                    dropOnEmpty: false,
+                    connectWith: ".pointsets",
+                    disabled: false,
+                    start: function(event, ui){
+                        self.dragging = {
+                            type: "point",
+                            plotIndex: ui.item.index(),
+                            compIndex: null,
+                            $ol: ui.item.parent(),
+                            obj: self.pointsetsEdits[ui.item.index()]
+                        }
+                    },
+                    update: function(event, ui){  //only within!
+                        if(ui.sender==null) return;
+                        var movedPointset = self.pointsetEdits.splice(self.dragging.plotIndex,1);
+                        self.pointsetEdits.splice(ui.item.index(),0,movedPointset);
+                    }
+                })
+                .disableSelection();
         },
         componentMoved:  function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
             //first find out whether a sort or a move, and whether that move empty or created a new component.
@@ -397,7 +401,7 @@ function ProvenanceController(panelId){
                 ui.item.closest('ol').attr("start", numerLength+1);
             }
             if(newPlot){
-                var toPlotObject = {options: {}, components: [cmp]};
+                toPlotObject = {options: {}, components: [cmp]};
                 self.plotsEdits.push(toPlotObject);
                 self.$prov.find('ol.plots').append(self.plotHTML(self.plotsEdits.length-1));
             } else {
@@ -430,8 +434,13 @@ function ProvenanceController(panelId){
                     self.$prov.find("ol.pointsets li.plot")[self.dragging.plotIndex].remove();
                 }
                 //not possible to kill a mapset by dragging off its mapset components
+            } else { //recalc the formula of the sender
+                self.dragging.$ol.parent().find('span.plot-formula').html('= '+plotFormula(self.dragging.obj).formula);
             }
-            if(newPlot) ui.item.remove();  //the spare component in the new plot landing zone
+            if(newPlot) {
+                ui.item.remove();  //the spare component in the new plot landing zone
+                self.sortableOn();
+            }
 
         },
         provOk: function provOk(btn){//save change to graph object and rechart
@@ -439,10 +448,15 @@ function ProvenanceController(panelId){
             var self = this;
             self.graph.plots = self.plotsEdits;
             self.graph.annotations = self.annoEdits;
+            self.graph.mapsets = self.mapsetEdits;
+            self.graph.pointsets = self.pointsetsEdits;
+            self.graph.mapconfig = self.mapconfigEdits;
+
             delete self.plotsEdits;
             delete self.annoEdits;
             delete self.mapsetEdits;
             delete self.pointsetsEdits;
+            delete self.mapconfigEdits;
             var $panel= $(btn).closest("div.graph-panel");
             this.provClose(btn);
             $panel.find(".graph-type").change();  //trigger redaw
@@ -472,7 +486,7 @@ function ProvenanceController(panelId){
             var component = components[iComp];
             //$liComp.find(".edit-comp").hide();
             var editDiv =  '<button class="comp-copy prov-float-btn">make copy</button>'
-                + '<button class="comp-delete prov-float-btn" style="background-color: #FF0000;">remove series</button>'
+                + '<button class="comp-delete prov-float-btn">remove series</button>'
                 + '<div class="comp-editor" style="display: none;">'
                 +   '<span class="edit-label">units:</span> '
                 +   '<span class="edit-label">frequency:</span>'
@@ -525,6 +539,7 @@ function ProvenanceController(panelId){
         },
         showPlotEditor:  function showPlotEditor(liPlot){
             var self = this;
+            self.sortableOff();
             var $liPlot = $(liPlot);
             var oPlot = self.plotsEdits[$liPlot.index()];
             var plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
@@ -541,7 +556,7 @@ function ProvenanceController(panelId){
             var editDiv = '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
                 + '<button class="plot-copy prov-float-btn">make copy</button>'
-                + '<button class="plot-delete prov-float-btn" style="background-color: #FF0000;">delete plot</button>'
+                + '<button class="plot-delete prov-float-btn">delete plot</button>'
                 + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
                 +   '<div class="edit-block"><input class="plot-color" type="text" value="' + (oPlot.options.lineColor|| plotColor) + '" /></div>' + selectThickness + selectStyle
                 + '</fieldset>'
@@ -560,7 +575,7 @@ function ProvenanceController(panelId){
                 + '</div>'
                 +'</div>';
             var $editDiv = $(editDiv);    //instantiate the editor
-            $liPlot.closest("div.provenance").find("button.plot-close, button.comp-close").click();  //close any open editors
+            self.$prov.find("button.plot-close, button.comp-close").click();  //close any open editors
             //text boxes
             $editDiv.find("input.plot-name").change(function(){
                 if(plotName(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.name = $(this).val(); else delete oPlot.options.name;
@@ -615,8 +630,153 @@ function ProvenanceController(panelId){
                 });
                 $liPlot.find(".comp-editor").slideUp("default",function(){$(this).remove()});
                 $liPlot.find(".edit-plot").show();
+                self.sortableOn();
             });
             $editDiv.prependTo($liPlot).slideDown();
+        },
+        showPointSetEditor: function($liPointSet){
+
+        },
+        showMapSetEditor: function($liMapSet){
+            var self = this, mapset = this.mapsetEdits, options = this.mapsetEdits.options;
+
+            self.$prov.find("button.plot-close, button.comp-close").click();  //close any open editors
+            //The TYPE AND MERGE MODE WILL BE AVAILABLE IN CONFIGURATION MODE, NOT THE INTIAL VIEW
+            var editDiv = '<div class="plot-editor" style="display: none;">';
+            if(options.mode=='bubble') {
+                editDiv += '<span class="merge-formula">merge formula = &#931; numerator / &#931; denominator</span>';
+            }
+            editDiv += '<button class="plot-close prov-float-btn">close</button>'
+                +   '<button class="plot-delete prov-float-btn">delete plot</button>'
+                +   '<div class="edit-block"><span style="margin:0 10px">name:</span><input class="plot-name" type="text" value="' + plotName(self.graph, mapset) + '" /></div>'
+                +   'Show vales as: '
+                +   '<div class="map-mode">'
+                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="fill" '+ ((!self.graph.mapsets.options.mode || self.graph.mapsets.options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">fill (heat map)</label>'
+                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" '+ ((self.graph.mapsets.options.mode && self.graph.mapsets.options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
+                +   '</div><span class="merge-formula">merge formula = &#931; numerator / &#931; denominator</span>'
+                +   '<fieldset class="edit-color" style="padding: 0 5px;display:inline-block;"><legend>legend</legend>'
+                + self.legendEditor(options, 'M')
+                +   '</fieldset>'
+                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + plotUnits(self.graph, mapset) + '" /></div><br>'
+                +   '<div class="edit-block"><div class="edit-math">'
+                +       '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'" /><label for="required-'+panelId+'">all series values required</label>'
+                +       '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="missingAsZero-'+panelId+'">treat missing values as zeros</label>'
+                +       '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" /><label for="nullsMissingAsZero-'+panelId+'">treat missing and null values as zeros</label></div>'
+                +   '</div>'
+                + '</div>';
+
+
+
+
+        },
+        legendEditor: function(options, type){
+            var i, self = this;
+            var legendHTML = '<div class="edit-block">';
+            if(type=='X'){
+                legendHTML +=  '<span class="edit-label attribute">Series data value will change </span><div class="attribute" style="display: none;">'
+                    +   '<input type="radio" id="attribute-radius-'+panelId+'" value="radius"/><label for="attribute-radius-'+panelId+'">radius of marker</label>'
+                    +   '<input type="radio" id="attribute-fill-'+panelId+'" value="fill" /><label for="attribute-fill-'+panelId+'">fill color of marker</label>'
+                    + '</div>'
+                    + '<div class="edit-block radius">'
+                    +   '<span class="edit-label radius"></span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||20:options.maxRadius||20)+'" />'
+                    + '</div>'
+                    + '<div class="edit-block color">'
+                    +   ' <input class="markerColor color-picker" type="text" value="' + (options.color||'#0071A4') + '" />'
+                    +   (self.graph.pointsets.length>1?' name in legend: <input class="legend-name" type="text" value="' + (options.legendName||options.name||'') + '" />':'')
+                    + '</div>';
+            }
+            legendHTML += '<div class="legend-scale" style="display: none;"><span class="edit-label">Color scale:</span>'
+                +   '<input type="radio" id="legend-continuous-'+panelId+'" value="continuous"/><label for="legend-continuous-'+panelId+'">continous</label>'
+                +   '<input type="radio" id="legend-discrete-'+panelId+'" value="discrete" /><label for="legend-discrete-'+panelId+'">discrete</label>'
+                + '</div>'
+                + '<div class="edit-block legend-continuous" style="display: none;">'
+                +   '<input class="neg color-picker" type="text" value="' + (options.MaxNegColor||'#C8EEFF') + '" /> '
+                +   hContinuousColor(options.MaxNegColor||'#C8EEFF', '#CCCCCC')
+                //+   '<input class="plot-color" type="text" value="#CCCCCC" />'
+                +   hContinuousColor('#CCCCCC', options.maxPosColor||'#0071A4')
+                +   ' <input class="pos color-picker" type="text" value="' + (options.maxPosColor||'#0071A4') + '" />'
+                + '</div>'
+                + '<div class="edit-block discrete-scale">'
+                + '</div>';
+
+            var $legend = $(legendHTML);
+            $legend.find('div.legend-scale')
+                .find("[value='"+options.scale+"']").attr('checked',true).end()
+                .buttonset().find('input:radio').change(function(){
+                    options.scale = this.value;
+            });
+            function setRadLabel(){
+                $legend.find('.radius').html(options.attribute=='fill'?'Marker radius: ':'Maximum marker radius: ');
+            }
+            setRadLabel();
+            $legend.find('div.attribute')
+                .find("[value='"+options.attribute+"']").attr('checked',true).end()
+                .buttonset().find('input:radio').change(function(){
+                    options.attribute = this.value;
+                    setRadLabel();
+            });
+            $legend.find('.radius-spinner')
+                .spinner({min: 2, max:200})
+                .change(function(){
+                    if(options.attribute=='fill'){
+                        self.mapconfigEdits.maxRadius = $(this).val();
+                    } else {
+                        self.mapconfigEdits.fixedRadius = $(this).val();
+                    }
+            });
+            $legend.find('.color-picker.pos').colorPicker().change(function(){
+                if(type=='X'){
+                    self.mapconfigEdits.options.posColor = this.value;  // this is a universal val for pointsets
+                } else {
+                    options.posColor = this.value;
+                }
+            });
+            $legend.find('.color-picker.neg').colorPicker().change(function(){
+                if(type=='X'){
+                    self.mapconfigEdits.options.negColor = this.value; // this is a universal val for pointsets
+                } else {
+                    options.negColor = this.value;
+                }
+            });
+            $legend.find('.color-picker.markerColor').colorPicker().change(function(){
+                options.markerColor = this.value;
+            });
+            $legend.find('.discrete-scale').append(self.discreteLegend(options, type));
+        },
+        discreteLegend: function(type){
+            var legendHtml = '', $legend, i, self = this;
+            var options = (type=='X'?self.mapconfigEdits:self.mapsetEdits.options);
+            var legendExists = Array.isArray(options.discreteColors) && options.discreteColors.length>1;
+            if(!legendExists) options.discreteColors = resetLegend(5);
+            for(i=0;i<options.discreteColors.length;i++){
+                legendHtml += '<input class="color" value="'+options.discreteColors[i].color+'" />';
+                if(i!=options.discreteColors.length-1){
+                    legendHtml += ' &#8804; <input class="cutoff" value="'+options.discreteColors[i].cutoff+'" />';
+                }
+            }
+
+            function resetLegend(count, fullColor){
+                var i, key1, key2, nums = [], discreteColors = [];
+                var data = type=='X'?self.graph.calculatedMapData.markerData:self.graph.calculatedMapData.regionData;
+                for(key1 in data){
+                    for(key2 in data[key1]){
+                        if(data[key1][key2]!=null) nums.push(data[key1][key2]);
+                    }
+                }
+                nums.sort();
+                if(fullColor.substr(0,1)=='#')fullColor=fullColor.substr(1);
+                var r, g, b, discreteColor;
+                var fullR = parseInt(fullColor.substr(0,2),16);
+                var fullG = parseInt(fullColor.substr(2,2),16);
+                var fullB = parseInt(fullColor.substr(4,2),16);
+                for(i=0;i<count;i++){
+                    r = 255-fullR/(count-i);
+                    g = 255-fullG/(count-i);
+                    b = 255-fullB/(count-i);
+                    discreteColor = '#' + r.toString(16) + g.toString(16) + b.toString(16);
+                    discreteColors.push({color: discreteColor, cutoff: nums[parseInt(nums.length/(count/(i+1)))]})
+                }
+            }
         }
     };
     return controller;
