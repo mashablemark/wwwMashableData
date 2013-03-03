@@ -14,9 +14,9 @@ function ProvenanceController(panelId){
             dLanding: '<li class="component-landing"><span class="landing">drag denominator series here</span></li>',
             compMath: '<div class="edit-block">'
                 +       '<div class="edit-math">'
-                +           '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'"  value="required"/><label for="required-'+panelId+'">all series values required</label>'
-                +           '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'"  value="missingAsZero"/><label for="missingAsZero-'+panelId+'">treat missing values as zeros</label>'
-                +           '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" value="nullsMissingAsZero"/><label for="nullsMissingAsZero-'+panelId+'">treat missing and null values as zeros</label>'
+                +           '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'"  value="required"/><label for="required-'+panelId+'">all values required else null</label>'
+                +           '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'"  value="missingAsZero"/><label for="missingAsZero-'+panelId+'">use zero for missing values</label>'
+                +           '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" value="nullsMissingAsZero"/><label for="nullsMissingAsZero-'+panelId+'">use zero for missing and null values</label>'
                 +       '</div>'
                 +   '</div>'
         },
@@ -33,9 +33,9 @@ function ProvenanceController(panelId){
             } else {
                 self.plotsEdits = $.extend(true, [], self.graph.plots);  //this is the copy that the provenance panel will work with.  Will replace graph.plots on "OK"
                 self.annoEdits = $.extend(true, [], self.graph.annotations);
-                self.mapsetEdits = $.extend(true, [], self.graph.mapsets);
+                self.mapsetEdits = $.extend(true, {}, self.graph.mapsets);
                 self.pointsetsEdits = $.extend(true, [], self.graph.pointsets);
-                self.mapconfigEdits= $.extend(true, [], self.graph.mapconfig);
+                self.mapconfigEdits= $.extend(true, {}, self.graph.mapconfig);
 
 
                 if(self.graph.plots){
@@ -82,7 +82,6 @@ function ProvenanceController(panelId){
             self.$prov.find("li.plot").off("click").click(function(evt){
                 if(!evt.isPropagationStopped()){
                     evt.stopPropagation();
-                    //alert("showPlotEditor(this");
                 }
             });
             self.$prov.find("li.component").off("click").click(function(evt){
@@ -134,7 +133,8 @@ function ProvenanceController(panelId){
             plotList += '<li class="plot" data="P' + i + '">'
             + '<button class="edit-plot">configure</button>'
             + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
-            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'+plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in ' + plotUnits(graph, plot) + '</div>'
+            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+            + plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plotUnits(graph, plot) + '</span></div>'
             + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>'
             + self.componentsHTML(plot)
             + '</li>';
@@ -151,6 +151,7 @@ function ProvenanceController(panelId){
                 compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">'
                     + '<span class="plot-op ui-icon ' + op.class[plot.components[j].options.op] + '">operation</span> '
                     + (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:''))
+                    + '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> *</span>'
                     + graph.assets[comp.handle].name
                     + ' ('+period.name[graph.assets[comp.handle].period]+') in '
                     + graph.assets[comp.handle].units
@@ -373,8 +374,8 @@ function ProvenanceController(panelId){
             } else {
                 toPlotObject.components.splice(toC,0,cmp);
             }
+            self.setFormula(toPlotObject, ui.item.closest(".plot"));
 
-            ui.item.closest(".plot").find("span.plot-formula").html(' = ' + plotFormula(toPlotObject).formula);
             //5. check for no components > delete object; remove plot; adjust annotations
             if(self.dragging.obj.components.length==0){
                 if(self.dragging.type=='plot'){
@@ -401,7 +402,7 @@ function ProvenanceController(panelId){
                 }
                 //not possible to kill a mapset by dragging off its mapset components
             } else { //recalc the formula of the sender
-                self.dragging.$ol.parent().find('span.plot-formula').html('= '+plotFormula(self.dragging.obj).formula);
+                self.setFormula(self.dragging.obj, self.dragging.$ol.parent());
             }
             if(newPlot) {
                 ui.item.remove();  //the spare component in the new plot landing zone
@@ -413,10 +414,10 @@ function ProvenanceController(panelId){
             //TODO: save and rechart
             var self = this;
             if(self.plotsEdits||self.mapsetEdits||self.pointsetsEdits){
-                self.graph.plots = self.plotsEdits;
+                if(self.plotsEdits.length>0) self.graph.plots = self.plotsEdits; else delete self.graph.plots;
                 self.graph.annotations = self.annoEdits;
-                self.graph.mapsets = self.mapsetEdits;
-                self.graph.pointsets = self.pointsetsEdits;
+                if(self.mapsetEdits.length>0) self.graph.mapsets = self.mapsetEdits; else delete self.graph.mapsets;
+                if(self.pointsetsEdits.length>0) self.graph.pointsets = self.pointsetsEdits; else delete self.graph.pointsets;
                 self.graph.mapconfig = self.mapconfigEdits;
 
                 delete self.plotsEdits;
@@ -476,9 +477,10 @@ function ProvenanceController(panelId){
                 .find('input:radio')
                 .click(function(){
                     plot.components[iComp].options.op = $(this).val();
-                    $liComp.closest(".plot,.mapset").find("span.plot-formula").html(' = ' + plotFormula(plot).formula);
+                    self.setFormula(plot, $liComp.closest(".plot,.mapset"));
                     $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.class[plot.components[iComp].options.op]);
                 });
+
             $editDiv.appendTo($liComp).slideDown();  //add the new comp editor and animate it open
             //add UI events
 /*            $editDiv.find("ul.comp-op li").click(function(){
@@ -486,6 +488,17 @@ function ProvenanceController(panelId){
                 component.options.op = $(this).closest("li").addClass("selected").attr('data');
                 $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + op.class[component.options.op]);
             });*/
+            $liComp.find('.comp-edit-k').show()
+                .find("input").change(function(){
+                    if(!isNaN(parseFloat(this.value))){
+                        component.options.k = Math.abs(parseFloat(this.value));
+                        if(component.options.k==0) component.options.k=1;
+                        self.setFormula(plot,$liComp.closest('ol').parent());
+                    }  else {
+                        dialogShow('Error','Scalors must be numerical');
+                    }
+                    $(this).val(component.options.k);
+            });
             $liComp.find(".comp-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 components.splice(iComp,1);
                 if(components.length==0) $liComp.closest('li.plot').find('.plot-delete').click(); else $liComp.remove();
@@ -520,15 +533,15 @@ function ProvenanceController(panelId){
                 + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
                 +   '<div class="edit-block"><input class="plot-color" type="text" value="' + (oPlot.options.lineColor|| plotColor) + '" /></div>' + selectThickness + selectStyle
                 + '</fieldset>'
-                + '<div class="edit-block"><span style="margin:0 10px">name:</span><input class="plot-name" type="text" value="' + plotName(self.graph, oPlot) + '" /></div>'
+                + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(oPlot.options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, oPlot) + '" /></div>'
                 + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
                 + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + (oPlot.options.units||'') + '" /></div><br>'
-                + '<span class="edit-label">calculations:</span>+' +
+                + '<span class="edit-label">Point calculations:</span>'
                 + self.HTML.compMath
-                + '<div class="edit-block"><span class="edit-label">break line:</span><div class="edit-breaks">'
+                + '<div class="edit-block"><span class="edit-label">Break line</span><div class="edit-breaks">'
+                +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" /><label for="never-'+panelId+'">never</label></div>'
                 +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" /><label for="nulls-'+panelId+'">on nulls</label>'
                 +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" /><label for="missing-'+panelId+'">on missing value and nulls</label>'
-                +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" /><label for="never-'+panelId+'">never</label></div>'
                 + '</div>'
                 +'</div>';
             var $editDiv = $(editDiv);    //instantiate the editor
@@ -567,7 +580,16 @@ function ProvenanceController(panelId){
             $editDiv.find("select.plot-type").val(oPlot.options.type).change(function(){
                 oPlot.options.type = $(this).val();
             });
-
+            $editDiv.find('.plot-edit-k input').change(function(){
+                if(!isNaN(parseFloat(this.value))){
+                    oPlot.options.k = Math.abs(parseFloat(this.value));
+                    if(oPlot.options.k==0)oPlot.options.k=1;
+                    self.setFormula(oPlot, $liPlot);
+                }  else {
+                    dialogShow('Error','Scalors must be numerical');
+                }
+                $(this).val(oPlot.options.k||1);
+            });
             //buttons
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 self.plotsEdits.splice($liPlot.index(),1);
@@ -578,13 +600,19 @@ function ProvenanceController(panelId){
                 self.build(plotIndex);
             });
             $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
+                var k;
                 $liPlot.find(".edit-plot, .plot-info, .line-sample").show();
                 $liPlot.find(".plot-editor").slideUp("default",function(){
                     $liPlot.find('.op.ui-buttonset').remove();
                     $liPlot.find('.plot-op').show();
                     $liPlot.find(".plot-editor").remove();
-                    $liPlot.find("li button").remove()
+                    $liPlot.find("li button").remove();
+                    $editDiv.remove();
                 });
+
+                $liPlot.find('.comp-edit-k').hide();
+
+
                 self.$prov.find('.landing').slideDown();
                 $liPlot.find(".comp-editor").slideUp("default",function(){$(this).remove()});
                 $liPlot.find(".edit-plot").show();
@@ -608,7 +636,7 @@ function ProvenanceController(panelId){
                         + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
                         + '<div class="plot-info">'
                         + '<div class="edit-block ehide">'
-                        +   '<span class="plot-title">' + plotName(self.graph, mapset)+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + (mapset.options.units||plotUnits(self.graph, mapset)) +'</span>'
+                        +   '<span class="plot-title">' + plotName(self.graph, mapset)+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + plotUnits(self.graph, mapset) +'</span>'
                         + '</div>'
                         + '<span class="plot-formula">= ' + plotFormula(mapset).formula + '</span><br>'
                         + '<button class="edit-mapset right ehide">configure</button>'
@@ -629,7 +657,7 @@ function ProvenanceController(panelId){
                         provHTML += '<li class="pointset ui-state-highlight">'
                             + '<button class="edit-pointset right">configure</button>'
                             + '<div class="plot-info" style="display:inline-block;">'
-                            + '<span class="plot-title">' + plotName(self.graph, pointset)+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + (pointset.options.units||plotUnits(self.graph, pointset)) + '</span>'
+                            + '<span class="plot-title">' + plotName(self.graph, pointset)+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + plotUnits(self.graph, pointset) + '</span>'
                             + '<span class="plot-formula">= ' + plotFormula(pointset).formula + '</span></div>'
                             + self.componentsHTML(self.graph.pointsets[ps])
                             + '</li>';
@@ -641,8 +669,11 @@ function ProvenanceController(panelId){
             return provHTML;
         },
         showMapSetEditor: function(){
-            var self = this, mapset = this.mapsetEdits, options = this.mapsetEdits.options, $mapset = self.$prov.find('.mapset');
-
+            var self = this;
+            var mapset = this.mapsetEdits;
+            var options = this.mapsetEdits.options;
+            var $mapset = self.$prov.find('.mapset');
+            var i;
             self.$prov.find("button.plot-close").click();  //close any open editors
             $mapset.find('.edit-mapset').hide();
             //The TYPE AND MERGE MODE WILL BE AVAILABLE IN CONFIGURATION MODE, NOT THE INTIAL VIEW
@@ -652,20 +683,50 @@ function ProvenanceController(panelId){
             }
             editDiv += '<button class="plot-close prov-float-btn">close</button>'
                 +   '<button class="plot-delete prov-float-btn">delete plot</button>'
-                +   '<div class="edit-block"><span class="edit-label">name:</span><input class="plot-name" type="text" value="' + plotName(self.graph, mapset) + '" /></div><br>'
+                +   ''
+                +   '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, mapset) + '" /></div><br>'
                 +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + plotUnits(self.graph, mapset) + '" /></div><br>'
-                +   self.HTML.CompMath
                 +   '<div class="map-mode edit-block">'
                 +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="fill" '+ ((!options.mode || options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">fill (heat map)</label>'
                 +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" '+ ((options.mode && options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
                 +   '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
+                +   '<span class="edit-label">Point calculations:</span>'
+                +   self.HTML.compMath + '<br>'
                 +   '<fieldset class="edit-color" style="padding: 0 5px;display:inline-block;"><legend>legend</legend>'
                 // legendEditor appended here
-                +   '</fieldset>'
-                + '</div>';
+                +   '</fieldset>';
+            if(self.plotsEdits.length>0){
+                editDiv +=   '<div class="edit-block bunny"><label><input type="checkbox" class="bunny" value="bunny" '+(!isNaN(options.bunny)?'checked':'')+' />Comparison mode</label> <span class="bunny-selector" '+(isNaN(options.bunny)?'style="display:none;"':'')+'> Map relative to plotted average<select>';
+                for(i=0;i<self.plotsEdits.length;i++){
+                    editDiv += '<option ' + (((isNaN(options.bunny)&&(i==0))||(options.bunny==i))?'selected':'') +' value="'+(i+1)+'" >'+i+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
+                }
+                editDiv += '</select></span></div> ';
+            }
+            editDiv += '</div>';
             var $editDiv = $(editDiv);
             var legendControls = self.legendEditor($editDiv.find('.edit-color'), options, 'M');
 
+            //bunny
+            $editDiv.find('input.bunny').change(function(){  //checkbox
+               if(this.checked) {
+                   $editDiv.find('.bunny-selector').slideDown();
+                   options.bunny = $editDiv.find('.bunny-selector select').val();
+               } else {
+                   $editDiv.find('.bunny-selector').slideUp();
+                   delete options.bunny;
+               }
+               self.setFormula(mapset, $mapset);
+            });
+            $editDiv.find('.plot-edit-k input').change(function(){
+                if(!isNaN(parseFloat(this.value))){
+                    options.k = Math.abs(parseFloat(this.value));
+                    if(options.k==0)options.k=1;
+                    self.setFormula(mapset, $mapset);
+                }  else {
+                    dialogShow('Error','Scalors must be numerical');
+                }
+                $(this).val(options.k||1);
+            });
             //buttonsets
             $editDiv.find('div.edit-math')
                 .find("[value='"+(options.compMath||"required")+"']").attr('checked',true).end()
@@ -677,7 +738,13 @@ function ProvenanceController(panelId){
                 .buttonset().find('input:radio').change(function(){
                     options.mode= this.value;
                     legendControls.legendOptionsShowHide();
+                    showHideMergeFormula();
                 });
+            showHideMergeFormula();
+            function showHideMergeFormula(){
+                if(options.mode=='bubble') $editDiv.find('.merge-formula').show(); else $editDiv.find('.merge-formula').hide();
+            }
+
 
             //buttons
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
@@ -712,6 +779,14 @@ function ProvenanceController(panelId){
             $editDiv.appendTo($mapset.find('.editor').html('')).slideDown();
             $mapset.find('.ehide').hide();
             self.$prov.find('.landing').slideUp();
+        },
+        setFormula: function(plot, $container){
+            plot.formula = plotFormula(plot);
+            var formula = plot.formula.formula;
+            if(plot.options.bunny && (this.plotsEdits.length>plot.options.bunny)){
+                formula += ' - [' +  plotName(this.graph, this.plotsEdits[plot.options.bunny]) + ']';
+            }
+            if($container) $container.find('span.plot-formula').html('= '+ formula);
         },
         legendEditor: function($target, options, type){
             var i, self = this, $mapset = self.$prov.find('.mapset');

@@ -1076,7 +1076,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
     });
-    $('#quick-view-to-graphs').html(graphOptions);
+    $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId());
     $('#quick-view-to-graph').removeAttr("disabled");
     $('.show-graph-link').click();
 }

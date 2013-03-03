@@ -934,11 +934,12 @@ function createSerieFromPlot(oGraph, plotIndex){
     return calculatedSeries;
 }
 function plotFormula(plot){//returns a formula object for display and eval
-    var cmp, variable, isDenom = false, inDivision=false, numFormula='', denomFormula='', term='', formula='', patMultiterm = /[+-/*]+/;
+    var cmp, variable, isDenom = false, inDivision=false, numFormula='', denomFormula='', term='', formula=''
+    var patMultiterm = /[+-/*]+/;
     for(var i=0;i<plot.components.length;i++){
         cmp = plot.components[i];
         //variable  = (cmp.handle.match(/MX/))?String.fromCharCode('A'.charCodeAt(0)+i):variable = String.fromCharCode('a'.charCodeAt(0)+i);
-        variable  = String.fromCharCode('A'.charCodeAt(0)+i);
+        variable  = plotSymbol(i);
         if(!isDenom && cmp.options.dn && cmp.options.dn=='d'){ //first denom component causes all following components forced to denom even if their flag is nto set
             if(inDivision){
                 inDivision = false;
@@ -971,7 +972,7 @@ function plotFormula(plot){//returns a formula object for display and eval
                     if(inDivision){
                         inDivision = false;
                         if(patMultiterm.test(term)) term = '(' + term + ')';
-                        formula += (formula==''?'1/':'/') + term + ' ' + cmp.options.op + ' ' + subTerm();
+                        formula += term + ' ' + cmp.options.op + ' ' + subTerm();
                     } else {
                         formula += cmp.options.op + subTerm();
                     }
@@ -1004,16 +1005,28 @@ function plotFormula(plot){//returns a formula object for display and eval
     } else {
         numFormula = formula;
     }
-    formula = (numFormula==''?1:numFormula) + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
+    if((plot.options.k||1)==1){
+        formula = (numFormula==''?1:numFormula) + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
+    } else {
+        formula = (numFormula==''?plot.options.k: plot.options.k+' * ('+numFormula+')') + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
+    }
     return {
         formula: formula,
         denomFormula: denomFormula,
-        numFormula: numFormula
+        numFormula: numFormula,
+        k: plot.options.k||1
     };
 
     function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
 }
-
+function plotSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper would be to recurse, but current functio nwill work in practical terms
+    var symbol='';
+    if(compIndex>25){
+        symbol = String.fromCharCode('A'.charCodeAt(0)+parseInt(compIndex/26));
+    }
+    symbol += String.fromCharCode('A'.charCodeAt(0)+(compIndex%26));
+    return symbol;
+}
 function makeDataGrid(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
     var hasMap, hasChart, m, r, i, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
     var oGraph = oPanelGraphs[panelId];
@@ -1668,6 +1681,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
             $thisPanel.find('.graph-subpanel').hide();
             $thisPanel.find('.' + $this.attr('data')).show();
+            $this.addClass('graph-nav-active');
             switch($this.attr('data')){
                 case 'graph-talk':
                     break;
@@ -2566,38 +2580,83 @@ function plotName(graph, plot, forceCalculated){
         return plot.options.name;
     } else {
         //calculate from components
+        var isDenom = false;
         for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
             comp = plot.components[c];
             handle = comp.handle;
-            calcName += ((c!=0 && !comp.options.op)?comp.options.op:' ') + graph.assets[handle].name;
+            calcName += ((c!=0 && comp.options.op)?((comp.options.dn=='d'&&!isDenom)?' / ':' '+comp.options.op+' '):' ') + graph.assets[handle].name;
+            isDenom = comp.options.dn=='d' || isDenom;
         }
         return calcName;
     }
 }
-function plotUnits(graph, plot, forceCalculated){
-    var sHandle, comp, seriesUnits;
-    if(typeof(plot.options.calcUnits) == "undefined" && !forceCalculated){
-        //calculate from series
-        plot.options.calcUnits='';
-        for(var c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-            comp = plot.components[c];
-            sHandle = comp.handle;
-            //TODO: nominator / denominator cancellations & user formula
-            if(c==0 ||(comp.options.op=='*' ||comp.options.op=='/')){
-                if(c>0) plot.options.calcUnits +=' ';
-                seriesUnits = (typeof(comp.options.userUnits)!="undefined")?comp.options.userUnits:graph.assets[sHandle].units;
-                if(comp.options.op=='/'){
-                    plot.options.calcUnits+='per ' + seriesUnits;
-                } else {
-                    plot.options.calcUnits+= seriesUnits;
-                }
+function plotUnits(graph, plot, forceCalculated, formulaObj){
+    var c, i, terms, numUnits = '', denomUnits = '';
+    //short cut for single component plots
+    if(plot.components.length==1){
+        return (plot.components[0].op=='/'?'per ':'') + graph.assets[plot.components[0].handle].units;
+    }
+    if(!plot.options.units || forceCalculated){
+        //calculate from component series
+        if(!formulaObj) formulaObj = plotFormula(plot);
+        // remove any leading negative sign or numerator "1" to not trip ourselves up
+        replaceFormula('^(\-)?(1)?','');
+        //1. remove any numerical scalor and flag
+        var patKs=/[0-9]+/g;
+        var scalorFlag = patKs.test(formulaObj.numFormula) || patKs.test(formulaObj.denomFormula);
+        formulaObj.numFormula = formulaObj.numFormula.replace(patKs, ' ');
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(patKs, ' ');
+        //2. remove any numerical scalers K
+        var patRemoveOps = /(\*|\(|\))/g;
+        formulaObj.numFormula = formulaObj.numFormula.replace(patRemoveOps, ' ');
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(patRemoveOps, ' ');
+        var patPer = /\//g;
+        formulaObj.numFormula = formulaObj.numFormula.replace(patPer, 'per');
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(patPer, 'per');
+        var patMinus = /-/g;
+        formulaObj.numFormula = formulaObj.numFormula.replace(patMinus, '+');
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(patMinus, '+');
+        var patWhiteSpace = /[\s]+/g;
+        formulaObj.numFormula = formulaObj.numFormula.replace(patWhiteSpace, ' ');
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(patWhiteSpace, ' ');
+        //3. wrapped variable in code to prevent accident detection in next step
+        replaceFormula('([A-Z]+)','{{$1}}');
+        //4. swap in units (removing any + signs)
+        var patPlus = /\+/g;
+        for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
+            replaceFormula('{{'+plotSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units).replace(patPlus,' '));
+        }
+        var error = false;
+        if(formulaObj.numFormula!=''){
+            terms = formulaObj.numFormula.split('+');
+            numUnits = terms[0].trim();
+            for(i=1;i<terms.length;i++){
+                if(terms[i].trim()!=numUnits) error = true;
             }
         }
-    }
-    if(typeof(plot.options.userUnits) == "undefined") {
-        return '<span class="plot-units">'+ plot.options.calcUnits +'</span>';
+        if(formulaObj.denomFormula!=''){
+            terms = formulaObj.denomFormula.split('+');
+            denomUnits = terms[0].trim();
+            for(i=1;i<terms.length;i++){
+                if(terms[i].trim()!=terms[0]) error = true;
+            }
+        }
+        if(error){
+            return 'potentially mismatched units';
+        } else {
+            if(numUnits==denomUnits && numUnits.length>0){
+                return 'ratio';
+            } else {
+                return  (scalorFlag?'user scaled ':'') + numUnits + (denomUnits==''?'':' per ' + denomUnits);
+            }
+        }
     } else {
-        return '<span class="plot-units">'+ plot.options.userUnits +'</span> <span class="plot-units-conversion">= '+ plot.options.k +' * ' + plot.options.calcUnits + '</span>';
+        return plots.options.units;
+    }
+    function replaceFormula(search, replace){
+        var pat = new RegExp(search, 'g');
+        formulaObj.numFormula = formulaObj.numFormula.replace(pat, replace);
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(pat, replace);
     }
 }
 function panelIdContaining(cntl){  //uniform way of getting ID of active panel for user events

@@ -652,6 +652,7 @@ div.map-prov{
 input.cutoff{
     width: 100px;
     margin: 4px;
+    text-align: right;
 }
 div.discrete-color{
     display: inline-block;
@@ -738,11 +739,18 @@ ol.blank-plot{
     font-size: 12px;
 }
 .plot-formula{
+    display: inline-block;
     border: thin black solid;
     font-weight: bold;
     font-size: 14px;
     margin: 0 10px;
     padding: 0 10px;
+}
+.comp-edit-k input, .plot-edit-k input {
+    text-align: right;
+}
+.comp-k, .plot-k {
+    margin-right: 7px;
 }
 input.plot-name{
     width: 600px;
