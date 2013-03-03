@@ -647,6 +647,14 @@ li.graph-nav-active{
 div.map-prov{
     background-color: #AAAAAA;
     border: thin black solid;
+    margin-bottom: 20px;
+}
+input.cutoff{
+    width: 100px;
+    margin: 4px;
+}
+div.discrete-color{
+    display: inline-block;
 }
 div.line-sample{
     padding:0;
@@ -695,7 +703,7 @@ ol.components{
     font-weight: bold;
 }
 span.merge-formula{
-    padding: 0 20px;
+    padding: 0 5px;
 }
 ol.numer li{
     border-color: blue;
@@ -757,11 +765,22 @@ li.component{
 .link:hover{
     text-decoration: underline;
 }
+.ital{
+    font-style: italic;
+}
+.continuous-strip-pos, .continuous-strip-neg{
+    display: inline-block;
+    margin: 5px;
+}
+.continuous-color{
+    display: inline-block;
+    position: relative;
+    top: -3px;
+}
 .map_legend_gradient{
     width: 50px;
-    height: 10px;
+    height: 16px;
     display: inline-block;
-    margin-right: 5px;
 }
 div.jvectormap-container{
     margin-right: 15px;
@@ -839,8 +858,12 @@ div#public-mapset-radio{
     background-image: url(images/ui-icons_2e83ff_256x240.png) !important;
     text-indent: -99999px;
 }
-div.op, div.edit-math, div.edit-breaks {
+div.op, div.edit-breaks {
     display: inline-block;
+}
+div.edit-math {
+    display: inline-block;
+    padding-right: 15px;
 }
 .op-divide {background-position: -96px -208px;} /*for now: ui-icon-arrowthick-2-ne-sw.  */
 .op-multiply {background-position: -96px -128px;}    /*ui-icon-closethick*/

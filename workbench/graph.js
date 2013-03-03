@@ -1,4 +1,6 @@
 //GLOBAL VARIABLES mce
+
+var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000'};
 var hcColors = [
     '#4572A7',
     '#AA4643',
@@ -81,8 +83,9 @@ var isIE = /msie/i.test(navigator.userAgent) && !window.opera;
 
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
-//MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
-function chartPanel(panel, annotations){  //panel can either be a DOM node anywhere is the panel or a panelID
+
+function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
+//panel can either be a DOM node anywhere is the panel or a panelID
     var panelId = typeof panel == 'string'?panel:$(panel).closest('div.graph-panel').get(0).id;
     if(oHighCharts[panelId]) {
         oHighCharts[panelId].destroy();
@@ -1661,10 +1664,23 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     $thisPanel.find('select.graph-type').val(oGraph.type);
     $thisPanel.find('ol.graph-nav').children('li')
         .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
+            var $this = $(this);
             $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
             $thisPanel.find('.graph-subpanel').hide();
-            $thisPanel.find('.' + $(this).attr('data')).show();
-            if(this) $(this).addClass('graph-nav-active');
+            $thisPanel.find('.' + $this.attr('data')).show();
+            switch($this.attr('data')){
+                case 'graph-talk':
+                    break;
+                case 'graph-data':
+                    var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
+                    $dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
+                    break;
+                case 'graph-sources':
+                    provenance.build();
+                    break;
+                case 'graph-chart':
+                    provenance.provOk();  //applies change if changes are waiting and have not been canceled
+            }
         });
 
     $thisPanel.find('.graph-data-inner')
@@ -1677,15 +1693,6 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         .tabs(oGraph.mapsets?"enable":"disable",1)
         .tabs(oGraph.pointsets?"enable":"disable",2);
 
-    $thisPanel.find('.graph-nav-data')
-        .click(function(){
-            var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
-            $dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
-        });
-    $thisPanel.find('li.graph-nav-sources')
-        .click(function(){
-            provenance.build();
-        });
     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
         .click(function(){
             var grids = [];
