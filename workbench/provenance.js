@@ -416,7 +416,7 @@ function ProvenanceController(panelId){
             if(self.plotsEdits||self.mapsetEdits||self.pointsetsEdits){
                 if(self.plotsEdits.length>0) self.graph.plots = self.plotsEdits; else delete self.graph.plots;
                 self.graph.annotations = self.annoEdits;
-                if(self.mapsetEdits.length>0) self.graph.mapsets = self.mapsetEdits; else delete self.graph.mapsets;
+                if(self.mapsetEdits && self.mapsetEdits.components) self.graph.mapsets = self.mapsetEdits; else delete self.graph.mapsets;
                 if(self.pointsetsEdits.length>0) self.graph.pointsets = self.pointsetsEdits; else delete self.graph.pointsets;
                 self.graph.mapconfig = self.mapconfigEdits;
 
@@ -539,9 +539,9 @@ function ProvenanceController(panelId){
                 + '<span class="edit-label">Point calculations:</span>'
                 + self.HTML.compMath
                 + '<div class="edit-block"><span class="edit-label">Break line</span><div class="edit-breaks">'
-                +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" /><label for="never-'+panelId+'">never</label></div>'
-                +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" /><label for="nulls-'+panelId+'">on nulls</label>'
-                +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" /><label for="missing-'+panelId+'">on missing value and nulls</label>'
+                +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" value="never" /><label for="never-'+panelId+'">never</label>'
+                +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" value="nulls" /><label for="nulls-'+panelId+'">on nulls</label>'
+                +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" value="missing" /><label for="missing-'+panelId+'">on missing value and nulls</label></div>'
                 + '</div>'
                 +'</div>';
             var $editDiv = $(editDiv);    //instantiate the editor
@@ -560,8 +560,10 @@ function ProvenanceController(panelId){
                     oPlot.options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
                 });
             if(!oPlot.options.breaks)oPlot.options.breaks='nulls'
-            $editDiv.find("div.edit-breaks").find("input[id='"+oPlot.options.breaks+'-'+panelId+"']").click().end().buttonset().find('input:radio').change(function(){
-                oPlot.options.breaks = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
+            $editDiv.find("div.edit-breaks").find("input[id='"+oPlot.options.breaks+'-'+panelId+"']").click().end().
+                buttonset().find('input:radio')
+                .change(function(){
+                    oPlot.options.breaks = $(this).val();
             });
             //line color and style
             $editDiv.find(".edit-line legend").after($liPlot.find(".line-sample").hide().clone().css("display","inline-block").show());

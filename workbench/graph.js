@@ -624,9 +624,8 @@ function makeChartOptionsObject(oGraph){
             name: oSerie.name,
             marker: {enabled: false},
             id: 'P'+i,
-            handle: oSerie.handle, //may need to change with addition of plot objects
             period: oSerie.period,
-            data: [],
+            data: oSerie.data,
             yAxis: 0
         };
         var oPlot = oGraph.plots[i];
@@ -641,31 +640,8 @@ function makeChartOptionsObject(oGraph){
         if(oGraph.type=='area' || oDataSeries.stack=='area'){
             oDataSeries.stack = oSerie.units; //TODO: (1) convert units
         }
-        var aData = oSerie.data.split('||');
-        var periodicity = oSerie.period;
-        for(j=0;j<aData.length;j++){
-            var mddt = aData[j].split('|')[0];
-            var addPoint = true;
-            /* this is not possible unless we calc the data ahead of time and store in a temp pen
-             if(oGraph.type=='area'||oGraph.type=='area-percent'){
-             for(var handle in oGraph.assets){
-             var dataString = '||' + oGraph.assets[handle].data;
-             if(dataString.indexOf('||' + mddt + '|')=="-1"){
-             addPoint = false;
-             break;
-             }
-             }
-             }*/
-
-            var udt = dateFromMdDate(mddt, periodicity);
-            var y = aData[j].split('|')[1];
-            if(addPoint){
-                //can not use objects& markers as Highcharts gets crazy slow for large series.  Markers are handled with shadow scatter plots.
-                //oDataSeries.data.push({x: Date.parse(udt), y: (y=="null")?null:Number(y)});
-                //oDataSeries.data.push({x: Date.parse(udt), y: (y=="null")?null:Number(y), marker: {enabled:false}});
-                oDataSeries.data.push([Date.parse(udt), (y=="null")?null:Number(y)]);
-                allX[Date.parse(udt)] = true;
-            }
+        for(j=0;j<oSerie.data.length;j++){
+            allX[oSerie.data[0].toString()] = true;
         }
         var units = oSerie.units;
         //axis:  first, existing or new multiple?
@@ -829,107 +805,96 @@ function makeChartOptionsObject(oGraph){
             jschart.yAxis = [{title:{text: 'Normalized to 1'}}];
     }
     for(var key in allX){
-        jschart.chart.x.push(key);
+        jschart.chart.x.push(Number(key));
     }
     jschart.chart.x.sort(function(a,b){return parseInt(a)-parseInt(b)});
     return jschart
 }
 function createSerieFromPlot(oGraph, plotIndex){
-    var components, i, j, sHandle, plot, calculatedSeries, data, point, plotData=[], dateKey, oComponentData = {};
+    var valuesObject, y, components, i, j, sHandle, plot, calculatedSeries, data, point, plotData=[], dateKey, oComponentData = {};
     //TODO: this is stub code for a single series plot.  Vector math and transform code to be added
     plot = oGraph.plots[plotIndex];
     calculatedSeries = {name: plotName(oGraph,plot), units: plotUnits(oGraph, plot)};
     components = plot.components;
 
-    //get the units in this order : plot > transformed series > raw series
-    if(plot.options.units){
-        calculatedSeries.units=plot.options.units
-    }else{
-        if(components[0].options.units){
-            calculatedSeries.units = components[0].options.units;
-        } else {
-            calculatedSeries.units = oGraph.assets[components[0].handle].units;
-        }
-    }
-    //same for frequency (note these work because the units and freq in a plot must be the same, either natively or through transformations
-    if(plot.options.period){
-        calculatedSeries.period=plot.options.period
-    }else{
-        if(components[0].options.period){
-            calculatedSeries.period = components[0].options.period;
-        } else {
-            calculatedSeries.period = oGraph.assets[components[0].handle].period;
-        }
-    }
-    //...and for name
-    if(!plot.name && components.length==1) calculatedSeries.name =  oGraph.assets[components[0].handle].name;
+    //note freq in a plot must be the same, either natively or through transformations
+    calculatedSeries.period = components[0].options.transformedPeriod || oGraph.assets[components[0].handle].period;
+    if(!plot.formula) plot.formula = plotFormula(plot);
 
-    if(components.length==1){
+/*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
         calculatedSeries.data = oGraph.assets[components[0].handle].data;
-    } else {  //a whole lot of calculating!
+    } else {*/
+        //THE BRAINS:
+        var patVariable = /(\b[A-Z]{1,2}\b)/g;
+        var expression = 'return ' + plot.formula.formula.replace(patVariable,'values.$1') + ';';
+        var compute = new Function('values', expression);
+
         //1. rearrange series data into single object by date keys
+        var compSymbols = [], symbol;
         for(i=0;i<components.length;i++ ){
-            sHandle = components[i].handle;
-            if(!components[i].k)components[i].k=1;
+            symbol = compSymbol(i);
+            compSymbols.push(symbol); //calculate once and use as lookup below
             //TODO: apply series transforms / down shifting here instead of just parroting series data
-            data = oGraph.assets[sHandle].data.split("||");
+            data = oGraph.assets[components[i].handle].data.split("||");
             for(j=0; j<data.length; j++){
                 point = data[j].split("|");
                 if(!oComponentData[point[0].toString()]){
                     oComponentData[point[0].toString()] = {};
                 }
-                oComponentData[point[0].toString()][sHandle] = point[1];
+                oComponentData[point[0].toString()][symbol] = point[1];
             }
-            if(!plot.name) plot.name = oGraph.assets[sHandle].name;
-            if(!plot.units) plot.units = oGraph.assets[sHandle].units;
         }
         //2. calculate value for each date key (= grouped points)
+        var required = !plot.options.componentData || plot.options.componentData=='required';
+        var missingAsZero =  plot.options.componentData=='missingAsZero';
+        var nullsMissingAsZero =  plot.options.componentData=='nullsMissingAsZero';
+
+        var breakNever = !plot.options.breaks || plot.options.breaks=='never';
+        var breakNulls = plot.options.breaks=='nulls';
+        var breakMissing = plot.options.breaks=='missing';
+
         for(dateKey in oComponentData){
-            var value = null;
-            for(i=0;i<components.length;i++ ){
-                if(oComponentData[dateKey][components[i].handle]){
-                    if(value==null){
-                        if(components[i].options.op!="/"){
-                            value= parseFloat(oComponentData[dateKey][components[i].handle]);
+            valuesObject = {};
+            y = true;
+            for(i=0;i<compSymbols.length;i++ ){
+                if(!isNaN(oComponentData[dateKey][compSymbols[i]])){
+                    valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
+                } else {
+                    if(oComponentData[dateKey][compSymbols[i]]=='null'){
+                        if(nullsMissingAsZero){
+                            valuesObject[compSymbols[i]] = 0;
                         } else {
+                            y = null;
                             break;
                         }
                     } else {
-                        switch(components[i].options.op){
-                            case "+":
-                                value = value + (parseFloat(components[i].k) * parseFloat(oComponentData[dateKey][components[i].handle]));
-                                break;
-                            case "-":
-                                value = value - (parseFloat(components[i].k) * parseFloat(oComponentData[dateKey][components[i].handle]));
-                                break;
-                            case "*":
-                                value = value * (parseFloat(components[i].k) * parseFloat(oComponentData[dateKey][components[i].handle]));
-                                break;
-                            case "/":
-                                if( parseFloat(oComponentData[dateKey][components[i].handle])==0){
-                                    value = null;
-                                } else {
-                                    value = value / (parseFloat(components[i].k) * parseFloat(oComponentData[dateKey][components[i].handle]));
-                                }
-                                break;
+                        if(required) {
+                            y = null;
+                            break;
+                        } else {
+                            valuesObject[compSymbols[i]] = 0;
                         }
-                    }
-                } else {
-                    if(components[i].options.op=="*"||components[i].options.op=="/"||plot.options.missingAsZero!=true){
-                        value = null;
-                        break;
                     }
                 }
             }
-            plotData.push({"date":dateKey, "value": value})
+            if(y) {
+                try{
+                    y = compute(valuesObject);
+                    if(Math.abs(y)==Infinity || isNaN(y)) y=null;
+                } catch(err){
+                    y = null;
+                }
+            }
+            if(y!==null || !breakNever){
+                plotData.push([Date.parse(dateFromMdDate(dateKey, calculatedSeries.period)), y]);
+            }
         }
         //3. reconstruct an ordered MD data array
-        for(i=0;i<plotData.length;i++){
-            point = plotData[i];
-            plotData[i] = point.date + "|" + point.value;
-        }
-        plotData.sort();
-        calculatedSeries.data = plotData.join("||");
+        plotData.sort(function(a,b){return a[0]-b[0];});
+        calculatedSeries.data = plotData;
+/*    }*/
+    if(breakMissing){
+        //todo:  break on missing code
     }
     return calculatedSeries;
 }
@@ -939,7 +904,7 @@ function plotFormula(plot){//returns a formula object for display and eval
     for(var i=0;i<plot.components.length;i++){
         cmp = plot.components[i];
         //variable  = (cmp.handle.match(/MX/))?String.fromCharCode('A'.charCodeAt(0)+i):variable = String.fromCharCode('a'.charCodeAt(0)+i);
-        variable  = plotSymbol(i);
+        variable  = compSymbol(i);
         if(!isDenom && cmp.options.dn && cmp.options.dn=='d'){ //first denom component causes all following components forced to denom even if their flag is nto set
             if(inDivision){
                 inDivision = false;
@@ -1019,7 +984,7 @@ function plotFormula(plot){//returns a formula object for display and eval
 
     function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
 }
-function plotSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper would be to recurse, but current functio nwill work in practical terms
+function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper would be to recurse, but current functio nwill work in practical terms
     var symbol='';
     if(compIndex>25){
         symbol = String.fromCharCode('A'.charCodeAt(0)+parseInt(compIndex/26));
@@ -2624,7 +2589,7 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
         //4. swap in units (removing any + signs)
         var patPlus = /\+/g;
         for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-            replaceFormula('{{'+plotSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units).replace(patPlus,' '));
+            replaceFormula('{{'+compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units).replace(patPlus,' '));
         }
         var error = false;
         if(formulaObj.numFormula!=''){
@@ -2651,8 +2616,9 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
             }
         }
     } else {
-        return plots.options.units;
+        return plot.options.units;
     }
+
     function replaceFormula(search, replace){
         var pat = new RegExp(search, 'g');
         formulaObj.numFormula = formulaObj.numFormula.replace(pat, replace);
