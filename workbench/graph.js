@@ -78,6 +78,7 @@ var rowPosition = {
 };
 var vectorPattern = /[SU]/;   //series or userseries handle test
 var handlePattern = /[MXSU]\d+/g;
+var patVariable = /(\b[A-Z]{1,2}\b)/g;  //used to search and replace formulaa to use a passed in values object
 var SVGNS = "http://www.w3.org/2000/svg";
 var isIE = /msie/i.test(navigator.userAgent) && !window.opera;
 
@@ -825,7 +826,6 @@ function createSerieFromPlot(oGraph, plotIndex){
         calculatedSeries.data = oGraph.assets[components[0].handle].data;
     } else {*/
         //THE BRAINS:
-        var patVariable = /(\b[A-Z]{1,2}\b)/g;
         var expression = 'return ' + plot.formula.formula.replace(patVariable,'values.$1') + ';';
         var compute = new Function('values', expression);
 
@@ -939,7 +939,7 @@ function plotFormula(plot){//returns a formula object for display and eval
                         if(patMultiterm.test(term)) term = '(' + term + ')';
                         formula += term + ' ' + cmp.options.op + ' ' + subTerm();
                     } else {
-                        formula += cmp.options.op + subTerm();
+                        formula += ' ' + cmp.options.op + ' ' + subTerm();
                     }
                     break;
                 case '*':
@@ -975,12 +975,13 @@ function plotFormula(plot){//returns a formula object for display and eval
     } else {
         formula = (numFormula==''?plot.options.k: plot.options.k+' * ('+numFormula+')') + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
     }
-    return {
+    plot.options.calculatedFormula = {
         formula: formula,
         denomFormula: denomFormula,
         numFormula: numFormula,
         k: plot.options.k||1
     };
+    return plot.options.calculatedFormula;
 
     function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
 }
@@ -1329,18 +1330,18 @@ function calcMap(graph){
     var regionData = {};  //2D object array:  [mashable-date][region-code]=value
 
     //local vars
-    var mapRegionNames = {}, i, point, points, mddt, handle;
+    var mapRegionNames = {}, c, i, point, points, mddt, handle;
     var mapMin=null, mapMax=null;
     var pointMin=null, pointMax=null;
     var oMapDates = {};
     if(graph.mapsets){
         var mapset;  //shortcut past the mapHandle into the the mapset
-        for(var mapHandle in graph.mapsets.components){  //TODO:  only handles a single mapset right now
-            mapset = graph.assets[graph.mapsets.components[mapHandle].handle];
+        for(c=0;c<graph.mapsets.components.length;c++){  //TODO:  only handles a single mapset right now
+            mapset = graph.assets[graph.mapsets.components[c].handle];
             mapTitle = mapset.name;
             mapPeriod = mapset.period;
             mapUnits = mapset.units;
-            for(var regionCode in mapset.data){
+            for(var regionCode in mapset.data){  //loop though the states/countries
                 mapRegionNames[regionCode] = mapset.data[regionCode].geoname;
                 points = mapset.data[regionCode].data.split("||");
                 for(i=0;i<points.length;i++){
@@ -2046,19 +2047,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData obejct
             if(isBubble()) bubbleCalc();
             console.info(calculatedMapData);
-            var jvmap_template;
-            switch(oGraph.map){
-                case "US states":
-                    jvmap_template = "us_aea_en";
-                    break;
-                case "European Union":
-                    jvmap_template = "europe_mill_en";
-                    break;
-                default:
-                    jvmap_template = "world_mill_en";
-            }
             vectorMapSettings = {
-                map: jvmap_template,
+                map: jVectorMapTemplates[oGraph.map],
                 backgroundColor: mapBackground,
                 markersSelectable: true,
                 markerStyle: {initial: {r: 0}}, //default for null values in the data

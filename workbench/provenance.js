@@ -14,14 +14,15 @@ function ProvenanceController(panelId){
             dLanding: '<li class="component-landing"><span class="landing">drag denominator series here</span></li>',
             compMath: '<div class="edit-block">'
                 +       '<div class="edit-math">'
-                +           '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'"  value="required"/><label for="required-'+panelId+'">all values required else null</label>'
-                +           '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'"  value="missingAsZero"/><label for="missingAsZero-'+panelId+'">use zero for missing values</label>'
-                +           '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" value="nullsMissingAsZero"/><label for="nullsMissingAsZero-'+panelId+'">use zero for missing and null values</label>'
+                +           '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'" data="compMath"  value="required"/><label for="required-'+panelId+'">all values required else null</label>'
+                +           '<input type="radio" id="missingAsZero-'+panelId+'" name="comp-math-'+panelId+'" data="compMath"  value="missingAsZero"/><label for="missingAsZero-'+panelId+'">use zero for missing values</label>'
+                +           '<input type="radio" id="nullsMissingAsZero-'+panelId+'" name="comp-math-'+panelId+'" data="compMath" value="nullsMissingAsZero"/><label for="nullsMissingAsZero-'+panelId+'">use zero for missing and null values</label>'
                 +       '</div>'
                 +   '</div>'
         },
         graph: oPanelGraphs[panelId],
         $prov: $('#'+panelId + ' .provenance'),
+        isDirty: false,
         build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
             var self = this;
             var i, j, plotList, mapList, plot, okcancel;
@@ -69,7 +70,7 @@ function ProvenanceController(panelId){
 
                 //main buttons
                 self.$prov.find("button.config-cancel")
-                    .button({icons: {secondary: 'ui-icon-closethick'}}).addClass('ui-state-error')
+                    .button({disabled: true, icons: {secondary: 'ui-icon-closethick'}}).addClass('ui-state-error')
                     .click(function(){
                         self.provClose();
                 });
@@ -127,8 +128,8 @@ function ProvenanceController(panelId){
             var self = this;
             var graph = self.graph;
             var plotColor, plotList = '', plot = self.plotsEdits[i];
-            if(plot.options.lineWidth) plot.options.lineWidth = parseInt(plot.options.lineWidth); else plot.options.lineWidth = 2;
-            if(!plot.options.lineStyle) plot.options.lineStyle = 'Solid';
+            plot.options.lineWidth = plot.options.lineWidth? parseInt(plot.options.lineWidth):2;
+            plot.options.lineStyle = plot.options.lineStyle || 'Solid';
             plotColor = plot.options.lineColor || (oHighCharts[panelId].get('P'+i)?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
             plotList += '<li class="plot" data="P' + i + '">'
             + '<button class="edit-plot">configure</button>'
@@ -450,7 +451,7 @@ function ProvenanceController(panelId){
         showComponentEditor:  function showComponentEditor(liComp, type){
             var self = this;
             var plot, components, $liComp = $(liComp);
-            var plotIndex = $(liComp).closest('li.plot').index();
+            var plotIndex = $(liComp).closest('li.plot, li.pointset').index();
             if(type=="mapset") plot = self.mapsetEdits;
             if(type=="pointset") plot = self.pointsetsEdits[plotIndex];
             if(type=="plot") plot = self.plotsEdits[plotIndex];
@@ -476,7 +477,7 @@ function ProvenanceController(panelId){
                 .buttonset()
                 .find('input:radio')
                 .click(function(){
-                    plot.components[iComp].options.op = $(this).val();
+                    self.set(plot.components[iComp].options, 'op', $(this).val());
                     self.setFormula(plot, $liComp.closest(".plot,.mapset"));
                     $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.class[plot.components[iComp].options.op]);
                 });
@@ -493,6 +494,7 @@ function ProvenanceController(panelId){
                     if(!isNaN(parseFloat(this.value))){
                         component.options.k = Math.abs(parseFloat(this.value));
                         if(component.options.k==0) component.options.k=1;
+                        self.makeDirty();
                         self.setFormula(plot,$liComp.closest('ol').parent());
                     }  else {
                         dialogShow('Error','Scalors must be numerical');
@@ -518,11 +520,11 @@ function ProvenanceController(panelId){
             var plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
             $liPlot.find(".edit-plot, .plot-info").hide();
             //line thickness selector
-            var selectThickness='<select class="plot-thickness">';
+            var selectThickness='<select class="plot-thickness" data="lineWidth">';
             for(var t=1;t<=5;t++) selectThickness+='<option>'+t+'px</option>';
             selectThickness += '</select>';
             //line style (solid, dots, dash...) selector
-            var selectStyle = '<select class="plot-linestyle">';
+            var selectStyle = '<select class="plot-linestyle" data="lineStyle">';
             for(var ds=0;ds<dashStyles.length;ds++) selectStyle += '<option value="' +dashStyles[ds].replace(/ /g,'')+ '">' +dashStyles[ds].toLowerCase()+ '</option>';
             selectStyle += '</select>';
 
@@ -531,17 +533,17 @@ function ProvenanceController(panelId){
                 + '<button class="plot-copy prov-float-btn">make copy</button>'
                 + '<button class="plot-delete prov-float-btn">delete plot</button>'
                 + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
-                +   '<div class="edit-block"><input class="plot-color" type="text" value="' + (oPlot.options.lineColor|| plotColor) + '" /></div>' + selectThickness + selectStyle
+                +   '<div class="edit-block"><input class="plot-color" type="text" data="lineColor" value="' + (oPlot.options.lineColor|| plotColor) + '" /></div>' + selectThickness + selectStyle
                 + '</fieldset>'
-                + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(oPlot.options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, oPlot) + '" /></div>'
-                + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
-                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + (oPlot.options.units||'') + '" /></div><br>'
+                + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(oPlot.options.k||1)+'"> * </span><input class="plot-name" type="text" data="name" value="' + plotName(self.graph, oPlot) + '" /></div>'
+                + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type" data="type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
+                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text" value="' + plotUnits(self.graph, oPlot) + '" /></div><br>'
                 + '<span class="edit-label">Point calculations:</span>'
                 + self.HTML.compMath
                 + '<div class="edit-block"><span class="edit-label">Break line</span><div class="edit-breaks">'
-                +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" value="never" /><label for="never-'+panelId+'">never</label>'
-                +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" value="nulls" /><label for="nulls-'+panelId+'">on nulls</label>'
-                +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" value="missing" /><label for="missing-'+panelId+'">on missing value and nulls</label></div>'
+                +   '<input type="radio" id="never-'+panelId+'" name="line-break-'+panelId+'" data="breaks" value="never" /><label for="never-'+panelId+'">never</label>'
+                +   '<input type="radio" id="nulls-'+panelId+'" name="line-break-'+panelId+'" data="breaks" value="nulls" /><label for="nulls-'+panelId+'">on nulls</label>'
+                +   '<input type="radio" id="missing-'+panelId+'" name="line-break-'+panelId+'" data="breaks" value="missing" /><label for="missing-'+panelId+'">on missing value and nulls</label></div>'
                 + '</div>'
                 +'</div>';
             var $editDiv = $(editDiv);    //instantiate the editor
@@ -549,44 +551,48 @@ function ProvenanceController(panelId){
             //text boxes
             $editDiv.find("input.plot-name").change(function(){
                 if(plotName(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.name = $(this).val(); else delete oPlot.options.name;
+                self.makeDirty();
             });
             $editDiv.find("input.plot-units").change(function(){
                 if(plotUnits(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.units = $(this).val(); else delete oPlot.options.units;
+                self.makeDirty();
             });
             //buttonsets
             if(!oPlot.options.componentData)oPlot.options.componentData='required'
             $editDiv.find("div.edit-math").find("input[id='"+oPlot.options.componentData+"-"+panelId+"']").click().end().buttonset()
                 .find('input:radio').change(function(){
                     oPlot.options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
+                    self.makeDirty();
                 });
             if(!oPlot.options.breaks)oPlot.options.breaks='nulls'
             $editDiv.find("div.edit-breaks").find("input[id='"+oPlot.options.breaks+'-'+panelId+"']").click().end().
                 buttonset().find('input:radio')
                 .change(function(){
-                    oPlot.options.breaks = $(this).val();
+                    self.set(oPlot.options, $(this));  //oPlot.options.breaks = $(this).val();
             });
             //line color and style
             $editDiv.find(".edit-line legend").after($liPlot.find(".line-sample").hide().clone().css("display","inline-block").show());
             $editDiv.find("input.plot-color").colorPicker().change(function(){
-                oPlot.options.lineColor = $(this).val();
+                self.set(oPlot.options, $(this));   //oPlot.options.lineColor = $(this).val();
                 $liPlot.find("div.line-sample").css('background-color',oPlot.options.lineColor);
             });
             $editDiv.find("select.plot-thickness").val(oPlot.options.lineWidth).change(function(){
-                oPlot.options.lineWidth = $(this).val();
+                self.set(oPlot.options, $(this));   //oPlot.options.lineWidth = $(this).val();
                 $liPlot.find("div.line-sample").css("height",oPlot.options.lineWidth).find("img").css("height",oPlot.options.lineWidth).css("width",(parseInt(oPlot.options.lineWidth.substr(0,1)*38)+'px'))
             });
             $editDiv.find("select.plot-linestyle").val(oPlot.options.lineStyle).change(function(){
-                oPlot.options.lineStyle = $(this).val();
+                self.set(oPlot.options, $(this));   //oPlot.options.lineStyle = $(this).val();
                 $liPlot.find("div.line-sample img").attr("src","images/"+oPlot.options.lineStyle+'.png');
             });
             $editDiv.find("select.plot-type").val(oPlot.options.type).change(function(){
-                oPlot.options.type = $(this).val();
+                self.set(oPlot.options, $(this));   //oPlot.options.type = $(this).val();
             });
             $editDiv.find('.plot-edit-k input').change(function(){
                 if(!isNaN(parseFloat(this.value))){
                     oPlot.options.k = Math.abs(parseFloat(this.value));
                     if(oPlot.options.k==0)oPlot.options.k=1;
                     self.setFormula(oPlot, $liPlot);
+                    self.makeDirty();
                 }  else {
                     dialogShow('Error','Scalors must be numerical');
                 }
@@ -624,9 +630,95 @@ function ProvenanceController(panelId){
             self.$prov.find('.landing').slideUp();
         },
         showPointSetEditor: function($liPointSet){
+            var self = this;
+            self.sortableOff();
+            //var $liPointSet = $(liPointSet);
+            var oPointset = self.pointsetsEdits[$liPointSet.index()];
+            var options = oPointset.options;
 
+            $liPointSet.find(".edit-plot, .plot-info").hide();
+
+            var editDiv =     '<div class="plot-editor" style="display: none;">'
+                + '<button class="plot-close prov-float-btn">close</button>'
+                + '<button class="plot-copy prov-float-btn">make copy</button>'
+                + '<button class="plot-delete prov-float-btn">delete plot</button>'
+                + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, oPointset) + '" /></div>'
+                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + (options.units||'') + '" /></div><br>'
+                + '<span class="edit-label">Point calculations:</span>'
+                + self.HTML.compMath
+                +   '<fieldset class="edit-color" style="padding: 0 5px;display:inline-block;"><legend>legend</legend>'
+                // legendEditor appended here
+                +   '</fieldset>'
+                + '</div>';
+            var $editDiv = $(editDiv);    //instantiate the editor
+            self.$prov.find("button.plot-close").click();  //close any open editors
+
+            var $editDiv = $(editDiv);
+            var legendControls = self.legendEditor($editDiv.find('.edit-color'), options, 'X');
+            //text boxes
+            $editDiv.find("input.plot-name").change(function(){
+                if(plotName(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.name = $(this).val(); else delete options.name;
+                self.makeDirty();
+            });
+            $editDiv.find("input.plot-units").change(function(){
+                if(plotUnits(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
+                self.makeDirty();
+            });
+            //buttonsets
+            if(!options.componentData)options.componentData='required'
+            $editDiv.find("div.edit-math").find("input[id='"+options.componentData+"-"+panelId+"']").click().end().buttonset()
+                .find('input:radio').change(function(){
+                    options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
+                    self.makeDirty();
+                });
+            //line color and style
+            $editDiv.find(".edit-line legend").after($liPointSet.find(".line-sample").hide().clone().css("display","inline-block").show());
+            $editDiv.find("input.plot-color").colorPicker().change(function(){
+                options.lineColor = $(this).val();
+                $liPointSet.find("div.line-sample").css('background-color',options.lineColor);
+            });
+            $editDiv.find('.plot-edit-k input').change(function(){
+                if(!isNaN(parseFloat(this.value))){
+                    options.k = Math.abs(parseFloat(this.value));
+                    if(options.k==0)options.k=1;
+                    self.setFormula(oPointset, $liPointSet);
+                }  else {
+                    dialogShow('Error','Scalors must be numerical');
+                }
+                $(this).val(options.k||1);
+            });
+            //buttons
+            $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
+                self.plotsEdits.splice($liPointSet.index(),1);
+                $liPointSet.remove();
+            });
+            $editDiv.find("button.plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
+                self.plotsEdits.push($.extend(true,{},oPointset));
+                self.build(plotIndex);
+            });
+            $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
+                var k;
+                $liPointSet.find(".edit-plot, .plot-info, .line-sample").show();
+                $liPointSet.find(".plot-editor").slideUp("default",function(){
+                    $liPointSet.find('.op.ui-buttonset').remove();
+                    $liPointSet.find('.plot-op').show();
+                    $liPointSet.find(".plot-editor").remove();
+                    $liPointSet.find("li button").remove();
+                    $editDiv.remove();
+                });
+
+                $liPointSet.find('.comp-edit-k').hide();
+
+
+                self.$prov.find('.landing').slideDown();
+                $liPointSet.find(".comp-editor").slideUp("default",function(){$(this).remove()});
+                $liPointSet.find(".edit-plot").show();
+                self.sortableOn();
+            });
+            $editDiv.prependTo($liPointSet).slideDown();
+            self.$prov.find('.landing').slideUp();
+            self.$liPointSet.find('.edit-pointset').hide();
         },
-
         provenanceOfMap:  function provenanceOfMap(){
             var self = this;
             var provHTML = '', ps, pointset;
@@ -686,11 +778,11 @@ function ProvenanceController(panelId){
             editDiv += '<button class="plot-close prov-float-btn">close</button>'
                 +   '<button class="plot-delete prov-float-btn">delete plot</button>'
                 +   ''
-                +   '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, mapset) + '" /></div><br>'
-                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + plotUnits(self.graph, mapset) + '" /></div><br>'
+                +   '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" data="name" value="' + plotName(self.graph, mapset) + '" /></div><br>'
+                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text" value="' + plotUnits(self.graph, mapset) + '" /></div><br>'
                 +   '<div class="map-mode edit-block">'
-                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="fill" '+ ((!options.mode || options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">fill (heat map)</label>'
-                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" '+ ((options.mode && options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
+                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="fill" data="mode" '+ ((!options.mode || options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">fill (heat map)</label>'
+                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" data="mode" '+ ((options.mode && options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
                 +   '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
                 +   '<span class="edit-label">Point calculations:</span>'
                 +   self.HTML.compMath + '<br>'
@@ -698,7 +790,7 @@ function ProvenanceController(panelId){
                 // legendEditor appended here
                 +   '</fieldset>';
             if(self.plotsEdits.length>0){
-                editDiv +=   '<div class="edit-block bunny"><label><input type="checkbox" class="bunny" value="bunny" '+(!isNaN(options.bunny)?'checked':'')+' />Comparison mode</label> <span class="bunny-selector" '+(isNaN(options.bunny)?'style="display:none;"':'')+'> Map relative to plotted average<select>';
+                editDiv +=   '<div class="edit-block bunny"><label><input type="checkbox" class="bunny" value="bunny" '+(!isNaN(options.bunny)?'checked':'')+' />Comparison mode</label> <span class="bunny-selector" '+(isNaN(options.bunny)?'style="display:none;"':'')+' data="bunny"> Map relative to plotted average<select>';
                 for(i=0;i<self.plotsEdits.length;i++){
                     editDiv += '<option ' + (((isNaN(options.bunny)&&(i==0))||(options.bunny==i))?'selected':'') +' value="'+(i+1)+'" >'+i+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
                 }
@@ -712,7 +804,7 @@ function ProvenanceController(panelId){
             $editDiv.find('input.bunny').change(function(){  //checkbox
                if(this.checked) {
                    $editDiv.find('.bunny-selector').slideDown();
-                   options.bunny = $editDiv.find('.bunny-selector select').val();
+                   self.set($editDiv.find('.bunny-selector select'));
                } else {
                    $editDiv.find('.bunny-selector').slideUp();
                    delete options.bunny;
@@ -724,21 +816,23 @@ function ProvenanceController(panelId){
                     options.k = Math.abs(parseFloat(this.value));
                     if(options.k==0)options.k=1;
                     self.setFormula(mapset, $mapset);
+                    self.makeDirty();
                 }  else {
                     dialogShow('Error','Scalors must be numerical');
                 }
                 $(this).val(options.k||1);
             });
+
             //buttonsets
             $editDiv.find('div.edit-math')
                 .find("[value='"+(options.compMath||"required")+"']").attr('checked',true).end()
                 .buttonset().find('input:radio').change(function(){
-                    options.compMath = this.value;
+                    self.set(options, $(this));  //options.compMath = this.value;
                 });
             $editDiv.find('div.map-mode')
                 .find("[value='"+(options.mode||"fill")+"']").attr('checked',true).end()
                 .buttonset().find('input:radio').change(function(){
-                    options.mode= this.value;
+                    self.set(options, $(this));  //options.mode= this.value;
                     legendControls.legendOptionsShowHide();
                     showHideMergeFormula();
                 });
@@ -746,7 +840,6 @@ function ProvenanceController(panelId){
             function showHideMergeFormula(){
                 if(options.mode=='bubble') $editDiv.find('.merge-formula').show(); else $editDiv.find('.merge-formula').hide();
             }
-
 
             //buttons
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
@@ -771,11 +864,11 @@ function ProvenanceController(panelId){
 
             //sync
             $editDiv.find("input.plot-name").change(function(){
-                mapset.options.name = $(this).val();
+                self.set(options, $(this));  //mapset.options.name = $(this).val();
                 $mapset.find('span.plot-title').html(mapset.options.name);
             });
             $editDiv.find("input.plot-units").change(function(){
-                mapset.options.units = $(this).val();
+                self.set(options, $(this));  //mapset.options.units = $(this).val();
                 $mapset.find('span.plot-units').html(mapset.options.units);
             });
             $editDiv.appendTo($mapset.find('.editor').html('')).slideDown();
@@ -790,18 +883,19 @@ function ProvenanceController(panelId){
             }
             if($container) $container.find('span.plot-formula').html('= '+ formula);
         },
-        legendEditor: function($target, options, type){
-            var i, self = this, $mapset = self.$prov.find('.mapset');
+        legendEditor: function($target, thisOptions, type){
+            var i, self = this, $mapProv = self.$prov.find('.map-prov');
+            var options = type=='M'?thisOptions:self.mapconfigEdits;
             var legendHTML = '<div class="edit-block">';
             if(type=='X'){
                 legendHTML +=  '<span class="edit-label attribute">Series data value will change </span>'
                     + '<div class="attribute">'
-                    +   '<input type="radio" id="attribute-radius-'+panelId+'" value="radius"/><label for="attribute-radius-'+panelId+'">radius of marker</label>'
-                    +   '<input type="radio" id="attribute-fill-'+panelId+'" value="fill" /><label for="attribute-fill-'+panelId+'">fill color of marker</label>'
+                    +   '<input type="radio" id="attribute-radius-'+panelId+'" data="attribute" value="radius"/><label for="attribute-radius-'+panelId+'">radius of marker</label>'
+                    +   '<input type="radio" id="attribute-fill-'+panelId+'" data="attribute" value="fill" /><label for="attribute-fill-'+panelId+'">fill color of marker</label>'
                     + '</div>'
                     + '<div class="edit-block color" style="display: none;">'
-                    +   ' <input class="markerColor color-picker" type="text" value="' + (options.color||'#0071A4') + '" />'
-                    +   (self.graph.pointsets.length>1?' name in legend: <input class="legend-name" type="text" value="' + (options.legendName||options.name||'') + '" />':'')
+                    +   ' <input class="markerColor color-picker" type="text" data="markerColor" value="' + (thisOptions.color||'#0071A4') + '" />'
+                    +   (self.graph.pointsets.length>1?' name in legend: <input class="legend-name" type="text" value="' + (thisOptions.legendName||thisOptions.name||'') + '" />':'')
                     + '</div>';
             }
             legendHTML +=  '<div class="edit-block radius"  style="display: none;">'
@@ -809,13 +903,13 @@ function ProvenanceController(panelId){
                 + '</div>'
                 + '<div class="edit-block color-scale" style="display: none;">'
                 +   '<div class="legend-scale"><span class="edit-label">Color scale:</span>'
-                +       '<input type="radio" id="legend-continuous-'+panelId+'" name="legend-type-'+panelId+'" value="continuous" /><label for="legend-continuous-'+panelId+'">continous</label>'
-                +       '<input type="radio" id="legend-discrete-'+panelId+'" name="legend-type-'+panelId+'" value="discrete"/><label for="legend-discrete-'+panelId+'">discrete</label>'
+                +       '<input type="radio" id="legend-continuous-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="continuous" /><label for="legend-continuous-'+panelId+'">continous</label>'
+                +       '<input type="radio" id="legend-discrete-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="discrete"/><label for="legend-discrete-'+panelId+'">discrete</label>'
                 +   '</div>'
                 +   '<div class="edit-block legend-continuous" style="display: none;">'
-                +       '<div class="continuous-color"><input class="neg color-picker" type="text" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
-                +       continuousColorScale(self.mapsetEdits.options)
-                +       '<div class="continuous-color"><input class="pos color-picker" type="text" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>'
+                +       '<div class="continuous-color"><input class="neg color-picker" type="text" data="negColor" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
+                +       continuousColorScale(options)
+                +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>'
                 +   '</div>'
                 +   '<div class="edit-block legend-discrete" style="display: none;"></div>'
                 + '</div>';
@@ -824,7 +918,7 @@ function ProvenanceController(panelId){
             $legend.find('div.legend-scale')
                 .find("[value='"+(options.scale||'continuous')+"']").attr('checked',true).end()
                 .buttonset().find('input:radio').change(function(){
-                    options.scale = this.value;
+                    self.set(options,  $(this));
                     if(options.scale=='continuous'){
                         $legend.find('.legend-discrete').slideUp();
                         $legend.find('.legend-continuous').slideDown();
@@ -837,7 +931,7 @@ function ProvenanceController(panelId){
             $legend.find('div.attribute')
                 .find("[value='"+(options.attribute||'radius')+"']").attr('checked',true).end()
                 .buttonset().find('input:radio').change(function(){
-                    options.attribute = this.value;
+                    self.set(options, $(this)); //set options.attribute
                     setRadLabel();
                     legendOptionsShowHide();
                 });
@@ -849,23 +943,22 @@ function ProvenanceController(panelId){
                     } else {
                         self.mapconfigEdits.fixedRadius = $(this).val();
                     }
+                    self.makeDirty();
                 });
             $legend.find('.color-picker.pos').colorPicker().change(function(){
-                var legendOptions = type=='M'?self.mapsetEdits.options:self.mapconfigEdits;
-                legendOptions.posColor = this.value;  // this is a universal val for pointsets
-                $legend.find('.continuous-strip-pos').html(continuousColorStrip('#CCCCCC', legendOptions.posColor));
-                $mapset.find('.map-legend').html(continuousColorScale(legendOptions));
+                self.set(options, $(this));  //options.posColor = this.value;  // this is a universal val for pointsets
+                $legend.find('.continuous-strip-pos').html(continuousColorStrip('#CCCCCC', options.posColor));
+                $mapProv.find('.map-legend').html(continuousColorScale(options));
             });
             $legend.find('.color-picker.neg').colorPicker().change(function(){
-                var legendOptions = type=='M'?self.mapsetEdits.options:self.mapconfigEdits;
-                legendOptions.negColor = this.value; // this is a universal val for pointsets
-                $legend.find('.continuous-strip-neg').html(continuousColorStrip(legendOptions.negColor, '#CCCCCC'));
-                $mapset.find('.map-legend').html(continuousColorScale(legendOptions));
+                self.set(options, $(this)); //options.negColor = this.value; // this is a universal val for pointsets
+                $legend.find('.continuous-strip-neg').html(continuousColorStrip(options.negColor, '#CCCCCC'));
+                $mapProv.find('.map-legend').html(continuousColorScale(options));
             });
             $legend.find('.color-picker.markerColor').colorPicker().change(function(){
-                options.markerColor = this.value;
+                self.set(options, $(this));  //options.markerColor = this.value;
             });
-            $legend.find('.legend-discrete').append(self.discreteLegend(options, type));
+            $legend.find('.legend-discrete').append(self.discreteLegend(type));
 
             legendOptionsShowHide();
             $target.append($legend);
@@ -894,10 +987,9 @@ function ProvenanceController(panelId){
                 $legend.find('.radius-label').html(options.attribute=='fill'?'Marker radius: ':'Maximum marker radius: ');
             }
         },
-
         discreteLegend: function(type){
             var legendHtml, $legend, i, changing, val, self = this;
-            var options = (type=='X'?self.mapconfigEdits:self.mapsetEdits.options);
+            var options = (type=='X'?self.mapconfigEdits:self.mapsetEdits);
             if(!Array.isArray(options.discreteColors) || options.discreteColors.length==1) options.discreteColors = resetLegend(5, options);
             legendHtml = '<div class="edit-block">'
                 +   '<div class="edit-block discrete-legend"></div>'
@@ -938,6 +1030,7 @@ function ProvenanceController(panelId){
                 $legend.find('.color').colorPicker().change(function(){
                     changing = parseInt($(this).attr('data'));
                     options.discreteColors[changing].color = $(this).val();
+                    self.makeDirty();
                 });
                 $legend.find('.cutoff').change(function(){
                     changing = parseInt($(this).attr('data'));
@@ -949,6 +1042,7 @@ function ProvenanceController(panelId){
                             if(i>changing) options.discreteColors[i].cutoff = Math.max(options.discreteColors[i].cutoff , val);
                         }
                     }
+                    self.makeDirty();
                 });
             }
             function resetLegend(count, options){
@@ -1014,6 +1108,18 @@ function ProvenanceController(panelId){
                     return (s.length==1?0:'') + s;
                 }
             }
+        },
+        makeDirty: function(){
+            this.isDirty = true;
+            this.$prov.find('.config-cancel').button('enable');
+        },
+        set: function(options, property, value){
+            if(typeof property == 'string'){
+                options[property] = value;
+            } else { //JQ object
+                options[property.attr('data')] = property.val();
+            }
+            this.makeDirty();
         }
     };
     return controller;

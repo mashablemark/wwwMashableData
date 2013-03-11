@@ -1048,37 +1048,40 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
 #series-tabs a:hover{
     color:black;
 }
-
+#title-bar{
+    background-color: black;
+    border: 0;
+}
 #series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover{
-     background:darkTurquoise;
+     background:  deepskyblue;
  }
 #series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover{
-    background:gold;
+    background: #48d1cc;
 }
 #series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover{
-    background:LightCoral;
+    background: #65E62E; /*#FFE34D;*/
 }
 #series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover{
-    background:#80C030;
+    background: #41bf78;
 }
 /*picker class*/
 #local-series{
-    background:darkTurquoise;
+    background: deepskyblue;
 }
 #cloud-series{
     display:none;
     position:relative;
-    background:gold;
+    background: mediumturquoise;
 }
 #myGraphs{
     display:none;
     position:relative;
-    background:LightCoral;
+    background: #65e62e;
 }
 #publicGraphs{
     display:none;
     position:relative;
-    background:#80C030;
+    background: #41BF78;
 }
 
 #seriesTabs li.ui-state-default{ border: 1px solid #d3d3d3; background: green; font-weight: normal; color: #555555; }
