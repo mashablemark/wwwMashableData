@@ -96,7 +96,7 @@ var newPlotIDCounter = -1; //new plots get negative ids (i.e. 'P-8-') which get 
 var myPreferences = {uselatest: 'N'};
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 
-if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //prevents IE from breaking
+if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}, time: function(m){}, timeEnd: function(m){}};  //prevents IE from breaking
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
     FB.init({
@@ -1705,6 +1705,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
     }
 
 //  B. My Graphs
+    console.info("syncMyAccount run")
     callApi({'command':	'GetMyGraphs'},  //modal is closed
         function(results, textStatus, jqXH){
             for(var key in results.graphs){

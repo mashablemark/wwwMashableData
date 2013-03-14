@@ -153,6 +153,8 @@ function AnnotationsController(panelId){
                 return self.parseDate(a.from) - self.parseDate(b.from)
             });
             for(i=0;i< oGraph.annotations.length;i++){
+                console.time('annotation loop');
+
                 anno = oGraph.annotations[i];
                 switch(anno.type){
                     case 'point':
@@ -272,13 +274,18 @@ function AnnotationsController(panelId){
                         sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+' '+anno.yAxis+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
                         break;
                 }
+
+                console.timeEnd('annotation loop');
             }
+            console.time('annotation redraw');
             if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
                 for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
                     oHighCharts[panelId].get(key).setData(scatterData[key], false);
                 }
                 oHighCharts[panelId].redraw(); //redraw after all have been updated
             }
+            console.timeEnd('annotation redraw');
+            console.time('annotation rest');
             if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" style="font-style:italic;color:aaaaaa#">right-click on the chart to annotate a point, a band, or an event</td></tr>';
             $annotations.html(sTable).find('input, select').change(function(){self.change(this)});
             $annotations.find('.annotation-color-picker').colorPicker();
@@ -286,6 +293,8 @@ function AnnotationsController(panelId){
                 .click(function(){
                     self.delete(this)
                 });
+
+            console.timeEnd('annotation rest');
         },
         change: function changeAnno(obj){
             var i, yOffset, y, id = $(obj).closest('tr').attr('data');
