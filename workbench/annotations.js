@@ -17,8 +17,8 @@ $(document).ready(function(){
             tooltip: {
                 formatter: function(){  //shorten the data accord to period; add commas to number; show units
                     var tooltip = formatDateByPeriod(this.point.x, this.series.options.period) + '<br>'
-                        + this.series.name + ':<br>'
-                        + Highcharts.numberFormat(this.y,'','.',',') + ' ' + this.series.yAxis.options.title.text;
+                        + this.series.name.trim() + ':<br>'
+                        + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text;
                     return tooltip;
                 }
             }

@@ -1636,10 +1636,11 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
             dataType: 'json',
             success: function(md_getUserId_results, textStatus, jqXH){
                 if(md_getUserId_results.status=='ok'){
+                    console.info('GetUserId success');
                     $.extend(account.info, account.fb_user, md_getUserId_results);  //no further action required (assumes success)
                     //account.info.userId = account.info.userid;  //smoe capitalization problems coming out of the db
                     if(account.info.orgId&&account.info.orgName){$("#series_search_source").append('<option value="org">'+account.info.orgName+'</option>')};
-                    $("#menu-account .ui-button-text").html(account.info.name);
+                    $('#menu-account').find('.ui-button-text').html(account.info.name);
                     syncMyAccount();
                 } else {
                     console.log(md_getUserId_results);

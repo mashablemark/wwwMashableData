@@ -142,12 +142,12 @@ function ProvenanceController(panelId){
             return plotList;
         },
         componentsHTML: function(plot){
-            var plotList, comp, type='plot', numer='', denom='', compHTML, isDenom=false, graph = this.graph;
+            var plotList, comp, type='plot', numerCount=1, numerHTML='', denomHTML='', compHTML, isDenom=false, graph = this.graph;
             for(var j=0;j< plot.components.length;j++){
                 //inner COMPONENT loop
                 comp = plot.components[j];
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
-                if(comp.handle[0]=='M')type='map';
+                if(comp.handle[0]=='M')type='map';  //overides default = 'plot'
                 if(comp.handle[0]=='X')type='point';
                 compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">'
                     + '<span class="plot-op ui-icon ' + op.class[plot.components[j].options.op] + '">operation</span> '
@@ -157,11 +157,16 @@ function ProvenanceController(panelId){
                     + ' ('+period.name[graph.assets[comp.handle].period]+') in '
                     + graph.assets[comp.handle].units
                     + '</li>';
-                if(plot.components[j].options.dn=='d'||isDenom){isDenom= true; denom += compHTML} else {numer += compHTML}
+                if(plot.components[j].options.dn=='d'||isDenom){
+                    isDenom= true; denomHTML += compHTML;
+                } else {
+                    numerHTML += compHTML;
+                    numerCount++;
+                }
             }
-            plotList = '<ol class="components '+type+'-comp numer">'+(numer||this.HTML.nLanding) + '</ol>'
+            plotList = '<ol class="components '+type+'-comp numer">'+(numerHTML||this.HTML.nLanding) + '</ol>'
             + '<hr>'
-            + '<ol class="components '+type+'-comp denom">'+(denom||this.HTML.dLanding) + '</ol>';
+            + '<ol class="components '+type+'-comp denom" start="'+numerCount+'">'+(denomHTML||this.HTML.dLanding) + '</ol>';
             return plotList;
         },
         plotPeriodicity:   function plotPeriodicity(plot){
@@ -554,7 +559,12 @@ function ProvenanceController(panelId){
                 self.makeDirty();
             });
             $editDiv.find("input.plot-units").change(function(){
-                if(plotUnits(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.units = $(this).val(); else delete oPlot.options.units;
+                if(plotUnits(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') {
+                    oPlot.options.units = $(this).val();
+                } else {
+                    delete oPlot.options.units;
+                }
+                $liPlot.find('span.plot-units').html(plotUnits(self.graph, oPlot));
                 self.makeDirty();
             });
             //buttonsets
@@ -664,19 +674,6 @@ function ProvenanceController(panelId){
                 if(plotUnits(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
                 self.makeDirty();
             });
-            //buttonsets
-            if(!options.componentData)options.componentData='required'
-            $editDiv.find("div.edit-math").find("input[id='"+options.componentData+"-"+panelId+"']").click().end().buttonset()
-                .find('input:radio').change(function(){
-                    options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
-                    self.makeDirty();
-                });
-            //line color and style
-            $editDiv.find(".edit-line legend").after($liPointSet.find(".line-sample").hide().clone().css("display","inline-block").show());
-            $editDiv.find("input.plot-color").colorPicker().change(function(){
-                options.lineColor = $(this).val();
-                $liPointSet.find("div.line-sample").css('background-color',options.lineColor);
-            });
             $editDiv.find('.plot-edit-k input').change(function(){
                 if(!isNaN(parseFloat(this.value))){
                     options.k = Math.abs(parseFloat(this.value));
@@ -687,6 +684,15 @@ function ProvenanceController(panelId){
                 }
                 $(this).val(options.k||1);
             });
+
+            //buttonsets
+            if(!options.componentData)options.componentData='required'
+            $editDiv.find("div.edit-math").find("input[id='"+options.componentData+"-"+panelId+"']").click().end().buttonset()
+                .find('input:radio').change(function(){
+                    options.componentData = $(this).closest('div').find(".ui-state-active").attr("for").split('-')[0];
+                    self.makeDirty();
+                });
+
             //buttons
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 self.plotsEdits.splice($liPointSet.index(),1);
@@ -717,7 +723,7 @@ function ProvenanceController(panelId){
             });
             $editDiv.prependTo($liPointSet).slideDown();
             self.$prov.find('.landing').slideUp();
-            self.$liPointSet.find('.edit-pointset').hide();
+            $liPointSet.find('.edit-pointset').hide();
         },
         provenanceOfMap:  function provenanceOfMap(){
             var self = this;
@@ -890,13 +896,13 @@ function ProvenanceController(panelId){
             if(type=='X'){
                 legendHTML +=  '<span class="edit-label attribute">Series data value will change </span>'
                     + '<div class="attribute">'
-                    +   '<input type="radio" id="attribute-radius-'+panelId+'" data="attribute" value="radius"/><label for="attribute-radius-'+panelId+'">radius of marker</label>'
-                    +   '<input type="radio" id="attribute-fill-'+panelId+'" data="attribute" value="fill" /><label for="attribute-fill-'+panelId+'">fill color of marker</label>'
+                    +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-radius-'+panelId+'" data="attribute" value="radius"/><label for="attribute-radius-'+panelId+'">radius of marker</label>'
+                    +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-fill-'+panelId+'" data="attribute" value="fill" /><label for="attribute-fill-'+panelId+'">fill color of marker</label>'
                     + '</div>'
-                    + '<div class="edit-block color" style="display: none;">'
-                    +   ' <input class="markerColor color-picker" type="text" data="markerColor" value="' + (thisOptions.color||'#0071A4') + '" />'
+                    + '<div class="edit-block"><div class="color" style="display: none;">'
+                    +   ' <input class="markerColor color-picker" type="text" data="markerColor" value="' + (thisOptions.markerColor||'#0071A4') + '" />'
                     +   (self.graph.pointsets.length>1?' name in legend: <input class="legend-name" type="text" value="' + (thisOptions.legendName||thisOptions.name||'') + '" />':'')
-                    + '</div>';
+                    + '</div></div>';
             }
             legendHTML +=  '<div class="edit-block radius"  style="display: none;">'
                 +   '<span class="edit-label radius-label"></span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||20:options.maxRadius||20)+'" />'
@@ -930,7 +936,8 @@ function ProvenanceController(panelId){
             setRadLabel();
             $legend.find('div.attribute')
                 .find("[value='"+(options.attribute||'radius')+"']").attr('checked',true).end()
-                .buttonset().find('input:radio').change(function(){
+                .buttonset()
+                .find('input:radio').change(function(){
                     self.set(options, $(this)); //set options.attribute
                     setRadLabel();
                     legendOptionsShowHide();
@@ -956,7 +963,7 @@ function ProvenanceController(panelId){
                 $mapProv.find('.map-legend').html(continuousColorScale(options));
             });
             $legend.find('.color-picker.markerColor').colorPicker().change(function(){
-                self.set(options, $(this));  //options.markerColor = this.value;
+                self.set(thisOptions, $(this));  //particular pointset ooptions;
             });
             $legend.find('.legend-discrete').append(self.discreteLegend(type));
 
@@ -965,7 +972,7 @@ function ProvenanceController(panelId){
             return {"legendOptionsShowHide": legendOptionsShowHide, "setRadLabel": setRadLabel};
 
             function legendOptionsShowHide(){
-                if((options.mode=='bubble')||(options.attribute=='radius')){ //RADIUS-SPINNER (options.attribute only exists for mapsets (not pointsets))
+                if((type=='X')||(options.mode=='bubble')||(options.attribute=='radius')){ //RADIUS-SPINNER (options.attribute only exists for mapsets (not pointsets))
                     $legend.find('div.radius').slideDown();
                 } else {
                     $legend.find('div.radius').slideUp();
@@ -984,7 +991,14 @@ function ProvenanceController(panelId){
                 }
             }
             function setRadLabel(){
-                $legend.find('.radius-label').html(options.attribute=='fill'?'Marker radius: ':'Maximum marker radius: ');
+                if(options.attribute=='fill'){
+                    $legend.find('.radius-label').html('Marker radius: ');
+                    $legend.find('.color').hide();
+                } else {
+                    $legend.find('.radius-label').html('Maximum marker radius: ');
+                    $legend.find('.color').show();
+                }
+
             }
         },
         discreteLegend: function(type){

@@ -1335,7 +1335,7 @@ function calcMap(graph){
     var regionData = {};  //2D object array:  [mashable-date][region-code]=value
 
     //local vars
-    var mapRegionNames = {}, c, i, point, points, mddt, handle;
+    var mapRegionNames = {}, c, i, j, point, points, mddt, handle;
     var mapMin=null, mapMax=null;
     var pointMin=null, pointMax=null;
     var oMapDates = {};
@@ -1381,14 +1381,14 @@ function calcMap(graph){
             markers = $.extend(markers, graph.assets[cmp.handle].coordinates);
             for(var s in graph.assets[cmp.handle].coordinates){
                 markers[s].name = graph.assets[cmp.handle].data[s].name;
-                markers[s].style = {fill: primeColors[index]};
+                markers[s].style = {fill: pointPlot.options.markerColor || primeColors[index]};
             }
             index++;
 
             for(handle in graph.assets[cmp.handle].data){
                 points = graph.assets[cmp.handle].data[handle].data.split("||");
-                for(i=0;i<points.length;i++){
-                    point = points[i].split("|");
+                for(j=0;j<points.length;j++){
+                    point = points[j].split("|");
                     if(!pointData[point[0]]) pointData[point[0]] = {};
                     pointData[point[0]][handle]= (point[1]=="null")?null:parseFloat(point[1]);
                     if(pointMin==null || (point[1]!='null' && pointMin>parseFloat(point[1])))
@@ -1700,21 +1700,6 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.chart-map').width($thisPanel.width()-40-350); //
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
-    $thisPanel.find('button.interval-selector')
-        .click(function(){
-            if(this.innerHTML=='on'){
-                //chart.options.tooltip.shared=true;
-                chart.options.tooltip.crosshairs=[true,false];
-                $thisPanel.find('button.interval-selector-on').addClass('toggle-active').removeClass('toggle-inactive');
-                $thisPanel.find('button.interval-selector-off').addClass('toggle-inactive').removeClass('toggle-active');
-            } else {
-                //chart.options.tooltip.shared=false;
-                chart.options.tooltip.crosshairs=null;
-                $thisPanel.find('button.interval-selector-on').addClass('toggle-inactive').removeClass('toggle-active');
-                $thisPanel.find('button.interval-selector-off').addClass('toggle-active').removeClass('toggle-inactive');
-            }
-            chart.redraw();
-        });
     $thisPanel.find('a.post-facebook')
         .click(function(){
             annotations.sync();
@@ -2566,7 +2551,7 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
     var c, i, terms, numUnits = '', denomUnits = '';
     //short cut for single component plots
     if(plot.components.length==1){
-        return (plot.components[0].op=='/'?'per ':'') + graph.assets[plot.components[0].handle].units;
+        return plot.options.units || (plot.components[0].op=='/'?'per ':'') + graph.assets[plot.components[0].handle].units;
     }
     if(!plot.options.units || forceCalculated){
         //calculate from component series
