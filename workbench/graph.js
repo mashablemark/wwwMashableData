@@ -175,8 +175,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
         .mouseover(function(e){
             if(annotations.banding){
                 if(annotations.banding.substr(0,2)=='y-'){
-                    var chart = oHighCharts[panelId],
-                        top = $(chart.container).offset().top,
+                    var top = $(chart.container).offset().top,
                         left = $(chart.container).offset().left;
                     var x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft,
                         y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
@@ -1517,6 +1516,31 @@ function calcMap(graph){
     };
     return graph.calculatedMapData;
 }
+function calcAttributes(graph){
+    var i, j, dt, geo, calcData = graph.calculatedMapData;
+    //1. if graph start or end (crops) cut in map dates, recalc min and max values for regions and marker
+    if((graph.start && graph.start > calcData.dates[0].dt.getTime()) || (graph.end && graph.end < calcData.dates[calcData.dates.length-1].dt.getTime())){
+        calcData.regionDataMin = Number.MAX_VALUE;
+        calcData.regionDataMax = Number.MIN_VALUE;
+        for(dt in calcData.regionData){
+            for(geo in calcData.regionData[dt]){
+                if(calcData.regionData[dt][geo]!==null){
+                    calcData.regionDataMin = Math.min(calcData.regionDataMin, calcData.regionData[dt][geo]);
+                    calcData.regionDataMax = Math.max(calcData.regionDataMax, calcData.regionData[dt][geo]);
+                }
+            }
+        }
+    }
+    //2. based on mapsets.options, set regionData attributes
+    if(graph.mapsets){
+        var options = graph.mapsets.options;
+        var continuous = !options.scale || options.scale=='continuous';
+        //var bunny =
+
+    }
+    //3. based on mapconfig, set markerData attributes
+
+}
 function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match and then step back if weekly->monthly->annual or if monthly->annual
 //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
     while(mdDate.length>=4){
@@ -1696,9 +1720,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             //'<a class="md-xls rico">Excel</a><br>' +
             ' Image: ' +
             //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
-            '<a onclick="exportChart(\'image/jpeg\')" class="md-jpg rico">JPG</a>' +
-            '<a onclick="exportChart(\'image/svg+xml\')" class="md-svg rico">SVG</a>' +
-            '<a onclick="exportChart(\'application/pdf\')" class="md-pdf rico">PDF</a>' +
+            '<a class="md-jpg rico export-chart">JPG</a>' +
+            '<a class="md-svg rico export-chart">SVG</a>' +
+            '<a class="md-pdf rico export-chart">PDF</a>' +
             '</fieldset>' +
             '</div>' +
             '<div class="sharing">' +
@@ -1789,6 +1813,13 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.chart-map').width($thisPanel.width()-40-350); //
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
+    $thisPanel.find('.export-chart').click(function(){
+        var type, $this = $(this);
+        if($this.hasClass('md-jpg')) type = 'image/jpeg';
+        if($this.hasClass('md-svg')) type = 'image/svg+xml';
+        if($this.hasClass('md-pdf')) type = 'application/pdf';
+        exportChart(type);
+    });
     $thisPanel.find('a.post-facebook')
         .click(function(){
             annotations.sync();
@@ -2031,6 +2062,14 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         saveGraph(oGraph);
         $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
         makeClean();
+    }
+    function exportChart(type){
+        if(oPanelGraphs[panelId].map){
+            downloadMap(panelId, type);
+        } else {
+            annotations.sync();
+            oHighCharts[panelId].exportChart({type: type});
+        }
     }
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable')
         .click(function(){

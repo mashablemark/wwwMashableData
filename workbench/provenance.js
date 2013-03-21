@@ -30,6 +30,7 @@ function ProvenanceController(panelId){
             okcancel = '<button class="config-cancel">cancel edits</button>';
             plotList = '';
             if(typeof plotIndex != 'undefined'){
+                if(self.$prov.find('.chart-plots').length==0) self.$prov.find('.config-cancel').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div');
                 self.$prov.find('ol.plots').append( self.plotHTML(plotIndex) );
             } else {
                 self.plotsEdits = $.extend(true, [], self.graph.plots);  //this is the copy that the provenance panel will work with.  Will replace graph.plots on "OK"
@@ -130,7 +131,7 @@ function ProvenanceController(panelId){
             var plotColor, plotList = '', plot = self.plotsEdits[i];
             plot.options.lineWidth = plot.options.lineWidth? parseInt(plot.options.lineWidth):2;
             plot.options.lineStyle = plot.options.lineStyle || 'Solid';
-            plotColor = plot.options.lineColor || (oHighCharts[panelId].get('P'+i)?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
+            plotColor = plot.options.lineColor || ((oHighCharts[panelId]&&oHighCharts[panelId].get('P'+i))?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
             plotList += '<li class="plot" data="P' + i + '">'
             + '<button class="edit-plot">configure</button>'
             + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
@@ -414,12 +415,14 @@ function ProvenanceController(panelId){
                 ui.item.remove();  //the spare component in the new plot landing zone
                 self.sortableOn();
             }
+            //6. you are DIRTY!
+            self.makeDirty();
 
         },
         provOk: function provOk(){//save change to graph object and rechart
             //TODO: save and rechart
             var self = this;
-            if(self.plotsEdits||self.mapsetEdits||self.pointsetsEdits){
+            if(self.isDirty && (self.plotsEdits||self.mapsetEdits||self.pointsetsEdits)){
                 if(self.plotsEdits.length>0) self.graph.plots = self.plotsEdits; else delete self.graph.plots;
                 self.graph.annotations = self.annoEdits;
                 if(self.mapsetEdits && self.mapsetEdits.components) self.graph.mapsets = self.mapsetEdits; else delete self.graph.mapsets;
@@ -795,27 +798,87 @@ function ProvenanceController(panelId){
                 +   '<fieldset class="edit-color" style="padding: 0 5px;display:inline-block;"><legend>legend</legend>'
                 // legendEditor appended here
                 +   '</fieldset>';
-            if(self.plotsEdits.length>0){
-                editDiv +=   '<div class="edit-block bunny"><label><input type="checkbox" class="bunny" value="bunny" '+(!isNaN(options.bunny)?'checked':'')+' />Comparison mode</label> <span class="bunny-selector" '+(isNaN(options.bunny)?'style="display:none;"':'')+' data="bunny"> Map relative to plotted average<select>';
+            //if(self.plotsEdits.length>0){
+                editDiv +=   '<div class="edit-block bunny-selector"><span class="bunny-selector" data="bunny">Color map relative to: <select class="bunny-selector">'
+                + '<option value="-1">none (simple heat map)</option>';
                 for(i=0;i<self.plotsEdits.length;i++){
-                    editDiv += '<option ' + (((isNaN(options.bunny)&&(i==0))||(options.bunny==i))?'selected':'') +' value="'+(i+1)+'" >'+i+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
+                    editDiv += '<option ' + (options.bunny==i?'selected':'') +' value="'+i+'" >'+(i+1)+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
                 }
-                editDiv += '</select></span></div> ';
-            }
+                editDiv += '<option value="add"><b>create regional plot for me</b></option>'
+                +  '</select></span></div> ';
+            //}
             editDiv += '</div>';
             var $editDiv = $(editDiv);
             var legendControls = self.legendEditor($editDiv.find('.edit-color'), options, 'M');
 
             //bunny
-            $editDiv.find('input.bunny').change(function(){  //checkbox
-               if(this.checked) {
-                   $editDiv.find('.bunny-selector').slideDown();
-                   self.set($editDiv.find('.bunny-selector select'));
-               } else {
-                   $editDiv.find('.bunny-selector').slideUp();
-                   delete options.bunny;
-               }
-               self.setFormula(mapset, $mapset);
+            $editDiv.find('.bunny-selector').change(function(){  //this is a multifunction selector: delete bunny, use existing plot, or create bunny
+                var val = $(this).val();
+                if(val=="add"){
+                    var i, handle, asset, mapsetids=[];
+                    for(i=0;i<mapset.components.length;i++){
+                        if(mapset.components[i].handle[0]=='M'){
+                            mapsetids.push(mapset.components[i].handle.substr(1));
+                        }
+                    }
+                    callApi({command: 'GetBunnySeries', mapsetids: mapsetids, geoid: self.mapconfigEdits.geoid, mapname: self.graph.map}, function (oReturn, textStatus, jqXH) {
+                        if(oReturn.allfound){
+                            for(handle in oReturn.assets){ //the handle being looped over in the mappset handle
+                                self.graph.assets[oReturn.assets[handle].handle] = oReturn.assets[handle];
+                            }
+                            var bunnyPlot = {options:{k: mapset.options.k||1, units: mapset.options.units}, components: []};
+                            for(i=0;i<mapset.components.length;i++){
+                                if(mapset.components[i].handle[0]=='M'){
+                                    handle = oReturn.assets[mapset.components[i].handle].handle;
+                                } else {
+                                    handle = mapset.components[i].handle;
+                                }
+                                bunnyPlot.components.push({
+                                    handle: handle,
+                                    options: {
+                                        k: mapset.components[i].k||1,
+                                        op: mapset.components[i].op||'+'
+                                    }
+                                });
+                            }
+                            //check to see if this already exists
+                            var p, plots = self.plotsEdits, bunnyExists = false;
+                            for(p=0;p<plots.length;p++){
+                                if(bunnyPlot.options.k!=plots.options.k||1){ //check plot options first for consistency
+                                    for(i=0;i<plots[p].components.length;i++){ // then check component and component options for consistency
+                                        if(plots[p].components[i].handle!=bunnyPlot.components[i].handle
+                                            || plots[p].components[i].options.k||1!=bunnyPlot.components[i].options.k
+                                            || plots[p].components[i].options.op||'+'!=bunnyPlot.components[i].options.op) break;
+
+                                    }
+                                    if(i==plots[p].components.length){
+                                        bunnyExists = true;
+                                        $(this).val(p);  //this will force the selector to the bunny plot already foudn to be exisiting and trigger another call to this routine where the bunny property will be set
+                                        break;
+                                    }
+                                }
+                            }
+                            if(!bunnyExists){
+                                self.plotsEdits.push(bunnyPlot);
+                                self.build(p); //p set correctly to length of plots before the above push
+                            }
+                        } else {
+                            dialogShow('unable to automatically create tracking plot','One or more of the component map sets does not have series for '+ self.graph.map +' level of aggregation.');
+                        }
+                        self.makeDirty();
+                    });
+                } else {
+                    if(val=="-1"){
+                        delete options.bunny;
+                    }  else {
+                        options.bunny = parseInt(val);
+                    }
+                }
+                self.setFormula(mapset, $mapset);
+                self.makeDirty();
+            });
+            $editDiv.find('bunny-selector').change(function(){
+
             });
             $editDiv.find('.plot-edit-k input').change(function(){
                 if(!isNaN(parseFloat(this.value))){

@@ -168,6 +168,10 @@ div #md-inner {
     overflow:hidden;
 	white-space:nowrap;
 }
+td.wrap{
+    overflow: visible;
+    white-space: normal;
+}
 td.dte{
     overflow:hidden;
     white-space:nowrap;
@@ -231,9 +235,9 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
   .md-save:hover{background: no-repeat url('md_assets.png') -21px -96px  ;}
 .md-saved {background: no-repeat url('md_assets.png') 0px -96px  ; height:18px; width:16px; cursor:pointer;}
   .md-saved:hover{background: no-repeat url('md_assets.png') -42px -96px  ;}
-.md-check {background: no-repeat url('md_assets.png') -84px -96px  ; height:18px; width:14px; cursor:pointer;}
+.md-check {background: no-repeat url('md_assets.png') -84px -96px  ; height:18px; width:15px; cursor:pointer;}
   .md-check:hover{background: no-repeat url('md_assets.png') -103px -96px  ;}
-.md-checked {background: no-repeat url('md_assets.png') -122px -96px  ; height:18px; width:14px; cursor:pointer;}
+.md-checked {background: no-repeat url('md_assets.png') -122px -96px  ; height:18px; width:15px; cursor:pointer;}
 /*  .md-checked:hover{background: no-repeat url('md_assets.png') -103px -96px  ;} */
 
 /* dataTable associated styles */

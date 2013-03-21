@@ -284,30 +284,20 @@ function setupMySeriesTable(){
                     }
                 }
             },
-            /*{ "mDataProp": "save", "sTitle": "<span></span>", "sClass": 'dt-sv',  "bSortable": true, "sType": "html", "sWidth": colWidths.save + "px", "resize": false,
-             "fnRender": function(obj){
-             if(obj.aData.save=='H'){
-             return '<a class="save_cell md-save rico"  onclick="clickSave(this)" title="save permanently or only to local storage (space permitting)">Saved as my recent views.  This storage space is limited.  Click to mark to permanently store in my MashableData account.</a>';
-             } else {
-             return '<a class="save_cell  md-saved rico" onclick="clickSave(this)" title="save permanently or only to local storage (space permitting)">Saved to my MashableData account\'s permanent storage. Click to move to my accounts temporary working storage.</a>';
-             }
-             }
-             },*/
-            //{ "bSortable": false, "sClass": 'gt',  "sWidth": "120px"},
             { "mDataProp": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
                 "fnRender": function(obj){
                     return ((obj.aData.mapsetid)?iconsHMTL.mapset:'')
                         + ((obj.aData.pointsetid)?iconsHMTL.pointset:'')
-                        + formatAsSpanWithTitle(obj);
+                        + getValue(obj);
                 }
             },
-            { "mDataProp": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "fnRender": function(obj){return formatAsSpanWithTitle(obj)}},
+            { "mDataProp": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "fnRender": function(obj){return getValue(obj)}},
             { "mDataProp": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "fnRender": function(obj){return formatPeriodWithSpan(obj.aData.period)}},
             { "mDataProp":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
                 "fnRender": function(obj){return formatObjDate(obj)}
             },
             { "mDataProp":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"fnRender": function(obj){return formatObjDate(obj)} },
-            { "mDataProp": "graph", "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "fnRender": function(obj){return formatAsSpanWithTitle(obj)}},
+            { "mDataProp": "graph", "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "fnRender": function(obj){return getValue(obj)}},
             { "mDataProp": null, "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                 "fnRender": function(obj){
                     if(obj.aData.sid) return formatAsUrl(obj.aData.url) + obj.aData.src;
@@ -443,8 +433,8 @@ function setupMyGraphsTable(){
                 "fnRender": function(obj) {
                     return '<button data="G' + obj.aData.gid + '" onclick="clickViewGraph(' + obj.aData.gid + ')">open</button>'}
             },
-            {"mDataProp":"title", "sTitle": "Title<span></span>", "bSortable": true,  "sWidth": titleColWidth+"px", "fnRender": function(obj){
-                return formatAsSpanWithTitle(obj)
+            {"mDataProp":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px", "fnRender": function(obj){
+                return getValue(obj)
             }},
             {"mDataProp":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "fnRender": function(obj){return formatAsSpanWithTitle(obj)} },
             {"mDataProp":"serieslist", "sTitle": "Series<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "fnRender": function(obj){return formatAsSpanWithTitle(obj)}},

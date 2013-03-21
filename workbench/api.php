@@ -408,6 +408,52 @@ switch($command){
             array_push($output["maps"], array("name"=>$row["name"], "count"=>($mapsetid!=0)?$row["setcount"]." of ".$row["geographycount"]:$row["setcount"]." locations"));
         }
         break;
+    case 'GetBunnySeries':
+        $mapsetids = $_POST["mapsetids"];
+        if(!isset($_POST["geoid"]) || intval($_POST["geoid"])==0){
+            $sql = "select bunny from maps where name = " . safeSQLFromPost("mapname");
+            $result = runQuery($sql,"GetBunnySeries map");
+            if($result->num_rows==1){
+                $row = $result->fetch_assoc();
+                $geoid = $row["bunny"];
+            } else {
+                return (array("status"=>"unable to find map"));
+            }
+        } else {
+            $geoid = intval($_POST["geoid"]);
+        }
+        $output = array("status"=>"ok", "allfound"=>true, "assets"=>array());
+        for($i=0;$i<count($mapsetids);$i++){
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+            . "s.title as graph, s.src, s.url, s.units, s.data, periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
+            . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount "
+            . " FROM series s "
+            . " where mapsetid = " . intval($mapsetids[$i]) . " and geoid = " . $geoid;
+            $result = runQuery($sql,"GetBunnySeries");
+            if($result->num_rows==1){
+                $row = $result->fetch_assoc();
+                if(intval($row["userid"])>0){
+                    requiresLogin();
+                    if(intval($_POST["uid"])==$row["userid"] || ($orgId==$row["ordig"] &&  $orgId!=0)){
+                        $row["handle"] = "U".$row["seriesid"];
+                        $output["assets"]["M".$mapsetids[$i]] = $row;
+                    } else {
+                        $output["allfound"]=false;
+                        $output["assets"]=false; //no need to transmit series as it will not be used
+                        break;
+                    }
+                } else {
+                    $row["handle"] = "S".$row["seriesid"];
+                    $output["assets"]["M".$mapsetids[$i]] = $row;
+                }
+                $geoid = $row["bunny"];
+            } else {
+                $output["allfound"]=false;
+                $output["assets"]=false; //no need to transmit series as it will not be used
+                break;
+            }
+        }
+        break;
     case "GetApis":
         $sql = "select apiid, name from apis";
         $result = runQuery($sql);
