@@ -63,7 +63,8 @@ var op = {
 var jVectorMapTemplates = {
     "European Union": "europe_mill_en",
     "US states": "us_aea_en",
-    "world": "world_mill_en"
+    "world": "world_mill_en",
+    "Africa": "africa_mill_en"
 };
 var mapBackground = '#AAAAAA';
 var rowPosition = {
@@ -990,7 +991,7 @@ function plotFormula(plot){//returns a formula object for display and eval
 
     function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
 }
-function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper would be to recurse, but current functio nwill work in practical terms
+function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper would be to recurse, but current function will work in practical terms
     var symbol='';
     if(compIndex>25){
         symbol = String.fromCharCode('A'.charCodeAt(0)+parseInt(compIndex/26));
@@ -1339,40 +1340,128 @@ function calcMap(graph){
     var mapMin=null, mapMax=null;
     var pointMin=null, pointMax=null;
     var oMapDates = {};
+
     if(graph.mapsets){
-        var mapset;  //shortcut past the mapHandle into the the mapset
-        for(c=0;c<graph.mapsets.components.length;c++){  //TODO:  only handles a single mapset right now
-            mapset = graph.assets[graph.mapsets.components[c].handle];
-            mapTitle = mapset.name;
-            mapPeriod = mapset.period;
-            mapUnits = mapset.units;
-            for(var regionCode in mapset.data){  //loop though the states/countries
-                mapRegionNames[regionCode] = mapset.data[regionCode].geoname;
-                points = mapset.data[regionCode].data.split("||");
-                for(i=0;i<points.length;i++){
-                    point = points[i].split("|");
-                    if(!regionData[point[0]]) regionData[point[0]] = {};
-                    regionData[point[0]][regionCode]= (point[1]=="null")?null:parseFloat(point[1]);
-                    if(mapMin==null || (point[1]!='null' && mapMin>parseFloat(point[1])))
-                        mapMin=parseFloat(point[1]);
-                    if(mapMax==null || (point[1]!='null' && mapMax<parseFloat(point[1])))
-                        mapMax=parseFloat(point[1]);
-                    if(!oMapDates[point[0]]){
-                        oMapDates[point[0]] = true;
-                        aMapDates.push({s: point[0], dt: dateFromMdDate(point[0], mapset.period)});
+        //THE BRAINS:
+        var mapset = graph.mapsets;
+        if(!mapset.formula) mapset.formula = plotFormula(mapset);
+        var expression = 'return ' + mapset.formula.formula.replace(patVariable,'values.$1') + ';';
+        var mapCompute = new Function('values', expression);
+
+        //1. rearrange series data into single object by date keys
+        var compSymbols = [], geo, geos={}, data, symbol, components = mapset.components, oComponentData = {};
+        for(i=0;i<components.length;i++ ){
+            symbol = compSymbol(i);
+            compSymbols.push(symbol); //calculate once and use as lookup below
+            //TODO: apply series transforms / down shifting here instead of just parroting series data
+            if(components[i].handle[0]=='M'){
+                for(geo in graph.assets[components[i].handle].data){
+                    geos[geo]=true;  //geos will be used later to loop over the geographies and squared up the final set
+                    data = graph.assets[components[i].handle].data[geo].data.split("||");
+                    for(j=0; j<data.length; j++){
+                        point = data[j].split("|");
+                        if(!oComponentData[point[0].toString()]){
+                            oComponentData[point[0].toString()] = {};
+                        }
+                        if(!oComponentData[point[0].toString()][symbol]){
+                            oComponentData[point[0].toString()][symbol] = {};
+                        }
+                        oComponentData[point[0].toString()][symbol][geo] = point[1];
                     }
                 }
-            }
-            //fill holes in the matrix with nulls, otherwise jVectorMap leaves the last valid value when changing date
-            for(mddt in regionData){
-                for(var map_code in mapRegionNames){
-                    if(typeof regionData[mddt][map_code] == "undefined") regionData[mddt][map_code]=null;
+            } else {
+                data = graph.assets[components[i].handle].data.split("||");
+                for(j=0; j<data.length; j++){
+                    point = data[j].split("|");
+                    if(!oComponentData[point[0].toString()]){
+                        oComponentData[point[0].toString()] = {};
+                    }
+                    oComponentData[point[0].toString()][symbol] = point[1];
                 }
             }
         }
-        aMapDates.sort(function(a,b){return a.dt - b.dt});
 
+        //2. calculate value for each date key (= grouped points)
+        var required = !mapset.options.componentData || mapset.options.componentData=='required';  //default
+        var missingAsZero =  mapset.options.componentData=='missingAsZero';
+        var nullsMissingAsZero =  mapset.options.componentData=='nullsMissingAsZero';
+
+        var breakNever = !mapset.options.breaks || mapset.options.breaks=='never'; //default
+        var breakNulls = mapset.options.breaks=='nulls';
+        var breakMissing = mapset.options.breaks=='missing';
+
+
+        mapTitle = plotName(graph, mapset);
+        mapPeriod = graph.assets[components[0].handle].period; //for now, all components for have same periodicity, so just check the first component
+        mapUnits = plotUnits(graph, mapset);
+
+        var dateKey, hasData, valuesObject, y;
+        for(dateKey in oComponentData){
+            hasData = false
+            for(geo in geos){
+                valuesObject = {};
+                y = true;
+                for(i=0;i<compSymbols.length;i++ ){
+                    if(!isNaN(oComponentData[dateKey][compSymbols[i]])){ //test whether this component is a simple time series
+                        valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
+                    } else {
+                        if(oComponentData[dateKey][compSymbols[i]]=='null'){
+                            if(nullsMissingAsZero){
+                                valuesObject[compSymbols[i]] = 0;
+                            } else {
+                                y = null;
+                                break;
+                            }
+                        } else {
+                            if(oComponentData[dateKey][compSymbols[i]] && oComponentData[dateKey][compSymbols[i]][geo]){
+                                if(oComponentData[dateKey][compSymbols[i]][geo]=='null'){
+                                    if(nullsMissingAsZero){
+                                        valuesObject[compSymbols[i]] = 0;
+                                    } else {
+                                        y = null;
+                                        break;
+                                    }
+                                } else {
+                                    valuesObject[compSymbols[i]] = oComponentData[dateKey][compSymbols[i]][geo];
+                                }
+                            } else {
+                                if(required) {
+                                    y = null;
+                                    break;
+                                } else {
+                                    valuesObject[compSymbols[i]] = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+                if(y) {
+                    try{
+                        y = mapCompute(valuesObject);
+                        if(Math.abs(y)==Infinity || isNaN(y)) y=null;
+                    } catch(err){
+                        y = null;
+                    }
+                }
+                if(y!==null || !breakNever){
+                    if(!regionData[dateKey]) regionData[dateKey] = {};
+                    regionData[dateKey][geo] = y;
+                }
+                if(y!==null) {
+                    hasData = true;
+                    mapMin = Math.min(mapMin||y, y);
+                    mapMax = Math.max(mapMax||y, y);
+                }
+            }
+            if(hasData){ //if all nulls, don't include this data
+                aMapDates.push({s: dateKey, dt: dateFromMdDate(dateKey, mapPeriod)});
+            } else {
+                delete regionData[dateKey];
+            }
+        }
+        aMapDates.sort(function(a,b){return a.dt - b.dt});
     }
+
     if(graph.pointsets){
         var index = 0, pointPlot, cmp;
         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
@@ -2581,7 +2670,7 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
         //4. swap in units (removing any + signs)
         var patPlus = /\+/g;
         for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-            replaceFormula('{{'+compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units).replace(patPlus,' '));
+            replaceFormula('{{'+compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units||'').replace(patPlus,' '));
         }
         var error = false;
         if(formulaObj.numFormula!=''){

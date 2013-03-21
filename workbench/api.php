@@ -390,11 +390,17 @@ switch($command){
     case "GetAvailableMaps":
         $mapsetid = intval($_POST["mapsetid"]);
         $pointsetid = intval($_POST["pointsetid"]);
+        if(isset($_POST["geoid"])){
+            $geoid = intval($_POST["geoid"]);
+        } else {
+            $geoid = 0;
+        }
         $sql = "select m.name, geographycount, count(s.geoid) as setcount "
             . " from series s, maps m, mapgeographies mg "
             . " where m.map=mg.map and mg.geoid=s.geoid";
         if($mapsetid>0) $sql .= " and s.mapsetid=".$mapsetid;
         if($pointsetid>0) $sql .= " and s.pointsetid=".$pointsetid;
+        if($geoid>0) $sql .= " and m.map in (select map from mapgeographies where geoid = " . $geoid . ")";
         $sql .= " group by m.name, geographycount order by count(s.geoid)/geographycount desc";
         $output = array("status"=>"ok", "maps"=>array());
         $result = runQuery($sql);

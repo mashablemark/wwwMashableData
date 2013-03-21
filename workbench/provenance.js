@@ -741,9 +741,9 @@ function ProvenanceController(panelId){
                         + '<span class="plot-formula">= ' + plotFormula(mapset).formula + '</span><br>'
                         + '<button class="edit-mapset right ehide">configure</button>'
                         + '<span class="map-mode ehide">mode: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined regions') + '</span>'
-                        + '<span class="map-legend ehide">'
+                        + '<span class="map-legend ehide">-'
                         +    continuousColorScale(self.mapsetEdits.options)
-                        + '</span>'
+                        + '+</span>'
                         + '<div class="editor"></div>'
                         + '</div>' //close plotinfo
                         + self.componentsHTML(mapset)
@@ -913,9 +913,9 @@ function ProvenanceController(panelId){
                 +       '<input type="radio" id="legend-discrete-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="discrete"/><label for="legend-discrete-'+panelId+'">discrete</label>'
                 +   '</div>'
                 +   '<div class="edit-block legend-continuous" style="display: none;">'
-                +       '<div class="continuous-color"><input class="neg color-picker" type="text" data="negColor" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
+                +       '-<div class="continuous-color"><input class="neg color-picker" type="text" data="negColor" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
                 +       continuousColorScale(options)
-                +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>'
+                +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>+'
                 +   '</div>'
                 +   '<div class="edit-block legend-discrete" style="display: none;"></div>'
                 + '</div>';
@@ -955,12 +955,12 @@ function ProvenanceController(panelId){
             $legend.find('.color-picker.pos').colorPicker().change(function(){
                 self.set(options, $(this));  //options.posColor = this.value;  // this is a universal val for pointsets
                 $legend.find('.continuous-strip-pos').html(continuousColorStrip('#CCCCCC', options.posColor));
-                $mapProv.find('.map-legend').html(continuousColorScale(options));
+                $mapProv.find('.map-legend').html('-'+continuousColorScale(options)+'+');
             });
             $legend.find('.color-picker.neg').colorPicker().change(function(){
                 self.set(options, $(this)); //options.negColor = this.value; // this is a universal val for pointsets
                 $legend.find('.continuous-strip-neg').html(continuousColorStrip(options.negColor, '#CCCCCC'));
-                $mapProv.find('.map-legend').html(continuousColorScale(options));
+                $mapProv.find('.map-legend').html('-'+continuousColorScale(options)+'+');
             });
             $legend.find('.color-picker.markerColor').colorPicker().change(function(){
                 self.set(thisOptions, $(this));  //particular pointset ooptions;
@@ -1145,6 +1145,6 @@ function continuousColorStrip(a, b){
 }
 function continuousColorScale(options){
     return '<div class="continuous-strip-neg">' + continuousColorStrip(options.negColor||MAP_COLORS.NEG, '#CCCCCC') + '</div>'
-        + '0.0'
+        + '0'
         + '<div class="continuous-strip-pos">' + continuousColorStrip('#CCCCCC', options.posColor||MAP_COLORS.POS) + '</div>'
 }

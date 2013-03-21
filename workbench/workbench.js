@@ -1052,7 +1052,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         if(obj.mapsetid || obj.pointsetid){
             var $mapSelect =  $('select.quick-view-maps').html("");
             var mapOptions = "";
-            callApi({command: "GetAvailableMaps", mapsetid: obj.mapsetid, pointsetid: obj.pointsetid}, function(jsoData, textStatus, jqXH){
+            callApi({command: "GetAvailableMaps", mapsetid: obj.mapsetid, pointsetid: obj.pointsetid, geoid: obj.geoid}, function(jsoData, textStatus, jqXH){
                 for(var i=0;i<jsoData.maps.length;i++){
                     mapOptions+='<option value="'+jsoData.maps[i].name+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
                 }
