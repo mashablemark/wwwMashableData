@@ -812,7 +812,7 @@ function ProvenanceController(panelId){
             var legendControls = self.legendEditor($editDiv.find('.edit-color'), options, 'M');
 
             //bunny
-            $editDiv.find('.bunny-selector').change(function(){  //this is a multifunction selector: delete bunny, use existing plot, or create bunny
+            $editDiv.find('select.bunny-selector').change(function(){  //this is a multifunction selector: delete bunny, use existing plot, or create bunny
                 var val = $(this).val();
                 if(val=="add"){
                     var i, handle, asset, mapsetids=[];
@@ -1180,10 +1180,7 @@ function ProvenanceController(panelId){
                 }
                 return discreteColors;
 
-                function octet(s){
-                    s = s.toString(16);
-                    return (s.length==1?0:'') + s;
-                }
+
             }
         },
         makeDirty: function(){
@@ -1207,7 +1204,7 @@ function continuousColorStrip(a, b){
     //return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1); filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from(#7ce3ff), to(#00355b));background-image: -webkit-linear-gradient(left, #7ce3ff, #00355b);background-image:    -moz-linear-gradient(left, #7ce3ff, #00355b);background-image:      -o-linear-gradient(left, #7ce3ff, #00355b;background-image:         linear-gradient(to left, #7ce3ff,#00355b);"></span>';
 }
 function continuousColorScale(options){
-    return '<div class="continuous-strip-neg">' + continuousColorStrip(options.negColor||MAP_COLORS.NEG, '#CCCCCC') + '</div>'
+    return '<div class="continuous-strip-neg">' + continuousColorStrip(options.negColor||MAP_COLORS.NEG, MAP_COLORS.MID) + '</div>'
         + '0'
-        + '<div class="continuous-strip-pos">' + continuousColorStrip('#CCCCCC', options.posColor||MAP_COLORS.POS) + '</div>'
+        + '<div class="continuous-strip-pos">' + continuousColorStrip(MAP_COLORS.MID, options.posColor||MAP_COLORS.POS) + '</div>'
 }

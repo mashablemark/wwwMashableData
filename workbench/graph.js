@@ -1,6 +1,6 @@
 //GLOBAL VARIABLES mce
 
-var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000'};
+var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000', MID: '#CCCCCC'};
 var hcColors = [
     '#4572A7',
     '#AA4643',
@@ -1517,29 +1517,103 @@ function calcMap(graph){
     return graph.calculatedMapData;
 }
 function calcAttributes(graph){
-    var i, j, dt, geo, calcData = graph.calculatedMapData;
+    var i, j, dt, geo, min, max, calcData = graph.calculatedMapData;
     //1. if graph start or end (crops) cut in map dates, recalc min and max values for regions and marker
-    if((graph.start && graph.start > calcData.dates[0].dt.getTime()) || (graph.end && graph.end < calcData.dates[calcData.dates.length-1].dt.getTime())){
-        calcData.regionDataMin = Number.MAX_VALUE;
-        calcData.regionDataMax = Number.MIN_VALUE;
+
+    //2. based on mapsets.options, set regionData attributes = regionFillColors
+    if(graph.mapsets){
+        var bunny, bunnyIndex = 0, bunnyVal, spans, bunnySerie, regionFillColors = {}, options = graph.mapsets.options;
+        var continuous = !options.scale || options.scale=='continuous';
+        //2A: determine if we have a tracking bunny, and is so calc the series and fet a flag
+        if(options.bunny!== null && !isNaN(options.bunny)  && options.bunny < graph.plots.length){
+            bunny = true;
+            bunnySerie = createSerieFromPlot(graph, options.bunny);
+        } else {
+            bunny = false;
+        }
+        if(bunny){
+            calcData.regionDeltas = {};
+            calcData.regionDeltaMin = Number.MAX_VALUE;
+            calcData.regionDeltaMax = Number.MIN_VALUE;
+            for(dt in calcData.regionData){
+                while(bunnyIndex<bunnySerie.data.length && bunnySerie.data[bunnyIndex][0]<dateFromMdDate(dt,calcData.period)) bunnyIndex++;
+                if(bunnyIndex<bunnySerie.data.length) bunnyVal = bunnySerie.data[bunnyIndex][1];
+                calcData.regionDeltas[dt] = {};
+                for(geo in calcData.regionData[dt]){
+                    if(bunnyIndex<bunnySerie.data.length && calcData.regionData[dt][geo]!==null && bunnyVal!==null){
+                        calcData.regionDeltas[dt][geo] = calcData.regionData[dt][geo]-bunnyVal;
+                        calcData.regionDeltaMin = Math.min(calcData.regionDeltas[dt][geo], calcData.regionDeltaMin);
+                        calcData.regionDeltaMax = Math.max(calcData.regionDeltas[dt][geo], calcData.regionDeltaMax);
+                    } else {
+                        calcData.regionDeltas[dt][geo] = null;
+                    }
+                }
+            }
+            min = calcData.regionDeltaMin;
+            max = calcData.regionDeltaMax;
+        } else {
+            delete calcData.regionDeltas;
+            delete calcData.regionDeltaMin;
+            delete calcData.regionDeltaMax;
+            if((graph.start && graph.start > calcData.dates[0].dt.getTime()) || (graph.end && graph.end < calcData.dates[calcData.dates.length-1].dt.getTime())){
+                calcData.regionDataMin = Number.MAX_VALUE;
+                calcData.regionDataMax = Number.MIN_VALUE;
+                for(dt in calcData.regionData){
+                    for(geo in calcData.regionData[dt]){
+                        if(calcData.regionData[dt][geo]!==null){
+                            calcData.regionDataMin = Math.min(calcData.regionDataMin, calcData.regionData[dt][geo]);
+                            calcData.regionDataMax = Math.max(calcData.regionDataMax, calcData.regionData[dt][geo]);
+                        }
+                    }
+                }
+            }
+            min = calcData.regionDataMin;
+            max = calcData.regionDataMax;
+        }
+        //2B: calculate the color with an internal switch for delta (bunny) vs values (no tracking bunny)
+        spans = min<0 && max>0;
+        calcData.regionColors = {};
+        var rgb = {
+            pos: makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS),
+            neg: makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG),
+            posMid: makeRGB(colorInRange(1, 0, 2, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS))),
+            negMid: makeRGB(colorInRange(1, 0, 2, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG))),
+            mid: makeRGB(MAP_COLORS.MID)
+        };
+        var y;
         for(dt in calcData.regionData){
+            calcData.regionColors[dt] = {};
             for(geo in calcData.regionData[dt]){
-                if(calcData.regionData[dt][geo]!==null){
-                    calcData.regionDataMin = Math.min(calcData.regionDataMin, calcData.regionData[dt][geo]);
-                    calcData.regionDataMax = Math.max(calcData.regionDataMax, calcData.regionData[dt][geo]);
+                y = bunny?calcData.regionDeltas[dt][geo]:calcData.regionData[dt][geo];
+                //calcData.regionColors[dt][geo] = colorInRange(y, y<0?min:(spans?0:min), y>=0?max:(spans?0:max), y<0?rgb.neg:rgb.mid, y<0?rgb.mid:rgb.pos);
+                if(y==0) {
+                    calcData.regionColors[dt][geo] = MAP_COLORS.MID;
+                } else {
+                    calcData.regionColors[dt][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos);
                 }
             }
         }
-    }
-    //2. based on mapsets.options, set regionData attributes
-    if(graph.mapsets){
-        var options = graph.mapsets.options;
-        var continuous = !options.scale || options.scale=='continuous';
-        //var bunny =
 
     }
     //3. based on mapconfig, set markerData attributes
 
+
+    //DONE!!!
+    function makeRGB(color){
+        if(color.substr(0,1)=='#')color=color.substr(1);
+        var r, g, b;
+        r = parseInt(color.substr(0,2), 16);
+        g = parseInt(color.substr(2,2), 16);
+        b = parseInt(color.substr(4,2), 16);
+        return {r:r, g:g, b:b};
+    }
+    function colorInRange(y, y1, y2, rgb1, rgb2){
+        var r, g, b, percent = (y-y1)/ (y2-y1);
+        r = octet(Math.round(percent * (rgb2.r-rgb1.r) + rgb1.r));
+        g = octet(Math.round(percent * (rgb2.g-rgb1.g) + rgb1.g));
+        b = octet(Math.round(percent * (rgb2.b-rgb1.b) + rgb1.b));
+        return '#' + r + g + b;
+    }
 }
 function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match and then step back if weekly->monthly->annual or if monthly->annual
 //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
@@ -2136,7 +2210,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
             if(typeof $map != 'undefined') $map.remove();
-            calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData obejct
+            calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
+            calcAttributes(oGraph);
             if(isBubble()) bubbleCalc();
             console.info(calculatedMapData);
             vectorMapSettings = {
@@ -2256,7 +2331,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 change: function( event, ui ) {
                     val = ui.value;
                     if(!isBubble()){
-                        $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
+                        //attribute color calvulated in calcAttributes
+                        $map.series.regions[0].setAttributes(getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s));
+                        //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                     }
                     if(oGraph.pointsets || isBubble()){
                         $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));

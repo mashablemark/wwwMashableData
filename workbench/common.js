@@ -11,3 +11,8 @@ function getParameterByName(name)
     else
         return decodeURIComponent(results[1].replace(/\+/g, " "));
 }
+
+function octet(s){
+    s = s.toString(16);
+    return (s.length==1?0:'') + s;
+}
