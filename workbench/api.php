@@ -461,6 +461,51 @@ switch($command){
         while($api = $result->fetch_assoc()) array_push($apis, $api);
         $output =  array("status"=>"ok","sources" => $apis);
         break;
+    case "CheckEmailForOrgInv":
+        //1. check for existing invitation
+        $sql = "select invid from invitations i, organizations o where i.orgid=o.orgid and i.email = " . safeSQLFromPost("email");
+        $result = runQuery($sql, "CheckEmailForOrgInv");
+        if($result->num_rows==1){
+            //1A.  matched to a valid emailed root!
+            $row = $result->fetch_assoc();
+            $output =  array("status"=>"ok", "invited"=>true, "orgname"=>$row["orgname"], "date"=>$row["invdate"]);
+            $userid = isset($_POST["uid"])?intval($_POST["uid"]):0;
+            emailAdminInvite($_POST["email"]);  //invitation record exist.  NOte: first time call to emailAdminInvite needs additional params
+            break;
+        }
+        //2. check for emailroot match to org with autosignup enabled
+        $mailParts = explode("@", $_POST["email"]);
+        if(count($mailParts)==2){
+            $sql = "select orgid, orgname, name from organizations o, users u where o.userid=u.userid and joinbyemail='T' and emailroot = " . safeStringSQL($mailParts[1]);
+            $result = runQuery($sql, "CheckEmailForOrgInv");
+            if($result->num_rows==1){
+                $row = $result->fetch_assoc();
+                $userid = isset($_POST["uid"])?intval($_POST["uid"]):0;
+                //no longer needed:  emailRootInvite($_POST["email"], $row["orgid"], $row["orgname"], $row["name"], $userid);
+                //note: emailValidationCode was sent as soon as an unknown email address was enter in the subscription form
+                $output =  array("status"=>"ok", "eligible"=>true, "orgname"=>$row["orgname"]);
+                break;
+            }
+        }
+        //3. nothing found
+        $output =  array("status"=>"ok", "invited"=>false, "eligible"=>false);
+        break;
+
+    case "emailVerify":
+        $validEmailCode = emailValidationCode($_POST["email"]);
+        if($validEmailCode == $_POST["verification"]){
+            $output =  array("status"=>"ok","verfied" => true);
+        } else {
+            $output =  array("status"=>"ok",
+                "verfied" => false,
+                "sent"=>(mail($_POST["email"],
+                    "email verification code from MashableData",
+                    "To validate this email address, please enter the following code into the MashableData email verification box when requested:\n\n".$validEmailCode,
+                    $MAIL_HEADER
+                ))
+            );
+        }
+        break;
     case "CardSelects":
         $sql = "SELECT iso3166 AS code, name FROM mapgeographies mg, geographies g WHERE g.geoid = mg.geoid AND mg.map =  'world' ORDER BY name";
         $result = runQuery($sql);
@@ -889,16 +934,14 @@ switch($command){
             logEvent("GetUserId: fb call", $fb_command);
             $fbstatus = json_decode(httpGet($fb_command));
             if(array_key_exists ("data", $fbstatus)){
-                $sql = "select u.userid, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
+                $sqlGetUser = "select u.*, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
                     . " where u.authmode = " . safeSQLFromPost('authmode')
                     . " and u.username = '" . $db->real_escape_string($username) . "'";
-                logEvent("GetUserId: lookup user", $sql);
-                $result = runQuery($sql);
+                $result = runQuery($sqlGetUser, "GetUserId: lookup user");
                 if($result->num_rows==1){
                     $row = $result->fetch_assoc();
                     $sql = "update users set accesstoken = '" . $db->real_escape_string($accesstoken) . "' where userid=" .  $row["userid"];
                     runQuery($sql, "GetUserId: update accesstoken");
-                    $output = array("status" => "ok", "userId" => $row["userid"], "orgId" => $row["orgid"], "orgName" => $row["orgname"]);
                 } else {
                     $sql = "INSERT INTO users(username, accesstoken, name, email, authmode, company) VALUES ("
                         . safeSQLFromPost("username") . ","
@@ -907,9 +950,16 @@ switch($command){
                         . safeSQLFromPost("email") . ","
                         . safeSQLFromPost('authmode') . ","
                         . safeSQLFromPost("company") . ")";
-                    $result = runQuery($sql, "GetUserId: create new user record");
-                    $output = array("status" => "ok", "userid" => $db->insert_id);
+                    runQuery($sql, "GetUserId: create new user record");
+                    $result = runQuery($sqlGetUser, "GetUserId: lookup user afater insert");
+                    $row = $result->fetch_assoc();
                 }
+                $output = array("status" => "ok", "userId" => $row["userid"], "orgId" => $row["orgid"], "orgName" => myEncrypt($row["orgname"]) ,
+                    "subscription"=> $row["subscription"], "subexpires"=> $row["expires"], "company"=> $row["company"],
+                    "ccaddresss"=> $row["ccaddresss"], "cccity"=> $row["cccity"], "ccstateprov"=> $row["ccstateprov"],
+                    "ccpostal"=> $row["ccpostal"], "cccountry"=> $row["cccountry"], "ccnumber"=> substr($row["ccnumber"],-4),
+                    "ccexpiration"=> $row["ccexpiration"],"ccv"=>$row["ccv"],"ccname"=> $row["ccname"],"permission"=> $row["permission"]);
+                setcookie("md_auth",myEncrypt($row["userid"].":".$row["orgid"].":".$row["orgname"].":".$row["permission"].":".$row["subscription"]));
             } else {
                 $output = array("status" => "error:  Facebook validation failed", "facebook"=> $fbstatus["error"]["message"]);
             }
@@ -1510,4 +1560,214 @@ function getGraphMapSets($gid, $map){
         }
     }
     return $mapsetdata;
+}
+
+function emailValidationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}
+function emailAdminInvite($email, $name='', $adminid=0, $orgid=0){ 
+//resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
+    global $db, $MAIL_HEADER;
+    $msg = "";
+    $sqlInvite = "select admin.name as admin, orgname, invdate, regcode,  "
+    ." from invitations i, organizations o, users admin "
+    ." where i.orgid=o.orgid and i.adminid=admin.userid and i.email = " . safeStringSQL($email);
+    $result = runQuery($sqlInvite, "emailAdminInvite");
+    if($result->num_rows==1){
+        $msgRow = $result->fetch_assoc();
+        $msg = "This notification was first sent ".$msgRow["invdate"].":\n\n";
+    } else {
+        /*DO NOT CREATE USER : THIS WILL GET CREATED WHEN
+        //first check for user
+        $sqlUser = "select * from users where email = ".safeSQLFromPost("email");
+        $result = runQuery($sqlUser, "emailAdminInvite: check");
+        if($result->num_rows==1){
+            $row = $result->fetch_assoc();
+            $userid = $row["userid"];
+          } else {
+            $sql = "insert into users (email, orgid, subscriptionlevel) values (".safeStringSQL($email).",".$orgid.",'C')";
+            if(!runQuery($sql,"emailAdminInvite")){
+                return false;
+            }
+            $userid = $db->insert_id;
+        }*/
+        if($adminid==0) return false;  //FAIL!
+        $sql = "insert into invitations (email, name, regcode, orgid, adminid, invdate, status) values ("
+            . safeStringSQL($email).","
+            . safeStringSQL($name).","
+            . "'".md5("mashrocks".microtime())."',"
+            . $orgid.","
+            . $adminid.", NOW(),'open')";
+        if(!$result = runQuery($sql, "emailAdminInvite: insert invite")) return false;
+        $invid = $db->insert_id;
+        $result = runQuery($sqlInvite, "emailAdminInvite: second read");
+        $msgRow = $result->fetch_assoc();
+        if(!bill($adminid,0,$invid)) {
+            return false;
+        }
+    }
+    $msg .= "A MashableData.com account has been created for ".(strlen($msgRow["name"])>0?$msgRow["name"]:"you")." by "
+        .(strlen($msgRow["admin"])>0?$msgRow["admin"]:"the administrator of the MashableData corporate account")." for "
+        .$msgRow["orgname"].".  Go to http://wwwmashabledata.com/workbench and create an account using this email address.  When asked for a registration code, please use the following:/n/n"
+        ."Registration code: ".$msgRow["regcode"]."/n/nTo learn more about the MashableData analysis and visualization capabilities, please visit http://www.mashabledata.com";
+    return mail($msgRow['email'],"Registration code for MashableData", $msg, $MAIL_HEADER);
+}
+/*
+function emailRootInvite($email, $orgid){
+
+    if($makeUserAccount){
+        //1. get info for admin and org based on userid = adminid  (not checking o.userid = billing account.  multiple admins possible)
+        $sql = "select name, orgid, u.orgid, orgname from users u, organizations o where u.orgid=o.orgid and u.userid = ". $adminid;
+        $result = runQuery($sql, "invite");
+        if($result->num_rows!=1){
+            return(array("status"=>"Admin lookup error"));
+        }
+        $adminRow = $result->fetch_assoc();
+        $orgid = $adminRow["orgid"];
+
+        $sql = "select * from users where orgid = ".$adminRow["orgid"] . " and email=".safeStringSQL($email);
+        $userResult = runQuery($sql, "invite");
+        if($userResult->num_rows==0){
+            $sql = "insert into users (email, name, orgid) values(". safeStringSQL($email) .",". safeStringSQL($name) .",". $adminRow["orgid"].")";
+            runQuery($sql,"invite");
+            $userid = $db->insert_id;
+            bill($userid, $orgid);  //bill newly created accounts immediately
+        } else {
+            $userRow = $userResult->fetch_assoc();
+            $userid = $userRow["userid"];
+        }
+
+    }
+
+    $sql = "insert into invitations (email, invdate, regcode) values ('".safeStringSQL("email")."', NOW(), '" . md5("mashrocks".microtime())."'";
+    $result = runQuery($sql, "invite");
+    mail()
+
+    $msg =
+}*/
+
+function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none open; adds a paymentdetails record, and either queue for nightly batch processing or call payBill() for immediately processing
+    //note:  for ind, $userid and $payerid will be the same.
+    //for an invitation, $userid will be null
+    //extending the users subscription level and expiration date is done in payBill() if called.
+    //Returns true on success; false on failure or if user has > 15 days left
+    global $db, $SUBSCRIPTION_RATE;
+
+    //1. get payerinfo:  if not payerid provided, userid is the payer
+    $sql = "select userid, orgid, name, email, ccname, cctype, ccadresss, cccity, ccstateprov, ccpostal cccountry, ccnumber, ccexpiration, ccstatus "
+        ." where userid = ".$payerid;
+    $result = runQuery($sql, "bill");
+    if($result->num_rows!=1) {
+        logEvent("billing failure","payerid ".$payerid." does not exist");
+        return false;
+    }
+    $payerInfo = $result->fetch_assoc();
+
+
+    //2. if No card or 3 or more failures, do not create any records.  Return false.
+    //  Note the when user modifies thier CC info, the ccstatus will be changed to 'U' for unverified.
+    //  This will permit future payment attempts after the user is notifiied and changes thier CC info
+    if($payerInfo["ccstatus"]=='N' || intval($payerInfo["ccstatus"])>2) {
+        logEvent("billing failure","card with bad ccstatus attempted by payerid  ".$payerInfo["userid"]);
+        return false;
+    }elseif($payerInfo["ccnumber"]==null ) {
+        logEvent("billing failure","no cc on record for payerid=".$payerInfo["userid"]);
+        return false;
+    }
+
+    //3. get either user info or invite info...
+    if($userid>0){ //  We are billing for a user > get user info
+        //2. get user info
+        $sql = "select subscriptionlevel, expires, o.orgid, o.userid as adminid "
+            ." from users u left outter join organizations o on u.orgid=o.orgid "
+            ." where u.userid=".$userid;
+        $result = runQuery($sql, "bill");
+        if($result->num_rows!=1) {
+            logEvent("billing failure","attempted to bill payerid ".$payerInfo["userid"].", but userid supplied not found");
+            return false;
+        }
+        $userInfo = $result->fetch_assoc();
+        /*if(intval($userInfo["adminid"])>0){
+            $payerid = $userInfo["adminid"];
+            $corp = true;
+        } else {
+            $payerid = $userid;
+            $corp = false;
+        }*/
+    } elseif($invid>0){ // We are billing for an invitation sent by an admin > get invite info
+        $sql = "select * from invitations where invid = ".$invid;
+        $result = runQuery($sql, "bill");
+        if($result->num_rows!=1) {
+            logEvent("billing failure","attempted to bill payerid ".$payerInfo["userid"]." but invid supplied not found");
+            return false;
+        }
+        $invInfo = $result->fetch_assoc();
+    } else {  //neither invid nor userid supplied
+        logEvent("billing failure","attempted to bill payerid ".$payerInfo["userid"]." but no user or invite supplied");
+        return false;
+    }
+
+    //4.get a payments record
+    //4A. check to see if open payment record exists
+    $sql = "select * from payments where userid = ".$payerInfo["userid"]." and status = 'open'";
+    $result = runQuery($sql,"bill: get open payment header");
+    if($result->num_rows!=0){
+        $row = $result->fetch_assoc();
+        $paymentid = $row["paymentid"];
+    } else {
+        //4B. no existing payments header record exists > create one
+        $sql = "insert into payments "
+            . " (orgid, userid, ip_address, name, email, cccardlast4, company, ccadresss, cccity, ccstateprov, ccpostal, cccountry, ccnumber, ccyear, ccname, cctype, status, charge) "
+            . " values ("
+            . (intval($payerInfo["orgid"])==0?"null":$payerInfo["orgid"]).","
+            . safeStringSQL($payerInfo["userid"]).","
+            . safeStringSQL($_SERVER["REMOTE_ADDR"]).","
+            . safeStringSQL($payerInfo["name"]).","
+            . safeStringSQL($payerInfo["email"]).","
+            . safeStringSQL($payerInfo["cccardlast4"]).","
+            . safeStringSQL($payerInfo["company"]).","
+            . safeStringSQL($payerInfo["ccadresss"]).","
+            . safeStringSQL($payerInfo["cccity"]).","
+            . safeStringSQL($payerInfo["ccstateprov"]).","
+            . safeStringSQL($payerInfo["ccpostal"]).","
+            . safeStringSQL($payerInfo["cccountry"]).","
+            . safeStringSQL($payerInfo["ccnumber"]).","
+            . safeStringSQL($payerInfo["ccyear"]).","
+            . safeStringSQL($payerInfo["ccname"]).","
+            . safeStringSQL($payerInfo["cctype"]).","
+            . "'open',"
+            . $SUBSCRIPTION_RATE.")";
+        $result = runQuery($sql,"bill: insert payment record");
+        if(!$result) {
+            logEvent("billing failure","payments header record insert failure for payerid  ".$payerInfo["userid"]);
+            return false;
+        }
+        $paymentid = $db->insert_id;
+    }
+//TODO: check for duplicate paymentdetail recors
+    //5. insert payment detail record
+    $sql = "insert into paymentdetails (paymentid, orgid, userid, invid, name, email, subscription, subscriptionmonths, price) values "
+        . $paymentid.","
+        . (intval($userInfo["orgid"])==0?"null":$userInfo["orgid"]).","
+        . ($userid>0?$userid:"null").","
+        . ($invid>0?$invid:"null").","
+        . ($userid>0?safeStringSQL($userInfo["name"]):safeStringSQL($invInfo["name"])).","
+        . ($userid>0?safeStringSQL($userInfo["email"]):safeStringSQL($invInfo["email"])).","
+        . (intval($userInfo["orgid"])==0?"'Corp'":"'Indiv'").","
+        . "6,"
+        . $SUBSCRIPTION_RATE . ")";
+    $result = runQuery($sql,"bill: insert payment record");
+    if(!$result) {
+        logEvent("billing failure","paymentdetails record create failure for payerid  ".$payerInfo["userid"]);
+        return false;
+    }
+
+    //6. process if individual or credit card is unverified or has prior failure
+    if(intval($payerInfo["orgid"])==0 || $payerInfo["ccstatus"]!="U" || intval($payerInfo["ccstatus"])>0){
+        return payBill($paymentid);
+    }
+    return true;
+}
+
+function payBill($paymentid){
+    //TODO: merchant credit card processing here
+    return true;
 }

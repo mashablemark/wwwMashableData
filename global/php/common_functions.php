@@ -9,6 +9,12 @@
 
 $db = getConnection(); //establishes a db connection as a global variable on include
 date_default_timezone_set("UTC");
+$CRYPT_KEY = "jfdke4wm7nfew84i55vs";
+$SUBSCRIPTION_RATE = 10.00;
+$SUBSCRIPTION_MONTHS = 6;  //this will be reduced to 3 1 year after launch
+$MAIL_HEADER = "From: admin@mashabledata.com\r\n"
+ . "Reply-To: admin@mashabledata.com\r\n"
+ . "Return-Path: sender@mashabledata.com\r\n";
 
 //helper functions
 function runQuery($sql, $log_name = 'sql logging'){
@@ -21,6 +27,16 @@ function runQuery($sql, $log_name = 'sql logging'){
         logEvent('bad query', $sql);
     }
     return $result;
+}
+
+function myEncrypt($data){
+    global $CRYPT_KEY;
+    return  base64_encode(mcrypt_encrypt(MCRYPT_RIJNDAEL_256, md5($CRYPT_KEY), $data, MCRYPT_MODE_CBC, md5(md5($CRYPT_KEY))));
+
+}
+function myDecrypt($encryption){
+    global $CRYPT_KEY;
+    return rtrim(mcrypt_decrypt(MCRYPT_RIJNDAEL_256, md5($CRYPT_KEY), base64_decode($encryption), MCRYPT_MODE_CBC, md5(md5($CRYPT_KEY))), "\0");
 }
 
 function MdToPhpDate($strDt){
@@ -132,7 +148,7 @@ function trackUsage($counter){
             $uid = intval($_POST["uid"]);
             $sql = "update users set ".$counter."=".$counter."+1 where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
             runQuery($sql);
-            $sql = "select ".$counter.", subscriptionlevel from users where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
+            $sql = "select ".$counter.", subscription from users where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
             $result = runQuery($sql);
             $aRow = $result->fetch_assoc();
 

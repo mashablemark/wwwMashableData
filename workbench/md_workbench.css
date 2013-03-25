@@ -923,8 +923,13 @@ td.expanded{
 
 /* start ACCOUNT SCREENS */
 .llabel{
-       width: 200px;
+    display: inline-block;
+    width: 125px;
 }
+.mlabel{
+     margin-right: 5px;
+     margin-left: 10px;
+ }
 div#signin-fb, div#signin-or, div#signin-md{
     display: inline-block;
     float: left;
@@ -956,7 +961,9 @@ div#account-screen h2{
     padding: 0;
     margin: 0;
 }
-
+.cardCountry{
+    width: 120px;
+}
 div.payments{
     background: #fcefa1;
     padding: 10px;
@@ -971,6 +978,9 @@ span.over{
 }
 input.short{
     width:  75px;
+}
+input.tiny{
+    width:40px;
 }
 input.medium{
     width:  200px;

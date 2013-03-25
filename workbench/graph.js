@@ -1539,13 +1539,23 @@ function calcAttributes(graph){
                 while(bunnyIndex<bunnySerie.data.length && bunnySerie.data[bunnyIndex][0]<dateFromMdDate(dt,calcData.period)) bunnyIndex++;
                 if(bunnyIndex<bunnySerie.data.length) bunnyVal = bunnySerie.data[bunnyIndex][1];
                 calcData.regionDeltas[dt] = {};
-                for(geo in calcData.regionData[dt]){
-                    if(bunnyIndex<bunnySerie.data.length && calcData.regionData[dt][geo]!==null && bunnyVal!==null){
-                        calcData.regionDeltas[dt][geo] = calcData.regionData[dt][geo]-bunnyVal;
-                        calcData.regionDeltaMin = Math.min(calcData.regionDeltas[dt][geo], calcData.regionDeltaMin);
-                        calcData.regionDeltaMax = Math.max(calcData.regionDeltas[dt][geo], calcData.regionDeltaMax);
-                    } else {
-                        calcData.regionDeltas[dt][geo] = null;
+                if(bunnyIndex<bunnySerie.data.length && bunnyVal!==null){
+                    calcData.regionDeltas[dt] = {};
+                    for(geo in calcData.regionData[dt]){
+                        if(calcData.regionData[dt][geo]!==null){
+                            calcData.regionDeltas[dt][geo] = calcData.regionData[dt][geo]-bunnyVal;
+                            calcData.regionDeltaMin = Math.min(calcData.regionDeltas[dt][geo], calcData.regionDeltaMin);
+                            calcData.regionDeltaMax = Math.max(calcData.regionDeltas[dt][geo], calcData.regionDeltaMax);
+                        } else {
+                            calcData.regionDeltas[dt][geo] = null;
+                        }
+                    }
+                } else { //no tracking comparison -> trim
+                    for(i=0;i<calcData.dates.length;i++){
+                        if(calcData.dates[i].s==dt){
+                            calcData.dates.splice(i,1);
+                            break;
+                        }
                     }
                 }
             }
@@ -1576,8 +1586,8 @@ function calcAttributes(graph){
         var rgb = {
             pos: makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS),
             neg: makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG),
-            posMid: makeRGB(colorInRange(1, 0, 2, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS))),
-            negMid: makeRGB(colorInRange(1, 0, 2, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG))),
+            posMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS))),
+            negMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG))),
             mid: makeRGB(MAP_COLORS.MID)
         };
         var y;
@@ -2229,11 +2239,11 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 series: {
                     regions:  [{
                         attribute: "fill",
-                        values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
+                       /* values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
                         scale: ['#C8EEFF', '#ff0000'],
                         normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
                         min: calculatedMapData.regionDataMin,
-                        max: calculatedMapData.regionDataMax
+                        max: calculatedMapData.regionDataMax*/
                     }],
                     markers:  [{
                         attribute: 'r',
@@ -2256,8 +2266,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                                 + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
                                 + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
                         ).css("z-Index",400);
-                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
-                        sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, disableInteraction:true, width: "400px"};
+                        //sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
                         $('.inlinesparkline').sparkline(vals, sparkOptions);
                     }
                 },
@@ -2323,8 +2333,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             }
 
             //$thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
-            var $slider = $thisPanel.find('.slider').show().slider({
-                value: val,
+            var $mapSlider = $thisPanel.find('.slider').show().slider({
+                value: 0,
                 min: 0,
                 max: val,
                 step: 1,
@@ -2352,7 +2362,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     }
 
                 }
-            });
+            }).slider( "value", val);
 
             $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}})
                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
@@ -2423,10 +2433,10 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             $play.click(function(){
                 if($play.attr("title")=="play"){
                     $play.button({text: false, icons: {primary: "ui-icon-pause"}}).attr("title","pause");
-                    if($slider.slider("value")==calculatedMapData.dates.length-1) $slider.slider("value",0);
+                    if($mapSlider.slider("value")==calculatedMapData.dates.length-1) $mapSlider.slider("value",0);
                     player = setInterval(function(){
-                        $slider.slider("value",$slider.slider("value")+1);
-                        if($slider.slider("value")==calculatedMapData.dates.length-1) {
+                        $mapSlider.slider("value",$mapSlider.slider("value")+1);
+                        if($mapSlider.slider("value")==calculatedMapData.dates.length-1) {
                             clearInterval(player);
                             $play.button({text: false, icons: {primary: "ui-icon-play"}});
                         }
@@ -2442,20 +2452,13 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));  //initialize here ratehr than set slider value which would trigger a map redraw
 
             $thisPanel.find('.make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).click(function(){
-                calculatedMapData  = calcMap(oGraph);
-                vectorMapSettings.markers =  calculatedMapData.markers;
-                vectorMapSettings.series.regions[0].values = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
-                vectorMapSettings.series.regions[0].min = calculatedMapData.regionDataMin;
-                vectorMapSettings.series.regions[0].max = calculatedMapData.regionDataMax;
-                vectorMapSettings.series.markers[0].values = getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s);
-                vectorMapSettings.series.markers[0].min = calculatedMapData.markerDataMin;
-                vectorMapSettings.series.markers[0].max = calculatedMapData.markerDataMax;
+                $map.clearSelectedMarkers();
+                $map.clearSelectedRegions();
                 $map.removeAllMarkers();
-                console.info(vectorMapSettings);
-                //not sure if this is the best way to destroy and rebuild a map..
-                $map.remove();
-                $thisPanel.find('div.jvmap').html('').vectorMap(vectorMapSettings);
-                $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
+                $map.addMarkers(calculatedMapData.markers);
+                calculatedMapData  = calcMap(oGraph);
+                calcAttributes(oGraph);
+                $mapSlider.slider("value", calculatedMapData.dates.length-1);
                 $thisPanel.find('.map-graph-selected, .make-map').button('disable');
             });
             var mergablity = {};

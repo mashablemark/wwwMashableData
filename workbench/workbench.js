@@ -798,8 +798,7 @@ function dialogShow(title, text, buttons){
         open: function() {
             $("#btn-dia-enable").focus();
         },
-        close: function() {
-        }
+        close: function(){}
     });
     $('.ui-dialog-titlebar-close').remove();
 }
@@ -1632,6 +1631,7 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
                     if(account.info.orgId&&account.info.orgName){$("#series_search_source").append('<option value="org">'+account.info.orgName+'</option>')};
                     $('#menu-account').find('.ui-button-text').html(account.info.name);
                     syncMyAccount();
+                    if(account.subscribing) account.showSubscribe();
                 } else {
                     console.log(md_getUserId_results);
                     dialogShow("Login Status", md_getUserId_results.status);

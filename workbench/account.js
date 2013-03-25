@@ -35,18 +35,19 @@ account = {
         subscription:
             '<div id="account-screen">' +
                 '<h2>Account Management</h2>' +
-                '<h3>Basic information:</h3>' +
-                '<span class="over">display name:</span><input class="req uname medium" data="user name" type="text" /><br />' +
-                '<span class="over">main email:</span><input class="req email medium" data="email" type="text" /><br />' +
                 '<div class="account-auth">' +
                 '<input type="radio" name="auth" id="authfb" value="fb" /><label for="authfb"><strong>use Facebook to authenticate me.</strong>  You don\'t have to remember another password.  Everybody wins!</label><br />' +
                 '<input type="radio" name="auth" id="authmd" value="md" /><label for="authmd"><strong>create a separate MashableData password.</strong>  Your personal information will be hashed or encrypted.</label>' +
+                '</div>' +
+                '<h3>Basic information:</h3>' +
+                '<span class="over">display name:</span><input class="req uname medium" data="user name" type="text" /><br />' +
+                '<span class="over">main email:</span><input class="req email medium" data="email" type="text" /><br />' +
+
                 '<div class="account-pwd hidden blue-inset">' +
                 '<span class="over">MashableData password:</span><input class="req medium" data="pwd" type="password" /><br />' +
                 '<span class="over">confirm password:</span><input class="req medium" data="pwdConfirm" type="password" />' +
                 '</div>' +
-                '</div>' +
-                '<div id="account-post">' +
+                /*'<div id="account-post">' +
                 '<h3>Connect my Facebook and Twitter accounts:</h3>' +
                 '<span class="over">My Facebook account\'s email is:</span>' +
                 '<input type="radio" name="account-fb" id="account-fbsame" value="fbsame" /><label for="account-fbsame"><span class="account-main-email"></span></label>' +
@@ -57,54 +58,52 @@ account = {
                 '<input type="radio" name="account-twit" id="account-twitsame" value="twitmain" /><label for="account-twitsame"><span class="account-main-email"></span></label>' +
                 '<input type="radio" name="account-twit" id="account-twitdiff" value="twitdiff" /><label for="account-twitdiff"><input id="account-twitemail" class="medium" data="optional" type="text" /></label>' +
                 '<input type="radio" name="account-twit" id="account-twitnone" value="twitskip" /><label for="account-twitnone">skip</label>' +
-                '</div>' +
+                '</div>' +*/
                 '<div>' +
                 '<h3>Subscription type:</h3>' +
-                '<input type="radio" name="account-level" id="account-lvl-trial" value="trial" />' +
-                '<label for="account-lvl-trial"><strong>free trial</strong> <em>Access to all features for a limited number of requests.</em></label><br />' +
-                '<input type="radio" name="account-level" id="account-lvl-ind" value="indiv" />' +
-                '<label for="account-lvl-ind"><strong>individual</strong> <em>Unlimited graphs, custom series, searches and downloads for US$10 every 6 months.</em></label><br />' +
+                '<label><input type="radio" name="account-level" class="account-level" id="account-lvl-trial" value="T" /><strong>free trial</strong> <em>Access to all features for a limited number of requests.</em></label><br />' +
+                '<label><input type="radio" name="account-level" class="account-level" id="account-lvl-ind" value="I" /><strong>individual</strong> <em>Unlimited graphs, custom series, searches and downloads for US$10 every 6 months.</em></label><br />' +
                 //'<input type="radio" name="account-level" id="account-lvl-org" value="org" />' +
                 //'<label for="account-lvl-org"><strong>organization</strong> <em>Same unlimited usage and cost as per individual account, but shares your custom series and draft graphs within your organization.  All payments for organization members are processed by the organization\'s administrator, so only a single credit card is required.   Select this option to create a new organization account or join an existing one.</em></label><br />' +
-                '<input type="radio" name="account-level" id="account-lvl-member" value="member" />' +
-                '<label for="account-lvl-member"><strong>join my organization\'s corporate account</strong> </label><br />' +
-                '<input type="radio" name="account-level" id="account-lvl-admin" value="admin" />' +
-                '<label for="account-lvl-admin"><strong>create a corporate account</strong> <em>Members will get unlimited usage plus confidential sharing of data and visualizations amoung members.  All billing and membership will be managed through this account, so only a single credit card is required.  Select this option to create and administer a new corporate account.</em></label><br />' +
+                '<label><input type="radio" name="account-level" class="account-level" id="account-lvl-member" value="C" /><strong>join my organization\'s corporate account</strong> </label><br />' +
+                '<label><input type="radio" name="account-level" class="account-level" id="account-lvl-admin" value="A" /><strong>create a corporate account</strong> <em>Members will get unlimited usage plus confidential sharing of data and visualizations amoung members.  All billing and membership will be managed through this account, so only a single credit card is required.  Select this option to create and administer a new corporate account.</em></label><br />' +
+                '<div class="validation blue-inset hidden">' +
+                'Email validation code (required): <input class="req valcode" data="valcode" type="text" /><br />' +
+                '<em>You email validation code is in an email sent moments ago from admin@mashabledata.com.</em>' +
+                '</div>' +
                 '<div class="regcode blue-inset hidden">' +
                 'Registration code (required): <input class="req regcode" data="regcode" type="text" /><br />' +
                 '<em>Your code is included in your invitation email sent by your organization\'s administrator.</em>' +
                 '</div>' +
                 '<div class="joinmode blue-inset hidden">' +
+                'Company / organization name: <input data="orgName" id="account-org-name" class="long" /><br />' +
                 'How will users join your organization?<br />' +
-                '<label for="account-emailorinvite">' +
-                '<input type="radio" name="account-join" id="account-emailorinvite" value="emailorinvite" />' +
-                '<strong>anyone with a verified email with the same domain as <span class="account-main-email"></span> OR by invitation</strong></label>' +
-                '<br />' +
-                '<input type="radio" name="account-join" id="account-inviteonly" value="inviteonly" />' +
-                '<label for="account-inviteonly"><strong>by invitation only</strong></label>' +
-                '<br /><em>You can supply email addresses for new members at anytime. MashableData will then send an invitation via email with a unique registration code and instructions to each invitee.</em><br />' +
+                '<label><input type="radio" name="account-join" id="account-inviteonly" value="inviteonly" /><strong>by invitation only</strong></label><br />' +
+                '<label><input type="radio" name="account-join" id="account-emailorinvite" value="emailorinvite" /><strong>by invitation OR anyone able to receive email through an @<span class="italics account-main-email-domain"></span> account</strong></label>' +
+                '<br /><br />' +
+                '<em>You will be able to add email addresses of new members via the administration panel after your credit card is accepted. MashableData will then email an invitation with a unique registration code and instructions to each new member.</em><br />' +
                 '</div>' +
                 '</div>' +
                 '<h3 class="payments hidden">Payment method:</h3>' +
                 '<div class="payments hidden">' +
                 //cardCountry: $screen.find('input.cardCountry').val()
-                '<span class="llabel">credit card number:</span> <input class="cardNum" data="optional" type="text" />' +
-                'Expiration:' +
+                '<span class="llabel">credit card number:</span><input class="cardNum" data="ccnum" type="text" />' +
+                '<span class="mlabel">CCV:</span><input class="cardCCV tiny" data="ccv" data="optional" type="text" />' +
+                '<span class="right"><span class="mlabel">Expiration:</span>' +
                 '<select class="cardMonth"><option val="1">Jan</option><option val="2">Feb</option><option val="3">Mar</option><option val="4">Apr</option><option val="5">May</option><option val="6">Jun</option><option val="7">Jul</option><option val="8">Aug</option><option val="9">Sep</option><option val="10">Oct</option><option val="11">Nov</option><option val="12">Dec</option></select>' +
-                '<select class="cardYear"></select>' +
-                'CCV: <input class="cardCCV" style="width:40px;" data="optional" type="text" /><br />' +
-                '<span class="llabel">name on card:</span> <input type="text" class="cardName medium" /><br />' +
-                '<span class="llabel">address:</span> <input type="text" class="cardAddress long" /><br />' +
-                '<span class="llabel">city:</span> <input type="text" class="cardCity medium" />	<span class="cardStateProv">state:</span><input type="text" class="cardStateProv short" /> <span class="cardPostal short">ZIP code:</span><input type="text" class="cardPostal short" /> <span class="llabel">country:</span> <select class="cardCountry"></select>' +
+                '<select class="cardYear"></select></span>' +
+                '<br /><span class="llabel">name on card:</span><input type="text" data="ccname" class="cardName medium" /><br />' +
+                '<span class="llabel">address:</span><input type="text" data="ccaddress" class="cardAddress long" /><br />' +
+                '<span class="llabel">city:</span><input type="text" data="cccity" class="cardCity medium" /><span class="cardStateProv mlabel">state:</span><input type="text" data="ccstateprov" class="cardStateProv short" /><span class="cardPostal mlabel">ZIP code:</span><input type="text" class="cardPostal tiny" data="ccpostal"  /><span class="mlabel">country:</span><select class="cardCountry"></select>' +
                 '</div>' +
                 '<button class="ok">ok</button> <button class="cancel">cancel</button>' +
                 '</div>',
         signIn:
-            '<div id="signin-md">Email:<br><input id="signin-email"><br>Password:<br><input id="signin-pwd"><br><button id="signin-signin">Sign in</button> <input id="signin-stay" type="checkbox" /> stay signed in<br><br>New to MashableData? Create an <a href="javascript:void(0)">account</a></div> ' +
+            '<div id="signin-md">Email:<br><input id="signin-email"><br>Password:<br><input id="signin-pwd"><br><button id="signin-signin">Sign in</button> <input id="signin-stay" type="checkbox" /> stay signed in<br><br>New to MashableData? Create an <a id="create-account" href="javascript:void(0)">account</a></div> ' +
                 '<div id="signin-or">~ OR ~</div>' +
                 '<div id="signin-fb"> <fb:login-button></fb:login-button><br /><br />Use your FaceBook account to log in.<br /><br />(No spam or posting without your consent.  We promise and Facebook enforces our promise.)</div>',
         signedIn:
-            '<div id="signedin-md"><button id="signedin-signout">Sign out</button><br><br><a id="signedin-subscribe" href="javascript:void(0);">Account &amp; Subscription</a><br><br><a id="signedin-admin" href="javascript:void(0)">Open administration panel</a></div>',
+            '<div id="signedin-md"><button id="signedin-signout">Sign out</button><br><br><a id="signedin-subscribe" href="javascript:void(0);">Account &amp; Subscription</a><span id="signedin-admin" style="display:none;"><br><br><a href="admin_users.php" target="_blank">User Management & Billing</a> (Administrator only)</span></div>',
         verify: '<div id="verify-email">The following email needs verification.  Please enter the verification code emailed to the following email account:  <span class="email"></span><br />' +
             '<br /><input class="email" type="test" /> <br /><button class="verify">Verify</button> <button class="cancel">Cancel</button> <button class="cancel">Send New Verifcation Code</button></div>'
     },
@@ -112,7 +111,7 @@ account = {
         $.fancybox(html,
             {
                 showCloseButton: false,
-                autoScale: false,
+                autoScale: true,  //($btn?false:true),
                 overlayOpacity: ($btn?0:0.5),
                 hideOnOverlayClick: ($btn?true:false)
             });
@@ -130,51 +129,138 @@ account = {
         var $btn = $('#menu-account');
         if(this.loggedIn()){
             account.showPanel(account.htmls.signedIn, $btn);
+            if(account.info.subscription==='A')$('#signedin-admin').show();
             $('#signedin-signout').button().addClass('ui-state-error').click(function(){account.signOut()});
-            $('#signedin-subscribe').click(function(){
-                account.showSubscribe();
-            });
         } else {
             account.showPanel(account.htmls.signIn, $btn);
             FB.XFBML.parse(document.getElementById('signin-fb'));
         }
+        $('#create-account,#signedin-subscribe').click(function(){
+            account.showSubscribe();
+        });
     },
     showSubscribe: function(){ //preloaded and configured with account.info.  JQ/UI call and event functions.
-        account.showPanel(account.htmls.subscription);
+        var $fancy = account.showPanel(account.htmls.subscription);
         var $screen = $('#account-screen'), fbEmail='', twitEmail='';
-        $screen.find('input.email').val(fb_user.email);
-        $screen.find('input.uname').val(fb_user.name);
-        $screen.find('span.account-main-email').html(fb_user.email);
-        $screen.find('button.cancel').button({icons: {secondary: 'ui-icon-closethick'}}).click(function(){
+        var eligible = false;
+        var invited = false;
+        var field;
+        account.subscribing = true;
+        $screen.find('[data]').each(function(){
+            field = $(this).attr('data');
+            $(this).val(account.info[field]);
+        });
+        $screen.find("input.account-level[value='"+(account.info.subscription||'T')+"']").click();
+        if(account.info.subscription=='C'||account.info.subscription=='A'){
+            $screen.find('input.account-level').attr('disabled',true);
+            $screen.find('div.validation').html('You are a member of the corporate account of '+account.info.orgName+'.<br><br>This account can only be changed or cancelled in the '
+            + (account.info.subscription=='A'?'<a href="admin_users.php" target="_blank">':'')+'account administrator\'s panel'+(account.info.subscription=='A'?'</>':'')+'.').show();
+            /* handle all fo this in the administration panels
+            if(account.info.subscription=='A'){
+                $screen.find('div.joinmode').slideDown();
+                $screen.find('.payments').slideDown();
+            }*/
+        }
+        $screen.find('input.email')
+            .val(account.info.email)
+            .change(function(){
+                if(account.isValidEmail(this.value)){
+                    $('.account-main-email-domain').html(this.value.split('@')[1].trim());
+                    callApi({command: 'CheckEmailForOrgInv', email: this.value.trim(), modal: 'none'}, function(oReturn, textStatus, jqXH){
+                        invited = oReturn.invited;
+                        eligible = oReturn.eligible;
+                        if(oReturn.invited){
+                            dialogShow('Corporate membership found','Our records show that a registration code to join the corporate account of '+oReturn.orgname+' was originally sent to '+this.value+' on '+oReturn.date
+                            + '. The registration email was just resent.  Please copy the registration code from either email into the form to complete your registration.');
+                            $('#account-lvl-member').click();
+                        }
+                        if(oReturn.eligible){
+                            dialogShow('Corporate membership found','Based on your email, you are eligible to join the corporate account of "'+oReturn.orgname+'".  However, you must first validate your email address.  A registration code was just sent to '+this.value
+                                + '. Please copy the validation code from the email into the registration form to complete your registration.');
+                            $('#account-lvl-member').click();
+                        }
+                    });
+                    if(!account.loggedIn() || this.value!=account.info.email){
+                        account.sendVerificationCode(this.value.trim());
+                    }
+                } else {
+                    $('.account-main-email-domain').html('*no domain detected*')
+                }
+            })
+            .change();
+        $screen.find('input.uname')
+            .val(account.info.name);
+        $screen.find('span.account-main-email').html(account.info.email);
+        $screen.find('button.cancel').button({icons: {secondary:  'ui-icon-closethick'}}).click(function(){
+            account.subscribing = false;
             $.fancybox.close();
         });
-        callApi({command: 'CardSelects'}, function(oReturn, textStatus, jqXH){
+        if(this.loggedIn()){
+            $screen.find('#'+(account.info.authmode=="Facebook"?'authfb':'authmd')).attr('checked',true);
+            $screen.find('.email').attr('disabled',true);
+            $screen.find("input:radio[name='auth']").attr("disabled",true)
+        }
+        //fill the cc country and exp year dropdowns
+        callApi({command: 'CardSelects', modal: 'none'}, function(oReturn, textStatus, jqXH){
             var i, $years = $screen.find('select.cardYear'), $countries = $screen.find('select.cardCountry');
             for(i=0;i<oReturn.countries.length;i++){
-                $countries.append('<option value="'+oReturn.countries[i].code+'">' + oReturn.countries[i].name + '</option>');
+                $countries.append('<option>' + oReturn.countries[i].name + '</option>');
             }
-            $countries.val('USA');
+            $countries.val(account.info.ccountry||'United States');
             for(i=0;i<oReturn.years.length;i++){
                 $years.append('<option>'+oReturn.years[i]+'</option>');
             }
+            var aex = account.info.ccexpiration.split('/');
+            if(aex.length==2){
+                $years.val(aex[1]);
+                $screen.find('.cardMonth').val(aex[0]);
+            }
         });
+        //authenticate with Facebook or MashableData
         $screen.find('input:radio[name=auth]').click(function(){
-            if(this.id == 'authmd')
+            if(this.id == 'authmd') {
+                $screen.find('.email').removeAttr('disabled');
                 $screen.find('div.account-pwd').slideDown();
-            else
+                resize();
+            }
+            else {
                 $screen.find('div.account-pwd').slideUp();
+                if(account.loggedIn() && account.info.authmode=='Facebook'){
+                    $screen.find('.email').attr("disabled", true);
+                } else {
+                    account.loginout();
+                }
+            }
         });
         $screen.find('input:radio[name=account-level]').click(function(){
-            if(this.id == 'account-lvl-admin')$screen.find('div.joinmode').slideDown(); else $screen.find('div.joinmode').slideUp();
-            if(this.id == 'account-lvl-admin' || this.id == 'account-lvl-ind') $screen.find('.payments').slideDown(); else $screen.find('.payments').slideUp();
-            if(this.id == 'account-lvl-member')$screen.find('div.regcode').slideDown(); else $screen.find('div.regcode').slideUp();
+            if(this.id == 'account-lvl-admin'){
+                $screen.find('div.joinmode').slideDown();
+                resize();
+            } else $screen.find('div.joinmode').slideUp();
+            if(this.id == 'account-lvl-admin' || this.id == 'account-lvl-ind'){
+                $screen.find('.payments').slideDown();
+                resize();
+            } else $screen.find('.payments').slideUp();
+            if(this.id == 'account-lvl-member'){
+                if(eligible){
+                    $screen.find('div.valcode').slideDown();
+                } else {
+                    $screen.find('div.regcode').slideDown();
+                }
+                if(!invited&&!eligible){
+                    dialogShow("No corporate account available", "Our records do not show a corporate membership available to the email entered above.  Please contact the administrator of your organization's MashableData account to be added.");
+                }
+                resize();
+            } else {
+                $screen.find('div.regcode,div.valcode').slideUp();
+            }
 
         });
         $screen.find('input:radio[name=account-auth]').click(function(){
-            if(this.id == 'account-org-create')
+            if(this.id == 'account-org-create'){
                 $screen.find('div.joinmode').slideDown();
-            else
-                $screen.find('div.joinmode').slideUp();
+                resize();
+            } else $screen.find('div.joinmode').slideUp();
         });
         $screen.find('button.ok').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
             var validationMessage = '';
@@ -256,10 +342,10 @@ account = {
                 );
             }
         });
+
         function resize(){
-
+            $fancy.animate({top: 50});
         }
-
     },
     isValidEmail: function(email){
         return email.split('@').length==2 && email.split('@')[1].split('.').length>0 && !(/[\s]/.test(email));
@@ -278,12 +364,13 @@ account = {
     signIn: function(username, password, callback){ //MD credential login will fetch and population account.info.  executes callback on success
 
     },
-    signInFB: function(response){
-        if (response.authResponse) {
+    signInFB: function(basicResponse){
+        if (basicResponse.authResponse) {
             account.info.authmode = "Facebook";  //global variable
-            var accessToken = response.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
-            expiresIn = response.authResponse.expiresIn;
+            var accessToken = basicResponse.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
+            expiresIn = basicResponse.authResponse.expiresIn;
             FB.api('/me', function(response) {
+                account.info.fbid = response.id;
                 account.fb_user = response;
                 account.fb_user.accessToken = accessToken;
                 account.info.accesstoken = accessToken;
@@ -305,7 +392,7 @@ account = {
         });
     },
     loginout: function (){ //
-        if(loggedIn){
+        if(account.loggedIn()){
             account.signOut();
         } else {
             FB.login(function(response) {
@@ -326,8 +413,8 @@ account = {
         return (this.info.userId!=null)
     },
     sendVerificationCode: function(email){
-        callApi({command: 'sendVerificationCode', email: email}, function(jsoData, textStatus, jqXH){
-            dialogShow('A new verification code was sent to '+ email +'.  Please check your account. ' +  (jsoData.reissued?'<br><br><em>Note that any previous verification codes are no longer valid.</em>':''));
+        callApi({command: 'emailVerify', email: email, verification: 'x'}, function(jsoData, textStatus, jqXH){
+            dialogShow('email verification code','A verification code was sent to '+ email +'.  Please check this email account and enter the code where directed. ');
         });
     }
 };
