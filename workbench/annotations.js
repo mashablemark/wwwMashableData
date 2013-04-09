@@ -432,17 +432,18 @@ function AnnotationsController(panelId){
             } else {
                 annoCenter = this.parseDate(anno.from);
             }
-            var overlaps = 0;
+            var overlaps = 0, thisCenter;
             for(var i=0;i<plotLinesAndBands.length;i++){
-                var thisCenter;
-                if(plotLinesAndBands[i].options.to){
-                    thisCenter = (plotLinesAndBands[i].options.from + plotLinesAndBands[i].options.to)/2;
-                } else {
-                    thisCenter = plotLinesAndBands[i].options.from;
-                }
-                if(plotLinesAndBands[i].options.label.text.length>0 && (Math.abs(thisCenter-annoCenter) < minSeparation)){
-                    overlaps++;
-                    overlappingAnnos.push(plotLinesAndBands[i]);
+                if(plotLinesAndBands[i].id!="timeLine"){
+                    if(plotLinesAndBands[i].options.to){
+                        thisCenter = (plotLinesAndBands[i].options.from + plotLinesAndBands[i].options.to)/2;
+                    } else {
+                        thisCenter = plotLinesAndBands[i].options.from;
+                    }
+                    if(plotLinesAndBands[i].options.label.text.length>0 && (Math.abs(thisCenter-annoCenter) < minSeparation)){
+                        overlaps++;
+                        overlappingAnnos.push(plotLinesAndBands[i]);
+                    }
                 }
             }
             var y = yStart;

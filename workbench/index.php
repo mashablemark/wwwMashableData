@@ -117,9 +117,9 @@
         <div id="cloud-series" class="picker">
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                    <fieldset style="display:inline;margin-left: 5px; padding: 0px 5px;margin: 1px;">
+                    <fieldset class="search-box">
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
-                        <input maxlength="100" style="width:300px;" id="series_search_text" onkeyup="seriesCloudSearchKey(event)" />
+                        <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search" onkeyup="seriesCloudSearchKey(event)" />
                         <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
                         <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option></select>
                         <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
@@ -153,7 +153,10 @@
         <div id="publicGraphs" class="picker">
             <div id="publicGraphsHeader" class="md-DS_title">
                 <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                    Search terms: <input maxlength="200" width="200px" id="graphs_search_text" onkeyup="graphsCloudSearch(event)" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
+                    <fieldset class="search-box">
+                        <legend>Search MashableData server for published graphs</legend>
+                        <input maxlength="200" id="graphs_search_text" class="long" onkeyup="graphsCloudSearch(event)" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
+                    </fieldset>
                 </div>
                 <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>

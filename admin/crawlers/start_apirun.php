@@ -1,10 +1,17 @@
 <?php
+/*date_default_timezone_set("UTC");
+    $regex = "#( in | for | from )?\bRichmond [cC]ity\, VA\b#";
+print($regex);
+     print(preg_match($regex, "Unemployment Rate in Richmond City, VA", $matches));
+die();*/
+
+
 /**
  * Created by Mark Elbert 5/5/12
  * Copyright, all rights reserved MashableData.com
  *
  */
-
+$sql_logging = true;
  $event_logging = true;
 include_once("../../global/common_functions.php");
 
@@ -180,16 +187,39 @@ switch($command){
         }
         $sql = "select seriesid, name, units, periodicity, lat, lon, geoid, pointsetid, mapsetid "
         . "from series where geoid is null and apiid=" . $api_row["apiid"]; // . " LIMIT 0 , 30";
-        $result = runQuery($sql);
+        $result = runQuery($sql, "FindSets");
         $matches_found = false;
         $count = 0;
         while($serie = $result->fetch_assoc()){
             set_time_limit(60);
             $count++;
+            $pos = strpos($serie["name"]," in ");
+            if($pos!=false){
+                $setName = trim(substr($serie["name"],0,$pos));
+                print($serie["name"].": ".trim(substr($serie["name"],$pos+4))."<BR>");
+                $sql = "select geoid, type, lat, lon from geographies where name=".safeStringSQL(trim(substr($serie["name"],$pos+4)));
+                $gresult = runQuery($sql,"FindSets");
+                if($gresult->num_rows>0){
+                    $geography = $gresult->fetch_assoc();
+                    if($geography["type"]=="M"){
+                        $mapSetId = getMapSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
+                        $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
+                            . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
+                            .", lon=".(($geography["lon"]==null)?"null":safeStringSQL($geography["lon"]))
+                            . " where seriesid=".$serie["seriesid"];
+                        runQuery($sql);
+                    } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for
+                        $pointSetId = getPointSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
+                        $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
+                            . " where seriesid=".$serie["seriesid"];
+                        runQuery($sql);
+                    }
+                }
+            }
             //print("<br>NEW SERIES: ". $serie["name"] . "<br>");
-            for($i=1;$i<count($geographies);$i++){
+/*            for($i=1;$i<count($geographies);$i++){
                 $geography = $geographies[$i];
-                $regex = "+( for | in | from )?". $geography["regexes"]."+";
+                $regex = "#( for | in | from )?". $geography["regexes"]."#";
                 if(preg_match($regex, $serie["name"], $matches)==1){
                     $matches_found = ($matches_found>0)?$matches_found+1:1;  //match!
                     $setName = trim(str_replace($matches[0],"",$serie["name"]));
@@ -211,7 +241,7 @@ switch($command){
                         break;
                     }
                 }
-            }
+            }*/
         }
         //eliminate the mapsets with 5 or fewer point as these tend to be problematic.
         runQuery("truncate temp");  //need to use temp table because mySQL cannot figure out how to do this efficiently otherwise.

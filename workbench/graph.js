@@ -60,12 +60,6 @@ var op = {
     value: {"+":1,"-":2,"*":3,"/":4},
     class: {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
 };
-var jVectorMapTemplates = {
-    "European Union": "europe_mill_en",
-    "US states": "us_aea_en",
-    "world": "world_mill_en",
-    "Africa": "africa_mill_en"
-};
 var mapBackground = '#AAAAAA';
 var rowPosition = {
     name: 0,
@@ -521,7 +515,7 @@ function getAssets(graph, callBack){
 function createMyGraph(gid, onComplete){
     var oMyGraph = oMyGraphs['G' + gid];
     var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
-    if(oMyGraph.map) fileAssets.push('js/maps/jquery_jvectormap_'+ jVectorMapTemplates[oMyGraph.map] +'.js');   //get the map too if needed
+    if(oMyGraph.mapFile) fileAssets.push('js/maps/'+ oMyGraph.mapFile +'.js');   //get the map too if needed
     require(fileAssets); //parallel load while getting db assets
     getAssets(oMyGraph, function(){
         require(fileAssets, function(){
@@ -2225,7 +2219,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             if(isBubble()) bubbleCalc();
             console.info(calculatedMapData);
             vectorMapSettings = {
-                map: jVectorMapTemplates[oGraph.map],
+                map: oGraph.mapFile,
                 backgroundColor: mapBackground,
                 markersSelectable: true,
                 markerStyle: {initial: {r: 0}}, //default for null values in the data
@@ -2340,7 +2334,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 step: 1,
                 change: function( event, ui ) {
                     val = ui.value;
-                    if(!isBubble()){
+                    if(!isBubble()&&calculatedMapData.regionColors){ //don't call if pointsets only
                         //attribute color calvulated in calcAttributes
                         $map.series.regions[0].setAttributes(getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s));
                         //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
@@ -2470,6 +2464,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     splinter: false,
                     ungroupable: false
                 };
+                if(!isBubble()) return;
                 var selectedMarkers = $map.getSelectedMarkers();
                 var selectedRegions = $map.getSelectedRegions();
                 //ungroupable

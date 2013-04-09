@@ -1,209 +1,490 @@
 /*MashableData Plugin for Highcharts  Copyright 2012.  All rights reserved.  Visit MashableData.com for usage guidelines.
-
+ jQuery.js, Highcharts.js and Highcharts' export.js must be loaded first
  */
-defaultMashableDataSharing = true; //change this variable if your site will authorize sharing on a per graphor series basis.
-//Setting chart.mashableDataSharing = true or false overrides the defaultMashableDataSharing setting
-//Setting chart.series[x].mashableDataSharing = true or false overrides both the chart level and the global MashableDataSharing setting
 
 
-//mashableData theme
-var md_version = { version: "0.1"};  //start of namespace.  Ultimately, make as mush of this configurable as possible
-var md_iframe_loaded = false;  //plumbing along with function md_iframe_load() to make sure message don't get sent before the iFrame is ready.
-var md_aMsg = []; //if md_secure_xfer iFrame not ready, msg stored here instead of being posted. iFrame onload event fires md_iframe_load() which then post the satores messages
 
-$(document).ready(function(){								 
-//add the iFrame
-$('body').append('<div id="md_frame_holder" name="md_frame_holder" style="display:nonex"><iframe id="md_secure_xfer"  onload="md_iframe_load()" src="http://www.mashabledata.com/secure_xfer.php"></iframe></div>');
-									
-	var btnHeight = 20;
-	var btnsWidth = 24;
-	var btnsX = 10;
-	var btnsY = 10;
+// Add ECMA262-5 Array methods if not supported natively
+//  indexOf not native to IE8
+if (!('indexOf' in Array.prototype)) {
+    Array.prototype.indexOf= function(find, i /*opt*/) {
+        if (i===undefined) i= 0;
+        if (i<0) i+= this.length;
+        if (i<0) i= 0;
+        for (var n= this.length; i<n; i++)
+            if (i in this && this[i]===find)
+                return i;
+        return -1;
+    };
+}
 
-	var currentTheme =  Highcharts.setOptions({});
-	
-	mashableDataHcTheme = {
-		chart: {
-			events: {
-            load: function(event) {
-                md_postSeries (this);
+window.MashableData = { //mashableData namespace
+    version: "0.1",
+    isMashableDefault: true, //default site setting.  May my overridden on a per page, per chart or per charted series basis as follows:
+    //Setting chart.isMashable = false; overrides the defaultMashableDataSharing setting
+    //Setting chart.series[x].isMashable = true;  overrides both the chart level and the global MashableDataSharing setting
+    iframeLoaded: false,
+    iframeRequested: false, //plumbing along with function md_iframe_load() to make sure message don't get sent before the iFrame is ready.
+    aMsg: [],  //if md_secure_xfer iFrame not ready, msg stored here instead of being posted. iFrame onload event fires md_iframe_load() which then post the satores messages
+    recentsKey: null,
+    bookmarksKey: null,
+    bookmarks: [],
+    recents: [],
+    series: {},
+    iframe_load: function (){  //post any backlogged messages and indicate state
+        var mdFrame = document.getElementById("md_secure_xfer").contentWindow; //document.getElementById("md_frame_holder");
+        this.iframe_loaded = true; //global variable to indicate state
+        for(var i=0;i<MashableData.aMsg.length;i++){
+            mdFrame.postMessage(MashableData.aMsg[i], 'http://www.mashabledata.com/secure_xfer.php');
+        }
+    },
+    calcSeriesInfo:  function(PointArray){
+        var oSereiesInfo = {
+            minDate: null,
+            maxDate: null,
+            minValue: null,
+            maxValue: null,
+            perodicity: 'A'
+        };
+        var dayOfMonth = null;
+        var dayOfWeek = null;
+        var monthOfYear = null;
+        var timeOfDay = null;
+
+        for(var pointIndex in PointArray){
+            //console.info(pointIndex);
+            var thisPoint = PointArray[pointIndex];
+            if(oSereiesInfo.minDate == null || oSereiesInfo.minDate > thisPoint.x) {oSereiesInfo.minDate = thisPoint.x}
+            if(oSereiesInfo.maxDate == null || oSereiesInfo.maxDate < thisPoint.x) {oSereiesInfo.maxDate = thisPoint.x}
+            if(oSereiesInfo.minValue == null || oSereiesInfo.minValue > thisPoint.y) {oSereiesInfo.minValue = thisPoint.y}
+            if(oSereiesInfo.maxValue == null || oSereiesInfo.maxValue < thisPoint.x) {oSereiesInfo.maxValue = thisPoint.y}
+            var xDateTime = new Date(thisPoint.x);
+            //console.info(xDateTime);
+            if(timeOfDay == null){timeOfDay = xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()}
+            else if(timeOfDay !== true && timeOfDay != xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()){timeOfDay = true}
+            if(dayOfMonth == null){dayOfMonth = xDateTime.getUTCDate()}
+            else if(dayOfMonth !== true && dayOfMonth != xDateTime.getUTCDate()){dayOfMonth = true}
+            if(dayOfWeek == null){dayOfWeek = xDateTime.getUTCDay()}
+            else if(dayOfWeek !== true && dayOfWeek != xDateTime.getUTCDay()){dayOfWeek = true}
+            if(monthOfYear == null){monthOfYear = xDateTime.getUTCMonth()}
+            else if(monthOfYear !== true && monthOfYear != xDateTime.getUTCMonth()){monthOfYear = true}
+        }
+        /*
+         console.info("timeOfDay: " + timeOfDay);
+         console.info("dayOfWeek: " + dayOfWeek);
+         console.info(dayOfWeek !== true);
+         console.info("monthOfYear: " + monthOfYear);
+         console.info("dayOfMonth: " + dayOfMonth);
+         */
+        if(timeOfDay === true) {oSereiesInfo.perodicity = 'T'}
+        else if(dayOfWeek !== true) {oSereiesInfo.perodicity = 'W'}
+        else if(dayOfMonth === true) {oSereiesInfo.perodicity = 'D'}
+        else if(monthOfYear === true) {oSereiesInfo.perodicity = 'M'}
+        else {oSereiesInfo.perodicity = 'A'}
+        oSereiesInfo.from = MashableData.formatDateByPeriod(oSereiesInfo.minDate, oSereiesInfo.perodicity);
+        oSereiesInfo.to = MashableData.formatDateByPeriod(oSereiesInfo.maxDate, oSereiesInfo.perodicity);
+        return oSereiesInfo
+    },
+    storeChartSeries: function(thischart){
+        var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, poppedKey, isMashable;
+        recents = JSON.parse(localStorage.recents||'[]');
+        bookmarks = JSON.parse(localStorage.bookmarks||'[]');
+
+        if(localStorage.getItem('md_authorized')=='N') return false;
+        for(i=0;i<thischart.series.length;i++){
+            thisSerie = thischart.series[i];
+            if(thisSerie.xAxis.options.type=='datetime'){ //only mash datetime series
+                if(typeof thisSerie.options.isMashable!='undefined'){
+                    isMashable = thisSerie.options.isMashable;
+                } else {
+                    if(typeof thischart.options.isMashable!='undefined'){
+                        isMashable = thischart.options.isMashable;
+                    } else {
+                        isMashable = this.isMashableDefault;
+                    }
+                }
+                if(isMashable){
+                    serie = MashableData.calcSeriesInfo(thisSerie.data);
+                    serie.data = [];
+                    for(j=0;j<thisSerie.data.length;j++){
+                        serie.data.push([thisSerie.data[j].x,thisSerie.data[j].y])
+                    }
+                    serie.name = thisSerie.name;
+                    serie.description = thisSerie.description;
+                    serie.skey = thisSerie.skey;
+                    serie.graph = (thischart.options.title&&thischart.options.title.text)?thischart.options.title.text:'';
+                    serie.credit = (thischart.options.credits&&thischart.options.credits.text)?thischart.options.credits.text:null;
+                    serie.url = window.location.href;
+                    serie.units = thisSerie.units || thisSerie.yAxis.options.title.text;
+                    serie.viewed = (new Date()).getTime();
+
+                    /*var dataPortion = "";
+                     for(var datapoint in thisSeries.data){
+                     var xDate = new Date(thisSeries.data[datapoint].x);
+                     switch(seriesInfo.perodicity){
+                     case 'A':
+                     dataPortion += ("||" + xDate.getUTCFullYear() + "|" + thisSeries.data[datapoint].y);
+                     break;
+                     case 'W':
+                     case 'D':
+                     dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + "|" + thisSeries.data[datapoint].y);
+                     break;
+                     case 'M':
+                     case 'Q':
+                     case 'SA':
+                     dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + "|" + thisSeries.data[datapoint].y);
+                     break;
+                     case 'N':
+                     dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + "|" + thisSeries.data[datapoint].y);
+                     break;
+                     }
+                     }*/
+                    lsKey = serie.skey || (serie.name + '|' + serie.units);
+                    //get recents and bookmark arrays from localStrage
+                    recents = localStorage.recents;
+                    if(recents) recents = JSON.parse(recents); else recents = [];
+                    bookmarks = localStorage.bookmarks;
+                    if(bookmarks) bookmarks = JSON.parse(bookmarks); else bookmarks = [];
+                    //check if exists and react accordingly
+                    idxRecent = recents.indexOf(lsKey);
+                    idxBookmark = bookmarks.indexOf(lsKey);
+                    if(idxBookmark>0){ //move the bookmark to the top as the bookmarked series was just reviewed
+                        thisSerie.bookmark = (new Date()).getTime();
+                        bookmarks.splice(idxBookmark,1);  //move from current location ...
+                        bookmarks.unshift(lsKey); //...to the top
+                    }
+                    if(idxRecent>=0) recents.splice(idxRecent,1); //remove it from the middle if it existed
+                    recents.unshift(lsKey); //add it to the top
+                    localStorage.setItem(lsKey, JSON.stringify(serie));
+                }
             }
         }
-		},
-		exporting: {
-			buttons:{
-				printButton: {
-					enabled: true,
-					onclick:  function() {window.open("http://www.mashabledata.com/workbench","mashabledata")},
-					symbol: "gear"
-				}
-			}
-		}
-	};
-	
-  var highchartsOptions = Highcharts.setOptions(mashableDataHcTheme);
-	
-	$.extend(Highcharts.Renderer.prototype.symbols, {
-    gear: function() {
-			var innerR =5;
-			var outterR=7;
-			var offset=11;
-			var teeth=7;
-			var i=0;
-            var angle;
-			gearCommands = ['M',offset,offset-outterR];
-			for(i=0;i<teeth;i++){
-			  angle = (2*Math.PI / teeth * i) + (2*Math.PI / (teeth*4));
-			  gearCommands.push('L');
-			  gearCommands.push(Math.sin(angle)*outterR + offset);
-			  gearCommands.push(offset-Math.cos(angle)*outterR);
-			  gearCommands.push('L');
-			  gearCommands.push(Math.sin(angle)*innerR + offset);
-			  gearCommands.push(offset-Math.cos(angle)*innerR);
-			  angle = (2*Math.PI / teeth * i) + 3* (2*Math.PI / (teeth*4));
-			  gearCommands.push('L');
-			  gearCommands.push(Math.sin(angle)*innerR + offset);
-			  gearCommands.push(offset-Math.cos(angle)*innerR);
-			  gearCommands.push('L');
-			  gearCommands.push(Math.sin(angle)*outterR + offset);
-			  gearCommands.push(offset-Math.cos(angle)*outterR);
-			}
-			gearCommands.push('Z');
-			return gearCommands;
+        while(recents.length>99){ //pop excess keys/series
+            poppedKey = recents.pop();
+            if(bookmarks.indexOf(poppedKey)==-1) localStorage.removeItem(poppedKey); //remove the corresponding series if not bookmarked
+        }
+        localStorage.recents = JSON.stringify(recents);
+        localStorage.bookmarks = JSON.stringify(bookmarks);
+    },
+    postSeries: function(serie){
+        if(!MashableData.iframeRequested) {  //add the iFrame is not already added
+            $('body').append('<div id="md_frame_holder" style="display:none"><iframe id="md_secure_xfer" onload="MashableData.iframe_load()" src="http://www.mashabledata.com/secure_xfer.php"></iframe></div>');
+            MashableData.iframeRequested = true;
+        }
+        if(MashableData.iframeLoaded){
+            var mdFrame = document.getElementById("md_secure_xfer").contentWindow;
+            if(md_iframe_loaded){ // this handles slow iFrame loads.  If not loaded, than store message until md_iframe_load fires
+                mdFrame.postMessage(JSON.stringify(serie), 'http://www.mashabledata.com/secure_xfer.php');
+            } else {
+                MashableData.aMsg.push(JSON.stringify(serie))
+            }
+        }
+    },
+    loadAllSeries: function(){
+        var i;
+        if(this.recentsKey!=localStorage.recents){
+            this.recentsKey = localStorage.recents;
+            this.recents = JSON.parse(this.recentsKey);
+            for(i=0;i<this.recents.length;i++){
+                if(!this.series[this.recents[i]]) this.series[this.recents[i]] = JSON.parse(localStorage.getItem(this.recents[i]));
+            }
+        }
+
+        if(this.bookmarksKey!=localStorage.bookmarks){
+            this.bookmarksKey = localStorage.bookmarks;
+            this.bookmarks = JSON.parse(this.bookmarksKey);
+            for(i=0;i<this.bookmarks.length;i++){
+                if(!this.series[this.bookmarks[i]]) this.series[this.bookmarks[i]] = JSON.parse(localStorage.getItem(this.bookmarks[i]));
+            }
+        }
+    },
+    bookmarkSeries: function(key){
+        this.series[key].bookmark = (new Date()).getTime();
+        this.series[key].isDirty = true;
+    },
+    unBookmarkSeries: function(key){
+        MashableData.bookmarks.splice(MashableData.bookmarks.indexOf(key),1);
+        delete this.series[key].bookmark;
+        this.series[key].isDirty = true;
+    },
+    showPanel: function(chart){
+        $('#mashabledata_panel').remove();  //get rid of any open panels
+        this.loadAllSeries();
+
+        //from the old md_charter.js:
+        /*var chartWidth = chart.chartWidth;
+        var chartHeight = chart.chartHeight;
+        var containID = chart.container.id;
+        var fudgeFactor = 10; //don't know why this is needed
+        var theme = Highcharts.getOptions();
+        var y = theme.exporting.buttons.exportButton.y;
+        y=10;
+        var right = - theme.exporting.buttons.exportButton.x;
+*/
+        var $panel, self=this, html = '<div id="mashabledata_panel">'
+            + 'Charting Toolbox:'
+            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<button id="mashabledata_print">print chart</button><span id="mashabledata_dlform"><select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVF</option></select><button id="mashabledata_download">download chart</button></span>':'')
+            + '<div id="mashabledata_tabs">'
+            +   '<ol><li class="mashabledata_active"><a data="#mashabledata_recents">recent<span id="mashabledata_rinfo">('+this.recents.length+')</span></a></li><li><a data="#mashabledata_bookmarks">bookmarked<span id="mashabledata_binfo">('+this.bookmarks.length+')</span></a></li></ol>'
+            +   '<input class="mashabledata_inputmsg" value="type here to filter series">'
+            +   '<div id="mashabledata_recents">'
+            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed</th><th class="mashabledata_cell_url">url</th></tr></table>'
+            +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.recents)+'</table></div>'
+            +   '</div>'
+            +   '<div id="mashabledata_bookmarks">'
+            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed</th><th class="mashabledata_cell_url">url</th></tr></table>'
+            +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.bookmarks)+'</table></div>'
+            +   '</div>'
+            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="chart">add series to chart</label>'
+            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="md">open with MashableData.com</label>'
+            +   '<button id="mashabledata_ok">ok</button>'
+            +   '<button id="mashabledata_cancel">cancel</button>'
+            + '</div>'
+            + '</div>';
+        $panel = $(html).appendTo(chart.container);
+        //events of control from ordered as displayed (top to bottom)
+        $panel.find('#mashabledata_print').click(function(){ //print
+            chart.print();
+        });
+        $panel.find('#mashabledata_download').click(function(){  //download
+            var type = $panel.find('select').val();
+            if(type=='PNG') chart.exportChart(); else chart.exportChart({type: type});
+        });
+        $panel.find('input.mashabledata_inputmsg')  //search box
+            .focus(function(){
+                $(this).removeClass('mashabledata_inputmsg');
+            })
+            .keyup(function(){
+                var table, visible, keyWords = $(this).val();
+                //filter recents table
+                table = $panel.find('#mashabledata_recents div.mashabledata_scroll table');
+                visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
+                if(table.rows.length==visible){
+                    $panel.find('#mashabledata_rinfo').html('('+visible+')');
+                } else {
+                    $panel.find('#mashabledata_rinfo').html('('+visible+' of '+table.rows.length+')');
+                }
+                //filter bookmarks table
+                table = $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table');
+                visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
+                if(table.rows.length==visible){
+                    $panel.find('#mashabledata_binfo').html('('+visible+')');
+                } else {
+                    $panel.find('#mashabledata_binfo').html('('+visible+' of '+table.rows.length+')');
+                }
+            });
+        $panel.find('ol a').click(function(){  //tabs
+            $panel.find('#mashabledata_recents, #').hide();
+            $panel.find($(this).attr('data')).show();
+        });
+        $panel.find('th')  //table column sorts
+            .wrapInner('<span title="sort this column"/>')
+            .each(function(){
+                var $th = $(this), thIndex = $th.index(), inverse = false;
+                $th.click(function(){
+                    var table = $th.closest('div').find('div.mashabledata_scroll table');
+                    table.find('td').filter(function(){
+                        return $(this).index() === thIndex;
+                    }).sortElements(function(a, b){
+                            if( $.text([a]) == $.text([b]) )
+                                return 0;
+                            return $.text([a]) > $.text([b]) ?
+                                inverse ? -1 : 1
+                                : inverse ? 1 : -1;
+                        }, function(){
+                            // parentNode is the element we want to move
+                            return this.parentNode;
+                        });
+                    inverse = !inverse;
+                });
+            }
+        );
+        $panel.find('td.mashabledata_cell_bookmark span').click(function(){
+            var key = $(this).closest('tr').find('td.mashabledata_cell_check').attr('data');
+            if(self.series[key]){
+                if(self.series[key].bookmark) { //could have been deselected from either panel
+                    self.unBookmarkSeries(key);
+                    $panel.find('#mashabledata_bookmarks div.mashabledata_scroll td.mashabledata_cell_check[data=\''+key+'\'').remove();
+                    $panel.find('#mashabledata_recents div.mashabledata_scroll td.mashabledata_cell_check[data=\''+key+'\'').addClass('mashabledata_nostar').removeClass('mashabledata_star');
+                } else { //must have been clicked in the recents panel
+                    self.bookmarkSeries(key);
+                    $(this).addClass('mashabledata_star').removeClass('mashabledata_nostar');
+                    $(this).closest('tr').clone(true,true).prependTo($panel.find('#mashabledata_bookmarks div.mashabledata_scroll table'));
+                }
+            }
+        });
+        $panel.find('#mashabledata_ok').click(function(){
+            //1. save what needs to be saved
+            for(var key in self.series){
+                if(self.series[key].isDirty){
+                    if(self.bookmarks.indexOf(key)+self.recents.indexOf(key)==-1){
+                        localStorage.removeItem(key);
+                    } else {
+                        delete self.series[key].isDirty;
+                        localStorage.setItem(key, JSON.stringify(self.series[key]));
+                    }
+                }
+            }
+            localStorage.recents = JSON.stringify(recents);
+            localStorage.bookmarks = JSON.stringify(bookmarks);
+
+            //make array of checked keys
+            var checkedKeys = [];
+            $panel.find('input:checked').each(function(){
+                key = $(this).attr('data');
+                if(checkedKeys.indexOf(key)==-1) checkedKeys.push(key);  //avoid double counting from recents + bookmarks
+            });
+
+            if($panel.find('input.mashabledata_action').val()=='chart'){
+                //2. if graph, add / remove series from chart
+                //first remove
+                for(var i=0;i<chart.series.length;i++){
+                    if(chart.series[i].options.mash && checkedKeys.indexOf(chart.series[i].options.id)==-1) chart.series[i].remove();
+                }
+                //now add
+                for(i=0;i<checkedKeys.length;i++){
+                    if(!chart.get(checkedKeys[i])){
+                        series = self.series[checkedKeys[i]];
+                        //TODO: check and add y-axis if necessary
+                        chart.addSeries({
+                            name: series.name,
+                            data: series.data,
+                            id: checkedKeys[i]
+                        });
+                    }
+                }
+            } else {
+                //3. if MD, post checked series and open in new page
+                for(i=0;i<checkedKeys.length;i++){
+                    self.postSeries(self.series[checkedKeys[i]]);
+                }
+            }
+        });
+        $panel.find('#mashabledata_cancel').click(function(){
+            $panel.remove();
+        });
+
+    },
+    searchTable: function(table, inputVal){
+        var allCells, found, regExp, visibleCount = 0;
+        table.find('tr').each(function(index, row)
+        {
+            allCells = $(row).find('td');
+            if(allCells.length > 0)
+            {
+                found = false;
+                allCells.each(function(index, td)
+                {
+                    regExp = new RegExp(inputVal, 'i');
+                    if(regExp.test($(td).text()))
+                    {
+                        found = true;
+                        return false;
+                    }
+                });
+                if(found == true){
+                    $(row).show();
+                    visibleCount++;
+                } else $(row).hide();
+            }
+        });
+        return visibleCount;
+    },
+    makeRows: function(aryKeys){
+        var i, series, rows = '';
+        for(i=0;i<aryKeys.length;i++){
+            series = this.series[aryKeys[i]];
+            rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(series.checked?' checked':'')+'></td>'
+                + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
+                + '<td class="mashabledata_cell_name">'+series.name+'</td>'
+                + '<td class="mashabledata_cell_units">'+series.units+'</td>'
+                + '<td class="mashabledata_cell_f">'+series.perodicity+'</td>'
+                + '<td class="mashabledata_cell_from">'+series.from+'</td>'
+                + '<td class="mashabledata_cell_to">'+series.to+'</td>'
+                + '<td class="mashabledata_cell_viewed">'+series.viewed+'</td>'
+                + '<td class="mashabledata_cell_url"><a href="'+series.url+'">'+series.url.substr(series.url.substr(8).indexOf('/'))+'</a></td></tr>';
+        }
+        return rows;
+    },
+    formatDateByPeriod: function(val, period) { //helper function for the data tables
+        if(isNaN(val)==false) {
+            var dt = new Date(parseInt(val));
+            switch(period){
+                case 'A': return dt.getUTCFullYear();
+                case 'Q': return ('Q'+ parseInt((dt.getUTCMonth()+3)/3) +' '+ dt.getUTCFullYear());
+                case 'SA':
+                case 'M': return dt.toUTCString().substr(8,8);
+                case 'W':
+                case 'D': return dt.toUTCString().substr(5,11);
+                default: return dt.toUTCString().substr(5,20);
+            }
+        }
+        else
+        {
+            return null;
+        }
     }
-	});
+};
+
+
+$(document).ready(function(){
+    var btnHeight = 20;
+    var btnsWidth = 24;
+    var btnsX = 10;
+    var btnsY = 10;
+    var currentTheme =  Highcharts.setOptions({});
+    var mashableDataHcTheme = {
+        chart: {
+            events: {
+                load: function(){
+                    window.MashableData.storeChartSeries(this);
+                }
+            }
+        },
+        exporting: {
+            buttons:{
+                contextButton: {
+                    enabled: true,
+                    menuItems: null,
+                    onclick:  function() {
+                        window.MashableData.showPanel(this);
+                    },
+                    text: 'tools',
+                    symbol: 'gear'
+                }
+            }
+        }
+    };
+
+    var highchartsOptions = Highcharts.setOptions(mashableDataHcTheme);
+
+    $.extend(Highcharts.Renderer.prototype.symbols, {
+        gear: function() {
+            var innerR =5;
+            var outterR=7;
+            var offset=11;
+            var teeth=7;
+            var i=0;
+            var angle;
+            gearCommands = ['M',offset,offset-outterR];
+            for(i=0;i<teeth;i++){
+                angle = (2*Math.PI / teeth * i) + (2*Math.PI / (teeth*4));
+                gearCommands.push('L');
+                gearCommands.push(Math.sin(angle)*outterR + offset);
+                gearCommands.push(offset-Math.cos(angle)*outterR);
+                gearCommands.push('L');
+                gearCommands.push(Math.sin(angle)*innerR + offset);
+                gearCommands.push(offset-Math.cos(angle)*innerR);
+                angle = (2*Math.PI / teeth * i) + 3* (2*Math.PI / (teeth*4));
+                gearCommands.push('L');
+                gearCommands.push(Math.sin(angle)*innerR + offset);
+                gearCommands.push(offset-Math.cos(angle)*innerR);
+                gearCommands.push('L');
+                gearCommands.push(Math.sin(angle)*outterR + offset);
+                gearCommands.push(offset-Math.cos(angle)*outterR);
+            }
+            gearCommands.push('Z');
+            return gearCommands;
+        }
+    });
 });
-
-function md_postSeries(thischart){
-	for(series in thischart.series){
-		var permission = thischart.series[series].options.mashableDataSharing;
-		if(!permission){
-			permission = thischart.options.chart.mashableDataSharing;
-			if(!permission){permission = defaultMashableDataSharing;}
-		}
-
-		if(permission==true){
-			var thisSeries = thischart.series[series];
-			var seriesInfo = md_calcSeriesInfo(thisSeries.data);
-			var timestamp = new Date();
-			var msg = ("metadata|begin||name|" + thisSeries.name);
-			msg += ("||description|" +  md_propValue(thisSeries.description));
-			msg += ("||skey|" + md_propValue(thisSeries.skey));
-			msg += ("||sid|" + "null");
-			msg += ("||cid|" + "null");
-			msg += ("||useLatest|null");
-			msg += ("||graph|" +  thischart.options.title.text);
-			msg += ("||save|" + "H");
-			msg += ("||decimal|" + "0");
-			msg += ("||credit|" + thischart.options.credits.text);
-			msg += ("||url|" + window.location.href);
-			msg += ("||unit_nom|" + thisSeries.yAxis.options.title.text);
-			msg += ("||unit_denom|" + "null");
-			msg += ("||save_dt|" + timestamp.getTime());
-			msg += ("||type|" + thisSeries.type);
-			msg += ("||period|" + seriesInfo.perodicity);
-			msg += ("||points|" + thisSeries.data.length);
-			msg += ("||firstdt|" + seriesInfo.minDate);
-			msg += ("||lastdt|" + seriesInfo.maxDate);
-			var dataPortion = "";
-			for(var datapoint in thisSeries.data){
-				var xDate = new Date(thisSeries.data[datapoint].x);
-				switch(seriesInfo.perodicity){
-					case 'A':
-						dataPortion += ("||" + xDate.getUTCFullYear() + "|" + thisSeries.data[datapoint].y);
-						break;
-					case 'W':
-					case 'D':
-						dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + "|" + thisSeries.data[datapoint].y);
-						break;
-					case 'M':
-					case 'Q':
-					case 'SA':
-						dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + "|" + thisSeries.data[datapoint].y);
-						break;
-					case 'N':
-						dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + "|" + thisSeries.data[datapoint].y);
-						break;
-				}
-			}
-		}
-		msg += ("||datahash|" + hex_sha1(dataPortion.substr(2)) + dataPortion);
-		var mdFrame = document.getElementById("md_secure_xfer").contentWindow; //document.getElementById("md_frame_holder");
-
-		if(md_iframe_loaded){ // this handles slow iFrame loads.  If not loaded, than store message until md_iframe_load fires
-			mdFrame.postMessage(msg, 'http://www.mashabledata.com/secure_xfer.php');
-		} else {
-			md_aMsg.push(msg)
-		}
-
-	}
-}
-
-function md_iframe_load(){  //post any backlogged messages and indicate state
-	var mdFrame = document.getElementById("md_secure_xfer").contentWindow; //document.getElementById("md_frame_holder");
-	for(var i=0;i<md_aMsg.length;i++){
-		mdFrame.postMessage(md_aMsg[i], 'http://www.mashabledata.com/secure_xfer.php');
-	}
-	md_iframe_loaded = true; //global variable to indicate state
-}
-
-function md_calcSeriesInfo(PointArray){
-	var oSereiesInfo = {
-		minDate: null,
-		maxDate: null,
-		minValue: null,
-		maxValue: null,
-		perodicity: 'A'
-	};
-	var dayOfMonth = null;
-	var dayOfWeek = null;
-	var monthOfYear = null;
-	var timeOfDay = null;
-
-	for(var pointIndex in PointArray){
-		//console.info(pointIndex);
-		var thisPoint = PointArray[pointIndex];
-		if(oSereiesInfo.minDate == null || oSereiesInfo.minDate > thisPoint.x) {oSereiesInfo.minDate = thisPoint.x};
-		if(oSereiesInfo.maxDate == null || oSereiesInfo.maxDate < thisPoint.x) {oSereiesInfo.maxDate = thisPoint.x};
-		if(oSereiesInfo.minValue == null || oSereiesInfo.minValue > thisPoint.y) {oSereiesInfo.minValue = thisPoint.y};
-		if(oSereiesInfo.maxValue == null || oSereiesInfo.maxValue < thisPoint.x) {oSereiesInfo.maxValue = thisPoint.y};
-		var xDateTime = new Date(thisPoint.x);
-		//console.info(xDateTime);
-		if(timeOfDay == null){timeOfDay = xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()} 
-		  else if(timeOfDay !== true && timeOfDay != xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()){timeOfDay = true}		
-		if(dayOfMonth == null){dayOfMonth = xDateTime.getUTCDate()} 
-		  else if(dayOfMonth !== true && dayOfMonth != xDateTime.getUTCDate()){dayOfMonth = true}
-		if(dayOfWeek == null){dayOfWeek = xDateTime.getUTCDay()} 
-		  else if(dayOfWeek !== true && dayOfWeek != xDateTime.getUTCDay()){dayOfWeek = true}		
-		if(monthOfYear == null){monthOfYear = xDateTime.getUTCMonth()} 
-		  else if(monthOfYear !== true && monthOfYear != xDateTime.getUTCMonth()){monthOfYear = true}	
-	}	
-	/*
-	console.info("timeOfDay: " + timeOfDay);
-	console.info("dayOfWeek: " + dayOfWeek);
-	console.info(dayOfWeek !== true);
-	console.info("monthOfYear: " + monthOfYear);
-	console.info("dayOfMonth: " + dayOfMonth);
-	*/
-	if(timeOfDay === true) {oSereiesInfo.perodicity = 'T'}
-	  else if(dayOfWeek !== true) {oSereiesInfo.perodicity = 'W'}
-	  else if(dayOfMonth === true) {oSereiesInfo.perodicity = 'D'}
-	  else if(monthOfYear === true) {oSereiesInfo.perodicity = 'M'}
-		else {oSereiesInfo.perodicity = 'A'}
-	
-	return oSereiesInfo
-}
-function md_propValue(val){
-    if(typeof val === "undefined"){return "null"} else {return val}
-}
-
-
-/*
- * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
- * in FIPS 180-1
- * Version 2.2 Copyright Paul Johnston 2000 - 2009.
- * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
- * Distributed under the BSD License
- * See http://pajhome.org.uk/crypt/md5 for details.
- */
-var hexcase=0;var b64pad="";function hex_sha1(a){return rstr2hex(rstr_sha1(str2rstr_utf8(a)))}function hex_hmac_sha1(a,b){return rstr2hex(rstr_hmac_sha1(str2rstr_utf8(a),str2rstr_utf8(b)))}function sha1_vm_test(){return hex_sha1("abc").toLowerCase()=="a9993e364706816aba3e25717850c26c9cd0d89d"}function rstr_sha1(a){return binb2rstr(binb_sha1(rstr2binb(a),a.length*8))}function rstr_hmac_sha1(c,f){var e=rstr2binb(c);if(e.length>16){e=binb_sha1(e,c.length*8)}var a=Array(16),d=Array(16);for(var b=0;b<16;b++){a[b]=e[b]^909522486;d[b]=e[b]^1549556828}var g=binb_sha1(a.concat(rstr2binb(f)),512+f.length*8);return binb2rstr(binb_sha1(d.concat(g),512+160))}function rstr2hex(c){try{hexcase}catch(g){hexcase=0}var f=hexcase?"0123456789ABCDEF":"0123456789abcdef";var b="";var a;for(var d=0;d<c.length;d++){a=c.charCodeAt(d);b+=f.charAt((a>>>4)&15)+f.charAt(a&15)}return b}function str2rstr_utf8(c){var b="";var d=-1;var a,e;while(++d<c.length){a=c.charCodeAt(d);e=d+1<c.length?c.charCodeAt(d+1):0;if(55296<=a&&a<=56319&&56320<=e&&e<=57343){a=65536+((a&1023)<<10)+(e&1023);d++}if(a<=127){b+=String.fromCharCode(a)}else{if(a<=2047){b+=String.fromCharCode(192|((a>>>6)&31),128|(a&63))}else{if(a<=65535){b+=String.fromCharCode(224|((a>>>12)&15),128|((a>>>6)&63),128|(a&63))}else{if(a<=2097151){b+=String.fromCharCode(240|((a>>>18)&7),128|((a>>>12)&63),128|((a>>>6)&63),128|(a&63))}}}}}return b}function rstr2binb(b){var a=Array(b.length>>2);for(var c=0;c<a.length;c++){a[c]=0}for(var c=0;c<b.length*8;c+=8){a[c>>5]|=(b.charCodeAt(c/8)&255)<<(24-c%32)}return a}function binb2rstr(b){var a="";for(var c=0;c<b.length*32;c+=8){a+=String.fromCharCode((b[c>>5]>>>(24-c%32))&255)}return a}function binb_sha1(v,o){v[o>>5]|=128<<(24-o%32);v[((o+64>>9)<<4)+15]=o;var y=Array(80);var u=1732584193;var s=-271733879;var r=-1732584194;var q=271733878;var p=-1009589776;for(var l=0;l<v.length;l+=16){var n=u;var m=s;var k=r;var h=q;var f=p;for(var g=0;g<80;g++){if(g<16){y[g]=v[l+g]}else{y[g]=bit_rol(y[g-3]^y[g-8]^y[g-14]^y[g-16],1)}var z=safe_add(safe_add(bit_rol(u,5),sha1_ft(g,s,r,q)),safe_add(safe_add(p,y[g]),sha1_kt(g)));p=q;q=r;r=bit_rol(s,30);s=u;u=z}u=safe_add(u,n);s=safe_add(s,m);r=safe_add(r,k);q=safe_add(q,h);p=safe_add(p,f)}return Array(u,s,r,q,p)}function sha1_ft(e,a,g,f){if(e<20){return(a&g)|((~a)&f)}if(e<40){return a^g^f}if(e<60){return(a&g)|(a&f)|(g&f)}return a^g^f}function sha1_kt(a){return(a<20)?1518500249:(a<40)?1859775393:(a<60)?-1894007588:-899497514}function safe_add(a,d){var c=(a&65535)+(d&65535);var b=(a>>16)+(d>>16)+(c>>16);return(b<<16)|(c&65535)}function bit_rol(a,b){return(a<<b)|(a>>>(32-b))};

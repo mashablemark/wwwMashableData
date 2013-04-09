@@ -395,7 +395,7 @@ switch($command){
         } else {
             $geoid = 0;
         }
-        $sql = "select m.name, geographycount, count(s.geoid) as setcount "
+        $sql = "select m.name, jvectormap, geographycount, count(s.geoid) as setcount "
             . " from series s, maps m, mapgeographies mg "
             . " where m.map=mg.map and mg.geoid=s.geoid";
         if($mapsetid>0) $sql .= " and s.mapsetid=".$mapsetid;
@@ -405,7 +405,7 @@ switch($command){
         $output = array("status"=>"ok", "maps"=>array());
         $result = runQuery($sql);
         while($row = $result->fetch_assoc()){
-            array_push($output["maps"], array("name"=>$row["name"], "count"=>($mapsetid!=0)?$row["setcount"]." of ".$row["geographycount"]:$row["setcount"]." locations"));
+            array_push($output["maps"], array("name"=>$row["name"], "file"=>$row["jvectormap"], "count"=>($mapsetid!=0)?$row["setcount"]." of ".$row["geographycount"]:$row["setcount"]." locations"));
         }
         break;
     case 'GetBunnySeries':
@@ -954,7 +954,7 @@ switch($command){
                     $result = runQuery($sqlGetUser, "GetUserId: lookup user afater insert");
                     $row = $result->fetch_assoc();
                 }
-                $output = array("status" => "ok", "userId" => $row["userid"], "orgId" => $row["orgid"], "orgName" => myEncrypt($row["orgname"]) ,
+                $output = array("status" => "ok", "userId" => $row["userid"], "orgId" => $row["orgid"], "orgName" => $row["orgname"],
                     "subscription"=> $row["subscription"], "subexpires"=> $row["expires"], "company"=> $row["company"],
                     "ccaddresss"=> $row["ccaddresss"], "cccity"=> $row["cccity"], "ccstateprov"=> $row["ccstateprov"],
                     "ccpostal"=> $row["ccpostal"], "cccountry"=> $row["cccountry"], "ccnumber"=> substr($row["ccnumber"],-4),
@@ -1306,12 +1306,12 @@ function getGraphs($userid, $ghash){
         die('{"status":"Must provide valid a hash or user credentials."}');
     }
     $sql = "SELECT g.graphid as gid, g.userid, g.title, text as analysis, "
-        . " map, mapconfig, "
+        . " g.map, jvectormap, mapconfig, "
         . " serieslist, s.name, s.units, skey, s.firstdt, s.lastdt, s.periodicity, data, "
         . " ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
         . " gp.plotid, gp.type as plottype, gp.options as plotoptions, legendorder, pc.objtype as comptype, objid, "
         . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
-        . " from graphs g, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid  "
+        . " from graphs g left outer join maps m on g.map=m.map, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid  "
         . " where g.graphid=gp.graphid and gp.plotid=pc.plotid ";
     if(strlen($ghash)>0){
         $sql .=  " and ghash=".safeStringSQL($ghash);
@@ -1352,8 +1352,9 @@ function getGraphs($userid, $ghash){
                 "intervals" => $aRow["intervalcount"]
             );
             //if($aRow["map"]!=null){
-                $output['graphs']['G' . $gid]["map"] = $aRow["map"];
-                $output['graphs']['G' . $gid]["mapconfig"] = $aRow["mapconfig"];
+            $output['graphs']['G' . $gid]["map"] = $aRow["map"];
+            $output['graphs']['G' . $gid]["mapconfig"] = $aRow["mapconfig"];
+            $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             //}
         }
         //each record represents a new graph.plots.components object which are handle differently depending on whether it is a Line, Mapset or Pointset

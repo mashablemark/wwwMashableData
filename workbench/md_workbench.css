@@ -1105,43 +1105,11 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
 #seriesTabs li.ui-state-active { border: 1px solid #aaaaaa; background: #ffffff url(images/ui-bg_glass_65_ffffff_1x400.png) 50% 50% repeat-x; font-weight: normal; color: #212121; }
 #seriesTabs li.ui-state-active a, #seriesTabs li.ui-state-active a:link, #seriesTabs li.ui-state-active a:visited { color: #212121; text-decoration: none; }
 
-#jsddm
-{	margin: 0;
-    padding: 0}
-#jsddm li
-{	float: left;
-    list-style: none;
-    padding: 10px 12px;
-    text-decoration: none;
-    color: #EAFFED;
-    font: 12px Tahoma, Arial}
-#jsddm li a
-{	display: block;  /*    padding: 5px 12px;*/
-    text-decoration: none;
-    color: #EAFFED;
-    cursor: pointer;
-    white-space: nowrap}
-
-#jsddm li ul
-{	margin: 0;
-    padding: 0;
-    position: absolute;
-    visibility: hidden;
-    border-top: 1px solid white;
-    z-index:100;}
-#jsddm li ul li
-{	float: right;
-    padding: 0;
-    display: block;
-    background: #189BD7;}
-#jsddm li ul li a
-{	width: auto;  /*    min-width: 70px;*/
-    padding: 5px 12px;
-    background: #189BD7;
-    cursor:pointer;}
-#jsddm li ul li a:hover
-{	background: #1A4473}
-
+fieldset.search-box{
+    display:inline;
+    margin: 1px 1px 1px 5px;
+    padding: 0 5px;
+}
 div.annotations fieldset{
     overflow-y: auto;
     height: 300px;

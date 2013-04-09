@@ -150,7 +150,7 @@ $(document).ready(function(){
         'transitionIn'		: 'none',
         'transitionOut'		: 'none'
     });
-    jQuery.fancybox.center = function() {};
+    jQuery.fancybox.center = function() {};  //KILLS fancybox.center() !!!
     $(".showTitleEditor").fancybox({
         'height'            : '35px',
         'left'              : '55px',
@@ -1043,7 +1043,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             var mapOptions = "";
             callApi({command: "GetAvailableMaps", mapsetid: obj.mapsetid, pointsetid: obj.pointsetid, geoid: obj.geoid}, function(jsoData, textStatus, jqXH){
                 for(var i=0;i<jsoData.maps.length;i++){
-                    mapOptions+='<option value="'+jsoData.maps[i].name+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
+                    mapOptions+='<option value="'+jsoData.maps[i].name+'|'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
                 }
                 $mapSelect.html(mapOptions);
             });
@@ -1129,14 +1129,15 @@ function quickViewToMap(){
     var pointsetid = oQuickViewSeries.pointsetid;
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
-    var map = $("select.quick-view-maps").val();
+    var map = $("select.quick-view-maps").val().split('|');
     if(oPanelGraphs[panelId] && oPanelGraphs[panelId].map && oPanelGraphs[panelId].map!=map){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+"map.  Additional map data can be added, but must use the same base map.")
         return null;
     }
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
-    oGraph.map = map;
-    require(['js/maps/jquery_jvectormap_' +  jVectorMapTemplates[oGraph.map] + '.js']); //preload it
+    oGraph.map = map[0];
+    oGraph.mapFile = map[1];
+    require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
     if(!isNaN(mapsetid) && mapsetid>0){
         if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
         addedHandle = 'M'+mapsetid;
@@ -1149,7 +1150,7 @@ function quickViewToMap(){
     }
 
     getAssets(oGraph, function(){
-        require(['js/maps/jquery_jvectormap_' + jVectorMapTemplates[oGraph.map] + '.js'],function(){
+        require(['js/maps/' + oGraph.mapFile + '.js'],function(){
             if(oGraph.title===null || oGraph.title=='') oGraph.title = oGraph.assets[addedHandle].name;
             if(panelId=="new"){
                 buildGraphPanel(oGraph);
@@ -2138,11 +2139,10 @@ function synthesizeTitle(titles){
 function seriesPanel(anchorClicked){
     lastTabAnchorClicked = anchorClicked;
     var panelToDeactive = $("#series-tabs li.ui-tabs-selected").removeClass("ui-tabs-selected ui-state-active").find("a").attr("data");
-
     var panelToActivate = $(anchorClicked).attr("data");
     $(anchorClicked).parent().addClass("ui-tabs-selected ui-state-active");
     $(panelToDeactive).hide();
-    $(panelToActivate).show();
+    $(panelToActivate).show().find(".dataTables_filter input,#series_search_text,#graphs_search_text").get(0).focus();
     return false;
 }
 
