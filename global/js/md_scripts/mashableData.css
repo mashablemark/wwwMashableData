@@ -1,0 +1,143 @@
+
+#mashabledata_panel{
+    width: 700px;
+    height: 300px;
+    z-index: 1001;
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    border: thin solid #444444;
+    background-color: #ffffff;
+    color: #333333;
+    font-size: 10px;
+    font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+    overflow: hidden;
+}
+#mashabledata_panel button{
+    margin: 4px 5px 5px 10px;
+    padding: 1px 7px;
+    color: #000000;
+    min-width: 55px;
+}
+#mashabledata_tabs{
+    position: relative;
+    bottom: 0;
+    background-color: rgb(162,196,201);
+    height: 300px;
+    border-top: thin grey solid;
+}
+#mashabledata_recents, #mashabledata_bookmarks{
+    background-color: rgb(207,226,243);
+    padding-top: 10px;
+    height: 200px;
+    border-top: thin black solid;
+    border-bottom: thin black solid;
+}
+#mashabledata_bookmarks{
+    display: none;
+}
+#mashabledata_panel ol{
+    padding: 10px 50px 0 0;
+    display: inline;
+    position: relative;
+    top: 5px;
+}
+#mashabledata_panel li{
+    font-size: 12px;
+    display: inline;
+    width: 100px;
+    background-color: #dddddd;
+    color: #888888;
+    padding: 0 10px;
+    margin: 0 10px;
+    border: thin black solid;
+}
+#mashabledata_panel li a, #mashabledata_panel li a:hover{
+    color: #000000;
+    text-decoration: no-underline;
+}
+#mashabledata_panel li span{
+    padding-left: 10px;
+}
+#mashabledata_panel li:hover, #mashabledata_panel li.mashabledata_active{
+    background-color: rgb(207,226,243);
+    border-bottom: none;
+    color: #000000;
+    padding-bottom: 1px;
+    cursor: pointer;
+}
+#mashabledata_panel input.mashabledata_inputmsg{
+    font-style: italic;
+    color: #888888;
+}
+#mashabledata_scroll{
+    overflow-y: scroll;
+    height: 200px;
+}
+#mashabledata_panel table{
+    border: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+#mashabledata_panel th{
+    background-color: #000000;
+    color: #ffffff;
+    padding: 2px;
+}
+#mashabledata_panel td{
+    background-color: #ffffff;
+    padding: 2px;
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mashabledata_cell_check{
+    width: 20px;
+    max-width: 20px;
+
+}
+.mashabledata_cell_bookmark{
+    width: 20px;
+    cursor: pointer;
+}
+.mashabledata_cell_name{
+    width: 200px;
+    max-width: 200px;
+}
+.mashabledata_cell_units{
+    width: 100px;
+    max-width: 100px;
+}
+.mashabledata_cell_f{
+    width: 20px;
+    max-width: 20px;
+}
+.mashabledata_cell_from, .mashabledata_cell_to{
+    width: 50px;
+    max-width: 50px;
+}
+.mashabledata_cell_viewed{
+    width: 50px;
+    max-width: 50px;
+}
+.mashabledata_cell_url{
+    width: 100px;
+    max-width: 100px;
+    cursor: pointer;
+}
+.mashabledata_star{
+
+}
+.mashabledata_nostar{
+
+}
+#mashabledata_ok, #mashabledata_cancel{
+    float: right;
+}
+#mashabledata_panel label{
+    padding: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    height: 20px
+}

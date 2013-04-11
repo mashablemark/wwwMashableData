@@ -31,6 +31,7 @@ window.MashableData = { //mashableData namespace
     bookmarks: [],
     recents: [],
     series: {},
+    regDQuotes: /"/g, //by including her, the regex is compiled only once
     iframe_load: function (){  //post any backlogged messages and indicate state
         var mdFrame = document.getElementById("md_secure_xfer").contentWindow; //document.getElementById("md_frame_holder");
         this.iframe_loaded = true; //global variable to indicate state
@@ -109,13 +110,13 @@ window.MashableData = { //mashableData namespace
                     for(j=0;j<thisSerie.data.length;j++){
                         serie.data.push([thisSerie.data[j].x,thisSerie.data[j].y])
                     }
-                    serie.name = thisSerie.name;
+                    serie.name = thisSerie.name||'untitled series';
                     serie.description = thisSerie.description;
                     serie.skey = thisSerie.skey;
                     serie.graph = (thischart.options.title&&thischart.options.title.text)?thischart.options.title.text:'';
                     serie.credit = (thischart.options.credits&&thischart.options.credits.text)?thischart.options.credits.text:null;
                     serie.url = window.location.href;
-                    serie.units = thisSerie.units || thisSerie.yAxis.options.title.text;
+                    serie.units = thisSerie.units || (thisSerie.yAxis.options.title?thisSerie.yAxis.options.title.text:'');
                     serie.viewed = (new Date()).getTime();
 
                     /*var dataPortion = "";
@@ -194,7 +195,11 @@ window.MashableData = { //mashableData namespace
             this.bookmarksKey = localStorage.bookmarks;
             this.bookmarks = JSON.parse(this.bookmarksKey);
             for(i=0;i<this.bookmarks.length;i++){
-                if(!this.series[this.bookmarks[i]]) this.series[this.bookmarks[i]] = JSON.parse(localStorage.getItem(this.bookmarks[i]));
+                if(!this.series[this.bookmarks[i]]) {
+                    this.series[this.bookmarks[i]] = JSON.parse(localStorage.getItem(this.bookmarks[i]));
+                    this.series[this.bookmarks[i]].name = this.series[this.bookmarks[i]].name.replace(this.regDQuotes, '&quot;');
+                    this.series[this.bookmarks[i]].units = this.series[this.bookmarks[i]].units.replace(this.regDQuotes, '&quot;');
+                }
             }
         }
     },
@@ -213,17 +218,17 @@ window.MashableData = { //mashableData namespace
 
         //from the old md_charter.js:
         /*var chartWidth = chart.chartWidth;
-        var chartHeight = chart.chartHeight;
-        var containID = chart.container.id;
-        var fudgeFactor = 10; //don't know why this is needed
-        var theme = Highcharts.getOptions();
-        var y = theme.exporting.buttons.exportButton.y;
-        y=10;
-        var right = - theme.exporting.buttons.exportButton.x;
-*/
+         var chartHeight = chart.chartHeight;
+         var containID = chart.container.id;
+         var fudgeFactor = 10; //don't know why this is needed
+         var theme = Highcharts.getOptions();
+         var y = theme.exporting.buttons.exportButton.y;
+         y=10;
+         var right = - theme.exporting.buttons.exportButton.x;
+         */
         var $panel, self=this, html = '<div id="mashabledata_panel">'
             + 'Charting Toolbox:'
-            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<button id="mashabledata_print">print chart</button><span id="mashabledata_dlform"><select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVF</option></select><button id="mashabledata_download">download chart</button></span>':'')
+            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<button id="mashabledata_print">print chart</button><span id="mashabledata_dlform"><select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVG</option></select><button id="mashabledata_download">download chart</button></span>':'')
             + '<div id="mashabledata_tabs">'
             +   '<ol><li class="mashabledata_active"><a data="#mashabledata_recents">recent<span id="mashabledata_rinfo">('+this.recents.length+')</span></a></li><li><a data="#mashabledata_bookmarks">bookmarked<span id="mashabledata_binfo">('+this.bookmarks.length+')</span></a></li></ol>'
             +   '<input class="mashabledata_inputmsg" value="type here to filter series">'
@@ -273,8 +278,13 @@ window.MashableData = { //mashableData namespace
                     $panel.find('#mashabledata_binfo').html('('+visible+' of '+table.rows.length+')');
                 }
             });
+        $panel.find('input:checkbox').click(function(){
+            ableOK();
+        });
+        function ableOK(){if($panel.find('input:checked').length>0) $('#mashabledata_ok').attr('disabled','disabled'); else $('#mashabledata_ok').removeAttr('disabled');}
+        ableOK(); //initial
         $panel.find('ol a').click(function(){  //tabs
-            $panel.find('#mashabledata_recents, #').hide();
+            $panel.find('#mashabledata_recents, #mashabledata_bookmarks').hide();
             $panel.find($(this).attr('data')).show();
         });
         $panel.find('th')  //table column sorts
@@ -329,7 +339,7 @@ window.MashableData = { //mashableData namespace
             localStorage.bookmarks = JSON.stringify(bookmarks);
 
             //make array of checked keys
-            var checkedKeys = [];
+            var checkedKeys = [], series, y;
             $panel.find('input:checked').each(function(){
                 key = $(this).attr('data');
                 if(checkedKeys.indexOf(key)==-1) checkedKeys.push(key);  //avoid double counting from recents + bookmarks
@@ -337,22 +347,39 @@ window.MashableData = { //mashableData namespace
 
             if($panel.find('input.mashabledata_action').val()=='chart'){
                 //2. if graph, add / remove series from chart
-                //first remove
+                //2A. first remove
                 for(var i=0;i<chart.series.length;i++){
                     if(chart.series[i].options.mash && checkedKeys.indexOf(chart.series[i].options.id)==-1) chart.series[i].remove();
                 }
-                //now add
+                //2B. now add
                 for(i=0;i<checkedKeys.length;i++){
                     if(!chart.get(checkedKeys[i])){
                         series = self.series[checkedKeys[i]];
-                        //TODO: check and add y-axis if necessary
+                        for(y=0;y<chart.yAxis.length;y++){ //check for and add y-axis if necessary
+                            if(series.units == chart.yAxis[y].title.text || 'values') break;
+                        }
+                        if(y==chart.yAxis.length){ //not found (no break) therefore add new yAxis
+                            chart.addAxis({
+                                id: (series.units || 'values') +'-axis',
+                                title: {
+                                    text: series.units || 'values'
+                                }
+                            });
+                        }
                         chart.addSeries({
                             name: series.name,
                             data: series.data,
-                            id: checkedKeys[i]
+                            mash: true,
+                            id: checkedKeys[i],
+                            yAxis: y
                         });
                     }
                 }
+                //3. remove any unused yAxis
+                for(y=chart.yAxis.length-1;y>=0;y--){ //check for and add y-axis not have not series
+                    if(chart.yAxis[y].series.length==0) chart.yAxis[y].remove();
+                }
+
             } else {
                 //3. if MD, post checked series and open in new page
                 for(i=0;i<checkedKeys.length;i++){
@@ -364,6 +391,22 @@ window.MashableData = { //mashableData namespace
             $panel.remove();
         });
 
+    },
+    makeRows: function(aryKeys){
+        var i, series, rows = '';
+        for(i=0;i<aryKeys.length;i++){
+            series = this.series[aryKeys[i]];
+            rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(series.checked?' checked':'')+'></td>'
+                + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
+                + '<td class="mashabledata_cell_name" title="'+series.name+'">'+series.name+'</td>'
+                + '<td class="mashabledata_cell_units" title="'+series.units+'">'+series.units+'</td>'
+                + '<td class="mashabledata_cell_f">'+series.perodicity+'</td>'
+                + '<td class="mashabledata_cell_from" >'+series.from+'</td>'
+                + '<td class="mashabledata_cell_to">'+series.to+'</td>'
+                + '<td class="mashabledata_cell_viewed" title="'+series.viewed+'">'+series.viewed+'</td>'
+                + '<td class="mashabledata_cell_url" title="'+series.url+'"><a href="'+series.url+'">'+series.url.substr(series.url.substr(8).indexOf('/'))+'</a></td></tr>';
+        }
+        return rows;
     },
     searchTable: function(table, inputVal){
         var allCells, found, regExp, visibleCount = 0;
@@ -390,22 +433,6 @@ window.MashableData = { //mashableData namespace
         });
         return visibleCount;
     },
-    makeRows: function(aryKeys){
-        var i, series, rows = '';
-        for(i=0;i<aryKeys.length;i++){
-            series = this.series[aryKeys[i]];
-            rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(series.checked?' checked':'')+'></td>'
-                + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
-                + '<td class="mashabledata_cell_name">'+series.name+'</td>'
-                + '<td class="mashabledata_cell_units">'+series.units+'</td>'
-                + '<td class="mashabledata_cell_f">'+series.perodicity+'</td>'
-                + '<td class="mashabledata_cell_from">'+series.from+'</td>'
-                + '<td class="mashabledata_cell_to">'+series.to+'</td>'
-                + '<td class="mashabledata_cell_viewed">'+series.viewed+'</td>'
-                + '<td class="mashabledata_cell_url"><a href="'+series.url+'">'+series.url.substr(series.url.substr(8).indexOf('/'))+'</a></td></tr>';
-        }
-        return rows;
-    },
     formatDateByPeriod: function(val, period) { //helper function for the data tables
         if(isNaN(val)==false) {
             var dt = new Date(parseInt(val));
@@ -428,63 +455,67 @@ window.MashableData = { //mashableData namespace
 
 
 $(document).ready(function(){
-    var btnHeight = 20;
-    var btnsWidth = 24;
-    var btnsX = 10;
-    var btnsY = 10;
-    var currentTheme =  Highcharts.setOptions({});
-    var mashableDataHcTheme = {
-        chart: {
-            events: {
-                load: function(){
-                    window.MashableData.storeChartSeries(this);
+    if(Highcharts){
+        var btnHeight = 20;
+        var btnsWidth = 24;
+        var btnsX = 10;
+        var btnsY = 10;
+        var currentTheme =  Highcharts.setOptions({});
+        var mashableDataHcTheme = {
+            chart: {
+                events: {
+                    load: function(){
+                        window.MashableData.storeChartSeries(this);
+                    }
+                }
+            },
+            exporting: {
+                buttons:{
+                    contextButton: {
+                        enabled: true,
+                        menuItems: null,
+                        onclick:  function() {
+                            window.MashableData.showPanel(this);
+                        },
+                        text: 'tools',
+                        symbol: 'gear'
+                    }
                 }
             }
-        },
-        exporting: {
-            buttons:{
-                contextButton: {
-                    enabled: true,
-                    menuItems: null,
-                    onclick:  function() {
-                        window.MashableData.showPanel(this);
-                    },
-                    text: 'tools',
-                    symbol: 'gear'
+        };
+
+        var highchartsOptions = Highcharts.setOptions(mashableDataHcTheme);
+
+        $.extend(Highcharts.Renderer.prototype.symbols, {
+            gear: function() {
+                var innerR =5;
+                var outterR=7;
+                var offset=11;
+                var teeth=7;
+                var i=0;
+                var angle;
+                gearCommands = ['M',offset,offset-outterR];
+                for(i=0;i<teeth;i++){
+                    angle = (2*Math.PI / teeth * i) + (2*Math.PI / (teeth*4));
+                    gearCommands.push('L');
+                    gearCommands.push(Math.sin(angle)*outterR + offset);
+                    gearCommands.push(offset-Math.cos(angle)*outterR);
+                    gearCommands.push('L');
+                    gearCommands.push(Math.sin(angle)*innerR + offset);
+                    gearCommands.push(offset-Math.cos(angle)*innerR);
+                    angle = (2*Math.PI / teeth * i) + 3* (2*Math.PI / (teeth*4));
+                    gearCommands.push('L');
+                    gearCommands.push(Math.sin(angle)*innerR + offset);
+                    gearCommands.push(offset-Math.cos(angle)*innerR);
+                    gearCommands.push('L');
+                    gearCommands.push(Math.sin(angle)*outterR + offset);
+                    gearCommands.push(offset-Math.cos(angle)*outterR);
                 }
+                gearCommands.push('Z');
+                return gearCommands;
             }
-        }
-    };
-
-    var highchartsOptions = Highcharts.setOptions(mashableDataHcTheme);
-
-    $.extend(Highcharts.Renderer.prototype.symbols, {
-        gear: function() {
-            var innerR =5;
-            var outterR=7;
-            var offset=11;
-            var teeth=7;
-            var i=0;
-            var angle;
-            gearCommands = ['M',offset,offset-outterR];
-            for(i=0;i<teeth;i++){
-                angle = (2*Math.PI / teeth * i) + (2*Math.PI / (teeth*4));
-                gearCommands.push('L');
-                gearCommands.push(Math.sin(angle)*outterR + offset);
-                gearCommands.push(offset-Math.cos(angle)*outterR);
-                gearCommands.push('L');
-                gearCommands.push(Math.sin(angle)*innerR + offset);
-                gearCommands.push(offset-Math.cos(angle)*innerR);
-                angle = (2*Math.PI / teeth * i) + 3* (2*Math.PI / (teeth*4));
-                gearCommands.push('L');
-                gearCommands.push(Math.sin(angle)*innerR + offset);
-                gearCommands.push(offset-Math.cos(angle)*innerR);
-                gearCommands.push('L');
-                gearCommands.push(Math.sin(angle)*outterR + offset);
-                gearCommands.push(offset-Math.cos(angle)*outterR);
-            }
-            gearCommands.push('Z');
-            return gearCommands;
-        }
-    });
+        });
+    }
 });
+
+
