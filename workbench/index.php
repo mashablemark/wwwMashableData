@@ -89,7 +89,7 @@
             <div id="edit-user-series" style="display:none; border: 1px solid black;position: absolute;z-index: 5;background-color: #FFFFFF;width:100%;">
                 <div id="editor-chart" class="editor-chart" style="float:right;width:45%;">chart here</div>
                 <div id="data-editor" class="hands-on-table dataTable" style="width:50%;overflow:scroll;"></div>
-                <button class="series-edit-save" onclick="saveSeriesEditor(false)">save</button> <button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button> <button onclick="closeSeriesEditor()">cancel</button>
+                <button class="series-edit-save">save</button> <button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button> <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel">cancel</button>
             </div>
             <div id="local-series-header" class="md-DS_title">
                 <fieldset class="tight-fieldset"><legend>Filter</legend>

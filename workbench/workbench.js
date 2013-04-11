@@ -1251,120 +1251,6 @@ function editCheckedSeries(){//edit the first visible
     if(sHandle) showSeriesEditor(sHandle); //make sure one is found
 }
 
-var seriesEditorInitialised=false;
-var periodOfEdits=false;
-var editorCols = 2;
-function initializeSeriesEditor(){
-    editorCols = 2;
-    $('div#edit-user-series').show().height($('div#local-series').height());
-    var $editor = $("#data-editor").height($('div#local-series').height()-100).html('');
-    $editor.handsontable({
-        rows: 5,
-        cols: 2,
-        /*        rowHeaders: ["name","units","notes",1,2],
-         colHeaders: ["date", "series 1", "series 2"],*/
-        minSpareCols: -1,  //this allows the pasted changes to come through
-        minSpareRows: 1, //always keep at least 1 spare row at the bottom
-        autoWrapRow: true,
-        contextMenu: ["row_above", "row_below", "col_right"],
-        fillHandle: false,
-        cells: function (row, col, prop) {
-            var cellProperties = {};
-            if ((row < 3 && col == 0)  || row == 3) {
-                cellProperties.readOnly = true; //make cell read-only if it is first row or the text reads 'readOnly'
-            }
-            cellProperties.type = {renderer: handsOnCellRenderer};
-            return cellProperties;
-        },
-        legend:[
-            {
-                match: function(row, col, data) {return (row <= 2 && col ==0);}, //if it is first row
-                style: {
-                    "background-color": '#E0FFFF', //bold text on aqua background
-                    fontWeight: 'bold'
-                },
-                readOnly: true
-            },
-            {
-                match: function(row, col, data) {return (row == 3);}, //if it is first row
-                style: {
-                    "background-color": '#808080', // bold text on grey background
-                    fontWeight: 'bold'
-                },
-                readOnly: true
-            },
-            {
-                match: function(row, col, data) {  //number cell
-                    return (row > 3 && col>0 && isNaN(data()[row][col]) && data()[row][col].toLowerCase()!="null");
-                },
-                style: {
-                    color: '#FF0000' // red text
-                },
-                title:"Must be a number or 'NULL'"
-            }
-        ],
-        onBeforeChange: function(changes){ //autoexpansion code for large pastes
-            var maxCol = 0;
-            for(var i=0;i<changes.length;i++){if(changes[i][1]>maxCol)maxCol=changes[i][1]}
-            if(maxCol>=editorCols){
-                editorCols = maxCol+1;
-                $("#data-editor").handsontable('updateSettings', {"cols":editorCols});
-                for(i=2;i<editorCols;i++) $("#data-editor").handsontable('getCell', 3, i).innerHTML="value";
-            }
-            //validatePaste(changes);
-        },
-        onChange: function(changes, source){//autogen dates + delete empty col after last delete
-            if(source=="paste"||source=="edit"){ //auto generate dates if needed
-                for(var i=0;i<changes.length;i++){
-                    if(changes[i][1]>0&&changes[i][0]>4){ //not a date or a header cell or the first data row (which has no preceeding date)
-                        var myDate = $editor.handsontable('getDataAtCell', changes[i][0], 0);
-                        if(myDate==""){ //corresponding date cell is empty
-                            var precedingDateEntry = $editor.handsontable('getDataAtCell', changes[i][0]-1, 0);
-                            if(precedingDateEntry.length>3){ //something is there.  Hopefully a valid MD date...
-                                var precedingDate =  UTCFromReadableDate(precedingDateEntry);
-                                if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
-                                    if(!periodOfEdits) periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
-                                    if(periodOfEdits){
-                                        $editor.handsontable('setDataAtCell', changes[i][0], 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if(source=="edit"||source=="empty"){ //remove excess columns/rows
-                try{
-                    var gridData = $editor.handsontable('getDataReference');
-                    //check for empty columns
-                    for(var c=gridData[0].length-1;c>1;c--){ //loop through columns right to left skipping the first two (date+first value column)
-                        var totalChanges="";
-                        for(var r=0;r<gridData.length;r++){
-                            if(r!=3)totalChanges+=gridData[r][c]
-                            if(nonWhitePattern.test(totalChanges)) break; //exit on first non-empty cell = fast
-                        }
-                        if(nonWhitePattern.test(totalChanges)) break; //exit main loop too
-                        //empty right-most column found!!
-                        $editor.handsontable('alter', 'remove_col', c, c+1); //remove it!!
-                    }
-                    //check for excess empty bottom rows
-                    gridData = $editor.handsontable('getDataReference'); //get a fresh copy
-                    for(var r=gridData.length-1;r>5;r--){  //loop through bottom heading up
-                        var totalChanges="";
-                        for(var c=0;c<gridData[0].length;c++){ //loop through all columns
-                            if(r!=3)totalChanges+=gridData[r][c]
-                        }
-                        if(nonWhitePattern.test(totalChanges)) break; //exit main loop too
-                        //empty bottomish row found!!
-                        if(r<gridData.length-1) $editor.handsontable('alter', 'remove_row', r); //remove it if not absolute bottom!!
-                    }
-                } catch(err){console.log(err)}
-
-            }
-        }
-    });
-    seriesEditorInitialised=true;
-}
 function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
     Handsontable.TextCell.renderer.apply(this, arguments);
     if(row < 3 && col == 0){
@@ -1378,152 +1264,326 @@ function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties
 }
 function validatePaste(changes){}
 function showSeriesEditor(series_handle){
+    var seriesEditorInitialised=false;
+    var periodOfEdits=false;
+    var editorCols = 2;
     require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"], function(){seriesEditor(series_handle)});
-}
-function seriesEditor(series_handle){
-    if(!seriesEditorInitialised) initializeSeriesEditor();
 
-    /*    if($('div#local-series:visible').length==1){
-     // var h = $('div#edit-user-series').width($('div#local-series').width()).height($('div#local-series').height());
-     }*/
+    function initializeSeriesEditor(){
+        editorCols = 2;
+        var $panel = $('div#edit-user-series').show().height($('div#local-series').height());
+        var $editor = $("#data-editor").height($('div#local-series').height()-100).html('');
+        $panel.find('button.series-edit-save').button({icons:{secondary:'ui-icon-disk'}}).click(function(){
+            saveSeriesEditor(false);
+        });
+        $panel.find('button.series-edit-cancel').button({icons:{secondary:'ui-icon-close'}}).click(function(){
+            closeSeriesEditor();
+        });
 
-    $('div#edit-user-series').slideDown();
-    $('button#series-edit-save').attr("disabled","disabled");
-    if(series_handle){
-        if(series_handle.charAt(0)=='U') $('button#series-edit-save').removeAttr("disabled");
-        var oSerie = oMySeries[series_handle];
-        periodOfEdits = oSerie.period;
-        if(oSerie.data){
-            var data = oSerie.data.split("||");
-            for(var i=0;i<data.length;i++){
-                data[i] = data[i].split("|");
-                data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0],oSerie.period).getTime(),oSerie.period);
-            }
-            data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
-            $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
-        } else {
-            var sids = [], usids=[];
-            if(series_handle.charAt(0)=="U")usids.push(parseInt(series_handle.substr(1))); else sids.push(parseInt(series_handle.substr(1)));
-            callApi({command:  'GetMashableData', sids:  sids, usids: usids},
-                function(jsoData, textStatus, jqXH){
-                    oSerie.data = jsoData.series[series_handle].data;
-                    oSerie.notes = jsoData.series[series_handle].notes;
-                    var data = jsoData.series[series_handle].data.split("||");
-                    for(var i=0;i<data.length;i++){
-                        data[i] = data[i].split("|");
-                        data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0],oSerie.period).getTime(),oSerie.period);
-                    }
-                    data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
-                    $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
+        $panel.find('button.series-edit-geoset').button({icons:{secondary:'ui-icon-flag'}}).click(function(){
+            showUserSetWizard();
+        });
+        $panel.find('button.series-edit-save-as').button({icons:{secondary:'ui-icon-copy'}});
+        $editor.handsontable({
+            rows: 5,
+            cols: 2,
+            /*        rowHeaders: ["name","units","notes",1,2],
+             colHeaders: ["date", "series 1", "series 2"],*/
+            minSpareCols: -1,  //this allows the pasted changes to come through
+            minSpareRows: 1, //always keep at least 1 spare row at the bottom
+            autoWrapRow: true,
+            contextMenu: ["row_above", "row_below", "col_right"],
+            fillHandle: false,
+            cells: function (row, col, prop) {
+                var cellProperties = {};
+                if ((row < 3 && col == 0)  || row == 3) {
+                    cellProperties.readOnly = true; //make cell read-only if it is first row or the text reads 'readOnly'
                 }
-            );
-        }
-    }else {
-        $("#data-editor").removeAttr("data").handsontable("loadData", [["name", ""],["units",""],["notes",""],["date","value"]]);
-        periodOfEdits = false;
+                cellProperties.type = {renderer: handsOnCellRenderer};
+                return cellProperties;
+            },
+            legend:[
+                {
+                    match: function(row, col, data) {return (row <= 2 && col ==0);}, //if it is first row
+                    style: {
+                        "background-color": '#E0FFFF', //bold text on aqua background
+                        fontWeight: 'bold'
+                    },
+                    readOnly: true
+                },
+                {
+                    match: function(row, col, data) {return (row == 3);}, //if it is first row
+                    style: {
+                        "background-color": '#808080', // bold text on grey background
+                        fontWeight: 'bold'
+                    },
+                    readOnly: true
+                },
+                {
+                    match: function(row, col, data) {  //number cell
+                        return (row > 3 && col>0 && isNaN(data()[row][col]) && data()[row][col].toLowerCase()!="null");
+                    },
+                    style: {
+                        color: '#FF0000' // red text
+                    },
+                    title:"Must be a number or 'NULL'"
+                }
+            ],
+            onBeforeChange: function(changes){ //autoexpansion code for large pastes
+                var maxCol = 0;
+                for(var i=0;i<changes.length;i++){if(changes[i][1]>maxCol)maxCol=changes[i][1]}
+                if(maxCol>=editorCols){
+                    editorCols = maxCol+1;
+                    $("#data-editor").handsontable('updateSettings', {"cols":editorCols});
+                    for(i=2;i<editorCols;i++) $("#data-editor").handsontable('getCell', 3, i).innerHTML="value";
+                }
+                //validatePaste(changes);
+            },
+            onChange: function(changes, source){//autogen dates + delete empty col after last delete
+                if(source=="paste"||source=="edit"){ //auto generate dates if needed
+                    for(var i=0;i<changes.length;i++){
+                        if(changes[i][1]>0&&changes[i][0]>4){ //not a date or a header cell or the first data row (which has no preceeding date)
+                            var myDate = $editor.handsontable('getDataAtCell', changes[i][0], 0);
+                            if(myDate==""){ //corresponding date cell is empty
+                                var precedingDateEntry = $editor.handsontable('getDataAtCell', changes[i][0]-1, 0);
+                                if(precedingDateEntry.length>3){ //something is there.  Hopefully a valid MD date...
+                                    var precedingDate =  UTCFromReadableDate(precedingDateEntry);
+                                    if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
+                                        if(!periodOfEdits) periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
+                                        if(periodOfEdits){
+                                            $editor.handsontable('setDataAtCell', changes[i][0], 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if(source=="edit"||source=="empty"){ //remove excess columns/rows
+                    try{
+                        var gridData = $editor.handsontable('getDataReference');
+                        //check for empty columns
+                        for(var c=gridData[0].length-1;c>1;c--){ //loop through columns right to left skipping the first two (date+first value column)
+                            var totalChanges="";
+                            for(var r=0;r<gridData.length;r++){
+                                if(r!=3)totalChanges+=gridData[r][c]
+                                if(nonWhitePattern.test(totalChanges)) break; //exit on first non-empty cell = fast
+                            }
+                            if(nonWhitePattern.test(totalChanges)) break; //exit main loop too
+                            //empty right-most column found!!
+                            $editor.handsontable('alter', 'remove_col', c, c+1); //remove it!!
+                        }
+                        //check for excess empty bottom rows
+                        gridData = $editor.handsontable('getDataReference'); //get a fresh copy
+                        for(var r=gridData.length-1;r>5;r--){  //loop through bottom heading up
+                            var totalChanges="";
+                            for(var c=0;c<gridData[0].length;c++){ //loop through all columns
+                                if(r!=3)totalChanges+=gridData[r][c]
+                            }
+                            if(nonWhitePattern.test(totalChanges)) break; //exit main loop too
+                            //empty bottomish row found!!
+                            if(r<gridData.length-1) $editor.handsontable('alter', 'remove_row', r); //remove it if not absolute bottom!!
+                        }
+                    } catch(err){console.log(err)}
+
+                }
+            }
+        });
+        seriesEditorInitialised=true;
     }
-}
-function saveSeriesEditor(SaveCopy){
+    function seriesEditor(series_handle){
+        if(!seriesEditorInitialised) initializeSeriesEditor();
+
+        /*    if($('div#local-series:visible').length==1){
+         // var h = $('div#edit-user-series').width($('div#local-series').width()).height($('div#local-series').height());
+         }*/
+
+        $('div#edit-user-series').slideDown();
+        $('button#series-edit-save').attr("disabled","disabled");
+        if(series_handle){
+            if(series_handle.charAt(0)=='U') $('button#series-edit-save').removeAttr("disabled");
+            var oSerie = oMySeries[series_handle];
+            periodOfEdits = oSerie.period;
+            if(oSerie.data){
+                var data = oSerie.data.split("||");
+                for(var i=0;i<data.length;i++){
+                    data[i] = data[i].split("|");
+                    data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0],oSerie.period).getTime(),oSerie.period);
+                }
+                data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
+                $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
+            } else {
+                var sids = [], usids=[];
+                if(series_handle.charAt(0)=="U")usids.push(parseInt(series_handle.substr(1))); else sids.push(parseInt(series_handle.substr(1)));
+                callApi({command:  'GetMashableData', sids:  sids, usids: usids},
+                    function(jsoData, textStatus, jqXH){
+                        oSerie.data = jsoData.series[series_handle].data;
+                        oSerie.notes = jsoData.series[series_handle].notes;
+                        var data = jsoData.series[series_handle].data.split("||");
+                        for(var i=0;i<data.length;i++){
+                            data[i] = data[i].split("|");
+                            data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0],oSerie.period).getTime(),oSerie.period);
+                        }
+                        data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
+                        $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
+                    }
+                );
+            }
+        }else {
+            $("#data-editor").removeAttr("data").handsontable("loadData", [["name", ""],["units",""],["notes",""],["date","value"]]);
+            periodOfEdits = false;
+        }
+    }
+    function showUserSetWizard(){
+        if(window.mapsList) showPanel();
+        else {
+            callApi({command: 'GetMapsList'}, function(result){ //TODO: coordinate/replace this with the jVectorMap list get
+                mapsList = result.maps;
+                showPanel();
+            });
+        }
+
+        function showPanel(){
+            var $panel, mapsAsOptions='', i;
+            for(i=0;i<mapsList.length;i++){
+                mapsAsOptions += '<option value="'+mapsList[i].map+'">'+mapsList[i].name+'</option>';
+            }
+            var html = '<div id="setsWizard">'  //TODO: CSS entries
+                +   '<h4>Create a set of series that can be mapped:</h4>'
+                +   '<label><input name="setsWizardType" type="radio" value="mapset" checked /> as regions</label><br />'
+                +   '<label><input name="setsWizardType" type="radio" value="pointset" /> as points (requires latitudes and longitudes)</label><br />'
+                +   '<select id="setsWizardMap">'
+                +     '<option value="nomap" class="nomap">select map</option>'
+                +     mapsAsOptions
+                +   '</select>'
+                +   '<button id="setsWizardOk" disabled="disabled">OK</button><button id="setsWizardCancel">cancel</button>'
+                + '</div>';
+            $.fancybox(html,
+                {
+                    showCloseButton: false,
+                    autoScale: true,  //($btn?false:true),
+                    overlayOpacity: 0.5,
+                    hideOnOverlayClick: false
+                });
+            $panel = $('#setsWizard');
+            $('#setsWizardMap').change(function(){
+                if($(this).val()!='nomap'){
+                    $('#setsWizardOk').removeAttr('disabled');
+                    $(this).select('option[value=\'nomap\'').remove();
+                }
+            });
+            $('#setsWizardOk').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
+                configureUserSet($('#setsWizardMap').val(),  $('input:radio[name=\'setsWizardType\']:checked').val());  //TODO: write configureUserSet routine!
+                $.fancybox.close();
+            });
+            $('#setsWizardCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
+                $.fancybox.close();
+            });
+        }
+    }
+    function saveSeriesEditor(SaveCopy){
 //build series and validate
-    var $editor = $("#data-editor");
-    var gridData = $editor.data('handsontable').getData();
-    var userSeries = [];
-    var uSerie, pointArray, seriesInfo, mdata;
-    var c, r, x, y, udt;
-    for(c=1;c<gridData[0].length;c++){
-        var totalChanges="";
-        for(r=0;r<gridData.length;r++){ //does this column have anything?
-            if(r!=3)totalChanges+=gridData[r][c];
-            if(nonWhitePattern.test(totalChanges)) break; //exit on first non-empty cell = fast
-        }
-        if(nonWhitePattern.test(totalChanges)) {   //don't try to save empty column
+        var $editor = $("#data-editor");
+        var gridData = $editor.data('handsontable').getData();
+        var userSeries = [];
+        var uSerie, pointArray, seriesInfo, mdata;
+        var c, r, x, y, udt;
+        for(c=1;c<gridData[0].length;c++){
+            var totalChanges="";
+            for(r=0;r<gridData.length;r++){ //does this column have anything?
+                if(r!=3)totalChanges+=gridData[r][c];
+                if(nonWhitePattern.test(totalChanges)) break; //exit on first non-empty cell = fast
+            }
+            if(nonWhitePattern.test(totalChanges)) {   //don't try to save empty column
 
-            uSerie = {
-                "name":gridData[0][c],
-                "units":gridData[1][c],
-                "notes":gridData[2][c],
-                "save_dt": new Date().getTime()
-            };
-            if(c==1&&!SaveCopy){ //first data column = series being edited if USID set
-                var sHandle = $editor.attr("data");
-                if(sHandle&&sHandle.charAt(0)=="U"){
-                    uSerie["usid"]=sHandle.substr(1);
-                    uSerie["handle"] = sHandle;
-                }
-            }
-            if(uSerie.name.length==0||uSerie.units.length==0){
-                dialogShow("Unable to Save","Name and units are required fields.");
-                return false;
-            }
-            userSeries.push(uSerie);
-            pointArray=[];
-            mdata = "";
-            for(r=4;r<gridData.length;r++){
-                if(gridData[r][c]!==null&&gridData[r][c].length>0){//if empty value, skip
-                    if(isNaN(gridData[r][c]) && gridData[r][c].toLowerCase()!='null'){
-                        dialogShow("Unreadable Values","Values must be numbers or 'NULL' for non-empty values.");
-                        return false;
+                uSerie = {
+                    "name":gridData[0][c],
+                    "units":gridData[1][c],
+                    "notes":gridData[2][c],
+                    "save_dt": new Date().getTime()
+                };
+                if(c==1&&!SaveCopy){ //first data column = series being edited if USID set
+                    var sHandle = $editor.attr("data");
+                    if(sHandle&&sHandle.charAt(0)=="U"){
+                        uSerie["usid"]=sHandle.substr(1);
+                        uSerie["handle"] = sHandle;
                     }
-                    udt = UTCFromReadableDate(gridData[r][0]);
-                    if(!udt){
-                        dialogShow("Invalid Date Formats","Valid date formats are required in the left column for non-empty values.");
-                        return false;
+                }
+                if(uSerie.name.length==0||uSerie.units.length==0){
+                    dialogShow("Unable to Save","Name and units are required fields.");
+                    return false;
+                }
+                userSeries.push(uSerie);
+                pointArray=[];
+                mdata = "";
+                for(r=4;r<gridData.length;r++){
+                    if(gridData[r][c]!==null&&gridData[r][c].length>0){//if empty value, skip
+                        if(isNaN(gridData[r][c]) && gridData[r][c].toLowerCase()!='null'){
+                            dialogShow("Unreadable Values","Values must be numbers or 'NULL' for non-empty values.");
+                            return false;
+                        }
+                        udt = UTCFromReadableDate(gridData[r][0]);
+                        if(!udt){
+                            dialogShow("Invalid Date Formats","Valid date formats are required in the left column for non-empty values.");
+                            return false;
+                        }
+                        pointArray.push({x:udt.getTime(),y:parseFloat(gridData[r][c])});
                     }
-                    pointArray.push({x:udt.getTime(),y:parseFloat(gridData[r][c])});
                 }
-            }
-            seriesInfo =  md_calcSeriesInfo(pointArray);
-            uSerie = userSeries[c-1];
-            $.extend(uSerie, seriesInfo,{command: "SaveUserSeries"});
-            pointArray.sort(function(a,b){return a.x - b.x});
-            for(var datapoint in pointArray){
-                var xDate = new Date(pointArray[datapoint].x);
-                switch(seriesInfo.period){
-                    case 'A':
-                        mdata += ("||" + xDate.getUTCFullYear() + "|" + pointArray[datapoint].y);
-                        break;
-                    case 'W':
-                    case 'D':
-                        mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + "|" + pointArray[datapoint].y);
-                        break;
-                    case 'M':
-                    case 'Q':
-                    case 'SA':
-                        mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + "|" + pointArray[datapoint].y);
-                        break;
-                    case 'N':
-                        mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + "|" + pointArray[datapoint].y);
-                        break;
-                }
-            }
-            uSerie.data = mdata.substr(2);
-            callApi(uSerie,
-                function(jsoData, textStatus, jqXH){
-                    //add update MySeriesGrid on success
-                    if(uSerie.handle){  //update operation
-                        var trSerie = dtMySeries.find("button[data='"+uSerie.handle+"']").closest("tr").get(0);
-                        dtMySeries.fnDeleteRow(trSerie); //problems with the update on the manipulated cells.  Easier to detle and add.
-                        uSerie.cid = jsoData.cid;
-                    } else { //insert new operation
-                        uSerie.handle = "U"+jsoData.usid;
-                        uSerie.usid = jsoData.usid;
-                        uSerie.cid = jsoData.cid;
-                        uSerie.src = jsoData.src;
+                seriesInfo =  md_calcSeriesInfo(pointArray);
+                uSerie = userSeries[c-1];
+                $.extend(uSerie, seriesInfo,{command: "SaveUserSeries"});
+                pointArray.sort(function(a,b){return a.x - b.x});
+                for(var datapoint in pointArray){
+                    var xDate = new Date(pointArray[datapoint].x);
+                    switch(seriesInfo.period){
+                        case 'A':
+                            mdata += ("||" + xDate.getUTCFullYear() + "|" + pointArray[datapoint].y);
+                            break;
+                        case 'W':
+                        case 'D':
+                            mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + "|" + pointArray[datapoint].y);
+                            break;
+                        case 'M':
+                        case 'Q':
+                        case 'SA':
+                            mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + "|" + pointArray[datapoint].y);
+                            break;
+                        case 'N':
+                            mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + "|" + pointArray[datapoint].y);
+                            break;
                     }
-                    dtMySeries.fnAddData(uSerie);
-                    oMySeries["U"+jsoData.usid]=uSerie;  //over-write
                 }
-            );
+                uSerie.data = mdata.substr(2);
+                callApi(uSerie,
+                    function(jsoData, textStatus, jqXH){
+                        //add update MySeriesGrid on success
+                        if(uSerie.handle){  //update operation
+                            var trSerie = dtMySeries.find("button[data='"+uSerie.handle+"']").closest("tr").get(0);
+                            dtMySeries.fnDeleteRow(trSerie); //problems with the update on the manipulated cells.  Easier to detle and add.
+                            uSerie.cid = jsoData.cid;
+                        } else { //insert new operation
+                            uSerie.handle = "U"+jsoData.usid;
+                            uSerie.usid = jsoData.usid;
+                            uSerie.cid = jsoData.cid;
+                            uSerie.src = jsoData.src;
+                        }
+                        dtMySeries.fnAddData(uSerie);
+                        oMySeries["U"+jsoData.usid]=uSerie;  //over-write
+                    }
+                );
+            }
         }
+        closeSeriesEditor();
     }
-    closeSeriesEditor();
+
+    function closeSeriesEditor(){
+        $("#data-editor").handsontable('clear');
+        $("#data-editor").handsontable('updateSettings', {"cols":2});
+        $('div#edit-user-series').slideUp();
+    }
 }
 
-function closeSeriesEditor(){
-    $("#data-editor").handsontable('clear');
-    $("#data-editor").handsontable('updateSettings', {"cols":2});
-    $('div#edit-user-series').slideUp();
-}
 function addMySeriesToCurrentGraph(){
     alert("not implemented yet");
 }

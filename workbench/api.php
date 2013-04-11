@@ -408,6 +408,14 @@ switch($command){
             array_push($output["maps"], array("name"=>$row["name"], "file"=>$row["jvectormap"], "count"=>($mapsetid!=0)?$row["setcount"]." of ".$row["geographycount"]:$row["setcount"]." locations"));
         }
         break;
+    case 'GetMapsList':
+        $sql = "select * from maps order by name";
+        $result = runQuery($sql,"GetMapsList");
+        $output = array("status"=>"ok", "maps"=>array());
+        while($row = $result->fetch_assoc()){
+            array_push($output["maps"], $row);
+        }
+        break;
     case 'GetBunnySeries':
         $mapsetids = $_POST["mapsetids"];
         if(!isset($_POST["geoid"]) || intval($_POST["geoid"])==0){
