@@ -138,7 +138,7 @@ $(document).ready(function(){
         return false;  //no further executes
     }
     //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from graph.js)
-    require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
+    require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
     addJQueryStringify();   // add extension after jQuery guarenteed to be loaded
     $(".show-graph-link").fancybox({
@@ -1251,28 +1251,19 @@ function editCheckedSeries(){//edit the first visible
     if(sHandle) showSeriesEditor(sHandle); //make sure one is found
 }
 
-function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
-    Handsontable.TextCell.renderer.apply(this, arguments);
-    if(row < 3 && col == 0){
-        td.style.background = '#E0FFFF';
-        td.style.fontWeight = 'bold';
-    }
-    if(row == 3){
-        td.style.background = '#808080';
-        td.style.fontWeight = 'bold';
-    }
-}
 function validatePaste(changes){}
 function showSeriesEditor(series_handle){
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
-    require(["/global/js/handsontable/jquery.handsontable.0.7.0.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"], function(){seriesEditor(series_handle)});
+    var set = 'none';
+    require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"], function(){seriesEditor(series_handle)});
 
     function initializeSeriesEditor(){
         editorCols = 2;
+        var lastRow= 0,lastCol=0;
         var $panel = $('div#edit-user-series').show().height($('div#local-series').height());
-        var $editor = $("#data-editor").height($('div#local-series').height()-100).html('');
+        var $editor = $("#data-editor").height($('div#local-series').height()-50).html('');
         $panel.find('button.series-edit-save').button({icons:{secondary:'ui-icon-disk'}}).click(function(){
             saveSeriesEditor(false);
         });
@@ -1285,8 +1276,7 @@ function showSeriesEditor(series_handle){
         });
         $panel.find('button.series-edit-save-as').button({icons:{secondary:'ui-icon-copy'}});
         $editor.handsontable({
-            rows: 5,
-            cols: 2,
+            minCols: 2,
             /*        rowHeaders: ["name","units","notes",1,2],
              colHeaders: ["date", "series 1", "series 2"],*/
             minSpareCols: -1,  //this allows the pasted changes to come through
@@ -1302,33 +1292,32 @@ function showSeriesEditor(series_handle){
                 cellProperties.type = {renderer: handsOnCellRenderer};
                 return cellProperties;
             },
-            legend:[
-                {
-                    match: function(row, col, data) {return (row <= 2 && col ==0);}, //if it is first row
-                    style: {
-                        "background-color": '#E0FFFF', //bold text on aqua background
-                        fontWeight: 'bold'
-                    },
-                    readOnly: true
-                },
-                {
-                    match: function(row, col, data) {return (row == 3);}, //if it is first row
-                    style: {
-                        "background-color": '#808080', // bold text on grey background
-                        fontWeight: 'bold'
-                    },
-                    readOnly: true
-                },
-                {
-                    match: function(row, col, data) {  //number cell
-                        return (row > 3 && col>0 && isNaN(data()[row][col]) && data()[row][col].toLowerCase()!="null");
-                    },
-                    style: {
-                        color: '#FF0000' // red text
-                    },
-                    title:"Must be a number or 'NULL'"
+            onSelection: function(r,c,r1,c1){
+                if(r==r1&&c==c1){
+                    var bgColor =  $($editor.handsontable('getCell', r, c)).css('background-color').toUpperCase();
+                    if(bgColor=='RGB(224, 255, 255)'||bgColor=='#E0FFFF') $editor.handsontable('selectCell',r,c+1);
+                    if(bgColor=='RGB(128, 128, 128)'||bgColor=='#808080') {
+                        $editor.handsontable('selectCell',r+(lastCol==c&&(lastRow-r==1)?-1:1),c);
+                    }
+                    lastRow=r;lastCol=c;
+
+                    if(r>4){ //not a header cell or the first data row (which has no preceeding date)
+                        var myDate = $editor.handsontable('getDataAtCell', r, 0);
+                        if(myDate==""||myDate==null){ //corresponding date cell is empty
+                            var precedingDateEntry = ($editor.handsontable('getDataAtCell', r-1, 0)||'').toString();
+                            if(precedingDateEntry.length>3){ //something is there.  Hopefully a valid MD date...
+                                var precedingDate =  UTCFromReadableDate(precedingDateEntry);
+                                if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
+                                    periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
+                                    if(periodOfEdits){
+                                        $editor.handsontable('setDataAtCell', r, 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-            ],
+            },
             onBeforeChange: function(changes){ //autoexpansion code for large pastes
                 var maxCol = 0;
                 for(var i=0;i<changes.length;i++){if(changes[i][1]>maxCol)maxCol=changes[i][1]}
@@ -1340,11 +1329,11 @@ function showSeriesEditor(series_handle){
                 //validatePaste(changes);
             },
             onChange: function(changes, source){//autogen dates + delete empty col after last delete
-                if(source=="paste"||source=="edit"){ //auto generate dates if needed
+/*                if(source=="paste"||source=="edit"||source=="populateFromArray"){ //auto generate dates if needed
                     for(var i=0;i<changes.length;i++){
-                        if(changes[i][1]>0&&changes[i][0]>4){ //not a date or a header cell or the first data row (which has no preceeding date)
+                        if(changes[i][0]>4){ //not a header cell or the first data row (which has no preceeding date)
                             var myDate = $editor.handsontable('getDataAtCell', changes[i][0], 0);
-                            if(myDate==""){ //corresponding date cell is empty
+                            if(myDate==""||myDate==null){ //corresponding date cell is empty
                                 var precedingDateEntry = $editor.handsontable('getDataAtCell', changes[i][0]-1, 0);
                                 if(precedingDateEntry.length>3){ //something is there.  Hopefully a valid MD date...
                                     var precedingDate =  UTCFromReadableDate(precedingDateEntry);
@@ -1358,7 +1347,7 @@ function showSeriesEditor(series_handle){
                             }
                         }
                     }
-                }
+                }*/
                 if(source=="edit"||source=="empty"){ //remove excess columns/rows
                     try{
                         var gridData = $editor.handsontable('getDataReference');
@@ -1391,6 +1380,45 @@ function showSeriesEditor(series_handle){
         });
         seriesEditorInitialised=true;
     }
+
+    function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
+        switch(set){
+            case 'none':
+                Handsontable.TextCell.renderer.apply(this, arguments);
+                if(row < 3 && col == 0){
+                    td.style.background = '#E0FFFF';
+                    td.style.fontWeight = 'bold';
+                }
+                if(row == 3){
+                    td.style.background = '#808080';
+                    td.style.fontWeight = 'bold';
+                }
+                break;
+            case 'M':
+                Handsontable.TextCell.renderer.apply(this, arguments);
+                if(row <=2){
+                    if(col == 0){
+                        td.style.background = '#E0FFFF';
+                        td.style.fontWeight = 'bold';
+                    } else {
+                        if(col==1) {
+                            td.colSpan = Math.min(5,editorCols -1);
+                        } else {
+                            $(td).addClass('hidden');
+                        }
+                    }
+                }
+                //if(row == 3) $(td).closest('tr').addClass('hidden');
+                if(row == 4){
+                    if(col == 0){
+                        td.style.background = '#E0FFFF';
+                    } else {
+                        td.style.background = '#808080';
+                    }
+                    td.style.fontWeight = 'bold';
+                }
+        }
+    }
     function seriesEditor(series_handle){
         if(!seriesEditorInitialised) initializeSeriesEditor();
 
@@ -1417,6 +1445,7 @@ function showSeriesEditor(series_handle){
                 if(series_handle.charAt(0)=="U")usids.push(parseInt(series_handle.substr(1))); else sids.push(parseInt(series_handle.substr(1)));
                 callApi({command:  'GetMashableData', sids:  sids, usids: usids},
                     function(jsoData, textStatus, jqXH){
+                        //showSeriesInEditor()
                         oSerie.data = jsoData.series[series_handle].data;
                         oSerie.notes = jsoData.series[series_handle].notes;
                         var data = jsoData.series[series_handle].data.split("||");
@@ -1448,15 +1477,15 @@ function showSeriesEditor(series_handle){
             for(i=0;i<mapsList.length;i++){
                 mapsAsOptions += '<option value="'+mapsList[i].map+'">'+mapsList[i].name+'</option>';
             }
-            var html = '<div id="setsWizard">'  //TODO: CSS entries
+            var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
                 +   '<h4>Create a set of series that can be mapped:</h4>'
-                +   '<label><input name="setsWizardType" type="radio" value="mapset" checked /> as regions</label><br />'
-                +   '<label><input name="setsWizardType" type="radio" value="pointset" /> as points (requires latitudes and longitudes)</label><br />'
-                +   '<select id="setsWizardMap">'
+                +   '<label><input name="setsWizardType" type="radio" value="M" checked /> as regions</label><br />'
+                +   '<label><input name="setsWizardType" type="radio" value="X" /> as points (requires latitudes and longitudes)</label><br /><br />'
+                +   '<select id="setsWizardMap" style="width: 300px;">'
                 +     '<option value="nomap" class="nomap">select map</option>'
                 +     mapsAsOptions
-                +   '</select>'
-                +   '<button id="setsWizardOk" disabled="disabled">OK</button><button id="setsWizardCancel">cancel</button>'
+                +   '</select><br><br>'
+                +   '<button class="right" id="setsWizardCancel">cancel</button><button class="right" id="setsWizardOk">OK</button>'
                 + '</div>';
             $.fancybox(html,
                 {
@@ -1468,17 +1497,47 @@ function showSeriesEditor(series_handle){
             $panel = $('#setsWizard');
             $('#setsWizardMap').change(function(){
                 if($(this).val()!='nomap'){
-                    $('#setsWizardOk').removeAttr('disabled');
-                    $(this).select('option[value=\'nomap\'').remove();
+                    $('#setsWizardOk').button( "option", "disabled", false);
+                    $(this).find('option[value=\'nomap\']').remove();
                 }
             });
-            $('#setsWizardOk').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
-                configureUserSet($('#setsWizardMap').val(),  $('input:radio[name=\'setsWizardType\']:checked').val());  //TODO: write configureUserSet routine!
+            $('#setsWizardOk').button({icons: {secondary: 'ui-icon-check'}, disabled: true}).click(function(){
+                configureUserSet($('#setsWizardMap').val(),  $('#setsWizardMap').text(), $('input:radio[name=\'setsWizardType\']:checked').val());  //TODO: write configureUserSet routine!
                 $.fancybox.close();
             });
             $('#setsWizardCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
                 $.fancybox.close();
             });
+        }
+        function configureUserSet(map, mapName, type){  //type = [X|M] for pointset or mapset
+            set = type;
+            //1. if mapset: get maps's components from db
+            // on callback:  separator (default ':') on top too + columns of: noneditable geoname headers
+            // else pointset
+            //2. clear and reconfigure grid with map name and editable set name and units name on top
+            //2B. for pointsets:  columns of: noneditable geoname headers + editable green shaded cells for lat & lon
+            //3. cell A1 = [name|map set| point set] will be
+            if(type=='M') callApi({command: 'GetMapGeographies', map: map}, configureUserMapSet);  //mapsets shown on callback
+            else {
+
+            }
+
+        }
+        function configureUserMapSet(jsoData, textStatus, jqXH){
+            var data = [["map set"],["units"],["notes"],["geoid"],["date"]];
+            for(var i=0;i<jsoData.geographies.length;i++){
+                /*data[0].push('');
+                data[1].push('');
+                data[2].push('');*/
+                data[3].push(jsoData.geographies[i].geoid);
+                data[4].push(jsoData.geographies[i].name);
+            }
+            editorCols = jsoData.geographies.length + 1;
+            $("#data-editor").removeAttr("data").handsontable({
+                data: data,
+                minCols: editorCols
+            });
+
         }
     }
     function saveSeriesEditor(SaveCopy){

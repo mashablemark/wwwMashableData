@@ -10,7 +10,7 @@
     <link  rel="stylesheet" href="/global/css/datatables/datatable.css" />
     <!--link  rel="stylesheet" href="css/ColVis.css" /-->
     <link  rel="stylesheet" href="/global/css/colorPicker.css" />
-    <link  rel="stylesheet" href="/global/css/jquery.handsontable.css" />
+    <link  rel="stylesheet" href="/global/js/handsontable/jquery.handsontable.0.7.5.css" />
     <link rel="stylesheet" media="screen" href="/global/css/jquery.contextMenu.css">
     <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-1.2.2.css">
     <link  rel="stylesheet" href="md_workbench.css" />
@@ -86,10 +86,9 @@
     <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER DATATABLES -->
         <!--BEGIN LOCAL SERIES-->
         <div id="local-series" class="picker">
-            <div id="edit-user-series" style="display:none; border: 1px solid black;position: absolute;z-index: 5;background-color: #FFFFFF;width:100%;">
-                <div id="editor-chart" class="editor-chart" style="float:right;width:45%;">chart here</div>
-                <div id="data-editor" class="hands-on-table dataTable" style="width:50%;overflow:scroll;"></div>
-                <button class="series-edit-save">save</button> <button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button> <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel">cancel</button>
+            <div id="edit-user-series">
+                <div id="data-editor" class="hands-on-table dataTable" style="overflow:scroll;"></div>
+                <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-preview">preview</button> <button class="series-edit-save right">save</button><button class="series-edit-cancel right">cancel</button><button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button>
             </div>
             <div id="local-series-header" class="md-DS_title">
                 <fieldset class="tight-fieldset"><legend>Filter</legend>

@@ -416,6 +416,15 @@ switch($command){
             array_push($output["maps"], $row);
         }
         break;
+    case "GetMapGeographies":
+        $sql = "select g.geoid, g.name from mapgeographies mg, geographies g where g.geoid=mg.geoid and map=".safeSQLFromPost('map')." order by g.name";
+        $result = runQuery($sql,"GetMapGeographies");
+        $output = array("status"=>"ok", "geographies"=>array());
+        while($row = $result->fetch_assoc()){
+            array_push($output["geographies"], $row);
+        }
+        break;
+
     case 'GetBunnySeries':
         $mapsetids = $_POST["mapsetids"];
         if(!isset($_POST["geoid"]) || intval($_POST["geoid"])==0){
