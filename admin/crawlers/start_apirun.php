@@ -13,7 +13,7 @@ die();*/
  */
 $sql_logging = true;
  $event_logging = true;
-include_once("../../global/common_functions.php");
+include_once("../../global/php/common_functions.php");
 
 /* This is the sole API for the MashableData Admin panel (http://www.mashabledata.com/admin) application connecting
  * the client application to the cloud.  All returns are JSON objects. Supports the following:
@@ -50,22 +50,22 @@ error_reporting(E_ALL);
 $db = getConnection();
 
 //GET API (unless global ExecuteJobs cron is being run)
-$sql = "select * from apis where apiid=" .  $api_id;
-logEvent("AdminPanel: GetAPI", $sql);
-$api_result = runQuery($sql);
-if(mysqli_num_rows($api_result) == 0 and $command!="ExecuteJobs"){
-    die(json_encode(array("status" => "API does not exist")));
-} else {
-    $api_row = $api_result->fetch_assoc();
-    include_once($api_row["file"]);
+if($command!="ExecuteJobs"){
+    $sql = "select * from apis where apiid=" .  $api_id;
+    $api_result = runQuery($sql, "AdminPanel: GetAPI");
+    if($api_result->num_rows == 0 || $api_id==0){
+        die(json_encode(array("status" => "API does not exist")));
+    } else {
+        $api_row = $api_result->fetch_assoc();
+        //print($api_row["file"]);
+        include_once($api_row["file"]);
+    }
 }
 
 if($command == "Update" || $command == "Crawl"){ // these require a user permissions check
     //TODO:  add accesstoken check
-    $sql = "select * from users where userid=" .  $user_id . " and (permission='su' or (permission='admin' and l1domain=" .
-        safeStringSQL($api_row["l1domain"])  ." and l2domain=" . safeStringSQL($api_row["l2domain"])  ." ))";
-    logEvent("AdminPanel: GetUser", $sql);
-    $user_result = runQuery($sql);
+    $sql = "select * from users where userid=" .  $user_id . " and permission='su'";
+    $user_result = runQuery($sql, "AdminPanel: GetUser");
     if($user_result->num_rows == 0){
         die(json_encode(array("status" => "insuffient permissions")));
     }
@@ -75,8 +75,7 @@ if($command == "Update" || $command == "Crawl"){ // these require a user permiss
         $sql = "insert into apiruns (apiid, command, periodicity, since, userid, added, updated, failed, startdt) "
             . " values (" . $api_id . "," . safeStringSQL($command) . "," . safeStringSQL($periodicity) . ","
             . safeStringSQL($since) . "," . $user_id . ",0,0,0, NOW())";
-        logEvent("NewApiRun", $sql);
-        $result = runQuery($sql);
+        $result = runQuery($sql, "NewApiRun");
         $runid = $db->insert_id;
     }
     $api_row["userid"]=$user_id;
@@ -110,14 +109,12 @@ switch($command){
 
         $sql = "update apiruns set added=added+" . intval($added) . ", updated=updated+" . $updated . ", failed=failed+" . $failed . ", scanned=scanned+" . $output["count"] . "+".$skipped.", finishdt = NOW() "
             . " where runid=" . $runid;
-        logEvent("UpdateApiRun", $sql);
-        $result = runQuery($sql);
+        $result = runQuery($sql, "UpdateApiRun");
 
         $sql = "select * from apiruns where runid=" . $runid;
-        logEvent("RefetchApiRun", $sql);
-        $result = runQuery($sql);
+        $result = runQuery($sql, "RefetchApiRun");
 
-        if(mysqli_num_rows($result)==1){
+        if($result->num_rows==1){
             $aRow = $result->fetch_assoc();  //should have one and only on row
             $output["added"]= $aRow["added"];
             $output["updated"]= $aRow["updated"];
@@ -139,7 +136,7 @@ switch($command){
             $jobid = (isset($_REQUEST["jobid"]))?intVal($_REQUEST["jobid"]):$jobid="ALL";   //"ALL": execute all queued jobs for the given run until none left
             $output =ApiExecuteJobs(intVal($_REQUEST["runid"]), $jobid);
         } else {
-            $sql = "select count(*) from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3)";
+            $sql = "select count(*) from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())>10)";
             $result = runQuery($sql);
             if($result->num_rows > 0){ //there are jobs to be run
                 $sql = "select jobid, runid from apirunjobs where status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10";
@@ -174,112 +171,7 @@ switch($command){
         $output = ApiGet($skeys, $api_row);
         break;
     case "FindSets":  //universal mapset and pintset finder
-        /*reset SQL
-            delete from mapsets where apiid=1;
-            update series set mapsetid=null where apiid=1;
-        */
-        $result = runQuery("select geoid, containingid, lat, lon, type, regexes "
-        . " from geographies where regexes is not null order by length(name) desc");  //try to find a match with the longest first (ie. "West Virginia" before "Virginia")
-        //not available until PHP 5.3 $geographies = $result->fetch_all(MYSQLI_ASSOC);
-        $geographies = array();
-        while($geography = $result->fetch_assoc()){
-            array_push($geographies, $geography);
-        }
-        $sql = "select seriesid, name, units, periodicity, lat, lon, geoid, pointsetid, mapsetid "
-        . "from series where geoid is null and apiid=" . $api_row["apiid"]; // . " LIMIT 0 , 30";
-        $result = runQuery($sql, "FindSets");
-        $matches_found = false;
-        $count = 0;
-        while($serie = $result->fetch_assoc()){
-            set_time_limit(60);
-            $count++;
-            $pos = strpos($serie["name"]," in ");
-            if($pos!=false){
-                $setName = trim(substr($serie["name"],0,$pos));
-                print($serie["name"].": ".trim(substr($serie["name"],$pos+4))."<BR>");
-                $sql = "select geoid, type, lat, lon from geographies where name=".safeStringSQL(trim(substr($serie["name"],$pos+4)));
-                $gresult = runQuery($sql,"FindSets");
-                if($gresult->num_rows>0){
-                    $geography = $gresult->fetch_assoc();
-                    if($geography["type"]=="M"){
-                        $mapSetId = getMapSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
-                        $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
-                            . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
-                            .", lon=".(($geography["lon"]==null)?"null":safeStringSQL($geography["lon"]))
-                            . " where seriesid=".$serie["seriesid"];
-                        runQuery($sql);
-                    } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for
-                        $pointSetId = getPointSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
-                        $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
-                            . " where seriesid=".$serie["seriesid"];
-                        runQuery($sql);
-                    }
-                }
-            }
-            //print("<br>NEW SERIES: ". $serie["name"] . "<br>");
-/*            for($i=1;$i<count($geographies);$i++){
-                $geography = $geographies[$i];
-                $regex = "#( for | in | from )?". $geography["regexes"]."#";
-                if(preg_match($regex, $serie["name"], $matches)==1){
-                    $matches_found = ($matches_found>0)?$matches_found+1:1;  //match!
-                    $setName = trim(str_replace($matches[0],"",$serie["name"]));
-                    if($geography["type"]=="M"){
-                        $mapSetId = getMapSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
-                        $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
-                        . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
-                         .", lon=".(($geography["lon"]==null)?"null":safeStringSQL($geography["lon"]))
-                        . " where seriesid=".$serie["seriesid"];
-                        runQuery($sql);
-                        //var_dump($matches);
-                        //print("<br>MATCHES_FOUND: ". $matches_found ." SERIESNAME: ".$serie["name"]. " SET: ".$setName."<br>");
-                        break;
-                    } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for
-                        $pointSetId = getPointSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
-                        $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
-                        . " where seriesid=".$serie["seriesid"];
-                        runQuery($sql);
-                        break;
-                    }
-                }
-            }*/
-        }
-        //eliminate the mapsets with 5 or fewer point as these tend to be problematic.
-        runQuery("truncate temp");  //need to use temp table because mySQL cannot figure out how to do this efficiently otherwise.
-        runQuery("insert into temp (id1) select mapsetid from series where apiid = ". $api_row["apiid"] ." and mapsetid is not null group by mapsetid having count(*)<=5");
-        runQuery("delete from mapsets using mapsets, temp where mapsets.mapsetid=temp.id1");
-        //but keep detected geoid...
-        runQuery("update series s, temp t set s.mapsetid = null where s.mapsetid=t.id1");
-/*
---correct Georgies in apiid = 1
-truncate temp;
-
-insert into temp (id1)
-select s.mapsetid
-from series s, mapgeographies mg,
-(select mapsetid, max(mapcounts) as xmc
-from
-(
-    select s.mapsetid, map, count(*) as mapcounts
-from series s, mapgeographies mg
-where s.geoid = mg.geoid and s.geoid is not null and mapsetid is not null and apiid=1
-group by s.mapsetid, map
-order by s.mapsetid
-) mapcounts
-group by mapsetid
-) maxcountmap
-where s.geoid = mg.geoid and s.geoid is not null and s.mapsetid=maxcountmap.mapsetid and apiid=1
-group by s.mapsetid, map, xmc
-HAVING COUNT( * ) = xmc;
-
-update series s, temp t set s.geoid=259 where s.geoid=81 and s.mapsetid=t.id1;
-
-truncate temp;
-*/
-
-        //mapsets diagnostics:  select membercount, count(*) as number_of_set from (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid) mc group by membercount
-        //select seriesid, skey, s.name, s.mapsetid, s.geoid, s.periodicity, s.units from series s, (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid having count(*)<=5) ms where s.mapsetid=ms.mapsetid
-        $output["matches_found"] = $matches_found;
-        $output["series_scanned"] = $count;
+        findSets($api_row["apiid"]);
         break;
     case "RecalcAllFirstLastDts":
 // temp function to correct for the first and last dt values
@@ -358,13 +250,12 @@ $time_elapsed =  (microtime(true) - $time_start)*1000;
 $output["exec_time"] = $time_elapsed . 'ms';
 $output["command"] = $command;
 echo json_encode($output);
-mysqli_close($db);
+$db->close();
 
 //API functions
 function catInChain($parentcatids, $childcatid){
     $sql = "select * from catcat where childid in (".$parentcatids.")";
-    logEvent("API catInChain",$sql);
-    $result = runQuery($sql);
+    $result = runQuery($sql, "API catInChain");
     $next_parent_ids = array();
     while($catcat = $result->fetch_assoc()){
         if($catcat["parentid"]== $childcatid|| $catcat["childid"]== $childcatid){
@@ -383,7 +274,7 @@ function archiveSeries($obj){ //accepts either an ID or a an array of all fields
     if(is_array($obj)){
         $series = $obj;
     } else {
-        $sql = "sekect * from series where seriesid = ".$obj;
+        $sql = "select * from series where seriesid = ".$obj;
         $result = runQuery($sql);
         $series = $result->fetch_assoc();
     }
@@ -394,20 +285,20 @@ function archiveSeries($obj){ //accepts either an ID or a an array of all fields
         array_push($fieldlist, $field);
         array_push($valuelist, safeStringSQL($value));  //wraps integers as strings - mySQL will be fine
     }
-    $sql = "insert into seriesarchive (". implode(",", $valuelist) .") values(". implode(",", $fieldlist) .")";
+    $sql = "insert into seriesarchive (". implode(",", $fieldlist) .") values(". implode(",", $valuelist) .")";
     runQuery($sql);
 }
 
-function updateSeries($key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
+function updateSeries(&$status, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
     global $db;
-    $sql = "select * from series where key = " . $key . " and apiid=" . $apiid;
+    $sql = "select * from series where skey = " . safeStringSQL($key) . " and apiid=" . $apiid;
     $result = runQuery($sql);
     if($result->num_rows==1){
         $series = $result->fetch_assoc();
-        if($series["units"]!=$units || $series["period"]!=$period || $series["notes"]!=$notes || $series["name"]!=$name || $series["data"]!=$data){
+        if($series["units"]!=$units || $series["periodicity"]!=$period || $series["notes"]!=$notes || $series["name"]!=$name || $series["data"]!=$data || $series["mapsetid"]!=$mapsetid || $series["pointsetid"]!=$pointsetid){
             archiveSeries($series);
             $sql = "update series set "
-                ."key=".safeStringSQL($key).","
+                ."skey=".safeStringSQL($key).","
                 ."name=".safeStringSQL($name).","
                 ."src=".safeStringSQL($src).","
                 ."url=".safeStringSQL($url).","
@@ -416,33 +307,210 @@ function updateSeries($key, $name, $src, $url, $period, $units, $units_abbrev, $
                 ."units=".safeStringSQL($units).","
                 ."units_abbrev=".safeStringSQL($units_abbrev).","
                 ."notes=".safeStringSQL($notes).","
-                ."title=".safeStringSQL($title).","
                 ."data=".safeStringSQL($data).","
                 ."hash=".safeStringSQL(sha1($data)).","
                 ."apiid=".$apiid.","
+                ."apidt=".safeStringSQL($apidt).","
                 ."firstdt=".$firstdt.","
                 ."lastdt=".$lastdt.","
-                ."geoid=".$geoid.","
-                ."mapsetid=".$mapsetid.","
-                ."pointsetid=".$pointsetid.","
-                ."lat=".$lat.","
-                ."lon=".$lon
-                ." where seriesid=".$series["seriesid"];
-            runQuery($sql);
+                ."apifailures=0";
+            if($title!="") $sql .= ", title=".safeStringSQL($title);
+            if($geoid != null && is_numeric ($geoid)) $sql .= ", geoid=".$geoid;
+            if($mapsetid != null  && is_numeric ($mapsetid)) $sql .= ", mapsetid=".$mapsetid;
+            if($pointsetid != null && is_numeric ($pointsetid)) $sql .= ", pointsetid=".$pointsetid;
+            if($lat != null && is_numeric ($lat)) $sql .= ", lat=".$lat;
+            if($lon != null && is_numeric ($lon)) $sql .= ", lon=".$lon;
+            $sql .= " where seriesid=".$series["seriesid"];
+            $queryStatus = runQuery($sql);
+            if($queryStatus){
+                $status["updated"]++;
+                print("updating series " .$key .": ".$name."<br>");
+            } else {
+                $status["failed"]++;
+                print("failed series update for " .$key .": ".$name."<br>");
+            }
+        } else {
+            $status["skipped"]++;
+            print("skipping series " .$key .": ".$name."<br>");
         }
         return $series["seriesid"];
     } else {
-        $sql = "insert into series (key, name, namelen, units, units_abbrev, periodicity, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
-            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",". safeStringSQL($period).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".$geoid.",". $mapsetid.",". $pointsetid.",".$lat.",". $lon.")";
-        runQuery($sql);
+        $sql = "insert into series (skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
+            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($period).",".safeStringSQL($title).",".safeStringSQL($url).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":$lat).",". ($lon===null?"null":$lon).")";
+        $queryStatus = runQuery($sql);
+        if($queryStatus ){
+            print("inserting series " .$key .": ".$name."<br>");
+            $status["added"]++;
+        } else {
+            print("failed inserting series " .$key .": ".$name."<br>");
+            $status["failed"]++;
+        }
         return $db->insert_id;
     }
+}
+
+function catSeries($catid, $seriesid){
+    if($catid==0 || $seriesid==0) return false;
+    $sql = "select seriesid from categoryseries where seriesid=" . $seriesid . " and catid = " . $catid;
+    $temp= runQuery($sql, "check for CatSeries relationship");
+    if($temp->num_rows==0){
+        $sql = "insert into categoryseries (catid, seriesid) values (" . $catid . "," . $seriesid . " )";
+        runQuery($sql, "FRED API: create CatSeries relationship");
+        $sql = "UPDATE series s, (SELECT seriesid, GROUP_CONCAT( c.name ) AS category "
+            . " FROM categoryseries cs INNER JOIN categories c ON cs.catid = c.catid "
+            . " where seriesid=" . $seriesid . " GROUP BY s.name) cat "
+            . " SET s.title = cat.category WHERE s.seriesid = cat.seriesid  ";
+        runQuery($sql, "set series.title");
+    }
+
+    /*    to update all series titles:     (run nightly!!!)
+        UPDATE series s,
+            (SELECT seriesid, GROUP_CONCAT( c.name separator "; " ) AS category
+            FROM categoryseries cs INNER JOIN categories c ON cs.catid = c.catid
+        group by seriesid) cats
+        set s.title= category
+        where cats.seriesid=s.seriesid
+    */
+    return true;
 }
 function queueJob($runid, $config){  //return jobid
     global $db;
     $sql = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values (".$runid.",'".json_encode($config)."',0,'Q',now())";
     runQuery($sql);
     return $db->insert_id;
+}
+
+//checks if all active jobs for this run have ended.  If so, runs and emails the report and then runs findsets if added>0
+function jobThreadEnded($runid){
+    $sql = "select count(*) as activejobcount from apirunjobs where runid=".$runid." and status='R' and tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10)";
+    $result = runQuery($sql,"activejobcount check");
+    $row = $result->fetch_assoc();
+    if($row["activejobcount"]==0){
+        $sql = "select r.apiid, count(jobid) as jobs_executed, j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed "
+            . " from apiruns r left outer join apirunjobs j on r.runid=j.runid "
+            . " where r.runid=".$runid." group by r.apiid, j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed ";
+        $result = runQuery($sql,"run summary report");
+        $msg="";
+        while($row=$result->fetch_assoc()){
+            $msg .= json_encode($row);
+            $apiid=$row["apiid"];
+        }
+        mail("admin@mashabledata.com","Fred API run report", $msg, $MAIL_HEADER);
+        findSets($apiid);
+    }
+}
+
+function findSets($apiid){
+
+    /*reset SQL
+        delete from mapsets where apiid=1;
+        update series set mapsetid=null where apiid=1;
+    */
+    $result = runQuery("select geoid, containingid, lat, lon, type, regexes "
+        . " from geographies where regexes is not null and geoset<>'uscounties' order by length(name) desc");  //try to find a match with the longest first (ie. "West Virginia" before "Virginia")
+    //not available until PHP 5.3 $geographies = $result->fetch_all(MYSQLI_ASSOC);
+    $geographies = array();
+    while($geography = $result->fetch_assoc()){
+        array_push($geographies, $geography);
+    }
+    $sql = "select seriesid, name, units, periodicity, lat, lon, geoid, pointsetid, mapsetid "
+        . "from series where geoid is null and pointsetid is null and seriesid = 581935 and apiid=" . $apiid; // . " LIMIT 0 , 30";
+    $result = runQuery($sql, "FindSets");
+    $matches_found = false;
+    $count = 0;
+    while($serie = $result->fetch_assoc()){
+        set_time_limit(60);
+        $count++;
+        $pos = strpos($serie["name"]," in ");
+        if($pos!=false){
+            $setName = trim(substr($serie["name"],0,$pos));;
+            $sql = "select geoid, type, lat, lon from geographies where name=".safeStringSQL(trim(substr($serie["name"],$pos+4)));
+            $gresult = runQuery($sql,"FindSets");
+            if($gresult->num_rows>0){
+                print($serie["name"].": ".trim(substr($serie["name"],$pos+4))."<BR>");
+                $geography = $gresult->fetch_assoc();
+                if($geography["type"]=="M"){
+                    $mapSetId = getMapSet($setName, $api_row["apiid"], $serie["periodicity"], $serie["units"]);
+                    $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
+                        . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
+                        .", lon=".(($geography["lon"]==null)?"null":safeStringSQL($geography["lon"]))
+                        . " where seriesid=".$serie["seriesid"];
+                    runQuery($sql);
+                } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for other types
+                    $pointSetId = getPointSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                    $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
+                        . " where seriesid=".$serie["seriesid"];
+                    runQuery($sql);
+                }
+            }
+        } else {
+            for($i=1;$i<count($geographies);$i++){
+                $geography = $geographies[$i];
+                $regex = "#( for | in | from )?". $geography["regexes"]."#";
+                if(preg_match($regex, $serie["name"], $matches)==1){
+                    $matches_found = ($matches_found>0)?$matches_found+1:1;  //match!
+                    $setName = trim(preg_replace ($regex,"",$serie["name"]));
+                    if($geography["type"]=="M"){
+                        $mapSetId = getMapSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                        print($serie["name"]."|".$setName."|".$mapSetId."<BR>");
+                        $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
+                            . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
+                            .", lon=".(($geography["lon"]==null)?"null":safeStringSQL($geography["lon"]))
+                            . " where seriesid=".$serie["seriesid"];
+                        runQuery($sql);
+                        //var_dump($matches);
+                        //print("<br>MATCHES_FOUND: ". $matches_found ." SERIESNAME: ".$serie["name"]. " SET: ".$setName."<br>");
+                        break;
+                    } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for
+                        $pointSetId = getPointSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                        $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
+                            . " where seriesid=".$serie["seriesid"];
+                        runQuery($sql);
+                        break;
+                    }
+                }
+            }
+        }
+        //print("<br>NEW SERIES: ". $serie["name"] . "<br>");
+    }
+    //eliminate the mapsets with 5 or fewer point as these tend to be problematic.
+    runQuery("truncate temp");  //need to use temp table because mySQL cannot figure out how to do this efficiently otherwise.
+    runQuery("insert into temp (id1) select mapsetid from series where apiid = ". $apiid
+        ." and mapsetid is not null group by mapsetid having count(*)<=5");
+    runQuery("delete from mapsets using mapsets, temp where mapsets.mapsetid=temp.id1");
+    //but keep detected geoid...
+    runQuery("update series s, temp t set s.mapsetid = null where s.mapsetid=t.id1");
+    runQuery("delete FROM mapsets using mapsets left outer join series s on mapsets.mapsetid=s.mapsetid WHERE s.mapsetid is null"); //clear out empty mapsets that have accumulated
+
+    //correct Georgias in apiid = 1
+    runQuery("truncate temp");
+
+    runQuery("insert into temp (id1) "
+    ." select s.mapsetid "
+    ." from series s, mapgeographies mg, "
+    ." (select mapsetid, max(mapcounts) as xmc "
+    ." from "
+    ." ( "
+    ." select s.mapsetid, map, count(*) as mapcounts "
+    ." from series s, mapgeographies mg "
+    ." where s.geoid = mg.geoid and s.geoid is not null and mapsetid is not null and apiid=". $apiid
+    ." group by s.mapsetid, map "
+    ." order by s.mapsetid "
+    ." ) mapcounts "
+    ." group by mapsetid "
+    ." ) maxcountmap "
+    ." where s.geoid = mg.geoid and s.geoid is not null and s.mapsetid=maxcountmap.mapsetid and apiid=". $apiid
+    ." group by s.mapsetid, map, xmc "
+    ." HAVING COUNT( * ) = xmc;");
+
+    runQuery("update series s, temp t set s.geoid=259 where s.geoid=81 and s.mapsetid=t.id1;");
+
+    runQuery("truncate temp;");
+
+
+    //mapsets diagnostics:  select membercount, count(*) as number_of_set from (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid) mc group by membercount
+    //select seriesid, skey, s.name, s.mapsetid, s.geoid, s.periodicity, s.units from series s, (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid having count(*)<=5) ms where s.mapsetid=ms.mapsetid
+    return array("geographies_found"=> $matches_found, "series_scanned_for_geo" => $count);
 }
 function updateJob($jobid, $status, $options){
 

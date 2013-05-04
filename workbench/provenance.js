@@ -998,20 +998,20 @@ function ProvenanceController(panelId){
                 });
             setRadLabel();
             $legend.find('div.attribute')
-                .find("[value='"+(options.attribute||'radius')+"']").attr('checked',true).end()
+                .find("[value='"+(thisOptions.attribute||'radius')+"']").attr('checked',true).end()
                 .buttonset()
                 .find('input:radio').change(function(){
-                    self.set(options, $(this)); //set options.attribute
+                    self.set(thisOptions, $(this)); //plot.options.attribute
                     setRadLabel();
                     legendOptionsShowHide();
                 });
             $legend.find('.radius-spinner')
                 .spinner({min: 2, max:200})
                 .change(function(){
-                    if(options.attribute=='fill'){
-                        self.mapconfigEdits.maxRadius = $(this).val();
+                    if(thisOptions.attribute=='fill'){
+                        options.maxRadius = $(this).val();  //mapconfig.maxRadius
                     } else {
-                        self.mapconfigEdits.fixedRadius = $(this).val();
+                        options.fixedRadius = $(this).val();  //mapconfig.fixedRadius
                     }
                     self.makeDirty();
                 });
@@ -1066,7 +1066,7 @@ function ProvenanceController(panelId){
         },
         discreteLegend: function(type){
             var legendHtml, $legend, i, changing, val, self = this;
-            var options = (type=='X'?self.mapconfigEdits:self.mapsetEdits);
+            var options = (type=='X'?self.mapconfigEdits:self.mapsetEdits.options);
             if(!Array.isArray(options.discreteColors) || options.discreteColors.length==1) options.discreteColors = resetLegend(5, options);
             legendHtml = '<div class="edit-block">'
                 +   '<div class="edit-block discrete-legend"></div>'

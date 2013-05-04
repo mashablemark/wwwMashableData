@@ -88,7 +88,7 @@
         <div id="local-series" class="picker">
             <div id="edit-user-series">
                 <div id="data-editor" class="hands-on-table dataTable" style="overflow:scroll;"></div>
-                <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-preview">preview</button> <button class="series-edit-save right">save</button><button class="series-edit-cancel right">cancel</button><button class="series-edit-save-as" onclick="saveSeriesEditor(true)">save as copy</button>
+                <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel right">cancel</button> <!--button class="series-edit-save-as right" onclick="saveSeriesEditor(true)">save as copy</button--> <button class="series-edit-save right">save</button> <button class="series-edit-preview right">preview</button>
             </div>
             <div id="local-series-header" class="md-DS_title">
                 <fieldset class="tight-fieldset"><legend>Filter</legend>

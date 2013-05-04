@@ -1066,36 +1066,39 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     background-color: black;
     border: 0;
 }
-#series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover{
-     background:  deepskyblue;
- }
-#series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover{
-    background: #48d1cc;
+
+/*pastel theme*/
+#series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{
+    background: rgb(102,204,255);
 }
-#series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover{
-    background: #65E62E; /*#FFE34D;*/
+#series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover, #cloud-series{
+    background:  rgb(175,234,42);
 }
-#series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover{
-    background: #41bf78;
+#series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover, #myGraphs{
+    background: rgb(255,255,153);
 }
+#series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover, #publicGraphs{
+    background: rgb(255,204,0);
+}
+
+/*Earth tone theme
+#series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{
+    background:  #6a8e94;
+}
+#series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover, #cloud-series{
+    background: #b089a1;
+}
+#series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover, #myGraphs{
+    background: #c6bea6;
+}
+#series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover, #publicGraphs{
+    background: #859a7c;
+}  */
+
 /*picker class*/
-#local-series{
-    background: deepskyblue;
-}
-#cloud-series{
+#cloud-series, #myGraphs, #publicGraphs{
     display:none;
     position:relative;
-    background: mediumturquoise;
-}
-#myGraphs{
-    display:none;
-    position:relative;
-    background: #65e62e;
-}
-#publicGraphs{
-    display:none;
-    position:relative;
-    background: #41BF78;
 }
 
 #seriesTabs li.ui-state-default{ border: 1px solid #d3d3d3; background: green; font-weight: normal; color: #555555; }

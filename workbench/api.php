@@ -387,6 +387,27 @@ switch($command){
         $map = $_POST["map"];
         $output = array("status"=>"ok", "pointsets"=>getPointSets($map,cleanIdArray($_POST["pointsetids"])));
         break;
+    case "GetSet":
+        $mapsetid = intval($_POST["mapsetid"]);
+        $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
+        $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, seriesid, s.name, s.units, s.units_abbrev, title, data, notes"
+        . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
+        . " left outer join (select * from series s where mapsetid=".$mapsetid.") s on g.geoid=s.geoid "
+        . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
+        $headerResult = runQuery($sqlHeader,"GetSet: header");
+        $setResult = runQuery($sqlSetSeries,"GetSet: series");
+        $output = array("status"=>"ok");
+        try{
+            $output["setData"] = $headerResult->fetch_assoc();
+            $output["setData"]["geographies"] = array();
+            while($row=$setResult->fetch_assoc()){
+                array_push($output["setData"]["geographies"], $row);
+            }
+        } catch(Exception $e){
+            $output["status"] = "failed to get set for editing";
+        }
+        break;
+
     case "GetAvailableMaps":
         $mapsetid = intval($_POST["mapsetid"]);
         $pointsetid = intval($_POST["pointsetid"]);
@@ -401,9 +422,14 @@ switch($command){
         if($mapsetid>0) $sql .= " and s.mapsetid=".$mapsetid;
         if($pointsetid>0) $sql .= " and s.pointsetid=".$pointsetid;
         if($geoid>0) $sql .= " and m.map in (select map from mapgeographies where geoid = " . $geoid . ")";
-        $sql .= " group by m.name, geographycount order by count(s.geoid)/geographycount desc";
+        $sql .= " group by m.name, geographycount ";
+        if($pointsetid>0&&$geoid>0) {
+            $sql .= " union select m.name, jvectormap, geographycount, count(s.geoid) as setcount  from series s, maps m where bunny=s.geoid and s.pointsetid=".$pointsetid." and s.geoid = ".$geoid;
+        } else {
+            $sql .= " order by count(s.geoid)/geographycount desc";
+        }
         $output = array("status"=>"ok", "maps"=>array());
-        $result = runQuery($sql);
+        $result = runQuery($sql,"GetAvailableMaps");
         while($row = $result->fetch_assoc()){
             array_push($output["maps"], array("name"=>$row["name"], "file"=>$row["jvectormap"], "count"=>($mapsetid!=0)?$row["setcount"]." of ".$row["geographycount"]:$row["setcount"]." locations"));
         }
@@ -417,7 +443,7 @@ switch($command){
         }
         break;
     case "GetMapGeographies":
-        $sql = "select g.geoid, g.name from mapgeographies mg, geographies g where g.geoid=mg.geoid and map=".safeSQLFromPost('map')." order by g.name";
+        $sql = "select g.geoid, g.name, g.iso3166 from mapgeographies mg, geographies g where g.geoid=mg.geoid and map=".safeSQLFromPost('map')." order by g.name";
         $result = runQuery($sql,"GetMapGeographies");
         $output = array("status"=>"ok", "geographies"=>array());
         while($row = $result->fetch_assoc()){
@@ -599,7 +625,7 @@ switch($command){
     case "GetMySeries":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
-        $sql = "SELECT  s.userid, mapsetid, pointsetid, name, skey, s.seriesid as id, "
+        $sql = "SELECT  s.userid, mapsetid, pointsetid, geoid, name, skey, s.seriesid as id, "
         . " title as graph, s.notes, saved as save, null as 'decimal', src, s.url, s.units,"
         . " updatets, adddt as save_dt, 'datetime' as type, periodicity as period, firstdt, lastdt,"
         . " hash as datahash"
@@ -1219,14 +1245,28 @@ switch($command){
         $output = array("status" => "ok", "series" => array());
         if(count($clean_seriesids)>0){
             $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
-            . "s.title as graph, s.src, s.url, s.units, s.data, periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
-            . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount "
-            . " FROM series s "
-            . " WHERE s.seriesid in (" . implode($clean_seriesids,",") .") and (userid is null or userid = " . $user_id . " or orgid=".$orgid.")";
-            logEvent("GetMashableData series", $sql);
-            $result = runQuery($sql);
+            . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
+            . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
+            . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
+            . " WHERE s.seriesid in (" . implode($clean_seriesids,",") .") and (s.userid is null or s.userid = " . $user_id . " or orgid=".$orgid.")";
+            $result = runQuery($sql, "GetMashableData series");
 
             while ($aRow = $result->fetch_assoc()) {
+                if($aRow["geocounts"]!==null and count($clean_seriesids)==1) { //only get geophy counts for single series fetches
+                    $ary = json_decode('{"a":{'.$aRow["geocounts"].'}}', true);
+                    $aRow["geocounts"] = $ary["a"];
+                    if($aRow["geoid"]!==null){
+                        $sql = 'select m.map, geographycount from mapgeographies mg join maps m on mg.map=m.map where geoid='.$aRow["geoid"];
+                        $geoResult = runQuery($sql,"GetMashableData geographies");
+                        while ($gRow = $geoResult->fetch_assoc()) {
+                            if(isset($aRow["geocounts"][$gRow["map"]])){
+                                $aRow["geocounts"][$gRow["map"]]["regions"] = intval($gRow["geographycount"]);
+                            } else {
+                                $aRow["geocounts"][$gRow["map"]] = array("regions"=>intval($gRow["geographycount"]));
+                            }
+                        }
+                    }
+                }
                 if($aRow["userid"]==null){
                     $aRow["handle"] =  "S".$aRow["id"];
                     $aRow["sid"] =  $aRow["id"];
@@ -1472,7 +1512,7 @@ function getGraphs($userid, $ghash){
 function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
     global $db, $orgid;
     $mapout = array();
-    $sql = "SELECT ms.mapsetid, ms.name, s.name as seriesname, ms.units, ms.periodicity as period, "
+    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, s.name as seriesname, ms.units, ms.periodicity as period, "
     . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt "
     . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
     . " WHERE ms.mapsetid = s.mapsetid and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
@@ -1491,11 +1531,16 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
             $currentMapSetId=$row["mapsetid"];
             $mapout["M".$currentMapSetId] = array(
                 "mapsetid"=>$currentMapSetId,
+                "maps"=>$row["counts"],
                 "name"=>$row["name"],
                 "units"=>$row["units"],
                 "period"=>$row["period"],
                 "data"=>array()
             );
+            if($row["counts"]!==null) {
+                $ary = json_decode('{"a":{'.$aRow["counts"].'}}', true);
+                $mapout["M".$currentMapSetId]["maps"] = $ary["a"];
+            }
         }
         $mapout["M".$currentMapSetId]["data"][$row["map_code"]] = array(
             "handle"=>"S".$row["seriesid"],
@@ -1516,12 +1561,11 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
     global $db, $orgid;
     $mapout = array();
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, "
-        . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
-        . " from pointsets ps, series s, geographies g, mapgeographies mg, maps m "
+        . " s.seriesid, s.userid, s.orgid, s.geoid, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
+        . " from pointsets ps, series s, mapgeographies mg, maps m "
         . " where ps.pointsetid = s.pointsetid and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
         . " and m.map  = " . safeStringSQL($map)
-        . " and g.geoid=s.geoid and mg.geoid=s.geoid and mg.map =" . safeStringSQL($map)
-        . " and mg.map=m.map "
+        . " and mg.geoid=s.geoid and ((mg.map =" . safeStringSQL($map). " and mg.map=m.map) or bunny=s.geoid)"
         . " and ps.pointsetid in (" . implode($aryPointsetIds, ",") . ")";
     if($mustBeOwner){
         $sql .= " and (userid is null or userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run

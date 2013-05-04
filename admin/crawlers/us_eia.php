@@ -33,7 +33,7 @@ delete from series where seriesid>580785;
  *   periodicity:  D|M|A|ALL.  If missing, smartupdate  algorythme
  *   since: datetime; if missing smartupdate algorythme
 */
-$eai_api_key = '2A4EA0048A8ED2FB578E31467DACD950';     //key registered to mark.elbert@eia.gov
+$eai_api_key = 'mce';  //was '2A4EA0048A8ED2FB578E31467DACD950';     //key registered to mark.elbert@eia.gov
 $threadjobid="null";  //used to track of execution thread
 
 function ApiCrawl($catid, $api_row){ //initiates a WB crawl
@@ -71,20 +71,16 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
     }
 
     //reusable SQL statements
-    $next_job_sql = "select * from apirunjobs where status='Q' and runid =".$runid." limit 0,1";
+    $next_job_sql = "select * from apirunjobs where " . ($jobid=="ALL" ? "STATUS='Q'" : "jobid=".$jobid)." and runid =".$runid." limit 0,1";
 
-    //UPDATE THE RUN'S FINISH DATE
+    //UPDATE THE RUN'S FINISH DATE (also updated at the end of each job)
     runQuery("update apiruns set finishdt=now() where runid = " . $runid);
 
     //MASTER LOOP
     $check = true;
     $job_count = 0;
     while($check){
-        if($jobid!="ALL"){
-            $result = runQuery($next_job_sql);
-        }  else {
-            $result = runQuery($next_job_sql);
-        }
+        $result = runQuery($next_job_sql);
         if($result===false || $result->num_rows!=1){
             $check = false;
         } else {
@@ -99,15 +95,28 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
             //print("<br><br>");
             //var_dump($job_row);
             //print("<br><br>");
-            $statusObject = ExecuteJob(array_merge($api_row, $job_row));
 
-            runQuery("update apiruns set scanned=scanned+".$statusObject["scanned"]
-                . ", added=added+".$statusObject["added"]
-                . ", updated=updated+".$statusObject["updated"]
-                . ", failed=failed+".$statusObject["failed"]
-                . ", finishdt=now() where runid = " . $runid);
-            runQuery("update apirunjobs set enddt=now(), status='S' where jobid =".$job_row["jobid"]);
-
+            $jobconfig = json_decode($job_row["jobjson"], true);
+            try{
+                switch($jobconfig["type"]){
+                    case "category":
+                        $statusObject = ExecuteCatCrawl(array_merge($api_row, $job_row));;
+                        break;
+                    //TODO:  case "update"
+                    default:
+                        throw new Exception("unrecognized command: ".$jobconfig["type"]);
+                }
+                runQuery("update apiruns set scanned=scanned+".$statusObject["scanned"]
+                    . ", added=added+".$statusObject["added"]
+                    . ", updated=updated+".$statusObject["updated"]
+                    . ", failed=failed+".$statusObject["failed"]
+                    . ", finishdt=now() where runid = " . $runid);
+                runQuery("update apirunjobs set enddt=now(), status='S' where jobid =".$job_row["jobid"]);
+            } catch(Exception $e){
+                $jobconfig["error"] = $e->getMessage();
+                $sql = "update apirunjobs set status='F', jobjson = ".safeStringSQL(json_encode($jobconfig))." where jobid=".$api_row["jobid"];
+                runQuery($sql);
+            }
             $job_count++;
         }
         if($jobid!="ALL") $check = false; //call parameters either specify a single jobid or none, whereby jobid defaults ot "ALL"
@@ -116,15 +125,12 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
     return $output;
 }
 
-function ExecuteJob($api_row){
-    global $eai_api_key, $db, $timezone;
-    $status = array("updated"=>0,"added"=>0,"scanned"=>0,"failed"=>0);
+function ExecuteCatCrawl($api_row){
+    global $eai_api_key, $db;
+    $status = array("updated"=>0,"added"=>0,"skipped"=>0,"failed"=>0,"scanned"=>0);
     //only a single job type is supported for us_eia API = "category"
     $jobconfig = json_decode($api_row["jobjson"], true);
     //var_dump($jobconfig);
-    if($jobconfig["type"]!="category"){
-        die("unrecognized command");
-    }
     $apicatid = $jobconfig["apicatid"];
     $url = "http://api.eia.gov/category?api_key=".$eai_api_key."&category_id=".$apicatid."&out=json";
     logEvent("eia api fetch", $url);
@@ -141,7 +147,7 @@ function ExecuteJob($api_row){
         ." and apicatid=".$eia_cat_out["category"]["category_id"];
     $result = runQuery($sql);
     if($result->num_rows!=1){
-        die("error: category should already exist");
+        throw new Exception("error: category ".$eia_cat_out["category"]["category_id"]." should already exist");
     }
     $row = $result->fetch_assoc();
     $parentcatid = $row["catid"];
@@ -175,82 +181,69 @@ function ExecuteJob($api_row){
     foreach($eia_cat_out["category"]["childseries"] as $childserie){
         $status["scanned"] += 1;
         if(!isset($jobconfig["power plants"]) || strpos($childserie["name"], "All Primemovers")){  //do harvest turbine level series
-
-
-
-            updateSeries($childserie["series_id"], $name, $period, $units, $notes, $apiid, $data)
-
-
             $sql = "select * from series where skey=".safeStringSQL($childserie["series_id"])
                 . " and  apiid=".$api_row["apiid"];
-            $result = runQuery($sql);
+            $seriesResult = runQuery($sql);
 
-            if($result->num_rows==1){
-                $serie_row = $result->fetch_assoc();
-                $seriesid = $serie_row["seriesid"];
-                $captureid = $serie_row["captureid"];
-                $saved_update_dt = new DateTime($serie_row["apidt"]);
-                $update_dt =  new DateTime($childserie["updated"]);
-                $needCapture = ($saved_update_dt<$update_dt);
-            }
-
-            if($result->num_rows==0 || $needCapture){
+            if($seriesResult->num_rows==1){
+                $serie_row = $seriesResult->fetch_assoc();
+                if($serie_row["apidt"]!=$childserie["updated"]){
+                    $needCapture = true;
+                } else {
+                    catSeries($parentcatid, $serie_row["seriesid"]);
+                    $needCapture = false;
+                }
+            } else $needCapture=true;
+$needCapture=true;  //force read and calc
+            if($needCapture){
                 $url = "http://api.eia.gov/series?api_key=".$eai_api_key."&series_id=".$childserie["series_id"]."&out=json";
                 logEvent("eia api fetch", $url);
                 $get = httpGet($url);
                 if($get===false){
-                    $sql = "update apirunjobs set status='F' where jobid=".$api_row["jobid"];
-                    runQuery($sql);
-                    die('{"status":"fetch failed for '.$url.'"}');
+                    throw new Exception("error: fetch failed for ".$url);
                 }
-                $eia_series_header_out = json_decode($get,true);
-                $serie_header = $eia_series_header_out["series"][0];
+                $eia_series_fetch_results = json_decode($get,true);
+                $eia_serie = $eia_series_fetch_results["series"][0];
                 $mapsetid = 'null';
                 $pointsetid = 'null';
                 $geoid = 'null';
                 if(isset($jobconfig["power plants"])){
-                    $seriesName = str_replace(" : All Primemovers", "", $serie_header["name"]);
+                    $seriesName = str_replace(" : All Primemovers", "", $eia_serie["name"]);
                 } else {
-                    $seriesName = $serie_header["name"];
+                    $seriesName = $eia_serie["name"];
                 }
-                if(strlen($serie_header["iso3166"])>0){
+                $seriesName = preg_replace("#( : Quarterly| : Annual| : Monthly)#", "", $seriesName); //that is adequate capture in the periodicity field
+                if(strlen($eia_serie["iso3166"])>0){
                     //either mapset or pointset
-                    $sql = "select geoid, regexes from geographies where iso3166=".safeStringSQL($serie_header["iso3166"]);
+                    $sql = "select geoid, regexes from geographies where iso3166=".safeStringSQL($eia_serie["iso3166"]);
                     $result = runQuery($sql);
                     if($result->num_rows==1){ //only make part of mapset if we can recognize the geography
                         $geography = $result->fetch_assoc();
                         $geoid =   $geography["geoid"];
                         if(isset($jobconfig["power plants"])){
-                            $nameSegments = explode(" : ", $serie_header["name"]);
+                            $nameSegments = explode(" : ", $seriesName);
                             $setName = "U.S. Power Plants : " . $nameSegments[0] . " : " . $nameSegments[2];
                         } elseif (isset($jobconfig["electricity"])){
-                            $nameSegments = explode(" : ", $serie_header["name"]);
+                            $nameSegments = explode(" : ", $seriesName);
                             implode(" : ", array_splice($nameSegments, count($nameSegments)-2, 1));
                             $setName = implode(" : ", $nameSegments);
                         } else { // default
-                            $setName =  str_ireplace($geography["regexes"], "", $serie_header["name"]);
+                            $setName =  preg_replace("#".$geography["regexes"]."#", "", $eia_serie["name"]);
                         }
-                        if(strlen($serie_header["lat"])==0){
+                        if(strlen($eia_serie["lat"])==0){
                             //mapset
-                            $mapsetid = getMapSet($setName, $api_row["apiid"], $serie_header["f"], $serie_header["units"]);
+                            $mapsetid = getMapSet($setName, $api_row["apiid"], $eia_serie["f"], $eia_serie["units"]);
 
                         } else {
                             //pointset
-                            $pointsetid = getPointSet($setName, $api_row["apiid"], $serie_header["f"], $serie_header["units"]);
+                            $pointsetid = getPointSet($setName, $api_row["apiid"], $eia_serie["f"], $eia_serie["units"]);
                         }
+                    } else {
+                        throw new Exception("unrecognized iso3166 code: ".$eia_serie["iso3166"]);
                     }
                 }
 
-                $url = "http://api.eia.gov/series/data?api_key=".$eai_api_key."&series_id=".$childserie["series_id"]."&out=json";
-                logEvent("eia api fetch", $url);
-                $get = httpGet($url);
-                if($get===false){
-                    $sql = "update apirunjobs set status='F' where jobid=".$api_row["jobid"];
-                    runQuery($sql);
-                    die('{"status":"fetch failed for '.$url.'"}');
-                }
-                $eia_series_data_out = json_decode($get, true);
-                $aryData = $eia_series_data_out["series_data"][0]["data"];
+                $aryData = $eia_serie["data"];
                 $mashabledata = "";
                 $realPointCount = 0;
                 for($i=0;$i<count($aryData);$i++){
@@ -269,36 +262,38 @@ function ExecuteJob($api_row){
                             $mddate = substr($point[0],0,4) . sprintf("%02d", (intval(substr($point[0],4,2))-1)*3);
                             break;
                         default:
-                            die('{"status":"unrecognized f"}');
+                            throw new Exception("unrecognized frequency ".$childserie["f"]);
                     }
                     $mashabledata = $mddate . '|' . (is_numeric($point[1])?$point[1]:'null')  . ((strlen($mashabledata)==0)?'':'||') . $mashabledata;
-                    $realPointCount += is_numeric($point[1])?1:0;
+                    if(is_numeric($point[1])) $realPointCount++;
                     if($i==0) $last_date_js = $jsdate;
                 }
                 $first_date_js = $jsdate;
                 if($realPointCount>0){
-                    updateSeries($serie_header["series_id"],
-                        $serie_header["name"],
+                    $seriesid = updateSeries($status,
+                        $eia_serie["series_id"],
+                        $seriesName,
                         "U.S. Energy Information Administration",
                         "http://www.eia.gov/",
-                        $serie_header["f"],
-                        $serie_header["units"],
-                        $serie_header["unitsshort"],
-                        $serie_header["description"],
+                        $eia_serie["f"],
+                        $eia_serie["units"],
+                        $eia_serie["unitsshort"],
+                        $eia_serie["description"],
                         $eia_cat_out["category"]["name"],
                         $api_row["apiid"],
-                        $serie_header["updated"],
+                        $eia_serie["updated"],
                         $first_date_js,
                         $last_date_js,
                         $mashabledata,
                         $geoid,
                         $mapsetid,
                         $pointsetid,
-                        safeStringSQL($serie_header["lat"]),
-                        safeStringSQL($serie_header["lon"])
+                        safeStringSQL($eia_serie["lat"]),
+                        safeStringSQL($eia_serie["lon"])
                     );
+                    catSeries($parentcatid, $seriesid);
                 }else {   // don't allow series of empty arrays to clog up the DB
-                    $status["failed"] += 1;
+                    $status["skipped"] += 1;
                 }
             }
         }

@@ -1631,13 +1631,24 @@ function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match an
 function downloadMap(panelID, format){
     //format = 'image/jpeg';  //'application/pdf',
     var svg = $('#'+ panelID + ' div.jvmap div').html();
+    svg = cleanMapSVG(svg);
+    downloadMadeFile({
+        type: format,
+        filename: 'MashableDataMap',
+        width: 800,
+        svg: svg,
+        url: 'export/index.php'
+    });
+
+}
+function cleanMapSVG(svg){
     //jvector map sanitize
     svg = svg.replace(/<div.+<\/div>/gi, '');
     //svg = svg.replace(/ class="[^"]+"/gi, '');
     //svg = svg.replace(/ id="[^"]+"/gi, '');
     svg = svg.replace(/<svg /gi, '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" ');
     //svg = svg.replace(/<g [^>]+>/gi, '<g>');
-
+    svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+mapBackground+'"></rect><g');
     // standard sanitize
     svg = svg
         .replace(/zIndex="[^"]+"/g, '')
@@ -1674,16 +1685,8 @@ function downloadMap(panelID, format){
         svg = svg.replace(/xmlns="[^"]+"/, '');
     }
 
-    downloadMadeFile({
-        type: format,
-        filename: 'MashableDataMap',
-        width: 800,
-        svg: svg,
-        url: 'export/index.php'
-    });
-
+    return svg;
 }
-
 function downloadMadeFile(options){
     var createElement = Highcharts.createElement;
     // create the form
@@ -1833,6 +1836,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             '<button class="make-map" disabled="disabled">reset</button>' +
             '<button class="merge group hidden" disabled="disabled">group</button>' +
             '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
+            '<span class="right"><input type="checkbox" id="'+panelId+'-legend" class="legend"><label for="'+panelId+'-legend">legnd</label></span>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -1900,8 +1904,13 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     });
     $thisPanel.find('a.post-facebook')
         .click(function(){
-            annotations.sync();
-            var svg = oHighCharts[panelId].getSVG();
+            var svg;
+            if(oGraph.mapsets||oGraph.pointsets){  //need check for IE<10 = isIE+ version check
+                svg = cleanMapSVG($map.container.html());
+            } else {
+                annotations.sync();
+                svg = oHighCharts[panelId].getSVG();
+            }
             $.ajax({
                 type: 'POST',
                 url:"export/index.php",
@@ -2218,8 +2227,15 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             calcAttributes(oGraph);
             if(isBubble()) bubbleCalc();
             console.info(calculatedMapData);
+            var minScale = /us.._merc_en/.test(oGraph.mapFile)?0.9:1;
             vectorMapSettings = {
                 map: oGraph.mapFile,
+                zoomMin: minScale,
+                focusOn: {
+                    scale: minScale,
+                    x: 0.5,
+                    y: 0.5
+                },
                 backgroundColor: mapBackground,
                 markersSelectable: true,
                 markerStyle: {initial: {r: 0}}, //default for null values in the data
@@ -2232,7 +2248,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 },
                 series: {
                     regions:  [{
-                        attribute: "fill",
+                        attribute: "fill"
                        /* values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
                         scale: ['#C8EEFF', '#ff0000'],
                         normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
@@ -2243,8 +2259,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                         attribute: 'r',
                         scale: [1, (isBubble()?50:20)],
                         values: getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[calculatedMapData.dates.length-1].s),
-                        min: calculatedMapData.markerDataMin,
-                        max: calculatedMapData.markerDataMax
+                        min: 0.00001,  //always nail radius to zero
+                        max: Math.max(Math.abs(calculatedMapData.markerDataMin), Math.abs(calculatedMapData.markerDataMax)) //will use setAttributes to use size for abs(value) and border color = balck/red for pos/neg
                     }]
                 },
                 onRegionLabelShow: function(event, label, code){
@@ -2585,6 +2601,207 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
                 makeDirty();
             });
+            var gLegend;
+            $thisPanel.find('.legend').button().change(function(){
+                if ($(this).prop('checked')) {
+                    gLegend = makeLegend($map, {
+                        legend:'TR',
+                        markers:{
+                            fill:{
+                                named:[
+                                    {name:'coal', color:'#000000'},
+                                    {name:'hydro', color:'#0000FF'},
+                                    {name:'wind', color:'#00FF00'}
+                                ]
+                                //alternate to named =   variable: {colorValueMin: , colorValueMax, colorPos:, colorNeg:}
+                            },
+                            radius:{
+                                maxRadius:50,
+                                radiusValueMin:300, // missing for fixed radius (markers' single attribute is expressed in color)
+                                radiusValueMax:12000  // missing for fixed radius (markers' single attribute is expressed in color)
+                            }
+                        },
+                        regions:{
+                            //discrete: [{color: 'lightblue', cutoff: 1000},{color: 'lightgreen', cutoff: 2000},{color: 'pink', cutoff: 3000},{color: 'yellow', cutoff: 5000}],
+                            min:300,
+                            max:1200,
+                            colorPos:'#00FF00',
+                            colorNeg:'#FF0000'
+                        }
+                    });
+                } else {
+                    gLegend.remove();
+                }
+            });
+        }
+        function makeLegend(map, options){
+            var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y, i, yOffset, xOffset;
+
+
+            if(oGraph.mapsets){
+                if(oGraph.mapsets.options.discrete){
+                    regionLegendWidth=185;
+                    regionHeight = lineHeight + 2*spacer + options.regions.discrete.length*(spacer+20);
+                } else {
+                    regionLegendWidth=100;
+                    if(oGraph.calculatedMapData.regionDataMin<0 && oGraph.calculatedMapData.regionDataMax>0) {
+                        regionHeight = 6*spacer+2*80+3*lineHeight;
+                    } else {
+                        regionHeight = 4*spacer+80+2*lineHeight;
+                    }
+                }
+            } else regionLegendWidth=0;
+            if(options.markers) {
+                markerLegendWidth=185;
+                if(options.markers.fill && options.markers.fill.named){
+                    markerHeight += (options.markers.fill.named.length)*(spacer+2*standardRadius)+(markerHeight==0?spacer:0);
+                }
+                if(options.markers.radius && options.markers.radius.radiusValueMax){
+                    markerHeight += 2*(spacer+options.markers.radius.maxRadius+(options.markers.radius.minRadius||5))+(markerHeight==0?spacer:0);
+                }
+            } else markerLegendWidth = 0;
+
+
+            //use JVM to add a new group not subject to zooming, where map = new jvm.WorldMap({....});
+            var gLegend = map.canvas.addGroup(); //variable scoped one level up;
+            //for some reason, adding an (invisiable) element in JVM straightens out the coordinate system for IE
+            map.canvas.addCircle({cx:0,cy:0}, {initial: {r:20, "fill-opacity": 0, "stroke-width":  0 }}, gLegend);
+
+            //use the more complete Highcharts renderer, which must be instantiated on its own (hidden dummy) DIV
+            $thisPanel.append('<div id="dummyLegend" class="hidden"></div>');
+            var hcr = new Highcharts.Renderer($('#dummyLegend')[0], map.width, map.height);
+            //redirect the Highcharts' renderer to add element to JVM's new group instead of the dummy div's group
+            hcr.box = gLegend.node;
+            $('#dummyLegend').remove();
+
+            switch((options.legend||'B').substr(0,1)){
+                case 'T':
+                    yOffset = spacer;
+                    break;
+                case 'C':
+                    yOffset = (map.height - Math.max(markerHeight,regionHeight))/2 - spacer;
+                    break;
+                case 'B':
+                    yOffset = map.height - Math.max(markerHeight,regionHeight) - spacer;
+            }
+
+            switch((options.legend||'B').substr(1,1)){
+                case 'L':
+                    xOffset = spacer;
+                    break;
+                case 'C':
+                    xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer
+                    break;
+                case 'R':
+                    xOffset = map.width-regionLegendWidth-markerLegendWidth-spacer;
+            }
+            //the main panel = has to be first because SVG understands only order, not understand z-index
+            //rounded corner
+            hcr.rect(xOffset, yOffset, markerLegendWidth+regionLegendWidth, Math.max(markerHeight,regionHeight), 5).attr({
+                fill: 'white',
+                opacity: 0.5,
+                'stroke-width': 0
+            }).add();
+
+
+            var gradientAttributes = {
+                opacity: 1,
+                'stroke-width': 0,
+                'z-index': 1000
+            };
+
+            //subfunction draws a 80H x 20W bar from 2 pixel slices
+            function gradient(x, y, topColor, bottomColor){
+                var rTop, gTop, bTop, rBot, gBot, bBot, r, g, b;
+                rTop = parseInt(topColor.substr(1,2), 16);
+                gTop = parseInt(topColor.substr(3,2), 16);
+                bTop = parseInt(topColor.substr(5,2), 16);
+                rBot = parseInt(bottomColor.substr(1,2), 16);
+                gBot = parseInt(bottomColor.substr(3,2), 16);
+                bBot = parseInt(bottomColor.substr(5,2), 16);
+                for(var i=0;i<40;i++){
+                    r = Math.round(rTop-(rTop-rBot)*i/39).toString(16);
+                    g = Math.round(gTop-(gTop-gBot)*i/39).toString(16);
+                    b = Math.round(bTop-(bTop-bBot)*i/39).toString(16);
+                    hcr.rect(x, y+2*i, 20, 2, 0).attr({
+                        fill: '#'+(r.length==1?'0':'')+r+(g.length==1?'0':'')+g+(b.length==1?'0':'')+b,
+                        opacity: 1,
+                        'stroke-width': 0,
+                        'z-index': 1000
+                    }).add();
+                }
+
+            }
+            if(options.markers){
+                if(options.markers.fill.named){
+                    for(i=0;i<options.markers.fill.named.length;i++){
+                        y = (i+1)*(spacer+2*standardRadius)-standardRadius;
+                        hcr.circle(xOffset + spacer + standardRadius, yOffset + y, (options.markers.radius.maxRadius<standardRadius?options.markers.radius.maxRadius:standardRadius)).attr({
+                            fill: options.markers.fill.named[i].color,
+                            opacity: 1,
+                            'fill-opacity': 1,
+                            stroke: 'black',
+                            'stroke-width': 1
+                        }).add();
+                        hcr.text(options.markers.fill.named[i].name, xOffset + 2*(spacer + standardRadius), yOffset + y).add();
+                    }
+                    y += standardRadius;
+                } else {
+                    //must be options.markers.fill.variable
+                    //TODO:  variable color
+                }
+                if(options.markers.radius.radiusValueMax){
+                    //min radius size
+                    y += spacer+(options.markers.radius.minRadius||5);
+                    var MarkerSizeAttributes = {
+                        'fill-opacity': 0,
+                        opacity: 1,
+                        stroke: 'black',
+                        'stroke-width': 1
+                    };
+                    hcr.circle(xOffset + spacer + options.markers.radius.maxRadius, yOffset + y, options.markers.radius.minRadius||5).attr(MarkerSizeAttributes).add();
+                    hcr.text(options.markers.radius.radiusValueMin, xOffset + 2*(options.markers.radius.maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    y+= (options.markers.radius.minRadius||5) + spacer + options.markers.radius.maxRadius;
+
+                    hcr.circle(xOffset + spacer + options.markers.radius.maxRadius, yOffset + y, options.markers.radius.maxRadius).attr(MarkerSizeAttributes).add();
+                    hcr.text(options.markers.radius.radiusValueMax, xOffset + 2*(options.markers.radius.maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                }
+            }
+            if(oGraph.mapsets){
+                if(oGraph.mapsets.options.discrete){
+                    for(i=0;i<options.regions.discrete.length;i++){
+                        y = spacer + i*(spacer+20);
+                        hcr.rect(xOffset + markerLegendWidth + spacer, yOffset + y, lineHeight, lineHeight, 0).attr({
+                            fill: options.regions.discrete[i].color,
+                            opacity: 1,
+                            stroke: 'black',
+                            'stroke-width': 1
+                        }).add();
+                        hcr.text((i==0?'&#8804; ':'&gt; ')+options.regions.discrete[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    }
+                } else {
+                    y = spacer;
+                    hcr.text(oGraph.calculatedMapData.regionDataMax, xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    y += lineHeight + spacer;
+
+
+                    if(oGraph.calculatedMapData.regionDataMax>0){
+                        gradient(xOffset + markerLegendWidth + spacer, yOffset + y, oGraph.mapsets.options.posColor||MAP_COLORS.POS, MAP_COLORS.MID);
+                        y += 80 + spacer;
+                        if(oGraph.calculatedMapData.regionDataMin<0){
+                            hcr.text('0', xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                            y += lineHeight + spacer;
+                        }
+                    }
+                    if(oGraph.calculatedMapData.regionDataMin<0){
+                        gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets.options.negColor||MAP_COLORS.NEG);
+                        y += 80 + spacer;
+                    }
+                    hcr.text(oGraph.calculatedMapData.regionDataMin, xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    y += lineHeight + spacer;
+                }
+            }
+            return gLegend;
         }
         function bubbleCalc(){ //defined in the closure, there has access to calculatedMapData and other variabls specific to this panelGraph
             var markerTitle, regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
@@ -2681,7 +2898,6 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             }
         }
     }
-
     function isBubble(){
         return  oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble';
     }

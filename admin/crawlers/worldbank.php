@@ -32,7 +32,6 @@ truncate eventlog;
 truncate apirunjobs;
 truncate mapsets;
 delete from categories where catid>=5507;
-delete from captures where captureid>301636;
 delete from series where seriesid>173120;
 
 */
