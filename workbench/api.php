@@ -439,7 +439,7 @@ switch($command){
         $result = runQuery($sql,"GetMapsList");
         $output = array("status"=>"ok", "maps"=>array());
         while($row = $result->fetch_assoc()){
-            array_push($output["maps"], $row);
+            $output["maps"][$row['map']]= $row;
         }
         break;
     case "GetMapGeographies":
@@ -685,7 +685,7 @@ switch($command){
         . " INNER JOIN categoryseries cs ON  c.catid = cs.catid "
         . " INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid "
         . " LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid "
-        . " WHERE cs.seriesid = " . $seriesid
+        . " WHERE cs.seriesid = " . $seriesid . " and c.catid<>5506 " //don't select root category
         . " GROUP BY c.catid, c.apicatid, c.name";
         logEvent("GetCatChains: get series cats", $sql);
         $catrs = runQuery($sql);
@@ -694,9 +694,9 @@ switch($command){
             $chains["C".$catinfo["catid"]] = array(array("catid"=>$catinfo["catid"], "name"=>$catinfo["name"], "scount"=>$catinfo["scount"], "children"=>$catinfo["children"]));
         }
         while(BuildChainLinks($chains)){}  //work occurs in BuildChains (note: $chains passed by ref)
-        foreach($chains as $name => $chain){
+       /* foreach($chains as $name => $chain){
             array_pop($chain); // get rid of terminal cats added in BuildChainLinks
-        }
+        }*/
         $output = array("chains"=>$chains);
         $output["sid"] = $seriesid;
         $output["status"] = "ok";
@@ -1328,10 +1328,9 @@ function BuildChainLinks(&$chains){
             . " LEFT OUTER JOIN catcat childrencats ON c.catid = childrencats.parentid "
             //. " LEFT OUTER JOIN catcat parentcat ON c.catid = parentcat.childid "
             //. " LEFT OUTER JOIN catcat silbingcats ON parentcat.parentid = silbingcats.childid "
-            . " WHERE current.childid =" . $lastcat["catid"]
+            . " WHERE current.childid =" . $lastcat["catid"]."  and c.catid<>5506 " //don't select root cat
             . " GROUP BY c.catid, c.name limit 0, 1";
-            logEvent("BuildChainLinks", $sql);
-            $children  = runQuery($sql);
+            $children  = runQuery($sql, "BuildChainLinks");
             $firstrow = true;
             if($children->num_rows==0){
                 array_push($chain, array("catid"=>0));

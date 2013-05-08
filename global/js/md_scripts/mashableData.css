@@ -13,11 +13,25 @@
     font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
     overflow: hidden;
 }
+#mashabledata_panel h3{
+    display: inline-block;
+    margin: 5px;
+}
 #mashabledata_panel button{
     margin: 4px 5px 5px 10px;
     padding: 1px 7px;
     color: #000000;
     min-width: 55px;
+    cursor: pointer;
+}
+#mashabledata_panel select{
+    width: 100px;
+}
+#mashabledata_panel>span{
+    float: right;
+}
+#mashabledata_panel.h3{
+
 }
 #mashabledata_tabs{
     position: relative;
@@ -26,15 +40,9 @@
     height: 300px;
     border-top: thin grey solid;
 }
-#mashabledata_recents, #mashabledata_bookmarks{
-    background-color: rgb(207,226,243);
-    padding-top: 10px;
-    height: 200px;
-    border-top: thin black solid;
-    border-bottom: thin black solid;
-}
-#mashabledata_bookmarks{
-    display: none;
+#mashabledata_tabs>span{
+    float: right;
+    margin: 1px 5px;
 }
 #mashabledata_panel ol{
     padding: 10px 50px 0 0;
@@ -42,6 +50,8 @@
     position: relative;
     top: 5px;
 }
+
+
 #mashabledata_panel li{
     font-size: 12px;
     display: inline;
@@ -59,20 +69,50 @@
 #mashabledata_panel li span{
     padding-left: 10px;
 }
-#mashabledata_panel li:hover, #mashabledata_panel li.mashabledata_active{
-    background-color: rgb(207,226,243);
+#mashabledata_panel li.mashabledata_recents:hover,
+#mashabledata_panel li.mashabledata_recents.mashabledata_active{
+    background-color: #eef3f6;
+    border-top: 1px solid #6ca6cd;
+    border-left: 1px solid #6ca6cd;
+    border-right: 1px solid #6ca6cd;
     border-bottom: none;
-    color: #000000;
     padding-bottom: 1px;
     cursor: pointer;
 }
+#mashabledata_panel li.mashabledata_bookmarks:hover,
+#mashabledata_panel li.mashabledata_bookmarks.mashabledata_active{
+    background-color: #fbf9e9;
+    border-top: 1px solid #e3cf57;
+    border-left: 1px solid #e3cf57;
+    border-right: 1px solid #e3cf57;
+    border-bottom: none;
+    padding-bottom: 1px;
+    cursor: pointer;
+}
+
 #mashabledata_panel input.mashabledata_inputmsg{
     font-style: italic;
     color: #888888;
 }
-#mashabledata_scroll{
-    overflow-y: scroll;
+
+#mashabledata_recents{
+    background-color: #eef3f6;
+    border-top: 1px solid #6ca6cd;
+    border-bottom: 1px solid #6ca6cd;
+    padding-top: 10px;
     height: 200px;
+}
+#mashabledata_bookmarks{
+    background-color: #fbf9e9;
+    border-top: 1px solid #e3cf57;
+    border-bottom: 1px solid #e3cf57;
+    padding-top: 10px;
+    height: 200px;
+    display: none;
+}
+.mashabledata_scroll{
+    overflow-y: scroll;
+    height: 180px;
 }
 #mashabledata_panel table{
     border: none;

@@ -235,7 +235,7 @@ function setMapsetCounts($mapsetid){
 function setPointsetCounts($pointsetid){
     runQuery("truncate temp;");
     runQuery("insert into temp (id1, text1) select pointsetid , concat(group_concat(mapcount)) from (select pointsetid , concat('{\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid where "
-        .(isset($pointsetid)?"pointsetid =".$pointsetid:"pointsetid is not null")." and map <>'worldx' group by mapsetid, map) mc group by pointsetid;");
+    .(isset($pointsetid)?"pointsetid =".$pointsetid:"pointsetid is not null")." and map <>'worldx' group by mapsetid, map) mc group by pointsetid;");
     runQuery("update pointsets ps join temp t on ps.pointsetid=t.id1 set ms.counts=t.text1;");
     runQuery("truncate temp;");
 }

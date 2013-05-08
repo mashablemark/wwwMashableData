@@ -3,7 +3,6 @@
  */
 
 
-
 // Add ECMA262-5 Array methods if not supported natively
 //  indexOf not native to IE8
 if (!('indexOf' in Array.prototype)) {
@@ -17,7 +16,7 @@ if (!('indexOf' in Array.prototype)) {
         return -1;
     };
 }
-
+var $ = jQuery;
 window.MashableData = { //mashableData namespace
     version: "0.1",
     isMashableDefault: true, //default site setting.  May my overridden on a per page, per chart or per charted series basis as follows:
@@ -88,10 +87,12 @@ window.MashableData = { //mashableData namespace
     },
     storeChartSeries: function(thischart){
         var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, poppedKey, isMashable;
+        if(localStorage.getItem('md_authorized')=='N') return false;
+
+        //get recents and bookmark arrays from localStrage
         recents = JSON.parse(localStorage.recents||'[]');
         bookmarks = JSON.parse(localStorage.bookmarks||'[]');
 
-        if(localStorage.getItem('md_authorized')=='N') return false;
         for(i=0;i<thischart.series.length;i++){
             thisSerie = thischart.series[i];
             if(thisSerie.xAxis.options.type=='datetime'){ //only mash datetime series
@@ -141,11 +142,6 @@ window.MashableData = { //mashableData namespace
                      }
                      }*/
                     lsKey = serie.skey || (serie.name + '|' + serie.units);
-                    //get recents and bookmark arrays from localStrage
-                    recents = localStorage.recents;
-                    if(recents) recents = JSON.parse(recents); else recents = [];
-                    bookmarks = localStorage.bookmarks;
-                    if(bookmarks) bookmarks = JSON.parse(bookmarks); else bookmarks = [];
                     //check if exists and react accordingly
                     idxRecent = recents.indexOf(lsKey);
                     idxBookmark = bookmarks.indexOf(lsKey);
@@ -227,11 +223,11 @@ window.MashableData = { //mashableData namespace
          var right = - theme.exporting.buttons.exportButton.x;
          */
         var $panel, self=this, html = '<div id="mashabledata_panel">'
-            + 'Charting Toolbox:'
-            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<button id="mashabledata_print">print chart</button><span id="mashabledata_dlform"><select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVG</option></select><button id="mashabledata_download">download chart</button></span>':'')
+            + '<h3>Charting Toolbox</h3>'
+            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span><span id="mashabledata_dlform">download format:<select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVG</option></select><button id="mashabledata_download">download chart</button></span><button id="mashabledata_print">print chart</button></span>':'')
             + '<div id="mashabledata_tabs">'
-            +   '<ol><li class="mashabledata_active"><a data="#mashabledata_recents">recent<span id="mashabledata_rinfo">('+this.recents.length+')</span></a></li><li><a data="#mashabledata_bookmarks">bookmarked<span id="mashabledata_binfo">('+this.bookmarks.length+')</span></a></li></ol>'
-            +   '<input class="mashabledata_inputmsg" value="type here to filter series">'
+            +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span id="mashabledata_rinfo">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span id="mashabledata_binfo">('+this.bookmarks.length+')</span></a></li></ol>'
+            +   '<span>filter: <input class="mashabledata_inputmsg" value="type here to filter series"></span>'
             +   '<div id="mashabledata_recents">'
             +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed</th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.recents)+'</table></div>'
@@ -256,26 +252,28 @@ window.MashableData = { //mashableData namespace
             if(type=='PNG') chart.exportChart(); else chart.exportChart({type: type});
         });
         $panel.find('input.mashabledata_inputmsg')  //search box
-            .focus(function(){
-                $(this).removeClass('mashabledata_inputmsg');
+            .click(function(){
+                if($(this).hasClass('mashabledata_inputmsg')){
+                    $(this).removeClass('mashabledata_inputmsg').val('').focus();
+                }
             })
             .keyup(function(){
                 var table, visible, keyWords = $(this).val();
                 //filter recents table
                 table = $panel.find('#mashabledata_recents div.mashabledata_scroll table');
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
-                if(table.rows.length==visible){
+                if(table[0].rows.length==visible){
                     $panel.find('#mashabledata_rinfo').html('('+visible+')');
                 } else {
-                    $panel.find('#mashabledata_rinfo').html('('+visible+' of '+table.rows.length+')');
+                    $panel.find('#mashabledata_rinfo').html('('+visible+' of '+table[0].rows.length+')');
                 }
                 //filter bookmarks table
                 table = $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table');
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
-                if(table.rows.length==visible){
+                if(table[0].rows.length==visible){
                     $panel.find('#mashabledata_binfo').html('('+visible+')');
                 } else {
-                    $panel.find('#mashabledata_binfo').html('('+visible+' of '+table.rows.length+')');
+                    $panel.find('#mashabledata_binfo').html('('+visible+' of '+table[0].rows.length+')');
                 }
             });
         $panel.find('input:checkbox').click(function(){
@@ -284,8 +282,9 @@ window.MashableData = { //mashableData namespace
         function ableOK(){if($panel.find('input:checked').length>0) $('#mashabledata_ok').attr('disabled','disabled'); else $('#mashabledata_ok').removeAttr('disabled');}
         ableOK(); //initial
         $panel.find('ol a').click(function(){  //tabs
+            $panel.find('ol li').removeClass('mashabledata_active');
             $panel.find('#mashabledata_recents, #mashabledata_bookmarks').hide();
-            $panel.find($(this).attr('data')).show();
+            $panel.find($(this).closest('li').addClass('mashabledata_active').end().attr('data')).show();
         });
         $panel.find('th')  //table column sorts
             .wrapInner('<span title="sort this column"/>')
@@ -335,8 +334,8 @@ window.MashableData = { //mashableData namespace
                     }
                 }
             }
-            localStorage.recents = JSON.stringify(recents);
-            localStorage.bookmarks = JSON.stringify(bookmarks);
+            localStorage.recents = JSON.stringify(self.recents);
+            localStorage.bookmarks = JSON.stringify(self.bookmarks);
 
             //make array of checked keys
             var checkedKeys = [], series, y;
@@ -393,9 +392,10 @@ window.MashableData = { //mashableData namespace
 
     },
     makeRows: function(aryKeys){
-        var i, series, rows = '';
+        var i, series, rows = '', now = new Date(), viewed;
         for(i=0;i<aryKeys.length;i++){
             series = this.series[aryKeys[i]];
+            viewed = new Date(parseInt(series.viewed));
             rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(series.checked?' checked':'')+'></td>'
                 + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
                 + '<td class="mashabledata_cell_name" title="'+series.name+'">'+series.name+'</td>'
@@ -403,33 +403,22 @@ window.MashableData = { //mashableData namespace
                 + '<td class="mashabledata_cell_f">'+series.perodicity+'</td>'
                 + '<td class="mashabledata_cell_from" >'+series.from+'</td>'
                 + '<td class="mashabledata_cell_to">'+series.to+'</td>'
-                + '<td class="mashabledata_cell_viewed" title="'+series.viewed+'">'+series.viewed+'</td>'
+                + '<td class="mashabledata_cell_viewed" title="'+viewed.toLocaleString()+'">'+(viewed.toLocaleDateString()==now.toLocaleDateString()?viewed.toLocaleTimeString():viewed.toLocaleDateString())+'</td>'
                 + '<td class="mashabledata_cell_url" title="'+series.url+'"><a href="'+series.url+'">'+series.url.substr(series.url.substr(8).indexOf('/'))+'</a></td></tr>';
         }
         return rows;
     },
     searchTable: function(table, inputVal){
-        var allCells, found, regExp, visibleCount = 0;
+        var allCells, searchText, found, regExp, visibleCount = 0;
+        regExp = new RegExp(inputVal, 'i');
         table.find('tr').each(function(index, row)
         {
-            allCells = $(row).find('td');
-            if(allCells.length > 0)
-            {
-                found = false;
-                allCells.each(function(index, td)
-                {
-                    regExp = new RegExp(inputVal, 'i');
-                    if(regExp.test($(td).text()))
-                    {
-                        found = true;
-                        return false;
-                    }
-                });
-                if(found == true){
-                    $(row).show();
-                    visibleCount++;
-                } else $(row).hide();
-            }
+            searchText = row.cells[2].innerHTML + ' ' + row.cells[3].innerHTML;
+            found = regExp.test(searchText);
+            if(found == true){
+                $(row).show();
+                visibleCount++;
+            } else $(row).hide();
         });
         return visibleCount;
     },
@@ -517,5 +506,4 @@ $(document).ready(function(){
         });
     }
 });
-
 

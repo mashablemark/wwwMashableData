@@ -985,18 +985,29 @@ function getQuickViewData(btn){
     }
     var sids = [], usids=[];
     if(sHandle.charAt(0)=="U")usids.push(parseInt(sHandle.substr(1))); else sids.push(parseInt(sHandle.substr(1)));
-    callApi({command:  'GetMashableData',
-            sids: sids,
-            usids: usids
-        },
-        function(jsoData, textStatus, jqXH){
-            if(oMySeries[sHandle]){ //if this happens to be in mySeries...
-                oMySeries[sHandle].data = jsoData.series[sHandle].data;
-                oMySeries[sHandle].notes = jsoData.series[sHandle].notes;
+
+    if(window.mapsList) getQuickData();
+    else {
+        callApi({command: 'GetMapsList'}, function(result){ //TODO: coordinate/replace this with the jVectorMap list get
+            mapsList = result.maps; //global var
+            getQuickData();
+        });
+    }
+
+    function getQuickData(){
+        callApi({command:  'GetMashableData',
+                sids: sids,
+                usids: usids
+            },
+            function(jsoData, textStatus, jqXH){
+                if(oMySeries[sHandle]){ //if this happens to be in mySeries...
+                    oMySeries[sHandle].data = jsoData.series[sHandle].data;
+                    oMySeries[sHandle].notes = jsoData.series[sHandle].notes;
+                }
+                quickGraph(jsoData.series[sHandle],canAddSeries)
             }
-            quickGraph(jsoData.series[sHandle],canAddSeries)
-        }
-    );
+        );
+    }
 }
 function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra of series objects, or a complete grpah object
     oQuickViewSeries = obj; //store in global var
@@ -1014,7 +1025,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             $('#quick-view-controls').attr('data', handles.join(","));
         }
     } else {
-        if(obj.plots){ //a grahps object was passed in
+        if(obj.plots){ //a graphs object was passed in
             quickGraph = obj; //everything including title should be set by caller
         } else {
             quickGraph = emptyGraph();
@@ -1041,12 +1052,11 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         if(obj.mapsetid || obj.pointsetid){
             var $mapSelect =  $('select.quick-view-maps').html("");
             var mapOptions = "";
-            callApi({command: "GetAvailableMaps", mapsetid: obj.mapsetid, pointsetid: obj.pointsetid, geoid: obj.geoid}, function(jsoData, textStatus, jqXH){
-                for(var i=0;i<jsoData.maps.length;i++){
-                    mapOptions+='<option value="'+jsoData.maps[i].name+'|'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
-                }
-                $mapSelect.html(mapOptions);
-            });
+            for(var map in obj.geocounts){
+                mapOptions+='<option value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>';
+            }
+            $mapSelect.html(mapOptions);
+
 
             $('.quick-view-maps').show();
         } else $('.quick-view-maps').hide();
@@ -1129,14 +1139,15 @@ function quickViewToMap(){
     var pointsetid = oQuickViewSeries.pointsetid;
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
-    var map = $("select.quick-view-maps").val().split('|');
+    var map = $("select.quick-view-maps").val();
     if(oPanelGraphs[panelId] && oPanelGraphs[panelId].map && oPanelGraphs[panelId].map!=map){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+"map.  Additional map data can be added, but must use the same base map.")
         return null;
     }
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
-    oGraph.map = map[0];
-    oGraph.mapFile = map[1];
+    oGraph.map = map;
+    oGraph.mapconfig.legendLocation = mapsList[map].legend;
+    oGraph.mapFile = mapsList[map].jvectormap;
     require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
     if(!isNaN(mapsetid) && mapsetid>0){
         if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
@@ -1227,7 +1238,7 @@ function browseFromSeries(seriesId){
                     props = levelBranches[i].catProps;
                     $cell = $('<td class="cat-branch" rowspan="'+props.count+'" data="'+ props.catid +'" parentid="'+ props.parentid +'">'
                         + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1)?'<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)">show sibling categories</span>':'')
-                        + ((parseInt(props.scount)>0)?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">':'') + props.name +' (' + props.scount + ')'+ ((parseInt(props.scount)>0)?'</a>':'')
+                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">'+ props.name+ '(' + props.scount + ')</a>': props.name)
                         + ((props.children>0 && childless)?'<span class="ui-icon browse-right" data="'+ props.catid +'" onclick="showChildCats(this)">show child categories</span>':'')
                         + '</span></td>');
 
@@ -1763,7 +1774,9 @@ function showSeriesEditor(handle, map){
         }
     }
     function closeSeriesEditor(){
-        $("#data-editor").handsontable('destroy').attr('style','overflow:scroll;');
+        var $de = $("#data-editor");
+        $de.handsontable('destroy');  //handsontable does not support chaining
+        $de.attr('style','overflow:scroll;');
         $('div#edit-user-series').slideUp();
     }
 }
@@ -1784,7 +1797,7 @@ function showSiblingCats(spn){
     var $tcat;
     $tcat = $('table#cat-chains');
     $tcat.find('span.sibling, span.ui-icon-grip-dotted-vertical, span.browse-right').remove();
-    $tcat.removeClass("italics");
+    $tcat.find('span.italics').removeClass("italics");
     $tcat.find('td').children('br').remove();
     $tcat.find('.browse-rollup').removeClass("browse-rollup").addClass("browse-rolldown");
     $tcat.find('td.expanded').removeClass('expanded');
@@ -1798,13 +1811,13 @@ function showSiblingCats(spn){
             props = jsoData.siblings[i];
             if(props.catid==catId){
                 if(props.children>0){
-                    $td.find("span.chain").append(' <span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>');
+                    $td.find("span.chain").append('<span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>');
                 }
             } else {
-                $td.append('<br /><span class="ui-icon ui-icon-grip-dotted-vertical"></span><span class="sibling" data="'+ props.catid +'">'
-                    + ((parseInt(props.scount)>0)?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">':'') + props.name +' (' + props.scount + ')'+ ((parseInt(props.scount)>0)?'</a>':'')
+                $td.append('<div><span class="ui-icon ui-icon-grip-dotted-vertical"></span><span class="sibling" data="'+ props.catid +'">'
+                    + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name +' (' + props.scount + ')</a>':props.name)
                     + ((props.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>':'')
-                    + '</span>');
+                    + '</span></div>');
             }
 
         }
@@ -1819,10 +1832,10 @@ function showChildCats(spn){
         $("table#cat-chains tr").append($currentTd);
         for(var i=0;i<jsoData.children.length;i++){
             props = jsoData.children[i];
-            $currentTd.append('<span class="sibling" data="'+ props.catid +'" parentid="'+ catid +'">'
-                + ((parseInt(props.scount)>0)?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">':'') + props.name +' (' + props.scount + ')'+ ((parseInt(props.scount)>0)?'</a>':'')
+            $currentTd.append('<div><span class="sibling" data="'+ props.catid +'" parentid="'+ catid +'">'
+                + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name + ' (' + props.scount + ')</a>':props.name)+'</span>'
                 + ((props.children>0)?'<span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>':'')
-                + '</span><br />').addClass("expanded");
+                + '</div>').addClass("expanded");
         }
     });
     //rebuild the table root while fetching occurring, starting with clicked span working up
@@ -2427,6 +2440,7 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
         dataType: 'json',
         success: function(jsoData, textStatus, jqXHR){
             if(jsoData.status=="ok"){
+                console.info(params.command+': '+jsoData.exec_time);
                 callBack(jsoData, textStatus, jqXHR);
                 if(params.modal!='persist')unmask();
                 if(jsoData.msg) dialogShow('', jsoData.msg);

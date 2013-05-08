@@ -1836,7 +1836,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             '<button class="make-map" disabled="disabled">reset</button>' +
             '<button class="merge group hidden" disabled="disabled">group</button>' +
             '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
-            '<span class="right"><input type="checkbox" id="'+panelId+'-legend" class="legend"><label for="'+panelId+'-legend">legnd</label></span>' +
+            '<span class="right"><input type="checkbox" id="'+panelId+'-legend" class="legend"><label for="'+panelId+'-legend">legend</label></span>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -2604,8 +2604,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             var gLegend;
             $thisPanel.find('.legend').button().change(function(){
                 if ($(this).prop('checked')) {
+                    oGraph.mapconfig.showLegend = true;
                     gLegend = makeLegend($map, {
-                        legend:'TR',
+                        legend: oGraph.mapconfig.legendLocation||'TR',
                         markers:{
                             fill:{
                                 named:[
@@ -2688,6 +2689,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             switch((options.legend||'B').substr(1,1)){
                 case 'L':
                     xOffset = spacer;
+                    if(options.legend&&options.legend[0]=='T')xOffset+30; //space for zoom buttons
                     break;
                 case 'C':
                     xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer
