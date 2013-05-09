@@ -1147,6 +1147,7 @@ function quickViewToMap(){
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = mapsList[map].legend;
+    oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapFile = mapsList[map].jvectormap;
     require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
     if(!isNaN(mapsetid) && mapsetid>0){

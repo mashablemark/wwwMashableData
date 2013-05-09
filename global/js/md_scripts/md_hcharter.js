@@ -16,15 +16,54 @@ if (!('indexOf' in Array.prototype)) {
         return -1;
     };
 }
-var $ = jQuery;
+/**
+ * jQuery.fn.sortElements
+ * --------------
+ * @author James Padolsey (http://james.padolsey.com)
+ * @version 0.11
+ * @updated 18-MAR-2010
+ * Dual licensed under the MIT and GPL licenses.
+ */
+jQuery.fn.sortElements = (function(){
+    var sort = [].sort;
+    return function(comparator, getSortable) {
+        getSortable = getSortable || function(){return this;};
+        var placements = this.map(function(){
+            var sortElement = getSortable.call(this),
+                parentNode = sortElement.parentNode,
+            // Since the element itself will change position, we have
+            // to have some way of storing it's original position in
+            // the DOM. The easiest way is to have a 'flag' node:
+                nextSibling = parentNode.insertBefore(
+                    document.createTextNode(''),
+                    sortElement.nextSibling
+                );
+            return function() {
+                if (parentNode === this) {
+                    throw new Error(
+                        "You can't sort elements if any one is a descendant of another."
+                    );
+                }
+                // Insert before flag:
+                parentNode.insertBefore(this, nextSibling);
+                // Remove flag:
+                parentNode.removeChild(nextSibling);
+            };
+        });
+        return sort.call(this, comparator).each(function(i){
+            placements[i].call(getSortable.call(this));
+        });
+    };
+})();
+
 window.MashableData = { //mashableData namespace
-    version: "0.1",
+    version: "0.3",
     isMashableDefault: true, //default site setting.  May my overridden on a per page, per chart or per charted series basis as follows:
     //Setting chart.isMashable = false; overrides the defaultMashableDataSharing setting
     //Setting chart.series[x].isMashable = true;  overrides both the chart level and the global MashableDataSharing setting
     iframeLoaded: false,
     iframeRequested: false, //plumbing along with function md_iframe_load() to make sure message don't get sent before the iFrame is ready.
-    aMsg: [],  //if md_secure_xfer iFrame not ready, msg stored here instead of being posted. iFrame onload event fires md_iframe_load() which then post the satores messages
+    aMsg: [],  //if mashabledata_secure_xfer iFrame not ready, msg stored here instead of being posted. iFrame onload event fires md_iframe_load() which then post the satores messages
     recentsKey: null,
     bookmarksKey: null,
     bookmarks: [],
@@ -32,7 +71,7 @@ window.MashableData = { //mashableData namespace
     series: {},
     regDQuotes: /"/g, //by including her, the regex is compiled only once
     iframe_load: function (){  //post any backlogged messages and indicate state
-        var mdFrame = document.getElementById("md_secure_xfer").contentWindow; //document.getElementById("md_frame_holder");
+        var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow; 
         this.iframe_loaded = true; //global variable to indicate state
         for(var i=0;i<MashableData.aMsg.length;i++){
             mdFrame.postMessage(MashableData.aMsg[i], 'http://www.mashabledata.com/secure_xfer.php');
@@ -85,39 +124,39 @@ window.MashableData = { //mashableData namespace
         oSereiesInfo.to = MashableData.formatDateByPeriod(oSereiesInfo.maxDate, oSereiesInfo.perodicity);
         return oSereiesInfo
     },
-    storeChartSeries: function(thischart){
+    storeChartSeries: function(thisChart){
         var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, poppedKey, isMashable;
         if(localStorage.getItem('md_authorized')=='N') return false;
+        var title = thisChart.options.title?thisChart.options.title.text||'':'';
 
         //get recents and bookmark arrays from localStrage
         recents = JSON.parse(localStorage.recents||'[]');
         bookmarks = JSON.parse(localStorage.bookmarks||'[]');
-
-        for(i=0;i<thischart.series.length;i++){
-            thisSerie = thischart.series[i];
+        for(i=0;i<thisChart.series.length;i++){
+            thisSerie = thisChart.series[i];
             if(thisSerie.xAxis.options.type=='datetime'){ //only mash datetime series
                 if(typeof thisSerie.options.isMashable!='undefined'){
                     isMashable = thisSerie.options.isMashable;
                 } else {
-                    if(typeof thischart.options.isMashable!='undefined'){
-                        isMashable = thischart.options.isMashable;
+                    if(typeof thisChart.options.isMashable!='undefined'){
+                        isMashable = thisChart.options.isMashable;
                     } else {
                         isMashable = this.isMashableDefault;
                     }
                 }
-                if(isMashable){
+                if(isMashable&&(thisSerie.name ||(thisChart.title && thisChart.title.text&&thisChart.series.length==1) )){
                     serie = MashableData.calcSeriesInfo(thisSerie.data);
                     serie.data = [];
                     for(j=0;j<thisSerie.data.length;j++){
                         serie.data.push([thisSerie.data[j].x,thisSerie.data[j].y])
                     }
-                    serie.name = thisSerie.name||'untitled series';
+                    serie.name = thisSerie.fullName||(thisSerie.name?(title.length>0&&thisSerie.name.indexOf(title)==-1?title+': '+thisSerie.name:thisSerie.name):title);
                     serie.description = thisSerie.description;
                     serie.skey = thisSerie.skey;
-                    serie.graph = (thischart.options.title&&thischart.options.title.text)?thischart.options.title.text:'';
-                    serie.credit = (thischart.options.credits&&thischart.options.credits.text)?thischart.options.credits.text:null;
+                    serie.graph = (thisChart.options.title&&thisChart.options.title.text)?thisChart.options.title.text:'';
+                    serie.credit = (thisChart.options.credits&&thisChart.options.credits.text)?thisChart.options.credits.text:null;
                     serie.url = window.location.href;
-                    serie.units = thisSerie.units || (thisSerie.yAxis.options.title?thisSerie.yAxis.options.title.text:'');
+                    serie.units = thisSerie.units || (thisSerie.yAxis.options.title?thisSerie.yAxis.options.title.text||'':'');
                     serie.viewed = (new Date()).getTime();
 
                     /*var dataPortion = "";
@@ -141,7 +180,8 @@ window.MashableData = { //mashableData namespace
                      break;
                      }
                      }*/
-                    lsKey = serie.skey || (serie.name + '|' + serie.units);
+                    lsKey = serie.skey || (serie.name + '|' + serie.units + '|' + serie.perodicity);
+                    thisSerie.options.md_key = lsKey;  //store in chart object to be used to matched against table to fill check boxes
                     //check if exists and react accordingly
                     idxRecent = recents.indexOf(lsKey);
                     idxBookmark = bookmarks.indexOf(lsKey);
@@ -164,17 +204,15 @@ window.MashableData = { //mashableData namespace
         localStorage.bookmarks = JSON.stringify(bookmarks);
     },
     postSeries: function(serie){
-        if(!MashableData.iframeRequested) {  //add the iFrame is not already added
-            $('body').append('<div id="md_frame_holder" style="display:none"><iframe id="md_secure_xfer" onload="MashableData.iframe_load()" src="http://www.mashabledata.com/secure_xfer.php"></iframe></div>');
-            MashableData.iframeRequested = true;
+        if(!this.iframeRequested) {  //add the iFrame is not already added
+            jQuery('body').append('<div id="md_frame_holder" style="display:none"><iframe id="mashabledata_secure_xfer" onload="MashableData.iframe_load()" src="http://www.mashabledata.com/secure_xfer.php"></iframe></div>');
+            this.iframeRequested = true;
         }
-        if(MashableData.iframeLoaded){
-            var mdFrame = document.getElementById("md_secure_xfer").contentWindow;
-            if(md_iframe_loaded){ // this handles slow iFrame loads.  If not loaded, than store message until md_iframe_load fires
-                mdFrame.postMessage(JSON.stringify(serie), 'http://www.mashabledata.com/secure_xfer.php');
-            } else {
-                MashableData.aMsg.push(JSON.stringify(serie))
-            }
+        if(this.iframe_loaded){ // this handles slow iFrame loads.  If not loaded, than store message until md_iframe_load fires
+            var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow;
+            mdFrame.postMessage(JSON.stringify(serie), 'http://www.mashabledata.com/secure_xfer.php');
+        } else {
+            this.aMsg.push(JSON.stringify(serie))
         }
     },
     loadAllSeries: function(){
@@ -209,8 +247,9 @@ window.MashableData = { //mashableData namespace
         this.series[key].isDirty = true;
     },
     showPanel: function(chart){
-        $('#mashabledata_panel').remove();  //get rid of any open panels
+        jQuery('#mashabledata_panel').remove();  //get rid of any open panels
         this.loadAllSeries();
+        this.activeChart = chart;
 
         //from the old md_charter.js:
         /*var chartWidth = chart.chartWidth;
@@ -224,41 +263,43 @@ window.MashableData = { //mashableData namespace
          */
         var $panel, self=this, html = '<div id="mashabledata_panel">'
             + '<h3>Charting Toolbox</h3>'
-            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span><span id="mashabledata_dlform">download format:<select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVG</option></select><button id="mashabledata_download">download chart</button></span><button id="mashabledata_print">print chart</button></span>':'')
+            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVG</option></select><span><span id="mashabledata_dlform">download format:<button id="mashabledata_download">download chart</button></span><button id="mashabledata_print">print chart</button></span>':'')
             + '<div id="mashabledata_tabs">'
             +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span id="mashabledata_rinfo">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span id="mashabledata_binfo">('+this.bookmarks.length+')</span></a></li></ol>'
-            +   '<span>filter: <input class="mashabledata_inputmsg" value="type here to filter series"></span>'
+            +   '<span><input class="mashabledata_inputmsg" value="type here to filter series"></span>'
             +   '<div id="mashabledata_recents">'
-            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed</th><th class="mashabledata_cell_url">url</th></tr></table>'
+            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.recents)+'</table></div>'
             +   '</div>'
             +   '<div id="mashabledata_bookmarks">'
-            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed</th><th class="mashabledata_cell_url">url</th></tr></table>'
+            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.bookmarks)+'</table></div>'
             +   '</div>'
-            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="chart">add series to chart</label>'
-            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="md">open with MashableData.com</label>'
-            +   '<button id="mashabledata_ok">ok</button>'
+            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="chart" checked>update chart</label>'
+            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="md">open in the MashableData.com Workbench</label>'
+            +   '<button id="mashabledata_ok" disabled="disabled">ok</button>'
             +   '<button id="mashabledata_cancel">cancel</button>'
             + '</div>'
             + '</div>';
-        $panel = $(html).appendTo(chart.container);
+        $panel = jQuery(html).prependTo(chart.container);
         //events of control from ordered as displayed (top to bottom)
         $panel.find('#mashabledata_print').click(function(){ //print
             chart.print();
+            closePanel();
         });
         $panel.find('#mashabledata_download').click(function(){  //download
             var type = $panel.find('select').val();
             if(type=='PNG') chart.exportChart(); else chart.exportChart({type: type});
+            closePanel();
         });
         $panel.find('input.mashabledata_inputmsg')  //search box
             .click(function(){
-                if($(this).hasClass('mashabledata_inputmsg')){
-                    $(this).removeClass('mashabledata_inputmsg').val('').focus();
+                if(jQuery(this).hasClass('mashabledata_inputmsg')){
+                    jQuery(this).removeClass('mashabledata_inputmsg').val('').focus();
                 }
             })
             .keyup(function(){
-                var table, visible, keyWords = $(this).val();
+                var table, visible, keyWords = jQuery(this).val();
                 //filter recents table
                 table = $panel.find('#mashabledata_recents div.mashabledata_scroll table');
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
@@ -276,40 +317,40 @@ window.MashableData = { //mashableData namespace
                     $panel.find('#mashabledata_binfo').html('('+visible+' of '+table[0].rows.length+')');
                 }
             });
-        $panel.find('input:checkbox').click(function(){
-            ableOK();
+        $panel.find('input:checkbox, input:radio').change(function(){
+            jQuery('#mashabledata_ok').removeAttr('disabled');
         });
-        function ableOK(){if($panel.find('input:checked').length>0) $('#mashabledata_ok').attr('disabled','disabled'); else $('#mashabledata_ok').removeAttr('disabled');}
-        ableOK(); //initial
         $panel.find('ol a').click(function(){  //tabs
             $panel.find('ol li').removeClass('mashabledata_active');
             $panel.find('#mashabledata_recents, #mashabledata_bookmarks').hide();
-            $panel.find($(this).closest('li').addClass('mashabledata_active').end().attr('data')).show();
+            $panel.find(jQuery(this).closest('li').addClass('mashabledata_active').end().attr('data')).show();
         });
         $panel.find('th')  //table column sorts
-            .wrapInner('<span title="sort this column"/>')
+            .attr('title', 'click to sort on this column')
             .each(function(){
-                var $th = $(this), thIndex = $th.index(), inverse = false;
+                var $th = jQuery(this), thIndex = $th.index(), inverse = false;
                 $th.click(function(){
                     var table = $th.closest('div').find('div.mashabledata_scroll table');
                     table.find('td').filter(function(){
-                        return $(this).index() === thIndex;
+                        return jQuery(this).index() === thIndex;
                     }).sortElements(function(a, b){
-                            if( $.text([a]) == $.text([b]) )
+                            if( jQuery.text([a]) == jQuery.text([b]) )
                                 return 0;
-                            return $.text([a]) > $.text([b]) ?
+                            return jQuery.text([a]) > jQuery.text([b]) ?
                                 inverse ? -1 : 1
                                 : inverse ? 1 : -1;
                         }, function(){
                             // parentNode is the element we want to move
                             return this.parentNode;
                         });
+                    $panel.find('#mashabledata_asc, #mashabledata_desc').remove();
+                    $th.append('<span id="'+(inverse?'mashabledata_asc':'mashabledata_desc')+'"></span>')
                     inverse = !inverse;
                 });
             }
         );
         $panel.find('td.mashabledata_cell_bookmark span').click(function(){
-            var key = $(this).closest('tr').find('td.mashabledata_cell_check').attr('data');
+            var key = jQuery(this).closest('tr').find('td.mashabledata_cell_check').attr('data');
             if(self.series[key]){
                 if(self.series[key].bookmark) { //could have been deselected from either panel
                     self.unBookmarkSeries(key);
@@ -317,13 +358,13 @@ window.MashableData = { //mashableData namespace
                     $panel.find('#mashabledata_recents div.mashabledata_scroll td.mashabledata_cell_check[data=\''+key+'\'').addClass('mashabledata_nostar').removeClass('mashabledata_star');
                 } else { //must have been clicked in the recents panel
                     self.bookmarkSeries(key);
-                    $(this).addClass('mashabledata_star').removeClass('mashabledata_nostar');
-                    $(this).closest('tr').clone(true,true).prependTo($panel.find('#mashabledata_bookmarks div.mashabledata_scroll table'));
+                    jQuery(this).addClass('mashabledata_star').removeClass('mashabledata_nostar');
+                    jQuery(this).closest('tr').clone(true,true).prependTo($panel.find('#mashabledata_bookmarks div.mashabledata_scroll table'));
                 }
             }
         });
         $panel.find('#mashabledata_ok').click(function(){
-            //1. save what needs to be saved
+            //1. save bookmark changes needs to be saved
             for(var key in self.series){
                 if(self.series[key].isDirty){
                     if(self.bookmarks.indexOf(key)+self.recents.indexOf(key)==-1){
@@ -337,29 +378,30 @@ window.MashableData = { //mashableData namespace
             localStorage.recents = JSON.stringify(self.recents);
             localStorage.bookmarks = JSON.stringify(self.bookmarks);
 
-            //make array of checked keys
+            //2.make array of checked keys
             var checkedKeys = [], series, y;
-            $panel.find('input:checked').each(function(){
-                key = $(this).attr('data');
+            $panel.find('table input:checked').each(function(){
+                key = jQuery(this).attr('data');
                 if(checkedKeys.indexOf(key)==-1) checkedKeys.push(key);  //avoid double counting from recents + bookmarks
             });
 
-            if($panel.find('input.mashabledata_action').val()=='chart'){
+            if($panel.find('input:radio[name=mashabledata_action]:checked').val()=='chart'){
                 //2. if graph, add / remove series from chart
                 //2A. first remove
                 for(var i=0;i<chart.series.length;i++){
-                    if(chart.series[i].options.mash && checkedKeys.indexOf(chart.series[i].options.id)==-1) chart.series[i].remove();
+                    if(chart.series[i].options.md_key && checkedKeys.indexOf(chart.series[i].options.md_key)==-1){
+                        chart.series[i--].remove();  //need to backup one to account for the change in the series array
+                    }
                 }
                 //2B. now add
                 for(i=0;i<checkedKeys.length;i++){
-                    if(!chart.get(checkedKeys[i])){
+                    if(!self.hasSeries(checkedKeys[i])){
                         series = self.series[checkedKeys[i]];
                         for(y=0;y<chart.yAxis.length;y++){ //check for and add y-axis if necessary
-                            if(series.units == chart.yAxis[y].title.text || 'values') break;
+                            if((series.units || 'values') == chart.yAxis[y].options.title.text) break;
                         }
                         if(y==chart.yAxis.length){ //not found (no break) therefore add new yAxis
                             chart.addAxis({
-                                id: (series.units || 'values') +'-axis',
                                 title: {
                                     text: series.units || 'values'
                                 }
@@ -369,7 +411,7 @@ window.MashableData = { //mashableData namespace
                             name: series.name,
                             data: series.data,
                             mash: true,
-                            id: checkedKeys[i],
+                            md_key: checkedKeys[i],
                             yAxis: y
                         });
                     }
@@ -385,28 +427,44 @@ window.MashableData = { //mashableData namespace
                     self.postSeries(self.series[checkedKeys[i]]);
                 }
             }
+            closePanel();
         });
         $panel.find('#mashabledata_cancel').click(function(){
-            $panel.remove();
+            closePanel();
         });
+        function closePanel(){
+            $panel.slideUp(function(){$panel.remove();});
+        }
+        jQuery('#mashabledata_recents th.mashabledata_cell_check').click();  //sort by most recently viewed
 
     },
     makeRows: function(aryKeys){
-        var i, series, rows = '', now = new Date(), viewed;
+        var i, series, rows = '', now = new Date(), viewed, inChart;
         for(i=0;i<aryKeys.length;i++){
             series = this.series[aryKeys[i]];
             viewed = new Date(parseInt(series.viewed));
-            rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(series.checked?' checked':'')+'></td>'
+            inChart = this.hasSeries(aryKeys[i]);
+            rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(inChart?' checked><span>a'+series.viewed+'</span>':'><span>b'+series.viewed+'</span>')+'</td>'
                 + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
                 + '<td class="mashabledata_cell_name" title="'+series.name+'">'+series.name+'</td>'
                 + '<td class="mashabledata_cell_units" title="'+series.units+'">'+series.units+'</td>'
                 + '<td class="mashabledata_cell_f">'+series.perodicity+'</td>'
                 + '<td class="mashabledata_cell_from" >'+series.from+'</td>'
                 + '<td class="mashabledata_cell_to">'+series.to+'</td>'
-                + '<td class="mashabledata_cell_viewed" title="'+viewed.toLocaleString()+'">'+(viewed.toLocaleDateString()==now.toLocaleDateString()?viewed.toLocaleTimeString():viewed.toLocaleDateString())+'</td>'
-                + '<td class="mashabledata_cell_url" title="'+series.url+'"><a href="'+series.url+'">'+series.url.substr(series.url.substr(8).indexOf('/'))+'</a></td></tr>';
+                + '<td class="mashabledata_cell_viewed" title="'+viewed.toLocaleString()+'">'+(viewed.toLocaleDateString()==now.toLocaleDateString()?localeHM(viewed):viewed.toLocaleDateString())+'</td>'
+                + '<td class="mashabledata_cell_url" title="'+series.url+'">'+(series.url==window.location.href?(inChart?'current chart':'current page'):series.url.substr(series.url.substr(8).indexOf('/')).anchor(series.url))+'</td></tr>';
         }
         return rows;
+        function localeHM(dt){
+            var localeTime = dt.toLocaleTimeString(), pos = localeTime.lastIndexOf(':');
+            return localeTime.substr(0,pos)+localeTime.substr(pos+3);
+        }
+    },
+    hasSeries: function(md_key){
+        for(var i=0;i<this.activeChart.series.length;i++){
+            if(this.activeChart.series[i].options.md_key==md_key) return true;
+        }
+        return false;
     },
     searchTable: function(table, inputVal){
         var allCells, searchText, found, regExp, visibleCount = 0;
@@ -416,9 +474,9 @@ window.MashableData = { //mashableData namespace
             searchText = row.cells[2].innerHTML + ' ' + row.cells[3].innerHTML;
             found = regExp.test(searchText);
             if(found == true){
-                $(row).show();
+                jQuery(row).show();
                 visibleCount++;
-            } else $(row).hide();
+            } else jQuery(row).hide();
         });
         return visibleCount;
     },
@@ -443,7 +501,7 @@ window.MashableData = { //mashableData namespace
 };
 
 
-$(document).ready(function(){
+jQuery(document).ready(function(){
     if(Highcharts){
         var btnHeight = 20;
         var btnsWidth = 24;
@@ -467,7 +525,9 @@ $(document).ready(function(){
                             window.MashableData.showPanel(this);
                         },
                         text: 'tools',
-                        symbol: 'gear'
+                        symbol: 'gear',
+                        symbolSize: 20,
+                        symbolStrokeWidth: 1
                     }
                 }
             }
@@ -475,11 +535,11 @@ $(document).ready(function(){
 
         var highchartsOptions = Highcharts.setOptions(mashableDataHcTheme);
 
-        $.extend(Highcharts.Renderer.prototype.symbols, {
+        jQuery.extend(Highcharts.Renderer.prototype.symbols, {
             gear: function() {
-                var innerR =5;
-                var outterR=7;
-                var offset=11;
+                var innerR =7;
+                var outterR=9;
+                var offset=13;
                 var teeth=7;
                 var i=0;
                 var angle;
