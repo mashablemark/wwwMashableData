@@ -177,6 +177,21 @@ $(document).ready(function(){
     //loadMySeriesByKey('localSeries');  //load everything in localStorage & updates to/from cloud as needed
     setupMyGraphsTable(); //loaded on sync account.  No local storage for graphs.
 
+    $('#series-table_filter input').change(function(){
+        if(window.location.href.indexOf('t=ms')==-1){
+            hasher.replaceHash(getPanelHash());
+        } else {
+            setPanelHash();
+        }
+    });
+    $('#my_graphs_table_filter input').change(function(){
+        if(window.location.href.indexOf('t=mg')==-1){
+            hasher.replaceHash(getPanelHash());
+        } else {
+            setPanelHash();
+        }
+    });
+
     var $tab_title_input = $('#tab_title'), $tab_content_input = $('#tab_content');
 
     // tabs init with a custom tab template and an "add" callback filling in the content
@@ -218,7 +233,71 @@ $(document).ready(function(){
     $('ul#series-tabs').click(function(){
         showGraphEditor()
     });
+
+    hasher.changed.add(parseHash); //add hash change listener
+    hasher.initialized.add(parseHash); //add initialized listener (to grab initial value in case it is already set)
+    hasher.init(); //initialize hasher (start listening for history changes)
 });
+
+function parseHash(newHash, oldHash){
+    var $search, oH={}, aryPair, aryH = newHash.split('&');
+    for(var i=0;i<aryH.length;i++){
+        aryPair = aryH[i].split('=');
+        oH[aryPair[0]] = aryPair[1];
+    }
+    if(oH.t){
+        switch(oH.t.toLowerCase()){
+            case 'ms': //my series
+                $('#series-tabs').find('li.local-series a').click();
+                $search = $('#series-table_filter').find('input');
+                if(oH.s && decodeURI(oH.s)!=$search.val()){
+                    $search.val(decodeURI(oH.s));
+                }
+                break;
+            case 'cs': //cloud series
+                $('#series-tabs').find('li.cloud-series a').click();
+                $search = $('#series_search_text');
+                if(oH.s && decodeURI(oH.s)!=$search.val()){
+                    $search.val(decodeURI(oH.s));
+                    $('#seriesSearchBtn').click();  //to exec search
+                }
+                $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
+                $('#series_search_source').val(oH.api||'all'); //search executes on API change
+                $('#public-mapset-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
+
+                break;
+            case 'mg': //my graphs
+                $('#series-tabs').find('li.my-graphs a').click();
+                $search = $('#my_graphs_table_filter').find('input');
+                if(oH.s && decodeURI(oH.s)!=$search.val()){
+                    $search.val(decodeURI(oH.s));
+                }
+                break;
+            case 'cg': //cloud graphs
+                $('#series-tabs').find('li.public-graphs a').click();
+                $search = $('#public_graphs_search').find('input');
+                if(oH.s && decodeURI(oH.s)!=$search.val()){
+                    $search.val(decodeURI(oH.s));
+                    $('#graphsSearchBtn').click();
+                }
+                break;
+            default: //graphTab
+                var $graphTab = $('#graph-tabs').find('a[href=#graphTab'+oH.t.substr(1)+']');
+                if($graphTab.length==1) {
+                    $graphTab.click();
+                } else {
+                    if(oH.g){
+                        //TODO: load the graph
+                    }
+                }
+        }
+    }
+}
+function setHashSilently(hash){
+    hasher.changed.active = false; //disable changed signal
+    hasher.setHash(hash); //set hash without dispatching changed signal
+    hasher.changed.active = true; //re-enable signal
+}
 
 function resizeCanvas(){
     var winHeight = Math.max(window.innerHeight-10, layoutDimensions.widths.windowMinimum);
@@ -643,6 +722,7 @@ function seriesCloudSearch(){
     }
     $('#tblPublicSeries_filter input').val(searchText);
     dtPublicSeries.fnFilter(searchText);
+    setPanelHash();
 }
 function getPublicSeriesByCat(a){
     var titleSearch = 'title:"' + $(a).text() + '"';
@@ -659,6 +739,7 @@ function graphsCloudSearch(event){
         searchText = '+' + searchText.replace(/ /g,' +');
         $('#tblPublicGraphs_filter input').val(searchText);
         dtPublicGraphs.fnFilter(searchText);
+        setPanelHash();
     }
 }
 function getValue(obj){
@@ -1070,7 +1151,6 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     }
 
     var graphOptions = '<option value="new">new graph</option>';
-    var visiblePanel = visiblePanelId();
     $('div.graph-panel').each(function(){
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
@@ -1133,6 +1213,7 @@ function quickViewToChart(btn){
     }
     quickViewClose();
     hideGraphEditor();  //show graph instead My Series table of $('#local-series').click();
+    setPanelHash();
 }
 function quickViewToMap(){
     var mapsetid = oQuickViewSeries.mapsetid;
@@ -1175,9 +1256,8 @@ function quickViewToMap(){
         });
         unmask();
         hideGraphEditor();
+        setPanelHash();
     });
-
-
     quickViewClose();
 }
 function quickViewClose(){
@@ -2401,7 +2481,31 @@ function seriesPanel(anchorClicked){
     $(anchorClicked).parent().addClass("ui-tabs-selected ui-state-active");
     $(panelToDeactive).hide();
     $(panelToActivate).show().find(".dataTables_filter input,#series_search_text,#graphs_search_text").get(0).focus();
+    setPanelHash();
     return false;
+}
+
+function getPanelHash(){
+    var picker = $("#series-tabs li.ui-tabs-selected a").attr('data');
+    switch(picker){
+        case '#local-series':
+            return encodeURI('t=ms&s='+$('#series-table_filter input').val());
+        case '#cloud-series':
+            return encodeURI('t=cs&s='+$('#series_search_text').val()+'&f='+$('#series_search_periodicity').val()+'&api='+$('#series_search_source').val()+'&sets='+$('#public-mapset-radio').find('input:checked').val());
+        case '#myGraphs':
+            return encodeURI('t=mg&s='+$('#my_graphs_table_filter input').val());
+        case '#publicGraphs':
+            return encodeURI('t=cg&s='+$('#public_graphs_search input').val());
+        default:
+            var visiblePanel = visiblePanelId();
+            if(visiblePanel){
+                return encodeURI('t=g'+visiblePanel.substr(8));
+            }
+    }
+}
+function setPanelHash(){
+    var hash = getPanelHash();
+    if(hash) setHashSilently(hash);
 }
 
 function notLoggedInWarningDisplayed(){

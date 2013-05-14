@@ -181,6 +181,7 @@ window.MashableData = { //mashableData namespace
                      }
                      }*/
                     lsKey = serie.skey || (serie.name + '|' + serie.units + '|' + serie.perodicity);
+                    if(!serie.skey) serie.md_key = lsKey;
                     thisSerie.options.md_key = lsKey;  //store in chart object to be used to matched against table to fill check boxes
                     //check if exists and react accordingly
                     idxRecent = recents.indexOf(lsKey);

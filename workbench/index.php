@@ -25,6 +25,8 @@
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
     <script type="text/javascript" src="js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
     <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
+    <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
+    <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
     <script type="text/javascript" src="workbench.js"></script>
     <script type="text/javascript" src="graph.js"></script>
     <script type="text/javascript" src="common.js"></script>
@@ -191,7 +193,7 @@
                 <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
             </fieldset>
             <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
-            <button onclick="quickViewClose()">Close</button>
+            <button class="right" onclick="quickViewClose()">Close</button>
         </div>
     </div>
 </div>
