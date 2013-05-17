@@ -71,7 +71,7 @@ window.MashableData = { //mashableData namespace
     series: {},
     regDQuotes: /"/g, //by including her, the regex is compiled only once
     iframe_load: function (){  //post any backlogged messages and indicate state
-        var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow; 
+        var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow;
         this.iframe_loaded = true; //global variable to indicate state
         for(var i=0;i<MashableData.aMsg.length;i++){
             mdFrame.postMessage(MashableData.aMsg[i], 'http://www.mashabledata.com/secure_xfer.php');
@@ -125,7 +125,7 @@ window.MashableData = { //mashableData namespace
         return oSereiesInfo
     },
     storeChartSeries: function(thisChart){
-        var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, poppedKey, isMashable;
+        var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, oldSerieString, poppedKey, isMashable;
         if(localStorage.getItem('md_authorized')=='N') return false;
         var title = thisChart.options.title?thisChart.options.title.text||'':'';
 
@@ -193,6 +193,12 @@ window.MashableData = { //mashableData namespace
                     }
                     if(idxRecent>=0) recents.splice(idxRecent,1); //remove it from the middle if it existed
                     recents.unshift(lsKey); //add it to the top
+                    if(idxBookmark!=-1){
+                        oldSerieString = localStorage.getItem(lsKey);
+                        if (oldSerieString){
+                            serie.bookmark = JSON.parse(oldSerieString).bookmark;
+                        }
+                    }
                     localStorage.setItem(lsKey, JSON.stringify(serie));
                 }
             }
@@ -241,10 +247,18 @@ window.MashableData = { //mashableData namespace
     bookmarkSeries: function(key){
         this.series[key].bookmark = (new Date()).getTime();
         this.series[key].isDirty = true;
+        var index =  this.bookmarks.indexOf(key);
+        if(index!=-1) this.bookmarks.splice(index,1);
+        this.bookmarks.unshift(key);
     },
     unBookmarkSeries: function(key){
         MashableData.bookmarks.splice(MashableData.bookmarks.indexOf(key),1);
         delete this.series[key].bookmark;
+        var index =  this.bookmarks.indexOf(key);
+        if(index!=-1) this.bookmarks.splice(index,1);
+        if(this.recents.indexOf(key)==-1){
+            delete this.series[key];
+        }
         this.series[key].isDirty = true;
     },
     showPanel: function(chart){
@@ -264,9 +278,10 @@ window.MashableData = { //mashableData namespace
          */
         var $panel, self=this, html = '<div id="mashabledata_panel">'
             + '<h3>Charting Toolbox</h3>'
-            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<select><option value="PNG">PNG</option><option value="image/jpeg">JPG</option><option value="application/pdf">PDF</option><option value="image/svg+xml">SVG</option></select><span><span id="mashabledata_dlform">download format:<button id="mashabledata_download">download chart</button></span><button id="mashabledata_print">print chart</button></span>':'')
+            //+ ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<fieldset><legend>&nbsp;Download chart as file&nbsp;</legend><a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a></fieldset><button id="mashabledata_print">print chart</button>':'')
+            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span>Download chart as: <a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a><button id="mashabledata_print">print chart</button></span>':'')
             + '<div id="mashabledata_tabs">'
-            +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span id="mashabledata_rinfo">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span id="mashabledata_binfo">('+this.bookmarks.length+')</span></a></li></ol>'
+            +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span class="mashabledata_info">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span class="mashabledata_info">('+this.bookmarks.length+')</span></a></li></ol>'
             +   '<span><input class="mashabledata_inputmsg" value="type here to filter series"></span>'
             +   '<div id="mashabledata_recents">'
             +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
@@ -276,20 +291,21 @@ window.MashableData = { //mashableData namespace
             +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.bookmarks)+'</table></div>'
             +   '</div>'
+            +   '<span class="mashabledata_these">applies to</span> <span id="mashabledata_check_all">check all</span> '
             +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="chart" checked>update chart</label>'
             +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="md">open in the MashableData.com Workbench</label>'
             +   '<button id="mashabledata_ok" disabled="disabled">ok</button>'
-            +   '<button id="mashabledata_cancel">cancel</button>'
+            +   '<button id="mashabledata_cancel">close</button>'
             + '</div>'
             + '</div>';
         $panel = jQuery(html).prependTo(chart.container);
         //events of control from ordered as displayed (top to bottom)
-        $panel.find('#mashabledata_print').click(function(){ //print
+        $panel.find('').click(function(){ //print
             chart.print();
             closePanel();
         });
-        $panel.find('#mashabledata_download').click(function(){  //download
-            var type = $panel.find('select').val();
+        $panel.find('a.mashableddata-jpg, a.mashableddata-svg, a.mashableddata-pdf, mashableddata-png').click(function(){  //download
+            var type = jQuery(this).attr('data');
             if(type=='PNG') chart.exportChart(); else chart.exportChart({type: type});
             closePanel();
         });
@@ -304,19 +320,11 @@ window.MashableData = { //mashableData namespace
                 //filter recents table
                 table = $panel.find('#mashabledata_recents div.mashabledata_scroll table');
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
-                if(table[0].rows.length==visible){
-                    $panel.find('#mashabledata_rinfo').html('('+visible+')');
-                } else {
-                    $panel.find('#mashabledata_rinfo').html('('+visible+' of '+table[0].rows.length+')');
-                }
+                $panel.find('li.mashabledata_recents span').html('('+visible+(table[0].rows.length==visible?'':' of '+table[0].rows.length)+')');
                 //filter bookmarks table
                 table = $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table');
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
-                if(table[0].rows.length==visible){
-                    $panel.find('#mashabledata_binfo').html('('+visible+')');
-                } else {
-                    $panel.find('#mashabledata_binfo').html('('+visible+' of '+table[0].rows.length+')');
-                }
+                $panel.find('li.mashabledata_bookmarks span').html('('+visible+(table[0].rows.length==visible?'':' of '+table[0].rows.length)+')');
             });
         $panel.find('input:checkbox, input:radio').change(function(){
             jQuery('#mashabledata_ok').removeAttr('disabled');
@@ -344,42 +352,47 @@ window.MashableData = { //mashableData namespace
                             // parentNode is the element we want to move
                             return this.parentNode;
                         });
-                    $panel.find('#mashabledata_asc, #mashabledata_desc').remove();
-                    $th.append('<span id="'+(inverse?'mashabledata_asc':'mashabledata_desc')+'"></span>')
+                    $panel.find('.mashabledata_asc, .mashabledata_desc').remove();
+                    $th.append('<span class="'+(inverse?'mashabledata_asc':'mashabledata_desc')+'"></span>')
                     inverse = !inverse;
                 });
             }
         );
         $panel.find('td.mashabledata_cell_bookmark span').click(function(){
-            var key = jQuery(this).closest('tr').find('td.mashabledata_cell_check').attr('data');
+            var key = jQuery(this).closest('tr').find('input').attr('data');
             if(self.series[key]){
                 if(self.series[key].bookmark) { //could have been deselected from either panel
                     self.unBookmarkSeries(key);
-                    $panel.find('#mashabledata_bookmarks div.mashabledata_scroll td.mashabledata_cell_check[data=\''+key+'\'').remove();
-                    $panel.find('#mashabledata_recents div.mashabledata_scroll td.mashabledata_cell_check[data=\''+key+'\'').addClass('mashabledata_nostar').removeClass('mashabledata_star');
+                    $panel.find('#mashabledata_bookmarks div.mashabledata_scroll input[data=\''+key+'\']').closest('tr').remove();
+                    $panel.find('#mashabledata_recents div.mashabledata_scroll input[data=\''+key+'\']').closest('tr').find('td.mashabledata_cell_bookmark span').addClass('mashabledata_nostar').removeClass('mashabledata_star');
                 } else { //must have been clicked in the recents panel
                     self.bookmarkSeries(key);
                     jQuery(this).addClass('mashabledata_star').removeClass('mashabledata_nostar');
-                    jQuery(this).closest('tr').clone(true,true).prependTo($panel.find('#mashabledata_bookmarks div.mashabledata_scroll table'));
+                    $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table').prepend(self.makeRows([key]));
                 }
+                //update the tab with the counts
+                var $table = $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table');
+                var visible = $table.find('tr:visible').length;
+                $panel.find('li.mashabledata_bookmarks span').html('('+visible+($table[0].rows.length==visible?'':' of '+$table[0].rows.length)+')');
+
+                updateLocalStorage();
+            }
+        });
+        $panel.find('#mashabledata_check_all').click(function(){
+            if(this.innerHTML=='check all'){
+                $panel.find('div>div:visible input:not(:checked)').each(function(){
+                    this.checked = true;
+                });
+                this.innerHTML='uncheck all';
+            } else {
+                $panel.find('div>div:visible input:checked').each(function(){
+                    this.checked = false;
+                });
+                this.innerHTML='check all';
             }
         });
         $panel.find('#mashabledata_ok').click(function(){
-            //1. save bookmark changes needs to be saved
-            for(var key in self.series){
-                if(self.series[key].isDirty){
-                    if(self.bookmarks.indexOf(key)+self.recents.indexOf(key)==-1){
-                        localStorage.removeItem(key);
-                    } else {
-                        delete self.series[key].isDirty;
-                        localStorage.setItem(key, JSON.stringify(self.series[key]));
-                    }
-                }
-            }
-            localStorage.recents = JSON.stringify(self.recents);
-            localStorage.bookmarks = JSON.stringify(self.bookmarks);
-
-            //2.make array of checked keys
+            //1.make array of checked keys
             var checkedKeys = [], series, y;
             $panel.find('table input:checked').each(function(){
                 key = jQuery(this).attr('data');
@@ -437,7 +450,21 @@ window.MashableData = { //mashableData namespace
             $panel.slideUp(function(){$panel.remove();});
         }
         jQuery('#mashabledata_recents th.mashabledata_cell_check').click();  //sort by most recently viewed
-
+        function updateLocalStorage(){
+            //save bookmark changes
+            for(var key in self.series){
+                if(self.series[key].isDirty){
+                    if(self.bookmarks.indexOf(key)+self.recents.indexOf(key)==-1){
+                        localStorage.removeItem(key);
+                    } else {
+                        delete self.series[key].isDirty;
+                        localStorage.setItem(key, JSON.stringify(self.series[key]));
+                    }
+                }
+            }
+            localStorage.recents = JSON.stringify(self.recents);
+            localStorage.bookmarks = JSON.stringify(self.bookmarks);
+        }
     },
     makeRows: function(aryKeys){
         var i, series, rows = '', now = new Date(), viewed, inChart;
@@ -535,9 +562,9 @@ jQuery(document).ready(function(){
         };
 
         var highchartsOptions = Highcharts.setOptions(mashableDataHcTheme);
-
         jQuery.extend(Highcharts.Renderer.prototype.symbols, {
             gear: function() {
+//TODO: comment out calculations and return path as a string
                 var innerR =7;
                 var outterR=9;
                 var offset=13;
