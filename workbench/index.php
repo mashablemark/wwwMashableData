@@ -56,13 +56,25 @@
     <!--script type="text/javascript" src="templates.js"></script-->
 
 </head>
-<script type="unknown-mustche-template" id="mtemplate_quickAdd">
-    <ul>
-        {{#words}}
-        <li>{{.}}</li>
-        {{/words}}
-    </ul>
+<script type="text/javascript">
 </script>
+<?php
+    if (apc_exists('app:mapsList') !== false)
+    {
+        $data = apc_get('app:mapsList');
+    }
+    else
+    {
+        include_once("/global/php/common_functions.php");
+        $result = runQuery("select * from maps order by name", "application mapsList");
+        $data = array();
+        while($row = $result->fetch_assoc()){
+            array_push($data, $row);
+        }
+        apc_store('app:mapsList', $data);
+    }
+print("var mapsList=".json_encode($data).";");
+?>
 
 
 <body onresize="resizeCanvas();">
@@ -82,8 +94,8 @@
         </div>
         <button style="position:absolute;left:650px;top:5px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu--><fb:login>
-        <button id="menu-help" class="prov-float-btn">Help</button>
-        <button id="menu-account" class="prov-float-btn">Sign in</button>
+            <button id="menu-help" class="prov-float-btn">Help</button>
+            <button id="menu-account" class="prov-float-btn">Sign in</button>
     </div>
     <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER DATATABLES -->
         <!--BEGIN LOCAL SERIES-->
@@ -181,7 +193,7 @@
 <a class="show-graph-link" href="#outer-show-graph-div"></a>
 <div id="dwrap" style="display:none;width:100%;height:90%;">
     <div id="outer-show-graph-div" style="width:100%;height:100%;position:relative;background-color:white;">
-        <div id="highcharts-div" style="width:90%;height:60%;position:static;"></div>
+        <div id="highcharts-div" style="width:92%;height:60%;position:static;"></div>
         <br />
         <div id="qv-info"></div>
         <br />
@@ -193,7 +205,7 @@
                 <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
             </fieldset>
             <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
-            <button class="right" onclick="quickViewClose()">Close</button>
+            <button id="quick-view-close" class="right" onclick="quickViewClose()">Close</button>
         </div>
     </div>
 </div>

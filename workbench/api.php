@@ -450,7 +450,31 @@ switch($command){
             array_push($output["geographies"], $row);
         }
         break;
+    case "ChangeMaps":
+        $sql = "select g1.regexes as regex, g2.name as replacement from geographies g1, geographies g2 "
+        ." where g1.geoid=".intval($_POST["fromgeoid"])." and g2.geoid=".intval($_POST["togeoid"]);
+        $result = runQuery($sql, "ChangeMaps: get bunny regex");
+        $output = $result->fetch_assoc();
+        $output["status"] = "ok";
+        $output["bunnies"] = array();
+        $bunnies = $_POST["bunnies"];
+        if(isset($bunnies )){
+            foreach($bunnies as $bunny=>$set){
+                $sid = substr($bunny,1); //remove the leading U or S
+                $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+                    . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
+                    . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
+                    . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
+                    . " WHERE s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
+                $result = runQuery($sql, "ChangeMaps: get series");
+                if($result->num_rows==1){
+                    $output["bunnies"][$bunny] = $result->fetch_assoc();
+                    $output["bunnies"][$bunny]["handle"] = ($output["bunnies"][$bunny]["userid"]===null?"S":"U").$output["bunnies"][$bunny]["id"];
+                }
+            }
+        }
 
+        break;
     case 'GetBunnySeries':
         $mapsetids = $_POST["mapsetids"];
         if(!isset($_POST["geoid"]) || intval($_POST["geoid"])==0){
@@ -478,7 +502,7 @@ switch($command){
                 if(intval($row["userid"])>0){
                     requiresLogin();
                     if(intval($_POST["uid"])==$row["userid"] || ($orgId==$row["ordig"] &&  $orgId!=0)){
-                        $row["handle"] = "U".$row["seriesid"];
+                        $row["handle"] = "U".$row["id"];
                         $output["assets"]["M".$mapsetids[$i]] = $row;
                     } else {
                         $output["allfound"]=false;
@@ -486,7 +510,7 @@ switch($command){
                         break;
                     }
                 } else {
-                    $row["handle"] = "S".$row["seriesid"];
+                    $row["handle"] = "S".$row["id"];
                     $output["assets"]["M".$mapsetids[$i]] = $row;
                 }
                 $geoid = $row["bunny"];
@@ -1523,21 +1547,22 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
         $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run
     }
     $sql .= " ORDER by mapsetid";
-    $result = runQuery($sql);
+    $result = runQuery($sql, "getMapSets");
     $currentMapSetId = 0;
     while($row = $result->fetch_assoc()){
         if($currentMapSetId!=$row["mapsetid"]){ //new mapset = need header
             $currentMapSetId=$row["mapsetid"];
             $mapout["M".$currentMapSetId] = array(
                 "mapsetid"=>$currentMapSetId,
-                "maps"=>$row["counts"],
+                "maps"=>array(),
                 "name"=>$row["name"],
                 "units"=>$row["units"],
                 "period"=>$row["period"],
                 "data"=>array()
             );
             if($row["counts"]!==null) {
-                $ary = json_decode('{"a":{'.$aRow["counts"].'}}', true);
+                $sCounts = '{"a":{'.$row["counts"].'}}';
+                $ary = json_decode($sCounts, true);
                 $mapout["M".$currentMapSetId]["maps"] = $ary["a"];
             }
         }

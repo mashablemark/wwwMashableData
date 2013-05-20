@@ -164,7 +164,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
     chart = new Highcharts.Chart(oChartOptions);
     oHighCharts[panelId] = chart;
     annotations.plotAllLinearRegressions();
-        //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
+    //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
     $chart
         .mouseover(function(e){
             if(annotations.banding){
@@ -820,77 +820,77 @@ function createSerieFromPlot(oGraph, plotIndex){
     calculatedSeries.period = components[0].options.transformedPeriod || oGraph.assets[components[0].handle].period;
     if(!plot.formula) plot.formula = plotFormula(plot);
 
-/*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
-        calculatedSeries.data = oGraph.assets[components[0].handle].data;
-    } else {*/
-        //THE BRAINS:
-        var expression = 'return ' + plot.formula.formula.replace(patVariable,'values.$1') + ';';
-        var compute = new Function('values', expression);
+    /*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
+     calculatedSeries.data = oGraph.assets[components[0].handle].data;
+     } else {*/
+    //THE BRAINS:
+    var expression = 'return ' + plot.formula.formula.replace(patVariable,'values.$1') + ';';
+    var compute = new Function('values', expression);
 
-        //1. rearrange series data into single object by date keys
-        var compSymbols = [], symbol;
-        for(i=0;i<components.length;i++ ){
-            symbol = compSymbol(i);
-            compSymbols.push(symbol); //calculate once and use as lookup below
-            //TODO: apply series transforms / down shifting here instead of just parroting series data
-            data = oGraph.assets[components[i].handle].data.split("||");
-            for(j=0; j<data.length; j++){
-                point = data[j].split("|");
-                if(!oComponentData[point[0].toString()]){
-                    oComponentData[point[0].toString()] = {};
-                }
-                oComponentData[point[0].toString()][symbol] = point[1];
+    //1. rearrange series data into single object by date keys
+    var compSymbols = [], symbol;
+    for(i=0;i<components.length;i++ ){
+        symbol = compSymbol(i);
+        compSymbols.push(symbol); //calculate once and use as lookup below
+        //TODO: apply series transforms / down shifting here instead of just parroting series data
+        data = oGraph.assets[components[i].handle].data.split("||");
+        for(j=0; j<data.length; j++){
+            point = data[j].split("|");
+            if(!oComponentData[point[0].toString()]){
+                oComponentData[point[0].toString()] = {};
             }
+            oComponentData[point[0].toString()][symbol] = point[1];
         }
-        //2. calculate value for each date key (= grouped points)
-        var required = !plot.options.componentData || plot.options.componentData=='required';
-        var missingAsZero =  plot.options.componentData=='missingAsZero';
-        var nullsMissingAsZero =  plot.options.componentData=='nullsMissingAsZero';
+    }
+    //2. calculate value for each date key (= grouped points)
+    var required = !plot.options.componentData || plot.options.componentData=='required';
+    var missingAsZero =  plot.options.componentData=='missingAsZero';
+    var nullsMissingAsZero =  plot.options.componentData=='nullsMissingAsZero';
 
-        var breakNever = !plot.options.breaks || plot.options.breaks=='never';
-        var breakNulls = plot.options.breaks=='nulls';
-        var breakMissing = plot.options.breaks=='missing';
+    var breakNever = !plot.options.breaks || plot.options.breaks=='never';
+    var breakNulls = plot.options.breaks=='nulls';
+    var breakMissing = plot.options.breaks=='missing';
 
-        for(dateKey in oComponentData){
-            valuesObject = {};
-            y = true;
-            for(i=0;i<compSymbols.length;i++ ){
-                if(!isNaN(oComponentData[dateKey][compSymbols[i]])){
-                    valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
-                } else {
-                    if(oComponentData[dateKey][compSymbols[i]]=='null'){
-                        if(nullsMissingAsZero){
-                            valuesObject[compSymbols[i]] = 0;
-                        } else {
-                            y = null;
-                            break;
-                        }
+    for(dateKey in oComponentData){
+        valuesObject = {};
+        y = true;
+        for(i=0;i<compSymbols.length;i++ ){
+            if(!isNaN(oComponentData[dateKey][compSymbols[i]])){
+                valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
+            } else {
+                if(oComponentData[dateKey][compSymbols[i]]=='null'){
+                    if(nullsMissingAsZero){
+                        valuesObject[compSymbols[i]] = 0;
                     } else {
-                        if(required) {
-                            y = null;
-                            break;
-                        } else {
-                            valuesObject[compSymbols[i]] = 0;
-                        }
+                        y = null;
+                        break;
+                    }
+                } else {
+                    if(required) {
+                        y = null;
+                        break;
+                    } else {
+                        valuesObject[compSymbols[i]] = 0;
                     }
                 }
             }
-            if(y) {
-                try{
-                    y = compute(valuesObject);
-                    if(Math.abs(y)==Infinity || isNaN(y)) y=null;
-                } catch(err){
-                    y = null;
-                }
-            }
-            if(y!==null || !breakNever){
-                plotData.push([Date.parse(dateFromMdDate(dateKey, calculatedSeries.period)), y]);
+        }
+        if(y) {
+            try{
+                y = compute(valuesObject);
+                if(Math.abs(y)==Infinity || isNaN(y)) y=null;
+            } catch(err){
+                y = null;
             }
         }
-        //3. reconstruct an ordered MD data array
-        plotData.sort(function(a,b){return a[0]-b[0];});
-        calculatedSeries.data = plotData;
-/*    }*/
+        if(y!==null || !breakNever){
+            plotData.push([Date.parse(dateFromMdDate(dateKey, calculatedSeries.period)), y]);
+        }
+    }
+    //3. reconstruct an ordered MD data array
+    plotData.sort(function(a,b){return a[0]-b[0];});
+    calculatedSeries.data = plotData;
+    /*    }*/
     if(breakMissing){
         //todo:  break on missing code
     }
@@ -1763,8 +1763,11 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
             '<div class="graph-chart graph-subpanel">' +
             '<div class="graph_control_panel" style="font-size: 11px !important;">' +
-            //'<button class="graph-series" onclick="provenance()">show and edit series sources and names</button>' +
-            //'title:  <input class="graph-title" maxlength="200" length="150"/><br />' +
+            //change map sleector and default
+            '<div class="change-map">change base map ' +
+            '<select class="change-map"></select>' +
+            '</div>' +
+            //default series type (line, column..)
             '<div class="graph-type">default graph type ' +
             '<select class="graph-type">' +
             '<option value="auto">auto (line &amp; column)</option>' +
@@ -1845,8 +1848,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     var chart;
     console.timeEnd('buildGraphPanel:thisPanel');
     console.time('buildGraphPanel:thisPanel events');
-//configure and bind the controls
-    $thisPanel.find('select.graph-type').val(oGraph.type);
+    //configure and bind the controls
     $thisPanel.find('ol.graph-nav').children('li')
         .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
             var $this = $(this);
@@ -2107,8 +2109,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     $thisPanel.find('input.graph-publish')
         .change(function(){
             oGraph.published = (this.checked?'Y':'N');
-        });
+    });
     $thisPanel.find('select.graph-type')
+        .val(oGraph.type)
         .change(function(){
             if($(this).val()=='logarithmic'){
                 for(var y=0;y<oHighCharts[panelId].yAxis.length;y++){
@@ -2121,7 +2124,132 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             }
             oGraph.type=$(this).val();
             redraw();
-        });
+    });
+    function fillChangeMapSelect(){
+        var handle, i, map, html='<option>'+oGraph.map+'</option>', maps={};
+        for(handle in oGraph.assets){
+            if(handle[0]=='M' && oGraph.assets[handle].maps){
+                for(map in oGraph.assets[handle].maps){
+                    if(map != oGraph.map){
+                        maps[map] = oGraph.assets[handle].maps[map].set;
+                    }
+                }
+            }
+        }
+        for(map in maps){
+            html += '<option>'+ map +'</option>'
+        }
+        return html;
+    }
+    $thisPanel.find('select.change-map').html(fillChangeMapSelect()).change(function(){
+        //create new map panel!
+        var $mapSelect = $(this);
+        //1. copy existing object but not its map assets or calculate map data (saves time for large point & mapsets)
+        var assets = oGraph.assets;
+        delete oGraph.assets;
+        var calculatedMapData = oGraph.calculatedMapData;
+        delete oGraph.calculatedMapData;
+        var newGraph = $.extend(true, {}, oGraph);
+        oGraph.assets = assets;
+        newGraph.assets = {};
+        oGraph.calculatedMapData = calculatedMapData;
+        //2. set new map
+        newGraph.map = $(this).val();
+        newGraph.mapFile = mapsList[$(this).val()].jvectormap;
+        //3. compile a list of the mapsetids and corresponding bunnies for the old graph
+        var i, oBunnies={};
+        function findBunnies(plot){
+            var asset;
+            for(i=0;i<plot.components.length;i++){
+                asset = assets[plot.components[i].handle];
+                if(vectorPattern.test(plot.components[i].handle)){ //tests for "S" or "U"
+                    if(asset.mapsetid && mapsList[oGraph.map].bunny && mapsList[oGraph.map].bunny==asset.geoid){
+                        //found a bunny!
+                        oBunnies[asset.handle] = {mapsetid: asset.mapsetid, handle: asset.handle}; //use object ot dedup
+                    } else {
+                        //not a bunny so we will need this asset...
+                        newGraph.assets[asset.handle] = asset;
+                    }
+                }
+            }
+        }
+        if(newGraph.plots){
+            for(i=0;i<newGraph.plots.length;i++){
+                findBunnies(newGraph.plots[i]);
+            }
+        }
+        if(newGraph.pointsets){
+            for(i=0;i<newGraph.pointsets.length;i++){
+                findBunnies(newGraph.plots[i]);
+            }
+        }
+        if(newGraph.mapsets){
+            findBunnies(newGraph.mapsets);
+        }
+        var handle;
+        function replaceBunny(plot, oldHandle, bunny, regex, replacment){
+            var i, asset;
+            for(i=0;i<plot.components.length;i++){
+                if(plot.components[i].handle == oldHandle){
+                    //replace bunny!
+                    plot.components[i].handle = bunny.handle;
+                    if(plot.options.name) plot.options.name = plot.options.name.replace(regex,replacement);
+                }
+            }
+        }
+        //4. talk to db (even if no bunnies to get regex and replacement string)
+        callApi(
+            {command:"ChangeMaps", bunnies: oBunnies, fromgeoid: mapsList[oGraph.map].bunny, togeoid: mapsList[newGraph.map].bunny,  modal:'persist'},
+            function(jsoData, textStatus, jqXHR){
+                var regex = new RegExp(jsoData.regex);
+                newGraph.title = newGraph.title.replace(regex, jsoData.replacement);
+                for(handle in jsoData.bunnies) {
+                    newGraph.assets[jsoData.bunnies[handle].handle] = jsoData.bunnies[handle];
+                    if(handle){ //undefined if no bunnies
+                        if(newGraph.plots){
+                            for(i=0;i<newGraph.plots.length;i++){
+                                replaceBunny(newGraph.plots[i], handle, jsoData.bunnies[handle], jsoData.regex, jsoData.replacement);
+                            }
+                        }
+                        if(newGraph.pointsets){
+                            for(i=0;i<newGraph.pointsets.length;i++){
+                                replaceBunny(newGraph.plots[i], handle, jsoData.bunnies[handle], jsoData.regex, jsoData.replacement);
+                            }
+                        }
+                        if(newGraph.mapsets){
+                            replaceBunny(newGraph.mapsets, handle, jsoData.bunnies[handle], jsoData.regex, jsoData.replacement);
+                        }
+                    }
+                }
+
+                var fileAssets = ['js/maps/'+ newGraph.mapFile +'.js'];
+                require(fileAssets); //parallel load while getting db assets
+                getAssets(newGraph, function(){ //this will get the Map and Pointset
+                    require(fileAssets, function(){ //ensure that we have the new map file
+                        buildGraphPanel(newGraph);//panelId not passed -> new panel
+                        unmask();
+                        $mapSelect.val(oGraph.map);//for old graph, continue to show its map in teh selector
+                    });
+                });
+            }
+        );
+    });
+
+    if(!oGraph.plots){
+        $thisPanel.find('div.graph-type').hide();
+    }
+    function showChangeSelectors(){
+        if(oGraph.plots){
+            $thisPanel.find('div.graph-type').show();
+         } else {
+            $thisPanel.find('div.graph-type').hide();
+        }
+        if(oGraph.mapsets||oGraph.pointsets){
+            $thisPanel.find('div.change-map').show();
+        } else {
+            $thisPanel.find('div.change-map').hide();
+        }
+    }
     function redraw(){
         if(oGraph.plots){
             chartPanel(panelId, annotations);
@@ -2129,7 +2257,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         }
         if(oGraph.mapsets||oGraph.pointsets){
             drawMap();
+            $thisPanel.find('select.change-map').html(fillChangeMapSelect());
         }
+        showChangeSelectors();
     }
     $thisPanel.find('.graph-analysis')
         .keydown(function(){
@@ -2244,16 +2374,21 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                         "stroke-width": 2,
                         stroke: 'black',
                         fill: "#ffff80"
+                    },
+                    hover: {
+                        "stroke-width": 2,
+                        stroke: 'black',
+                        "fill-opacity": 1
                     }
                 },
                 series: {
                     regions:  [{
                         attribute: "fill"
-                       /* values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
-                        scale: ['#C8EEFF', '#ff0000'],
-                        normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
-                        min: calculatedMapData.regionDataMin,
-                        max: calculatedMapData.regionDataMax*/
+                        /* values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
+                         scale: ['#C8EEFF', '#ff0000'],
+                         normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
+                         min: calculatedMapData.regionDataMin,
+                         max: calculatedMapData.regionDataMax*/
                     }],
                     markers:  [{
                         attribute: 'r',

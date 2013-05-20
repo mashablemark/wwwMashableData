@@ -510,8 +510,13 @@ function ProvenanceController(panelId){
                     $(this).val(component.options.k);
             });
             $liComp.find(".comp-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
-                components.splice(iComp,1);
-                if(components.length==0) $liComp.closest('li.plot').find('.plot-delete').click(); else $liComp.remove();
+                if(plot.components.length==1) {
+                    $liComp.closest('li.plot').find('.plot-delete').click();
+                } else {
+                    plot.components.splice(iComp,1);
+                    $liComp.remove();
+                    self.makeDirty();
+                }
             });
             $liComp.find(".comp-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){ //copy make a new plot, even if in X or M
                 var newPlot = {options: {}, components: [$.extend(true, {}, component, {options: {op: '+'}})]};
@@ -615,6 +620,7 @@ function ProvenanceController(panelId){
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 self.plotsEdits.splice($liPlot.index(),1);
                 $liPlot.remove();
+                self.makeDirty();
             });
             $editDiv.find("button.plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
                 self.plotsEdits.push($.extend(true,{},oPlot));
@@ -700,6 +706,7 @@ function ProvenanceController(panelId){
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 self.plotsEdits.splice($liPointSet.index(),1);
                 $liPointSet.remove();
+                self.makeDirty();
             });
             $editDiv.find("button.plot-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){
                 self.plotsEdits.push($.extend(true,{},oPointset));
@@ -877,9 +884,6 @@ function ProvenanceController(panelId){
                 self.setFormula(mapset, $mapset);
                 self.makeDirty();
             });
-            $editDiv.find('bunny-selector').change(function(){
-
-            });
             $editDiv.find('.plot-edit-k input').change(function(){
                 if(!isNaN(parseFloat(this.value))){
                     options.k = Math.abs(parseFloat(this.value));
@@ -915,6 +919,7 @@ function ProvenanceController(panelId){
                 self.mapsetEdits = {};
                 $mapset.remove();
                 if(!self.graph.pointsetsEdits) self.$prov.find('map-prov').remove();
+                self.makeDirty();
             });
             $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
                 $mapset.find(".edit-mapset, .plot-info").show();

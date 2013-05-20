@@ -198,6 +198,13 @@ span#main-graph-buttons-top fieldset legend, fieldset.tight-fieldset legend{
     font-size: 12px;
 }
 
+#quick-view-controls fieldset{
+    padding: 1px 5px 5px 5px;
+}
+#quick-view-close{
+    margin-top: 15px;
+}
+
 /*
 .md-table a {font-size:11px !important;}
 .md-table .sv {width:40px;!important;overflow:hidden;}

@@ -232,4 +232,5 @@ span.mashabledata_asc{
 }
 #mashabledata_check_all{
     font-style: italic;
+    cursor: pointer;
 }

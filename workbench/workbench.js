@@ -140,7 +140,12 @@ $(document).ready(function(){
     //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from graph.js)
     require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
-    addJQueryStringify();   // add extension after jQuery guarenteed to be loaded
+    addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
+    $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}});
+    $('button.quick-view-maps').button({icons: {secondary: "ui-icon-flag"}});
+    $('#quick-view-to-graph').button({icons: {secondary: "ui-icon-image"}});
+    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}});
+
     $(".show-graph-link").fancybox({
         'width'             :  '100%',
         'height'            : '100%',
@@ -264,7 +269,6 @@ function parseHash(newHash, oldHash){
                 $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
                 $('#series_search_source').val(oH.api||'all'); //search executes on API change
                 $('#public-mapset-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
-
                 break;
             case 'mg': //my graphs
                 $('#series-tabs').find('li.my-graphs a').click();
@@ -1084,6 +1088,7 @@ function getQuickViewData(btn){
                 if(oMySeries[sHandle]){ //if this happens to be in mySeries...
                     oMySeries[sHandle].data = jsoData.series[sHandle].data;
                     oMySeries[sHandle].notes = jsoData.series[sHandle].notes;
+                    oMySeries[sHandle].geocounts = jsoData.series[sHandle].geocounts;
                 }
                 quickGraph(jsoData.series[sHandle],canAddSeries)
             }
@@ -1118,6 +1123,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     }
     var quickChartOptions = makeChartOptionsObject(quickGraph);
     delete quickChartOptions.chart.height;
+    quickChartOptions.chart.borderWidth = 2;
     quickChartOptions.chart.renderTo = 'highcharts-div';
 
     quickChart = new Highcharts.Chart(quickChartOptions);
@@ -1130,17 +1136,23 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             + '<tr><td>Graphs (including unpublished) count:</td><td>' + obj.graphcount + '</td></tr>'
             + '<tr><td>Series key:</td><td>' + obj.skey + '</td></tr>'
             + '</table>';
+        var hasMaps = false;
         if(obj.mapsetid || obj.pointsetid){
             var $mapSelect =  $('select.quick-view-maps').html("");
             var mapOptions = "";
             for(var map in obj.geocounts){
-                mapOptions+='<option value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>';
+                if(obj.geocounts[map].set>1){
+                    mapOptions+='<option value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>';
+                    hasMaps = true;
+                }
             }
+        }
+        if(hasMaps){ //make sure we have maps to show
             $mapSelect.html(mapOptions);
-
-
             $('.quick-view-maps').show();
-        } else $('.quick-view-maps').hide();
+        } else {
+            $('.quick-view-maps').hide();
+        }
     } else $('.quick-view-maps').hide();
     $('#qv-info').html(qvNotes);
 
@@ -1352,12 +1364,12 @@ function editCheckedSeries(){//edit the first visible
                 $select = $panel.find('select').html(mapOptions).show();
             });
             var html = '<div id="seriesOrSet" style="width:330px;">'
-            + '<h4>This series is part of a set</h4>'
-            + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
-            + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
-            + '<select class="hidden"></select></label><br><br>'
-            + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button>'
-            + '</div>';
+                + '<h4>This series is part of a set</h4>'
+                + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
+                + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
+                + '<select class="hidden"></select></label><br><br>'
+                + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button>'
+                + '</div>';
             $.fancybox(html,
                 {
                     showCloseButton: false,
@@ -1404,7 +1416,7 @@ function showSeriesEditor(handle, map){
         });
         function userMapSet(setData){
             //if(!seriesEditorInitialised)
-                initializeSeriesEditor();
+            initializeSeriesEditor();
             var seriesData, point, i, j, row, grid = [["map set",setData.name],["units",setData.units],["notes",""],["geoid"],["date"]];
             for(i=0;i<setData.geographies.length;i++){
                 grid[3].push(setData.geographies[i].geoid);
@@ -1522,25 +1534,25 @@ function showSeriesEditor(handle, map){
                 //validatePaste(changes);
             },
             onChange: function(changes, source){//autogen dates + delete empty col after last delete
-/*                if(source=="paste"||source=="edit"||source=="populateFromArray"){ //auto generate dates if needed
-                    for(var i=0;i<changes.length;i++){
-                        if(changes[i][0]>4){ //not a header cell or the first data row (which has no preceeding date)
-                            var myDate = $editor.handsontable('getDataAtCell', changes[i][0], 0);
-                            if(myDate==""||myDate==null){ //corresponding date cell is empty
-                                var precedingDateEntry = $editor.handsontable('getDataAtCell', changes[i][0]-1, 0);
-                                if(precedingDateEntry.length>3){ //something is there.  Hopefully a valid MD date...
-                                    var precedingDate =  UTCFromReadableDate(precedingDateEntry);
-                                    if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
-                                        if(!periodOfEdits) periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
-                                        if(periodOfEdits){
-                                            $editor.handsontable('setDataAtCell', changes[i][0], 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }*/
+                /*                if(source=="paste"||source=="edit"||source=="populateFromArray"){ //auto generate dates if needed
+                 for(var i=0;i<changes.length;i++){
+                 if(changes[i][0]>4){ //not a header cell or the first data row (which has no preceeding date)
+                 var myDate = $editor.handsontable('getDataAtCell', changes[i][0], 0);
+                 if(myDate==""||myDate==null){ //corresponding date cell is empty
+                 var precedingDateEntry = $editor.handsontable('getDataAtCell', changes[i][0]-1, 0);
+                 if(precedingDateEntry.length>3){ //something is there.  Hopefully a valid MD date...
+                 var precedingDate =  UTCFromReadableDate(precedingDateEntry);
+                 if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
+                 if(!periodOfEdits) periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
+                 if(periodOfEdits){
+                 $editor.handsontable('setDataAtCell', changes[i][0], 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
+                 }
+                 }
+                 }
+                 }
+                 }
+                 }
+                 }*/
                 if(source=="edit"||source=="empty"){ //remove excess columns/rows
                     try{
                         var gridData = $editor.handsontable('getDataReference');
@@ -1719,8 +1731,8 @@ function showSeriesEditor(handle, map){
             var data = [["map set"],["units"],["notes"],["geoid"],["date"]];
             for(var i=0;i<jsoData.geographies.length;i++){
                 /*data[0].push('');
-                data[1].push('');
-                data[2].push('');*/
+                 data[1].push('');
+                 data[2].push('');*/
                 data[3].push(jsoData.geographies[i].geoid);
                 data[4].push(jsoData.geographies[i].name);
             }
