@@ -57,24 +57,27 @@
 
 </head>
 <script type="text/javascript">
-</script>
 <?php
-    if (apc_exists('app:mapsList') !== false)
+/*    if (apc_exists('app:mapsList') !== false)
     {
         $data = apc_get('app:mapsList');
     }
     else
     {
-        include_once("/global/php/common_functions.php");
+
+        apc_store('app:mapsList', $data);
+    }*/
+        include_once("../global/php/common_functions.php");
         $result = runQuery("select * from maps order by name", "application mapsList");
         $data = array();
         while($row = $result->fetch_assoc()){
-            array_push($data, $row);
+            $data[$row["map"]] = $row;
         }
-        apc_store('app:mapsList', $data);
-    }
 print("var mapsList=".json_encode($data).";");
+
+$sources = runQuery("select apiid, name from apis order by name");
 ?>
+</script>
 
 
 <body onresize="resizeCanvas();">
@@ -134,7 +137,7 @@ print("var mapsList=".json_encode($data).";");
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
                         <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search" onkeyup="seriesCloudSearchKey(event)" />
                         <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
-                        <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option></select>
+                        <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><?php while($api=$sources->fetch_assoc()){print('<option value="'.$api['apiid'].'">'.$api['name'].'</option>');} ?></select>
                         <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
                         <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
                     </fieldset>

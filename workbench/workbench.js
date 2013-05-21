@@ -234,7 +234,6 @@ $(document).ready(function(){
 
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable); //resizeCanvas already called, but need this after datatable calls
     unmask();
-    loadSources();
     $('ul#series-tabs').click(function(){
         showGraphEditor()
     });
@@ -1071,14 +1070,8 @@ function getQuickViewData(btn){
     var sids = [], usids=[];
     if(sHandle.charAt(0)=="U")usids.push(parseInt(sHandle.substr(1))); else sids.push(parseInt(sHandle.substr(1)));
 
-    if(window.mapsList) getQuickData();
-    else {
-        callApi({command: 'GetMapsList'}, function(result){ //TODO: coordinate/replace this with the jVectorMap list get
-            mapsList = result.maps; //global var
-            getQuickData();
-        });
-    }
-
+    getQuickData();
+    
     function getQuickData(){
         callApi({command:  'GetMashableData',
                 sids: sids,
@@ -1669,13 +1662,7 @@ function showSeriesEditor(handle, map){
         }
     }
     function showUserSetWizard(){
-        if(window.mapsList) showPanel();
-        else {
-            callApi({command: 'GetMapsList'}, function(result){ //TODO: coordinate/replace this with the jVectorMap list get
-                mapsList = result.maps; //global var
-                showPanel();
-            });
-        }
+        showPanel();
 
         function showPanel(){
             var $panel, mapsAsOptions='', i;
@@ -2083,15 +2070,6 @@ function syncMyAccount(){ //called only after loggin and after initial report of
             }
         }
     );
-}
-function loadSources(){
-    callApi({command: "GetApis", modal: "none"},
-        function(jsoData, textStatus, jqXH){
-            apis = jsoData.sources;
-            var options = '';
-            for(var i=0;i<apis.length;i++) options+='<option value="'+apis[i]['apiid']+'">'+apis[i]['name']+'</option>';
-            $("select#series_search_source").append(options);
-        });
 }
 
 function getMySeries(existingSids){
