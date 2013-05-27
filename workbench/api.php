@@ -1352,7 +1352,7 @@ function BuildChainLinks(&$chains){
             . " LEFT OUTER JOIN catcat childrencats ON c.catid = childrencats.parentid "
             //. " LEFT OUTER JOIN catcat parentcat ON c.catid = parentcat.childid "
             //. " LEFT OUTER JOIN catcat silbingcats ON parentcat.parentid = silbingcats.childid "
-            . " WHERE current.childid =" . $lastcat["catid"]."  and c.catid<>5506 " //don't select root cat
+            . " WHERE current.childid =" . $lastcat["catid"]  //."  and c.catid<>5506 " //don't select root cat
             . " GROUP BY c.catid, c.name limit 0, 1";
             $children  = runQuery($sql, "BuildChainLinks");
             $firstrow = true;

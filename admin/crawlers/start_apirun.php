@@ -12,7 +12,7 @@ die();*/
  *
  */
 $sql_logging = true;
- $event_logging = true;
+$event_logging = true;
 include_once("../../global/php/common_functions.php");
 
 /* This is the sole API for the MashableData Admin panel (http://www.mashabledata.com/admin) application connecting
@@ -50,7 +50,7 @@ error_reporting(E_ALL);
 $db = getConnection();
 
 //GET API (unless global ExecuteJobs cron is being run)
-if($command!="ExecuteJobs"){
+if(isset($_REQUEST['apiid'])){
     $sql = "select * from apis where apiid=" .  $api_id;
     $api_result = runQuery($sql, "AdminPanel: GetAPI");
     if($api_result->num_rows == 0 || $api_id==0){
@@ -126,6 +126,11 @@ switch($command){
         $output["runid"] = $runid;
 
         break;
+
+    case "SetCounts":
+        setMapsetCounts();
+        setPointsetCounts();
+        break;
     case "Crawl":
         //echo "category: " . $category . "<br>";
         $output = ApiCrawl($catid, $api_row);  //returns series and child categories, actual series captures performed by Update routines
@@ -136,9 +141,10 @@ switch($command){
             $jobid = (isset($_REQUEST["jobid"]))?intVal($_REQUEST["jobid"]):$jobid="ALL";   //"ALL": execute all queued jobs for the given run until none left
             $output =ApiExecuteJobs(intVal($_REQUEST["runid"]), $jobid);
         } else {
-            $sql = "select count(*) from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())>10)";
-            $result = runQuery($sql);
-            if($result->num_rows > 0){ //there are jobs to be run
+            $sql = "select count(*) as count from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())>10)";
+            $result = $db->query($sql);
+            $counts = $result->fetch_assoc();
+            if($counts["count"] > 0){ //there are jobs to be run
                 $sql = "select jobid, runid from apirunjobs where status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10";
                 $result = runQuery($sql);
                 if($result->num_rows < 4){  // max threadCount = 4!!!!
@@ -358,7 +364,7 @@ function catSeries($catid, $seriesid){
         runQuery($sql, "FRED API: create CatSeries relationship");
         $sql = "UPDATE series s, (SELECT seriesid, GROUP_CONCAT( c.name ) AS category "
             . " FROM categoryseries cs INNER JOIN categories c ON cs.catid = c.catid "
-            . " where seriesid=" . $seriesid . " GROUP BY s.name) cat "
+            . " where seriesid=" . $seriesid . ") cat "
             . " SET s.title = cat.category WHERE s.seriesid = cat.seriesid  ";
         runQuery($sql, "set series.title");
     }
@@ -515,8 +521,24 @@ function findSets($apiid){
 function updateJob($jobid, $status, $options){
 
 }
-function setCategory($apiid, $name, $apicatid, $parentid){ //insert categories and catcat records as needed; return catid
-
+//MOVE TO START_APIRUN
+function setCategory($apiid, $name, $parentid){ //insert categories and catcat records as needed; return catid
+    //ASSUME SIBLING HAVE UNIQUE NAMES
+    global $db;
+    $sql = "select * from categories c, catcat cc where c.catid=cc.childid and apiid = ".$apiid." and cc.parentid=".$parentid." and name=".safeStringSQL($name);
+    $result = runQuery($sql);
+    if($result->num_rows==1){
+        $row = $result->fetch_assoc();
+        return $row["catid"];
+    } else {
+        $sql = "insert into categories (apiid, name) values(".$apiid.",".safeStringSQL($name).")";
+        $result = runQuery($sql);
+        if($result == false) die("unable to create category in setCategory");
+        $catid = $db->insert_id;
+        $sql = "insert into catcat (parentid, childid) values(".$parentid.",".$catid.")";
+        runQuery($sql);
+        return $catid;
+    }
 }
 function setCatSeries($catid, $seriesid){ //insert catSeries record if DNE
 

@@ -77,6 +77,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
     while($check){
         if($jobid!="ALL"){
             $result = runQuery("select * from apirunjobs where jobid =". $jobid);
+            $check = false; //just run this one job; don't loop
         }  else {
             $result = runQuery($next_job_sql);
         }

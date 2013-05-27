@@ -225,18 +225,18 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
     }
 }
 
-function setMapsetCounts($mapsetid){
+function setMapsetCounts($mapsetid="all"){
     runQuery("truncate temp;");
     runQuery("SET SESSION group_concat_max_len = 4000;");
     runQuery("insert into temp (id1, text1) select mapsetid, concat(group_concat(mapcount)) from (select mapsetid, concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid where "
-    .(isset($mapsetid)?"mapsetid=".$mapsetid:"mapsetid is not null")." and map <>'worldx' group by mapsetid, map) mc group by mapsetid;");
+    .($mapsetid=="all" ?"mapsetid is not null":"mapsetid=".$mapsetid)." and map <>'worldx' group by mapsetid, map) mc group by mapsetid;");
     runQuery("update mapsets ms join temp t on ms.mapsetid=t.id1 set ms.counts=t.text1;");
     runQuery("truncate temp;");
 }
-function setPointsetCounts($pointsetid){
+function setPointsetCounts($pointsetid="all"){
     runQuery("truncate temp;");
     runQuery("insert into temp (id1, text1) select pointsetid , concat(group_concat(mapcount)) from (select pointsetid , concat('{\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid where "
-    .(isset($pointsetid)?"pointsetid =".$pointsetid:"pointsetid is not null")." and map <>'worldx' group by mapsetid, map) mc group by pointsetid;");
+    .($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid)." and map <>'worldx' group by mapsetid, map) mc group by pointsetid;");
     runQuery("update pointsets ps join temp t on ps.pointsetid=t.id1 set ms.counts=t.text1;");
     runQuery("truncate temp;");
 }
