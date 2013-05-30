@@ -9,7 +9,7 @@
     <h1><a href="/"><img src="/images/md_logo.png"  alt="MashableData"/></a></h1>
     <h4 style="color:#CCCCCC">Sharing data and visualizations across the web</h4>
   </div>
-  This page allow secure one way transfer of data series to the localStorage assigned to www.mashabledata.com by HTML5 compliant browsers.  No data is transmitted by this page across the internet or stored externally to this computer.
+  This page securely performs a one-way transfer of data series to the localStorage assigned to www.mashabledata.com by HTML5 compliant browsers at your request to the MashableData chart plugin.  No data is transmitted by this page across the internet or stored externally to this computer by ths script.
 <!--div id="ls"></div-->
 <script language="javascript" type="text/javascript">
 
@@ -30,16 +30,13 @@ if (!('indexOf' in Array.prototype)) {
 
 var maxLocalSeries = 100;
 
-//check to see if the series is already a localSeries
-//("running js on secure_xfer.php");
 //create listener for...
-if(window.localStorage.getItem("authorized") != 'no'){
-	if (window.addEventListener){  //standard compliant browsers (Chrome, FireFire, Safari...)
-		window.addEventListener('message', receiveMessage, false);
-	} else if (window.attachEvent){  //Internet Explorer
-		 window.attachEvent('message', receiveMessage);  
-	}
+if (window.addEventListener){  //standard compliant browsers (Chrome, FireFire, Safari...)
+    window.addEventListener('message', receiveMessage, false);
+} else if (window.attachEvent){  //Internet Explorer
+     window.attachEvent('message', receiveMessage);
 }
+
 
 function receiveMessage(event) {
 /* entry point for incoming series */
@@ -51,10 +48,10 @@ function receiveMessage(event) {
         var serieJSON = event.data;
         var serie = JSON.parse(serieJSON);
         var page = serie.url.replace(/(http|https):\/\//i, '');
-        var domain = page.substr(0,page.indexOf('/'));
+        var domain = page.substr(0, page.indexOf('/'));
         var storageKey = domain + '|' + (serie.key || serie.md_key);
         //get the seriesIndex from local storage and make an array (empty array if
-        var seriesIndex = JSON.parse(localStorage.getItem('seriesIndex')||'[]');
+        var seriesIndex = JSON.parse(localStorage.getItem('newSeries')||'[]');
         localStorage.setItem(storageKey, serieJSON);
         var currentIndex = seriesIndex.indexOf(storageKey);
         if(currentIndex==-1){
@@ -67,7 +64,7 @@ function receiveMessage(event) {
         }
         seriesIndex.unshift(storageKey);
         replyWithId(storageKey);  // notify calling window of success with the lId
-        window.localStorage.setItem('seriesIndex', JSON.stringify(seriesIndex));
+        window.localStorage.setItem('newSeries', JSON.stringify(seriesIndex));
     }
 }
 

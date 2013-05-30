@@ -1035,141 +1035,62 @@ switch($command){
             //todo: add MD authentication
         }
 		break;
-    /*case "UploadMyMashableData":
+    case "UploadMyMashableData":
+        global $orgid;
         requiresLogin();
         $user_id =  intval($_POST['uid']);
-        $series_name = $_POST['name'];
-        $graph_title =  $_POST['graph'];
-        $units = $_POST['units'];
-        $skey = $_POST['skey'];
-        $url = $_POST['url'];
-        $src = $_POST['src'];
-        $periodicity = $_POST['period'];
-        $hash = $_POST['datahash'];
-        $capture_dt = $_POST['save_dt'];
-        $data = $_POST['data'];
-        $save = $_POST['save'];
-        if($save!='H' && $save !='S') $save='H';
-
-        $lid = $_POST['lid'];  //any, but not all three, of these ids (lid,cid,sid) may be 'null'
-        $cid = $_POST['cid'];
-        $sid = $_POST['sid'];
-
-        $working_url = preg_replace('/http[s]*:\/\//','',$url);
-        $first_slash = strpos($working_url,'/');
-        $full_domain = substr($working_url, 0, $first_slash);
-        $period = strrpos($full_domain, ".");
-        $l1domain = substr($full_domain, $period+1);
-        $l2domain = substr($full_domain, 0, $period);
-        $period = strrpos($l2domain,".");
-        if($period){$l2domain = substr($l2domain, $period+1);}
-
-        $newCapture = false;
-
-        $sql = "SELECT * FROM userseries WHERE name='" . $db->real_escape_string ($series_name) . "' and title = '" . $db->real_escape_string ($graph_title)
-        	. "' and url = '" . $db->real_escape_string ($url) . "' and periodicity = '" . $db->real_escape_string ($periodicity)
-        	. "' and units = '" . $db->real_escape_string ($units) . "'";
-        logEvent("uploadMetaData: series find by", $sql);
-        $result = runQuery($sql);
-        if($result->num_rows == 0){
-            if($sid!="null"){
-
-                logEvent("uploadMetaData: error", "no matching series found for sid=" . $sid . " & cid=" . $cid);
-                $output = array("status" => "error:  no matching series found for known sid/cid");
-                break;
-            }
-            if(count($data)==0){ //need to insert records, but we do not have the data > issue data request
-                $output = array("status" => "request_data");
-                break;
-            }
-            //new series: need to insert a series record, a captures record, and a myseries record
-            $sql = "INSERT INTO userseries (userid, name, skey, url, src, title, units, periodicity, l1domain, l2domain) "
-                   . "VALUES (" . $user_id . ",'"
-                   . $db->real_escape_string($series_name) . "','"
-                   . $db->real_escape_string($skey) . "','"
-                   . $db->real_escape_string($url) . "','"
-                   . $db->real_escape_string($src) . "','"
-                   . $db->real_escape_string($graph_title) . "','"
-                   . $db->real_escape_string ($units) . "','"
-                   . $db->real_escape_string($periodicity) . "','"
-                   . $db->real_escape_string($l1domain) . "','"
-                   . $db->real_escape_string($l2domain) . "')";
-            logEvent("uploadMetaData: insert series", $sql);
-            $insert = runQuery($sql);
-            $usid = $db->insert_id;
-        } else { //series exists in the cloud
-            $seriesrow = $result->fetch_assoc();
-            $seriesid = $seriesrow['seriesid'];
-            if($usid!="null" && $usid != $usid){
-                logEvent("uploadMetaData: error", "matching series found, but sid = " . $usid . " does not match seriesid = " . $seriesid);
-                $output = array("status" => "error:  matching series found, but sid = " . $usid . " does not match seriesid = " . $seriesid);
-                break;
-            }
-        }
-
-        //check for hash match
-        $sql = "SELECT * from captures where seriesid = " . $usid . " and hash = '"  . $db->real_escape_string($hash) . "'";
-        $capture = runQuery($sql);
-        if($capture->num_rows==0){ //need to insert capture record and update/insert myseries record
-            if(count($data)==0){ //if we do not have the data > issue data request
-                $output = array("status" => "request_data");
-                break;
-            }
-            if (sha1($data) != $hash) { //check that reported an calculated hashes match.  Should never be a problem
-                logEvent("uploadMetaData: error", "hash mismatch for seriesid = " . $seriesid);
-                $output = array("status" => "error: datax signature error. SHA1 of " . $data . " is " . sha1($data));
-                break;
-            }
-            $sql = "INSERT INTO captures(seriesid, url, data, hash, firstdt, lastdt, points, capturedt, processdt, lastchecked, isamerge, capturecount, privategraphcount, publicgraphcount) "
-            . "VALUES (" . $seriesid
-            . ",'" . $db->real_escape_string($url) . "'"
-            . ",'" . $db->real_escape_string($data) . "'"
-            . ",'" . $db->real_escape_string($hash) . "'"
-            . "," . $db->real_escape_string( $_POST['firstdt'])
-            . "," . $db->real_escape_string($_POST['lastdt'])
-            . "," . $db->real_escape_string($_POST['points'])
-            . ", FROM_UNIXTIME(" . $capture_dt . "/1000)"
-            . ", NOW()"
-            . ", FROM_UNIXTIME(" . $capture_dt . "/1000)"
-            . ",'N'"
-            . ",1,0,0"
-            . ")";
-            logEvent("uploadMetaData: insert capture", $sql);
-            $capture = runQuery($sql);
-            $captureid = $db->insert_id;
-            $sql = "update series set captureid=".$captureid." where seriesid=". $seriesid;
-            logEvent("uploadMetaData: update series with new captureid", $sql);
-            runQuery($sql);
-            $newCapture = true;
-        } else { //update existing capture
-            $capturerow = $capture->fetch_assoc();
-            $captureid = $capturerow["captureid"];
-            $sql = "UPDATE captures SET lastchecked='" . $db->real_escape_string($capture_dt) . "',capturecount=capturecount+1"
-            . " WHERE captureid=" . $captureid;
-            logEvent("uploadMetaData: updates capture", $sql);
-            $capture = runQuery($sql);
-        }
-        if($user_id != null){
-            $sql = "select count(*) from myseries where userid=" . $user_id . " and seriesid=" . $seriesid ;
-            $myseries =  runQuery($sql);
-            if($myseries->num_rows==0){
-                $sql = "insert into myseries (userid, seriesid, captureid, saved) "
-                    . "values (" . $user_id . "," . $seriesid  . "," . $captureid . ",'" . $save ."')";
-                logEvent("uploadMetaData: add myseries", $sql);
-                runQuery($sql);
+        $series = $_POST['series'];
+        $output = array(
+            "status" => "ok",
+            "handles" => array()
+        );
+        for($i=0;$i<count($series);$i++){
+            //get parameters for this user series
+            $local_handle = $series[$i]['handle'];
+            $series_name = $series[$i]['name'];
+            $graph_title =  $series[$i]['graph'];
+            $units = $series[$i]['units'];
+            $skey = $series[$i]['skey'];
+            $url = $series[$i]['url'];
+            $src = $series[$i]['src'];
+            $periodicity = $series[$i]['period'];
+            $capture_dt = $series[$i]['save_dt'];
+            $data = $series[$i]['data'];
+            $firstdt = intval( $series[$i]['firstdt']);
+            $lastdt = intval($series[$i]['lastdt']);
+            //strip out certain acts of the URL
+            $working_url = preg_replace('/http[s]*:\/\//','',$url);
+            $first_slash = strpos($working_url,'/');
+            $full_domain = substr($working_url, 0, $first_slash);
+            $period = strrpos($full_domain, ".");
+            $l1domain = substr($full_domain, $period+1);
+            $l2domain = substr($full_domain, 0, $period);
+            $period = strrpos($l2domain,".");
+            if($period){$l2domain = substr($l2domain, $period+1);}
+            //see if user has already uploaded this one:
+            $sql = "SELECT seriesid, data FROM series WHERE name='" . $db->real_escape_string ($series_name) . "' and title = '" . $db->real_escape_string ($graph_title)
+                . "' and url = '" . $db->real_escape_string ($url) . "' and periodicity = '" . $db->real_escape_string ($periodicity)
+                . "' and units = '" . $db->real_escape_string ($units) . "' and userid=".$user_id;
+            $result = runQuery($sql, "uploadMashableData: search whether this user series exists");
+            if($result->num_rows!=0){
+                $row = $result->fetch_assoc();
+                $seriesid = $row["seriesid"];
+                if($data!=$row["data"]){
+                    $sql = "update series set data='".$db->real_escape_string ($data)."', firstdt=".$firstdt.", lastdt=".$lastdt." where seriesid=".$seriesid;
+                    runQuery($sql);
+                }
+                $output["handles"][$local_handle] = 'U'.$seriesid;
             } else {
-                $sql = "update myseries set captureid=" . $captureid . ", saved='" . $save ."' "
-                    . " where userid=" . $user_id . " and seriesid=" . $seriesid;
-                logEvent("uploadMetaData: updates myseries", $sql);
-                runQuery($sql);
+                $sql = "insert into series (userid, skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
+                    . " values (".$user_id.",".safeStringSQL($skey).",".safeStringSQL($series_name).",".strlen($series_name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units).",".safeStringSQL($periodicity).",".safeStringSQL($graph_title).",".safeStringSQL($url).",'private user series acquired through via a chart using the MashableData chart plugin',".safeStringSQL($data).",".safeStringSQL(sha1($data)).",null,".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
+                $queryStatus = runQuery($sql);
+                if($queryStatus ){
+                    $seriesid = $db->insert_id;
+                    $output["handles"][$local_handle] = 'U'.$seriesid;
+                }
             }
         }
-        $output = array("status" => "ok",
-            "cid" => $captureid,
-            "sid" => $seriesid,
-            "lid" => $lid,
-            "newCapture" => $newCapture);
-        break;*/
+        break;
 
     case "SaveUserSeries":
         requiresLogin();  //sets global $orgid

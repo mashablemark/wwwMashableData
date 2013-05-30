@@ -69,7 +69,7 @@ window.MashableData = { //mashableData namespace
     bookmarks: [],
     recents: [],
     series: {},
-    regDQuotes: /"/g, //by including her, the regex is compiled only once
+    regDQuotes: /"/g, //by including here, the regex is compiled only once
     iframe_load: function (){  //post any backlogged messages and indicate state
         var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow;
         this.iframe_loaded = true; //global variable to indicate state
@@ -79,25 +79,25 @@ window.MashableData = { //mashableData namespace
     },
     calcSeriesInfo:  function(PointArray){
         var oSereiesInfo = {
-            minDate: null,
-            maxDate: null,
+            firstdt: null,
+            lastdt: null,
             minValue: null,
             maxValue: null,
-            perodicity: 'A'
+            period: 'A'
         };
         var dayOfMonth = null;
         var dayOfWeek = null;
         var monthOfYear = null;
         var timeOfDay = null;
-
+        var xDateTime, thisPoint ;
         for(var pointIndex in PointArray){
             //console.info(pointIndex);
-            var thisPoint = PointArray[pointIndex];
-            if(oSereiesInfo.minDate == null || oSereiesInfo.minDate > thisPoint.x) {oSereiesInfo.minDate = thisPoint.x}
-            if(oSereiesInfo.maxDate == null || oSereiesInfo.maxDate < thisPoint.x) {oSereiesInfo.maxDate = thisPoint.x}
+            thisPoint = PointArray[pointIndex];
+            if(oSereiesInfo.firstdt == null || oSereiesInfo.firstdt > thisPoint.x) {oSereiesInfo.firstdt = thisPoint.x}
+            if(oSereiesInfo.lastdt == null || oSereiesInfo.lastdt < thisPoint.x) {oSereiesInfo.lastdt = thisPoint.x}
             if(oSereiesInfo.minValue == null || oSereiesInfo.minValue > thisPoint.y) {oSereiesInfo.minValue = thisPoint.y}
             if(oSereiesInfo.maxValue == null || oSereiesInfo.maxValue < thisPoint.x) {oSereiesInfo.maxValue = thisPoint.y}
-            var xDateTime = new Date(thisPoint.x);
+            xDateTime = new Date(parseInt(thisPoint.x));
             //console.info(xDateTime);
             if(timeOfDay == null){timeOfDay = xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()}
             else if(timeOfDay !== true && timeOfDay != xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()){timeOfDay = true}
@@ -115,23 +115,22 @@ window.MashableData = { //mashableData namespace
          console.info("monthOfYear: " + monthOfYear);
          console.info("dayOfMonth: " + dayOfMonth);
          */
-        if(timeOfDay === true) {oSereiesInfo.perodicity = 'T'}
-        else if(dayOfWeek !== true) {oSereiesInfo.perodicity = 'W'}
-        else if(dayOfMonth === true) {oSereiesInfo.perodicity = 'D'}
-        else if(monthOfYear === true) {oSereiesInfo.perodicity = 'M'}
-        else {oSereiesInfo.perodicity = 'A'}
-        oSereiesInfo.from = MashableData.formatDateByPeriod(oSereiesInfo.minDate, oSereiesInfo.perodicity);
-        oSereiesInfo.to = MashableData.formatDateByPeriod(oSereiesInfo.maxDate, oSereiesInfo.perodicity);
+        if(timeOfDay === true) {oSereiesInfo.period = 'T'}
+        else if(dayOfWeek !== true) {oSereiesInfo.period = 'W'}
+        else if(dayOfMonth === true) {oSereiesInfo.period = 'D'}
+        else if(monthOfYear === true) {oSereiesInfo.period = 'M'}
+        else {oSereiesInfo.period = 'A'}
         return oSereiesInfo
     },
     storeChartSeries: function(thisChart){
         var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, oldSerieString, poppedKey, isMashable;
+        var timestamp = (new Date()).getTime();
         if(localStorage.getItem('md_authorized')=='N') return false;
         var title = thisChart.options.title?thisChart.options.title.text||'':'';
 
         //get recents and bookmark arrays from localStrage
-        recents = JSON.parse(localStorage.recents||'[]');
-        bookmarks = JSON.parse(localStorage.bookmarks||'[]');
+        recents = JSON.parse(localStorage.md_recents||'[]');
+        bookmarks = JSON.parse(localStorage.md_bookmarks||'[]');
         for(i=0;i<thisChart.series.length;i++){
             thisSerie = thisChart.series[i];
             if(thisSerie.xAxis.options.type=='datetime'){ //only mash datetime series
@@ -157,12 +156,12 @@ window.MashableData = { //mashableData namespace
                     serie.credit = (thisChart.options.credits&&thisChart.options.credits.text)?thisChart.options.credits.text:null;
                     serie.url = window.location.href;
                     serie.units = thisSerie.units || (thisSerie.yAxis.options.title?thisSerie.yAxis.options.title.text||'':'');
-                    serie.viewed = (new Date()).getTime();
+                    serie.save_dt = timestamp;
 
                     /*var dataPortion = "";
                      for(var datapoint in thisSeries.data){
                      var xDate = new Date(thisSeries.data[datapoint].x);
-                     switch(seriesInfo.perodicity){
+                     switch(seriesInfo.periodicity){
                      case 'A':
                      dataPortion += ("||" + xDate.getUTCFullYear() + "|" + thisSeries.data[datapoint].y);
                      break;
@@ -180,7 +179,7 @@ window.MashableData = { //mashableData namespace
                      break;
                      }
                      }*/
-                    lsKey = serie.skey || (serie.name + '|' + serie.units + '|' + serie.perodicity);
+                    lsKey = serie.skey || (serie.name + '|' + serie.units + '|' + serie.period);
                     if(!serie.skey) serie.md_key = lsKey;
                     thisSerie.options.md_key = lsKey;  //store in chart object to be used to matched against table to fill check boxes
                     //check if exists and react accordingly
@@ -207,8 +206,8 @@ window.MashableData = { //mashableData namespace
             poppedKey = recents.pop();
             if(bookmarks.indexOf(poppedKey)==-1) localStorage.removeItem(poppedKey); //remove the corresponding series if not bookmarked
         }
-        localStorage.recents = JSON.stringify(recents);
-        localStorage.bookmarks = JSON.stringify(bookmarks);
+        localStorage.md_recents = JSON.stringify(recents);
+        localStorage.md_bookmarks = JSON.stringify(bookmarks);
     },
     postSeries: function(serie){
         if(!this.iframeRequested) {  //add the iFrame is not already added
@@ -224,16 +223,16 @@ window.MashableData = { //mashableData namespace
     },
     loadAllSeries: function(){
         var i;
-        if(this.recentsKey!=localStorage.recents){
-            this.recentsKey = localStorage.recents;
+        if(this.recentsKey!=localStorage.md_recents){
+            this.recentsKey = localStorage.md_recents;
             this.recents = JSON.parse(this.recentsKey);
             for(i=0;i<this.recents.length;i++){
                 if(!this.series[this.recents[i]]) this.series[this.recents[i]] = JSON.parse(localStorage.getItem(this.recents[i]));
             }
         }
 
-        if(this.bookmarksKey!=localStorage.bookmarks){
-            this.bookmarksKey = localStorage.bookmarks;
+        if(this.bookmarksKey!=localStorage.md_bookmarks){
+            this.bookmarksKey = localStorage.md_bookmarks;
             this.bookmarks = JSON.parse(this.bookmarksKey);
             for(i=0;i<this.bookmarks.length;i++){
                 if(!this.series[this.bookmarks[i]]) {
@@ -462,23 +461,23 @@ window.MashableData = { //mashableData namespace
                     }
                 }
             }
-            localStorage.recents = JSON.stringify(self.recents);
-            localStorage.bookmarks = JSON.stringify(self.bookmarks);
+            localStorage.md_recents = JSON.stringify(self.recents);
+            localStorage.md_bookmarks = JSON.stringify(self.bookmarks);
         }
     },
     makeRows: function(aryKeys){
         var i, series, rows = '', now = new Date(), viewed, inChart;
         for(i=0;i<aryKeys.length;i++){
             series = this.series[aryKeys[i]];
-            viewed = new Date(parseInt(series.viewed));
+            viewed = new Date(parseInt(series.save_dt));
             inChart = this.hasSeries(aryKeys[i]);
             rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(inChart?' checked><span>a'+series.viewed+'</span>':'><span>b'+series.viewed+'</span>')+'</td>'
                 + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
                 + '<td class="mashabledata_cell_name" title="'+series.name+'">'+series.name+'</td>'
                 + '<td class="mashabledata_cell_units" title="'+series.units+'">'+series.units+'</td>'
-                + '<td class="mashabledata_cell_f">'+series.perodicity+'</td>'
-                + '<td class="mashabledata_cell_from" >'+series.from+'</td>'
-                + '<td class="mashabledata_cell_to">'+series.to+'</td>'
+                + '<td class="mashabledata_cell_f">'+series.period+'</td>'
+                + '<td class="mashabledata_cell_from" >'+this.formatDateByPeriod(series.firstdt,series.period)+'</td>'
+                + '<td class="mashabledata_cell_to">'+this.formatDateByPeriod(series.lastdt, series.period)+'</td>'
                 + '<td class="mashabledata_cell_viewed" title="'+viewed.toLocaleString()+'">'+(viewed.toLocaleDateString()==now.toLocaleDateString()?localeHM(viewed):viewed.toLocaleDateString())+'</td>'
                 + '<td class="mashabledata_cell_url" title="'+series.url+'">'+(series.url==window.location.href?(inChart?'current chart':'current page'):series.url.substr(series.url.substr(8).indexOf('/')).anchor(series.url))+'</td></tr>';
         }

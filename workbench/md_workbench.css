@@ -848,7 +848,10 @@ div.jvectormap-container{
       height: 11px;
       background-position: -144px -147px;
       display: inline-block;
-  }
+}
+.ui-icon-triangle-1-e{
+    display: inline-block;
+}
 div#public-mapset-radio{
     display: inline-block;
     position: relative;
@@ -1025,6 +1028,7 @@ padding:5px;
 }
 span.sibling{
     margin-right: 15px;
+    display: inline-block;
 }
 .dataTables_info{
     display:inline-block;
@@ -1106,6 +1110,11 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     border-top: 1px solid #ff9912;
     border-left: 1px solid #ff9912;
     border-right: 1px solid #ff9912;
+}
+.dataTables_processing{
+    background-color: #fff4e5;
+    border: 1px solid #ff9912;
+    color:  #ff9912;
 }
 /*pastel theme
 #series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{

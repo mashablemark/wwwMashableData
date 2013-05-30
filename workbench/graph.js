@@ -1967,7 +1967,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     '<button id="ghash-reset" class="ui-state-error right">reset link code</button>' +
                     '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
                     '<em>The code below will create a link to your graph</em>' +
-                    '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/view?g='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableDate graph')+'&lt;/a&gt;</textarea>' +
+                    '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/view?g='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableData graph')+'&lt;/a&gt;</textarea>' +
                     '</div>';
 
             $.fancybox(linkDivHTML,

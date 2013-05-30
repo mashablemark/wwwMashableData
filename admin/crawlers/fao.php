@@ -18,16 +18,6 @@ $event_logging = true;
 http://www.mashabledata.com/admin/crawlers/start_apirun.php?apiid=3&uid=1&command=ExecuteJobs&runid=396
 */
 
-/* clear db for retry
-delete from catcat where parentid>=5507 or childid>=5507 or parentid=5505;
-truncate eventlog;
-truncate apirunjobs;
-truncate mapsets;
-delete from categories where catid>=5507;
-delete from captures where captureid>301636;
-delete from series where seriesid>173120;
-
-*/
 $indicators = array();
 $topics = array();
 $iso2to3 = array();
@@ -78,34 +68,38 @@ to refetch tree with last updated dates:
 
 function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     global $treeJson;
-    global $db, $indicators, $topics, $iso2to3, $threadjobid;
+    global $db;
+    $downloadFiles = false;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE USE PREVIOUSLY DOWNLOADED FILES TO DEBUG
     $ROOT_FAO_CATID = $api_row["rootcatid"];
     $baseCats = json_decode($treeJson, true);
     //first build the base categories:
-    var_dump($api_row);
     foreach($baseCats as $primeCategory=>$subTree){
         $primeCatid = setCategory($api_row['apiid'], $primeCategory, $ROOT_FAO_CATID);
         foreach($subTree as $branchName=>$branchInfo){
             set_time_limit(300);
-            $catid = setCategory($api_row['apiid'], $branchName, $primeCatid);
-            $branchInfo["catid"] = $catid;
-            $branchInfo["name"] = $branchName;
-            $fileName = substr_replace(substr($branchInfo["link"], strrpos($branchInfo["link"],"/")),"",-4);
-            $branchInfo["file"] = $fileName.'.csv';
-            print('downloading '.$branchInfo["link"].' to '."bulkfiles/fao/".$fileName.".zip".'<br>');
-            file_put_contents("bulkfiles/fao/".$fileName.".zip", fopen($branchInfo["link"], 'r'));
-            print('unzipping '.$fileName.'.zip<br>');
-            $zip = new ZipArchive;
-            $zip->open("bulkfiles/fao/".$fileName.".zip");
-            $zip->extractTo('./bulkfiles/fao/');
-            $zip->close();
-            unlink("bulkfiles/fao/".$fileName.".zip");  //delete the zip file
-            print('downloading '.$fileName.'.zip<br>');
+            if($branchName!="Producer Prices -<br>Monthly"){ //this is a different format;  only a few months given.  Maybe ingest if we can get a decade of prices
+                $catid = setCategory($api_row['apiid'], $branchName, $primeCatid);
+                $branchInfo["catid"] = $catid;
+                $branchInfo["name"] = $branchName;
+                $fileName = substr_replace(substr($branchInfo["link"], strrpos($branchInfo["link"],"/")),"",-4);
+                $branchInfo["file"] = $fileName.'.csv';
+                if($downloadFiles){
+                    print('downloading '.$branchInfo["link"].' to '."bulkfiles/fao/".$fileName.".zip".'<br>');
+                    file_put_contents("bulkfiles/fao/".$fileName.".zip", fopen($branchInfo["link"], 'r'));
+                    print('unzipping '.$fileName.'.zip<br>');
+                    $zip = new ZipArchive;
+                    $zip->open("bulkfiles/fao/".$fileName.".zip");
+                    $zip->extractTo('./bulkfiles/fao/');
+                    $zip->close();
+                    unlink("bulkfiles/fao/".$fileName.".zip");  //delete the zip file
+                    print('downloading '.$fileName.'.zip<br>');
+                }
 
-            //queue the job after the file is downloaded and unzipped
-            $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL(json_encode($branchInfo)).",0,'Q')";
-            runQuery($sql);
-            runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
+                //queue the job after the file is downloaded and unzipped
+                $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL(json_encode($branchInfo)).",0,'Q')";
+                runQuery($sql);
+                runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
+            }
         }
     }
 }
@@ -168,7 +162,6 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
             $colUnit = 8;
             $colValue = 9;
             $colFlag = 10;
-            $updateJobSql = "update apirunjobs set status = 'R', finished=now() where jobid=".$api_row["runid"];
             $updateRunSql = "update apiruns set finishdt=now() where runid=".$api_row["runid"];
 
             $sql="SELECT a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"
@@ -181,8 +174,9 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
                 return(array("status"=>"unable to find queued jobs for run ".$runid));
             } else {
                 $api_row = $result->fetch_assoc();
-                runQuery($updateJobSql);
+                $updateJobSql = "update apirunjobs set status = 'R', enddt=now() where jobid=".$api_row["jobid"];
                 runQuery($updateRunSql);
+                runQuery($updateJobSql);
             }
             $branchInfo = json_decode($api_row['jobjson'], true);
             $csv=fopen("bulkfiles/fao".$branchInfo["file"],"r");
@@ -197,6 +191,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
                         if($line[$colItem]!=$series_header[$colItem] || $line[$colCountry]!=$series_header[$colCountry] || $line[$colElement]!=$series_header[$colElement]){ //series
                             if(!$initial){
                                 saveSeries($status, $api_row, $series_header, $branchInfo, $lastLine, $data);
+                                runQuery($updateJobSql);
                             } else {
                                 $initial = false;
                             }
@@ -213,12 +208,12 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single
                 }
                 saveSeries($status, $api_row, $series_header, $branchInfo, $lastLine, $data);
                 $updatedJobJson = json_encode(array_merge($status, $branchInfo));
-                runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). " enddt=now() where jobid=".$api_row["runid"]);
+                runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$api_row["runid"]);
                 runQuery($updateRunSql);
             } else { //unknown file format
                 print($header."X<br>");
                 print($HEADER."X<br>");
-                runQuery( "update apirunjobs set status = 'F', finished=now() where jobid=".$api_row["runid"]);
+                runQuery( "update apirunjobs set status = 'F', enddt=now() where jobid=".$api_row["runid"]);
                 runQuery($updateRunSql);
             }
         }
