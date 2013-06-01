@@ -23,8 +23,30 @@ function mashableDataString(serie){
         return serie.data;
     } else {
         for (i = 0; i < serie.data.length; i++) {
-            points.push(formatDateByPeriod(serie.data[i][0], serie.period) + '|' + (isNaN(serie.data[i][1])||serie.data[i][1]===null? 'null' : serie.data[i][1]));
+            points.push( mashableDate(serie.data[i][0], serie.period) + '|' + (isNaN(serie.data[i][1])||serie.data[i][1]===null? 'null' : serie.data[i][1]));
         }
         return points.join('||');
+    }
+    function mashableDate(jsDate, period){
+        var dt = new Date(parseInt(jsDate));
+        var mdDate = dt.getUTCFullYear();
+        switch (period){
+            case 'M':
+                mdDate += (dt.getUTCMonth().toString().length==1?'0':'')+dt.getUTCMonth();
+                break;
+            case 'Q':
+                mdDate += 'Q'+parseInt((dt.getUTCMonth()+3)/3);
+                break;
+            case 'SA':
+                mdDate += 'H'+parseInt((dt.getUTCMonth()+6)/6);
+                break;
+            case 'W':
+            case 'D':
+                mdDate += (dt.getUTCMonth().toString().length==1?'0':'')+dt.getUTCMonth();
+                mdDate += (dt.getUTCDate().toString().length==1?'0':'')+dt.getUTCDate();
+                break;
+
+        }
+        return mdDate;
     }
 }

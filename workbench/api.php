@@ -289,20 +289,6 @@ switch($command){
           $output['aaData'][] = $aRow;
       }
       break;
-	case "GetSeriesData": 
-		$seriesIds =  $_POST['sids'];
-		if(count($seriesIds) == 0){
-            $output = array("status" =>"invalid GetSeriesData call.  Err 104");
-            break;
-		}
-		$sql = "SELECT s.data, s.seriesid as sid, s.captureid as cid, s.captureid as lastestcid "
-			. " FROM series s where  s.seriesid in (" . $seriesIds . ")";
-        $result = runQuery($sql);
-		$output = array_merge($output, array("status" => "ok", "seriesData" => array()));
-        while ($aRow = $result->fetch_assoc()) {
-                    $output['seriesData'][] = $aRow;
-                }
-		break;
 
     case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetMyGraph
         requiresLogin();
@@ -669,38 +655,6 @@ switch($command){
             $output['series'][$aRow["handle"]] = $aRow;
         }
         break;
-    /*case "MyCaptures":
-        requiresLogin();
-        $user_id =  intval($_POST['uid']);
-        $accessToken =  intval($_POST['accessToken']);
-        $cids =  $_POST['cids'];
-        $addDt =  intval($_POST['jsts']);
-        $clean_cids = array();
-        foreach($cids as $cid){
-            array_push($clean_cids, intval($cid));
-        }
-        if(count($clean_cids)>0){
-            //claim ownership of anonymous uploads performed by user before loggin in
-            $sql = "update captures set userid = " . $user_id
-                . " where userid is null and cid in (" . implode($clean_cids,",") . ")";
-            logEvent("MyCaptures: update captures", $sql);
-            runQuery($sql);
-            //make sure we don't have duplicate series, regardless of CID
-            $sql = "delete from myseries where userid = " . $user_id
-                . " and seriesid in (select seriesid from captures where captureid in (" . implode($clean_cids,",") . "))";
-            logEvent("MyCaptures: delete existing myseries records", $sql);
-            runQuery($sql);
-            //insert the myseries records
-            $sql = "insert into myseries (userid, seriesid, captureid, saved, adddt) "
-            . " select ".$user_id.", seriesid, captureid , 'H', 'Y', ". $addDt ." from captures where captureid in (" . implode($clean_cids,",") . ")";
-            logEvent("MyCaptures: insert myseries records", $sql);
-            runQuery($sql);
-            $output = array("status" => "ok", "cids" => implode($clean_cids,","));
-        }
-        else{
-            $output = array("status" => "invalid call.  Err 201");
-        }
-        break;*/
     case "GetCatChains":
         $seriesid = intval($_POST["sid"]);
         $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount "
@@ -798,7 +752,6 @@ switch($command){
         }
         $gid =  (isset($_POST['gid']))?intval($_POST['gid']):0;
         $user_id =  intval($_POST['uid']);
-        //TODO:  eliminate useLatest field altogether
         if($_POST['published']=='Y'){$published = "Y";} else  {$published = "N";}
         $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;
         $updatedt = isset($_POST['updatedt'])?intval($_POST['updatedt']/1000)*1000:null;
@@ -1078,17 +1031,25 @@ switch($command){
                 if($data!=$row["data"]){
                     $sql = "update series set data='".$db->real_escape_string ($data)."', firstdt=".$firstdt.", lastdt=".$lastdt." where seriesid=".$seriesid;
                     runQuery($sql);
+                    $sql = "update myseries set adddt = ".intval($_POST["adddt"])." where seriesid=".$seriesid." and userid=".$user_id;
+                    runQuery($sql);
                 }
-                $output["handles"][$local_handle] = 'U'.$seriesid;
             } else {
                 $sql = "insert into series (userid, skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
                     . " values (".$user_id.",".safeStringSQL($skey).",".safeStringSQL($series_name).",".strlen($series_name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units).",".safeStringSQL($periodicity).",".safeStringSQL($graph_title).",".safeStringSQL($url).",'private user series acquired through via a chart using the MashableData chart plugin',".safeStringSQL($data).",".safeStringSQL(sha1($data)).",null,".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
                 $queryStatus = runQuery($sql);
-                if($queryStatus ){
+                if($queryStatus!==false){
                     $seriesid = $db->insert_id;
                     $output["handles"][$local_handle] = 'U'.$seriesid;
+                    runQuery("insert into myseries (seriesid, userid, adddt) values (".$seriesid.",".$user_id.",".intval($capture_dt).")");
+                }
+                else {
+                    $output["status"] = "error adding local series";
+                    break;
                 }
             }
+            $output['handles'][$local_handle] = 'U'.$seriesid;
+
         }
         break;
 

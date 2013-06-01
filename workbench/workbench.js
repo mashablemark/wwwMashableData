@@ -86,8 +86,8 @@ var mySeriesLoaded = false;
 var apis = false;
 
 var $graphTabs;  //jQuery UI tabs object allows adding, remove, and reordering of visualized graphs
-var tab_counter = 1; //incemented with each new $graphTabs and used to create unqiueID.  Not a count, as tab can be deleted!
-//var $pickerTabs; ul#series-tabs ("My Series|Public Series|My Graphs|Public Graphs")  tabs are set and managed seriesPanel() (not ny jQuery UI)
+var tab_counter = 1; //incremented with each new $graphTabs and used to create unqiueID.  Not a count, as tab can be deleted!
+var localSeriesIndex = 0;  //used to give localSeries from chart plugin unique handles when user is not logged in
 
 var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Add to my Series" and "add to Graph" button functions.
 var quickChart;
@@ -179,25 +179,12 @@ $(document).ready(function(){
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
     resizeCanvas();
     setupMySeriesTable();
-    //loadMySeriesByKey('localSeries');  //load everything in localStorage & updates to/from cloud as needed
+    loadMySeriesByKey();  //load everything in localStorage & updates userseries on server if logged
     setupMyGraphsTable(); //loaded on sync account.  No local storage for graphs.
 
-    $('#series-table_filter input').change(function(){
-        if(window.location.href.indexOf('t=ms')==-1){
-            hasher.replaceHash(getPanelHash());
-        } else {
-            setPanelHash();
-        }
+    $('#series-table_filter input, #my_graphs_table_filter input').change(function(){
+        setPanelHash();
     });
-    $('#my_graphs_table_filter input').change(function(){
-        if(window.location.href.indexOf('t=mg')==-1){
-            hasher.replaceHash(getPanelHash());
-        } else {
-            setPanelHash();
-        }
-    });
-
-    var $tab_title_input = $('#tab_title'), $tab_content_input = $('#tab_content');
 
     // tabs init with a custom tab template and an "add" callback filling in the content
     $graphTabs = $('#canvas').tabs({
@@ -219,7 +206,7 @@ $(document).ready(function(){
 
     $(window).bind("resize load", resizeCanvas()).bind("focus", function(event){
         if(mySeriesLoaded){
-            if(loadMySeriesByKey('newSeries')>0){
+            if(loadMySeriesByKey()>0){
                 dtMySeries.fnFilter('');
                 dtMySeries.fnSort([[MY_SERIES_DATE, 'asc']]);
             }
@@ -230,6 +217,7 @@ $(document).ready(function(){
 
     setupPublicSeriesTable();
     setupPublicGraphsTable();
+    $('#tblPublicSeries_processing, #tblPublicGraphs_processing').html('searching the MashableData servers...');
     //$("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable);  //set within resize() too
 
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable); //resizeCanvas already called, but need this after datatable calls
@@ -349,16 +337,11 @@ function setupMySeriesTable(){
         "aoColumns": [
             { "mDataProp":null, "sTitle": "View", "sClass": "quick-view", "bSortable": true, "sWidth": colWidths.quickView + "px", "resize": false,
                 "fnRender": function(obj) {
-                    var sHandle;
-                    if(obj.aData.usid) sHandle = "U"+obj.aData.usid;
-                    else {if(obj.aData.sid) sHandle = "S"+obj.aData.sid;
-                    else {if(obj.aData.lid) sHandle = "L"+obj.aData.lid;}}
-                    return '<button data="' + sHandle + '" onclick="getQuickViewData(this)">View</button>'
+                    return '<button data="' + obj.aData.handle + '" onclick="getQuickViewData(this)">View</button>'
                 }
             },
             {"mDataProp": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
                 "fnRender": function(obj){
-                    var id =  (isNaN(parseInt(obj.aData.lid)))?"S"+obj.aData.sid:obj.aData.lid;
                     if(obj.aData.selected) {
                         return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.aData.selected + '</a>';
                     } else {
@@ -382,8 +365,11 @@ function setupMySeriesTable(){
             { "mDataProp": "graph", "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "fnRender": function(obj){return getValue(obj)}},
             { "mDataProp": null, "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                 "fnRender": function(obj){
-                    if(obj.aData.sid) return formatAsUrl(obj.aData.url) + obj.aData.src;
-                    if(obj.aData.usid) return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.aData.src;
+                    if(obj.aData.handle[0]=='S') {
+                        return formatAsUrl(obj.aData.url) + obj.aData.src;
+                    } else {
+                        return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.aData.src;
+                    }
                 }
             },
             { "mDataProp": "save_dt", "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'],  "sWidth": colWidths.shortDate + "px", "resize": false,
@@ -408,6 +394,7 @@ function setupPublicSeriesTable(){
     dtPublicSeries =  $('#tblPublicSeries').dataTable({
         "sDom": "frti", //TODO: style the components (http://datatables.net/blog/Twitter_Bootstrap) and avoid jQuery calls to append/move elements
         "bServerSide": true,
+        "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public series"},
         "fnServerData": function ( sSource, aoData, fnCallback ) {
             var thisSearch =  $("#tblPublicSeries_filter input").val();
             aoData.push({name: "command", value: "SearchSeries"});
@@ -585,7 +572,8 @@ function setupPublicGraphsTable(){
         "bScrollInfinite": true,
         "iDisplayLength": 50,  //record fetch
         "iScrollLoadGap": 200, //in px         "bAutoWidth": true,  //TODO: why is this not working as expected
-        "bProcessing": true,
+        "bProcessing": true,  //message customized by jQuery .html() after this function call
+        "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public graphs"},
         "bServerSide": true,
         "fnServerData": function ( sSource, aoData, fnCallback ) {
             aoData.push({name: "command", value: "SearchGraphs"});
@@ -888,73 +876,45 @@ function dialogShow(title, text, buttons){
 }
 
 //LOCALSTORAGE HELPER FUNCTIONS  (LS also referenced from doc.ready, syncMyAccount, deleteCheckedSeries
-function loadMySeriesByKey(key){   //key is either 'newSeries' or 'localSeries'
-    var localSeries = window.localStorage.getItem(key); //converted to a single master index from separate Saved and History indexes
-    window.localStorage.removeItem('newSeries');  //used to indicate if the series table needs to be refreshed.
-    var seriesLoadCount = 0;
-    var mySerie;
+function loadMySeriesByKey(){ //called on document.ready and when page get focus
+    var mySerie, seriesLoadCount=0, seriesTree= {}, localSeries = window.localStorage.getItem('newSeries'); //converted to a single master index from separate Saved and History indexes
     if(localSeries!=null){
-        var aryIds = localSeries.split('|');
-        for(var i=0;i<aryIds.length;i++){
-            /*            try{*/
-            mySerie = createMdoFromLS(aryIds[i]);
-            if(mySerie.sid!=null){ //mySerie has already been captured
-                if (account.loggedIn()) {          // ...add to MySeries in cloud
-                    var params = {
-                        command:'ManageMySeries',
-                        jsts: new Date().getTime(),
-                        handle:mySerie.handle,
-                        cid:mySerie.cid,
-                        to:mySerie.save
-                    };
-
-                    callApi(params,
-                        function (oReturn, textStatus, jqXH) {
-                            if (oReturn.newCapture) uploadCount += 1;
-                            removeIdFromStorageList(mySerie.lid, 'localSeries');
-                            window.localStorage.removeItem('meta' + mySerie.lid);
-                            window.localStorage.removeItem('data' + mySerie.lid);
-                        }
-                    );
-                } else {  // if not logged in, make sure it's localId is added to obj
-                    mySerie.lid = aryIds[i];
-                }
-                mySerie.added =  mySerie.save_dt;  //different coming out of GetMySeries
-                addMySeriesRow(mySerie);                 //will overwrite if series being loaded already in oMySeries
-            } else { //cloud process before adding
-                mySerie.lid = aryIds[i];
-                var params = $.extend({command:  'UploadMyMashableData'},mySerie);
-                callApi(params,
-                    function(oReturn, textStatus, jqXH){
-                        if(oReturn.newCapture) uploadCount+=1;
-                        mySerie.sid = oReturn.sid;
-                        mySerie.cid = oReturn.cid;
-                        window.localStorage.setItem('meta' + mySerie.lid,window.localStorage.getItem('meta' + mySerie.lid).replace('||sid|null||','||sid|'+mySerie.sid+'||').replace('||cid|null||','||cid|'+mySerie.cid+'||'));
-                        if(params.uid!=null){
-                            removeIdFromStorageList(mySerie.lid, 'localSeries');
-                            window.localStorage.removeItem('meta' + mySerie.lid);
-                            window.localStorage.removeItem('data' + mySerie.lid);
-                            delete mySerie.lid;
-                        }
-                        addMySeriesRow(mySerie);
-                    }
-                );
-            }
+        window.localStorage.removeItem('newSeries');  //used to indicate if the series table needs to be refreshed.
+        var seriesKeys = JSON.parse(localSeries);
+        var adddt = new Date();
+        var params = {command: 'UploadMyMashableData', adddt: adddt.getTime(), series: []};
+        for(var i=0;i<seriesKeys.length;i++){
             seriesLoadCount++;
-            /*            } catch(ex){  //error handling when localSeries key does not have the whole thing
-             window.localStorage.removeItem('meta'+aryIds[i]);
-             window.localStorage.removeItem('data'+aryIds[i]);
-             aryIds.splice(i,1);
-             if(aryIds.length==0){
-             window.localStorage.removeItem(key);
-             } else {
-             window.localStorage.setItem(key,aryIds.join('|'));
-             }
-             i--;
-             }*/
+            mySerie = JSON.parse(localStorage.getItem(seriesKeys[i]));
+            localStorage.removeItem(seriesKeys[i]);
+            mySerie.handle = 'L'+localSeriesIndex++;
+            //reformat data as string
+            mySerie.data = mashableDataString(mySerie);
+
+            if(account.loggedIn()) {          // ...add to MySeries in cloud
+                params.series.push(mySerie);
+                seriesTree[mySerie.handle] = mySerie;
+            } else {
+                oMySeries[mySerie.handle] = mySerie;
+                addMySeriesRow($.extend({}, mySerie));
+            }
+        }
+        if(account.loggedIn()){
+            callApi(params, function(results, textStatus, jqXH){
+                var newHandle;
+                for(var localHandle in results.handles){
+                    //1C. update oMySeries, mySeries table, and in any graphs and graph assets
+                    newHandle = results.handles[localHandle]
+                    mySerie = oMySeries[localHandle];
+                    mySerie.handle = newHandle;
+                    mySerie.sid = newHandle.substr(1);
+                    oMySeries[newHandle] = seriesTree[localHandle];
+                    addMySeriesRow($.extend({},oMySeries[newHandle]));
+                }
+            });
         }
     }
-    mySeriesLoaded = true;
+    mySeriesLoaded = true;  //global var used to prevent this from firing when the window opens until we are ready
     return seriesLoadCount;
 }
 function removeIdFromStorageList(id, key){
@@ -981,20 +941,6 @@ function removeIdFromStorageList(id, key){
         }
     }
     return(found);
-}
-function createMdoFromLS(id){
-    var meta =  window.localStorage.getItem('meta' + id);
-    var oMashableData = { };
-    var aryMeta = meta.split('||');
-    for(var i=0;i<aryMeta.length;i++){
-        var kvPair = aryMeta[i].split('|');
-        oMashableData[kvPair[0]] = (kvPair[1]=='null')?null:kvPair[1];
-    }
-    oMashableData.lid=id;
-    if(oMashableData.uselatest == null)  oMashableData.uselatest = myPreferences.uselatest;
-    oMashableData.selected=false;
-    oMashableData.data = window.localStorage.getItem('data' + id);
-    return oMashableData;
 }
 
 //UI HELPER FUNCTIONS
@@ -1042,18 +988,6 @@ function titleChange(titleControl){
     //oMyGraphs & table synced only when user clicks save
 }
 
-//CORE FUNCTIONS
-function updateMetaData(meta, key, value){
-    var aryKeyValue = meta.split('||');
-    for(var i=0;i<aryKeyValue.length;i++){
-        if(aryKeyValue[i].split('|')[0]==key){
-            aryKeyValue[i] = aryKeyValue[i].split('|')[0] + '|' + value;
-            break;
-        }
-    }
-    return aryKeyValue.join('||');
-}
-
 //QUICK VIEW FUNCTIONS
 function getQuickViewData(btn){
     //if(notLoggedInWarningDisplayed()) return false;     // need to allow some playing before forcing a signup
@@ -1071,7 +1005,7 @@ function getQuickViewData(btn){
     if(sHandle.charAt(0)=="U")usids.push(parseInt(sHandle.substr(1))); else sids.push(parseInt(sHandle.substr(1)));
 
     getQuickData();
-    
+
     function getQuickData(){
         callApi({command:  'GetMashableData',
                 sids: sids,
@@ -1283,7 +1217,7 @@ function browseFromSeries(seriesId){
             branch = chainTree;
             parentid = 0;
             if(jsoData.chains[chain].length>maxHeight) maxHeight = jsoData.chains[chain].length;
-            for(i=jsoData.chains[chain].length-1;i>=0;i--){
+            for(i=jsoData.chains[chain].length-2;i>=0;i--){
                 if(branch[jsoData.chains[chain][i].name]){
                     branch[jsoData.chains[chain][i].name].catProps.count++;
                 } else {
@@ -1324,9 +1258,9 @@ function browseFromSeries(seriesId){
                     props = levelBranches[i].catProps;
                     $cell = $('<td class="cat-branch" rowspan="'+props.count+'" data="'+ props.catid +'" parentid="'+ props.parentid +'">'
                         + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1)?'<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)">show sibling categories</span>':'')
-                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">'+ props.name+ '(' + props.scount + ')</a>': props.name)
+                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">'+ props.name+ '(' + props.scount + ')</a>': props.name)+'</span>'
                         + ((props.children>0 && childless)?'<span class="ui-icon browse-right" data="'+ props.catid +'" onclick="showChildCats(this)">show child categories</span>':'')
-                        + '</span></td>');
+                        + '</td>');
 
                 }
                 $chainTable.find("tr:eq("+i+")").append($cell);
@@ -1876,7 +1810,7 @@ function showSiblingCats(spn){
     isOpened = $(spn).hasClass('browse-rollup');
     var $tcat;
     $tcat = $('table#cat-chains');
-    $tcat.find('span.sibling, span.ui-icon-grip-dotted-vertical, span.browse-right').remove();
+    $tcat.find('span.sibling').closest('div').remove();
     $tcat.find('span.italics').removeClass("italics");
     $tcat.find('td').children('br').remove();
     $tcat.find('.browse-rollup').removeClass("browse-rollup").addClass("browse-rolldown");
@@ -1894,25 +1828,26 @@ function showSiblingCats(spn){
                     $td.find("span.chain").append('<span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>');
                 }
             } else {
-                $td.append('<div><span class="ui-icon ui-icon-grip-dotted-vertical"></span><span class="sibling" data="'+ props.catid +'">'
-                    + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name +' (' + props.scount + ')</a>':props.name)
+                $td.append('<div><span class="ui-icon ui-icon-triangle-1-e"></span><span class="sibling" data="'+ props.catid +'">'
+                    + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name +' (' + props.scount + ')</a>':props.name) + '</span>'
                     + ((props.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>':'')
-                    + '</span></div>');
+                    + '</div>');
             }
 
         }
     })
 }
 function showChildCats(spn){
-    var catid, newTds, props, $currentTd, nextCatId;
-    catid = $(spn).closest("span.sibling, span.chain").attr("data");
+    var newTds, props, $currentTd, nextCatId;
+    var $catSpan = $(spn).closest('div').find("span.sibling, span.chain");
+    var catid = $catSpan.attr("data");
 
     callApi({command: "GetCatChildren", catid: catid}, function(jsoData, textStatus, jqXH){
         $currentTd = $('<td class="sibling expanded"  parentid="'+catid+'"></td>');
         $("table#cat-chains tr").append($currentTd);
         for(var i=0;i<jsoData.children.length;i++){
             props = jsoData.children[i];
-            $currentTd.append('<div><span class="sibling" data="'+ props.catid +'" parentid="'+ catid +'">'
+            $currentTd.append('<div><span class="ui-icon ui-icon-triangle-1-e"></span><span class="sibling" data="'+ props.catid +'" parentid="'+ catid +'">'
                 + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name + ' (' + props.scount + ')</a>':props.name)+'</span>'
                 + ((props.children>0)?'<span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>':'')
                 + '</div>').addClass("expanded");
@@ -1920,7 +1855,6 @@ function showChildCats(spn){
     });
     //rebuild the table root while fetching occurring, starting with clicked span working up
     nextCatId = $(spn).closest("td").attr('parentid');
-    $catSpan =  $(spn).closest('span.sibling, span.chain');
     $catSpan.removeClass("sibling").addClass("chain").find(".browse-right, .browse-rollup").remove();
     newTds = '<td class="chain" data="'+ $catSpan.attr('data') +'" parentid="'+ nextCatId +'"><span class="chain">'
         + '<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)" data="'+catid+'">show sibling categories</span>'
@@ -1984,57 +1918,81 @@ function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library
     return null;
 }
 function syncMyAccount(){ //called only after loggin and after initial report of new series
-// 1. update any local series to cloud that have not already been captured
-    //This now happens in loadmySeriesByKey
-// 2. take credit for any anonymous captures and claim as MySeries
-    var cids = [];
-    var ids = [];
-    var sids = [];
-    for(var id in oMySeries){
-        if(typeof id != "undefined"){
-            if(typeof oMySeries[id].lid != "undefined"){ //if it is still in localStorage and has a CID...
-                if(oMySeries[id].cid){
-                    cids.push(oMySeries[id].cid);
-                    ids.push(id);
-                    sids.push(oMySeries[id].sid);
+// 1. save local series
+    var handle, oldHandle, newHandle, serie;
+    //1A.look for localseries (handle prefixed with "L")
+    var params = {command: 'UploadMyMashableData', series: []};
+    for(handle in oMySeries){
+        if(handle[0]=='L'){
+            params.series.push(oMySeries[handle]);
+        }
+    }
+    //1B.  local series found -> save to server
+    if(params.series.length>0){
+        callApi(params, function(results, textStatus, jqXH){
+            for(oldHandle in results.handles){
+                //1C. update oMySeries, mySeries table, and in any graphs and graph assets
+                newHandle = results.handles[oldHandle]
+                serie = oMySeries[oldHandle];
+                serie.handle = newHandle;
+                serie.sid = newHandle.substr(1);
+
+                delete oMySeries[oldHandle];
+                oMySeries[newHandle] = serie;
+
+                $('#series-table').find("td.quick-view button[data='"+oldHandle+"']").attr('data',serie.handle);
+
+                for(tab in oPanelGraphs){
+                    updateHandles(oPanelGraphs[tab],oldHandle, serie);
+                }
+                for(var graph in oMyGraphs){
+                    updateHandles(oMyGraphs[graph], oldHandle, serie);
+                }
+            }
+        });
+    }
+
+    function updateHandles(graph, oldHandle, serie){
+        var i;
+        if(graph.assets){
+            if(graph.assets[oldHandle]){
+                delete graph.assets[oldHandle];
+                graph.assets[serie.handle] = serie;
+            } else {
+                return;
+            }
+        }
+        if(graph.plots){
+            for(i=0;i<graph.plots.length;i++){
+                replaceSeries(graph.plots[i]);
+            }
+        }
+        if(graph.pointsets){
+            for(i=0;i<graph.pointsets.length;i++){
+                replaceSeries(graph.plots[i]);
+            }
+        }
+        if(graph.mapsets){
+            replaceSeries(graph.mapsets);
+        }
+        function replaceSeries(plot){
+            var i;
+            for(i=0;i<plot.components.length;i++){
+                if(plot.components[i].handle == oldHandle){
+                    //update handle!
+                    plot.components[i].handle = serie.handle;
                 }
             }
         }
     }
-    var ssid = ',' + sids.valueOf() + ',';
-    if(cids.length>0){
-        apiCall({'command': 'MyCaptures',
-                'modal': 'persist',
-                'jsts': new Date().getTime(),
-                'uselatest': 'Y', //'Y'|'N' TODO: this should be driven by user preferences / user selection
-                'cids': cids,
-                'ids': ids
-            },
-            function(results, textStatus, jqXH){
-// 3. clear series from localStorage and delete lid properties from oMySeries objects
-                if(results.status=='ok'){
-                    for(var i in ids){
-                        removeIdFromStorageList(oMySeries[ids[i]].lid, 'localSeries');
-                        window.localStorage.removeItem('meta'+oMySeries[ids[i]].lid);
-                        window.localStorage.removeItem('data'+oMySeries[ids[i]].lid);
-                        delete oMySeries[ids[i]].lid;
-                        //console.log("localSeries and all LS should be empty.  window.localStorage.getItem('localSeries')= " + window.localStorage.getItem('localSeries'));
-                    }
-                }
-                // 4. clear oMySeries and the DataTable    *** not needed since everything is now SID based
-                //dtMySeries.fnClearTable();
-                //oMySeries = {};
-// 6. download my account objects
-//  A. My Series
-                getMySeries(ssid);
-            }
-        );
-    } else {
-        getMySeries("");  //modal is persisted
-    }
+
+// note: series cleared from localStorage when they were read
+
+//  download my account objects
+    getMySeries();  //modal is persisted
 
 //  B. My Graphs
-    console.info("syncMyAccount run")
+    console.info("syncMyAccount run");
     callApi({'command':	'GetMyGraphs'},  //modal is closed
         function(results, textStatus, jqXH){
             for(var key in results.graphs){
@@ -2064,15 +2022,13 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                         oMyGraphs[key].mapsets.components[comp].options = jQuery.parseJSON(oMyGraphs[key].mapsets.components[comp].options);
                     }
                 }
-
-
                 dtMyGraphs.fnAddData(oMyGraphs[key]);
             }
         }
     );
 }
 
-function getMySeries(existingSids){
+function getMySeries(){
     callApi({'command':	'GetMySeries', modal:"persist"},
         function(results, textStatus, jqXH){
             var series=[];
@@ -2191,7 +2147,7 @@ function deleteMyGraph(panelID){
 }
 function addMySeriesRow(oMD){  //add to table and to oMySeries
     //TODO:  need to update existing oPanelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySeries.');
-    if(!isNaN(oMD.sid)||!isNaN(oMD.usid)||!oMD.handle){
+    if(oMD.handle){
         if(oMySeries[oMD.handle]){
             //still need to check if it is a row.  There are lots of things in the oMySeries trunk...
             var $trSeries = dtMySeries.find("button[data='" + oMD.handle + "']").closest('tr');
@@ -2203,7 +2159,7 @@ function addMySeriesRow(oMD){  //add to table and to oMySeries
         dtMySeries.fnAddData(oMD);
         oMySeries[oMD.handle] = oMD; //if exists, overwrite with new
     } else {
-        console.log("Error loading series object: invalid series id.")
+        console.log("Error loading series object: invalid series handle.")
     }
     return oMD.handle;
 }
@@ -2334,11 +2290,6 @@ function deleteCheckedSeries(){
         if(account.loggedIn()){
             obj.save = null;
             updateMySeries(obj);  //delete from DB
-        }
-        if(obj.lid) { //delete from localStorage
-            removeIdFromStorageList(obj.lid, 'localSeries');
-            window.localStorage.removeItem('meta' + obj.lid);
-            window.localStorage.removeItem('data' + obj.lid);
         }
         dtMySeries.fnDeleteRow(trSeries); //delete from "My Series" dataTable
     });
