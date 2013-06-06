@@ -1030,18 +1030,18 @@ switch($command){
                 $seriesid = $row["seriesid"];
                 if($data!=$row["data"]){
                     $sql = "update series set data='".$db->real_escape_string ($data)."', firstdt=".$firstdt.", lastdt=".$lastdt." where seriesid=".$seriesid;
-                    runQuery($sql);
-                    $sql = "update myseries set adddt = ".intval($_POST["adddt"])." where seriesid=".$seriesid." and userid=".$user_id;
-                    runQuery($sql);
+                    runQuery($sql, $command);
                 }
+                $sql = "update myseries set adddt = ".intval($_POST["adddt"])." where seriesid=".$seriesid." and userid=".$user_id;
+                runQuery($sql, $command);
             } else {
                 $sql = "insert into series (userid, skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
                     . " values (".$user_id.",".safeStringSQL($skey).",".safeStringSQL($series_name).",".strlen($series_name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units).",".safeStringSQL($periodicity).",".safeStringSQL($graph_title).",".safeStringSQL($url).",'private user series acquired through via a chart using the MashableData chart plugin',".safeStringSQL($data).",".safeStringSQL(sha1($data)).",null,".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
-                $queryStatus = runQuery($sql);
+                $queryStatus = runQuery($sql, $command);
                 if($queryStatus!==false){
                     $seriesid = $db->insert_id;
                     $output["handles"][$local_handle] = 'U'.$seriesid;
-                    runQuery("insert into myseries (seriesid, userid, adddt) values (".$seriesid.",".$user_id.",".intval($capture_dt).")");
+                    runQuery("insert into myseries (seriesid, userid, adddt) values (".$seriesid.",".$user_id.",".intval($capture_dt).")", $command);
                 }
                 else {
                     $output["status"] = "error adding local series";
@@ -1490,8 +1490,9 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
                 "data"=>array()
             );
         }
-        $mapout["X".$currentPointSetId]["coordinates"]["S".$row["seriesid"]] = array("latLng"=>array($row["lat"], $row["lon"]));
-        $mapout["X".$currentPointSetId]["data"]["S".$row["seriesid"]] = array(
+        $latlon = $row["lat"].",".$row["lon"];
+        $mapout["X".$currentPointSetId]["coordinates"][$latlon] = array("latLng"=>array($row["lat"], $row["lon"]));
+        $mapout["X".$currentPointSetId]["data"][$latlon] = array(
             "handle"=>"S".$row["seriesid"],
             "name"=>$row["seriesname"],
             "data"=>$row["data"],

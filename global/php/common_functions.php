@@ -234,11 +234,25 @@ function setMapsetCounts($mapsetid="all"){
     runQuery("truncate temp;");
 }
 function setPointsetCounts($pointsetid="all"){
-    runQuery("truncate temp;");
-    runQuery("insert into temp (id1, text1) select pointsetid , concat(group_concat(mapcount)) from (select pointsetid , concat('{\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid where "
-    .($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid)." and map <>'worldx' group by mapsetid, map) mc group by pointsetid;");
-    runQuery("update pointsets ps join temp t on ps.pointsetid=t.id1 set ms.counts=t.text1;");
-    runQuery("truncate temp;");
+    runQuery("truncate temp;","setPointsetCounts");
+    runQuery("SET SESSION group_concat_max_len = 4000;");
+    runQuery("insert into temp (id1, text1) "
+    . " select pointsetid , concat(group_concat(mapcount)) "
+    . " from (".
+        " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
+        " FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
+        " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        " and map <>'worldx' ".
+        " group by pointsetid, map".
+        " UNION ".
+        " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
+        " FROM series s join maps m on s.geoid=m.bunny ".
+        " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        " and map <>'worldx' ".
+        " group by pointsetid, map"
+    ." ) mc group by pointsetid;","setPointsetCounts");
+    runQuery("update pointsets ps join temp t on ps.pointsetid=t.id1 set ps.counts=t.text1;","setPointsetCounts");
+    //runQuery("truncate temp;");
 }
 function encyptAcctInfo($value){
 

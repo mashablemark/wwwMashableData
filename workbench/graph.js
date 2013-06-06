@@ -399,35 +399,34 @@ function setCropSlider(panelId){  //get closest point to recorded js dt
         .slider("option", "max", chartOptions.x.length-1)
         .slider("option", "values", [leftIndex, rightIndex]);
 }
-function dateFromMdDate(dt, periodicity){
+
+function dateFromMdDate(mddt){  //eliminate periodicity input
     var udt;
-    udt = new Date('1/1/' + dt.substr(0,4) + ' UTC'); //language independent
-    switch(periodicity){
-        case "N": {
-            udt.setUTCHours(dt.substr(9,2));
-            udt.setUTCMinutes(dt.substr(12,2));
-            udt.setUTCSeconds(dt.substr(15,2));
-        }
-        case "W":
-        case "D": {
-            udt.setUTCDate(dt.substr(6,2));
-        }
-        case "Q":
-            if(dt[4]=='Q'){
-                udt.setUTCMonth((dt.substr(5,1)-1)*3)
+    udt = new Date('1/1/' + mddt.substr(0,4) + ' UTC'); //language & region independent
+    if(mddt.length>4){
+        switch(mddt.substr(4,1)){
+            case 'Q':
+                udt.setUTCMonth((mddt.substr(5,1)-1)*3);
                 break;
-            }
-        case "SA":
-            if(dt[4]=='H'){
-                udt.setUTCMonth((dt.substr(5,1)-1)*6);
+            case 'H':
+                udt.setUTCMonth((mddt.substr(5,1)-1)*6);
                 break;
+            default:
+                udt.setUTCMonth(mddt.substr(4,2));
+        }
+        if(mddt.length>6){
+            udt.setUTCDate(mddt.substr(6,2));
+            if(mddt.length>8){
+                udt.setUTCHours(mddt.substr(9,2));
+                udt.setUTCMinutes(mddt.substr(12,2));
+                udt.setUTCSeconds(mddt.substr(15,2));
             }
-        case "M": {
-            udt.setUTCMonth(dt.substr(4,2));
         }
     }
     return udt
 }
+
+
 function closestDate(nearbyDate, seriesData, closestYet){
     var x;
     for(var i=0;i<seriesData.length;i++){
@@ -884,7 +883,7 @@ function createSerieFromPlot(oGraph, plotIndex){
             }
         }
         if(y!==null || !breakNever){
-            plotData.push([Date.parse(dateFromMdDate(dateKey, calculatedSeries.period)), y]);
+            plotData.push([Date.parse(dateFromMdDate(dateKey)), y]);
         }
     }
     //3. reconstruct an ordered MD data array
@@ -1053,7 +1052,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     compData = component.data.split('||');
                     for(d=0;d<compData.length;d++){
                         mdPoint = compData[d].split('|');
-                        jsdt = dateFromMdDate( mdPoint[0], component.period);
+                        jsdt = dateFromMdDate( mdPoint[0]);
                         mdDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
                         if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
                             //search to see if this date is in gridArray
@@ -1150,7 +1149,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                         compData = asset.data.split('||');
                         for(d=0;d<compData.length;d++){
                             mdPoint = compData[d].split('|');
-                            jsdt = dateFromMdDate( mdPoint[0], period);
+                            jsdt = dateFromMdDate( mdPoint[0]);
                             mdDate = formatDateByPeriod(jsdt.getTime(), period);
                             for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
                                 if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
@@ -1291,7 +1290,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
     function addPointToGrid(point, period){
         var jsdt, mdDate, row;
         mdPoint = point.split('|');
-        jsdt = dateFromMdDate(mdPoint[0], period);
+        jsdt = dateFromMdDate(mdPoint[0]);
         mdDate = formatDateByPeriod(jsdt.getTime(), period);
         for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
             if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
@@ -1322,34 +1321,50 @@ function makeTableFromArray(grid){
 
 
 //MAP FUNCTIONS
+//MAP FUNCTIONS
+
+/*Object Documentation
+ Inputs:
+ mapsets.options
+ mapconfig
+ plot[i].options
+ pointsets[i].options
+
+
+ */
+
 function calcMap(graph){
     //vars that will make up the return object
-    var mapTitle, mapPeriod, mapUnits, aMapDates=[], markers={};
-    var pointData = {}; //2D object array:  [mashable-date][shandle]=value
-    var regionData = {};  //2D object array:  [mashable-date][region-code]=value
+    var mapTitle, mapPeriod, mapUnits, mapDates={}, aMapDates=[], markers={}, dateKey;
+    var markerData = {}; //2D object array:  [mdDate][shandle]=value
+    var regionData = {};  //2D object array:  [mdDate][region-code]=value
 
     //local vars
-    var mapRegionNames = {}, c, i, j, point, points, mddt, handle;
-    var mapMin=null, mapMax=null;
-    var pointMin=null, pointMax=null;
+    var mapRegionNames = {}, c, i, j, point, points, mddt, handle, dateHasData, valuesObject, pointHasData, y;
+    var dataMin, dataMax;
+    //var pointMin=null, pointMax=null;
     var oMapDates = {};
 
+    var expression, compSymbols, geo, geos, components, data, symbol, oComponentData;
     if(graph.mapsets){
         //THE BRAINS:
         var mapset = graph.mapsets;
         if(!mapset.formula) mapset.formula = plotFormula(mapset);
-        var expression = 'return ' + mapset.formula.formula.replace(patVariable,'values.$1') + ';';
+        expression = 'return ' + mapset.formula.formula.replace(patVariable,'values.$1') + ';';
         var mapCompute = new Function('values', expression);
 
         //1. rearrange series data into single object by date keys
-        var compSymbols = [], geo, geos={}, data, symbol, components = mapset.components, oComponentData = {};
+        compSymbols = [];
+        geos={};
+        components = mapset.components;
+        oComponentData = {};
         for(i=0;i<components.length;i++ ){
             symbol = compSymbol(i);
             compSymbols.push(symbol); //calculate once and use as lookup below
             //TODO: apply series transforms / down shifting here instead of just parroting series data
             if(components[i].handle[0]=='M'){
                 for(geo in graph.assets[components[i].handle].data){
-                    geos[geo]=true;  //geos will be used later to loop over the geographies and squared up the final set
+                    geos[geo]=true;  //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
                     data = graph.assets[components[i].handle].data[geo].data.split("||");
                     for(j=0; j<data.length; j++){
                         point = data[j].split("|");
@@ -1383,22 +1398,23 @@ function calcMap(graph){
         var breakNulls = mapset.options.breaks=='nulls';
         var breakMissing = mapset.options.breaks=='missing';
 
-
         mapTitle = plotName(graph, mapset);
         mapPeriod = graph.assets[components[0].handle].period; //for now, all components for have same periodicity, so just check the first component
         mapUnits = plotUnits(graph, mapset);
 
-        var dateKey, hasData, valuesObject, y;
         for(dateKey in oComponentData){
-            hasData = false
+            dataMin = Number.MAX_VALUE;
+            dataMax = Number.MIN_VALUE;
+            dateHasData = false;
             for(geo in geos){
                 valuesObject = {};
                 y = true;
+                dateHasData = false;
                 for(i=0;i<compSymbols.length;i++ ){
                     if(!isNaN(oComponentData[dateKey][compSymbols[i]])){ //test whether this component is a simple time series
                         valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
                     } else {
-                        if(oComponentData[dateKey][compSymbols[i]]=='null'){
+                        if(oComponentData[dateKey][compSymbols[i]]=='null'){  //has a direct value, therefore still a simple time series (not a mapset)
                             if(nullsMissingAsZero){
                                 valuesObject[compSymbols[i]] = 0;
                             } else {
@@ -1406,6 +1422,7 @@ function calcMap(graph){
                                 break;
                             }
                         } else {
+                            //mapset
                             if(oComponentData[dateKey][compSymbols[i]] && oComponentData[dateKey][compSymbols[i]][geo]){
                                 if(oComponentData[dateKey][compSymbols[i]][geo]=='null'){
                                     if(nullsMissingAsZero){
@@ -1416,6 +1433,7 @@ function calcMap(graph){
                                     }
                                 } else {
                                     valuesObject[compSymbols[i]] = oComponentData[dateKey][compSymbols[i]][geo];
+                                    pointHasData = true;
                                 }
                             } else {
                                 if(required) {
@@ -1428,179 +1446,380 @@ function calcMap(graph){
                         }
                     }
                 }
-                if(y) {
-                    try{
-                        y = mapCompute(valuesObject);
-                        if(Math.abs(y)==Infinity || isNaN(y)) y=null;
-                    } catch(err){
-                        y = null;
+                if(pointHasData){
+                    if(y) {
+                        try{
+                            y = mapCompute(valuesObject);
+                            if(Math.abs(y)==Infinity || isNaN(y)) y=null;
+                        } catch(err){
+                            y = null;
+                        }
+                    }
+                    if(y!==null) {
+                        if(!regionData[dateKey]) regionData[dateKey] = {};
+                        regionData[dateKey][geo] = y;
+                        dateHasData = true;
+                        dataMin = Math.min(dataMin||y, y);
+                        dataMax = Math.max(dataMax||y, y);
                     }
                 }
-                if(y!==null || !breakNever){
-                    if(!regionData[dateKey]) regionData[dateKey] = {};
-                    regionData[dateKey][geo] = y;
-                }
-                if(y!==null) {
-                    hasData = true;
-                    mapMin = Math.min(mapMin||y, y);
-                    mapMax = Math.max(mapMax||y, y);
-                }
             }
-            if(hasData){ //if all nulls, don't include this data
-                aMapDates.push({s: dateKey, dt: dateFromMdDate(dateKey, mapPeriod)});
+            if(dateHasData){ //if all nulls, don't include this datum point
+                mapDates[dateKey] = {regionMin: dataMin, regionMax: dataMax};
             } else {
                 delete regionData[dateKey];
             }
         }
-        aMapDates.sort(function(a,b){return a.dt - b.dt});
     }
+    var fillUnits, radiusUnits;
 
     if(graph.pointsets){
-        var index = 0, pointPlot, cmp;
+        //3. create the date tree by date for pointsets
+        var latlon, latlons={}, Xdata;
+        var index = 0, pointset, cmp, k;
         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
-            pointPlot = graph.pointsets[i];
-            cmp = pointPlot.components[0];  //TODO: allow for multiple components and compmath
-            markers = $.extend(markers, graph.assets[cmp.handle].coordinates);
-            for(var s in graph.assets[cmp.handle].coordinates){
-                markers[s].name = graph.assets[cmp.handle].data[s].name;
-                markers[s].style = {fill: pointPlot.options.markerColor || primeColors[index]};
-            }
-            index++;
-
-            for(handle in graph.assets[cmp.handle].data){
-                points = graph.assets[cmp.handle].data[handle].data.split("||");
-                for(j=0;j<points.length;j++){
-                    point = points[j].split("|");
-                    if(!pointData[point[0]]) pointData[point[0]] = {};
-                    pointData[point[0]][handle]= (point[1]=="null")?null:parseFloat(point[1]);
-                    if(pointMin==null || (point[1]!='null' && pointMin>parseFloat(point[1])))
-                        pointMin=parseFloat(point[1]);
-                    if(pointMax==null || (point[1]!='null' && pointMax<parseFloat(point[1])))
-                        pointMax=parseFloat(point[1]);
-                    if(!oMapDates[point[0]]){
-                        oMapDates[point[0]] = true;
-                        aMapDates.push({s: point[0], dt: dateFromMdDate(point[0], graph.assets[cmp.handle].period)});
+            pointset = graph.pointsets[i];
+            pointset.formula = plotFormula(pointset);
+            expression = 'return ' + pointset.formula.formula.replace(patVariable,'values.$1') + ';';
+            var pointsetCompute = new Function('values', expression);
+            //1. rearrange series data into single object by date keys
+            compSymbols = [];
+            components = pointset.components;
+            oComponentData = {};
+            for(j=0;j<components.length;j++ ){
+                symbol = compSymbol(j);
+                compSymbols.push(symbol); //calculate once and use as lookup below
+                //TODO: apply series transforms / down shifting here instead of just parroting series data
+                if(components[j].handle[0]=='X'){
+                    Xdata = graph.assets[components[j].handle].data; //shortcut
+                    for(latlon in Xdata){
+                        latlons[latlon] = true;  //latlons will be used later to loop over the points and square up the final set (i.e. add nulls for missing values)
+                        if(markers[latlon]){
+                            markers[latlon].name += '<br>' + Xdata[latlon].name;
+                        } else {
+                            markers[latlon] = {latLng: latlon.split(','), name: Xdata[latlon].name};
+                            markers[latlon].latLng[0] = parseFloat(markers[latlon].latLng[0]);
+                            markers[latlon].latLng[1] = parseFloat(markers[latlon].latLng[1]);
+                        }
+                        markers[latlon].fill = "#ff0000";  //REMOVE AFTER TESTING
+                        data = Xdata[latlon].data.split("||");
+                        for(k=0; k<data.length; k++){
+                            point = data[k].split("|");
+                            if(!oComponentData[point[0].toString()]){
+                                oComponentData[point[0].toString()] = {};
+                            }
+                            if(!oComponentData[point[0].toString()][symbol]){
+                                oComponentData[point[0].toString()][symbol] = {};
+                            }
+                            oComponentData[point[0].toString()][symbol][latlon] = point[1];
+                        }
+                    }
+                } else {
+                    data = graph.assets[components[j].handle].data.split("||");
+                    for(k=0; k<data.length; k++){
+                        point = data[k].split("|");
+                        if(!oComponentData[point[0].toString()]){
+                            oComponentData[point[0].toString()] = {};
+                        }
+                        oComponentData[point[0].toString()][symbol] = point[1];
                     }
                 }
             }
-            mapPeriod = graph.assets[cmp.handle].period; //overwrites <- OK becuase only single periodicity allowed!
-            mapTitle = (mapTitle)? mapTitle+" : "+ graph.assets[cmp.handle].name : graph.assets[cmp.handle].name;
+
+            //4. calculate value for each date key (= grouped points)
+            var required = !pointset.options.componentData || pointset.options.componentData=='required';  //default
+            var missingAsZero =  pointset.options.componentData=='missingAsZero';
+            var nullsMissingAsZero =  pointset.options.componentData=='nullsMissingAsZero';
+
+            var breakNever = !pointset.options.breaks || pointset.options.breaks=='never'; //default
+            var breakNulls = pointset.options.breaks=='nulls';
+            var breakMissing = pointset.options.breaks=='missing';
+
+            mapTitle = mapTitle + plotName(graph, pointset);
+            mapPeriod = graph.assets[components[0].handle].period; //for now, all components must have same periodicity, so just check the first component
+
+            if(pointset.options.attribute=='fill'){
+                fillUnits = plotUnits(graph, pointset);
+            }else{
+                radiusUnits = plotUnits(graph, pointset);  //default to radius
+            }
+
+            for(dateKey in oComponentData){
+                dataMin = Number.MAX_VALUE;
+                dataMax = Number.MIN_VALUE;
+                dateHasData = false;
+                for(latlon in latlons){
+                    valuesObject = {};
+                    y = true;
+                    pointHasData = false;
+                    for(j=0;j<compSymbols.length;j++ ){
+                        if(!isNaN(oComponentData[dateKey][compSymbols[j]])){ //test whether this component is a simple time series
+                            valuesObject[compSymbols[j]] = parseFloat(oComponentData[dateKey][compSymbols[j]]);
+                        } else {
+                            if(oComponentData[dateKey][compSymbols[j]]=='null'){  //this is a series too
+                                if(nullsMissingAsZero){
+                                    valuesObject[compSymbols[j]] = 0;
+                                } else {
+                                    y = null;
+                                    break;
+                                }
+                            } else {  //not a simple series = a pointset
+                                if(oComponentData[dateKey][compSymbols[j]] && oComponentData[dateKey][compSymbols[j]][latlon]){
+                                    if(oComponentData[dateKey][compSymbols[j]][latlon]=='null'){
+                                        if(nullsMissingAsZero){
+                                            valuesObject[compSymbols[j]] = 0;
+                                        } else {
+                                            y = null;
+                                            break;
+                                        }
+                                    } else {
+                                        valuesObject[compSymbols[j]] = oComponentData[dateKey][compSymbols[j]][latlon];
+                                        pointHasData = true;
+                                    }
+                                } else {
+                                    if(required) {
+                                        y = null;
+                                        break;
+                                    } else {
+                                        valuesObject[compSymbols[j]] = 0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(pointHasData){
+                        if(y) {
+                            try{
+                                y = pointsetCompute(valuesObject);
+                                if(Math.abs(y)==Infinity || isNaN(y)) y=null;
+                            } catch(err){
+                                y = null;
+                            }
+                        }
+                        if(y!==null) {
+                            dateHasData = true;
+                            if(!markerData[dateKey]) markerData[dateKey] = {};
+                            if(!markerData[dateKey][latlon]) markerData[dateKey][latlon] = {};
+                            if(pointset.options.attribute=='fill'){
+                                markerData[dateKey][latlon].f = y;
+                                dataMin = Math.min(dataMin, y);
+                                dataMax = Math.max(dataMax, y);
+                            } else {
+                                markerData[dateKey][latlon].r = y;
+                                dataMin = Math.min(dataMin, y);
+                                dataMax = Math.max(dataMax, y);
+                            }
+                        }
+                    }
+                }
+                if(dateHasData){ //if all nulls, don't include this data
+                    if(!mapDates[dateKey]) mapDates[dateKey]={};
+                    if(pointset.options.attribute=='fill'){
+                        mapDates[dateKey].markerFillMin = Math.min(mapDates[dateKey].markerFillMin||dataMin, dataMin); //in case there are multiple point sets
+                        mapDates[dateKey].markerFillMax = Math.max(mapDates[dateKey].markerFillMax||dataMax, dataMax);
+                    } else {
+                        mapDates[dateKey].markerRadiusMin = Math.min(mapDates[dateKey].markerRadiusMin||dataMin, dataMin); //in case there are multiple point sets
+                        mapDates[dateKey].markerRadiusMax = Math.max(mapDates[dateKey].markerRadiusMax||dataMax, dataMax);
+                    }
+                } else {
+                    delete regionData[dateKey];
+                }
+            }
         }
-        aMapDates.sort(function(a,b){return a.dt - b.dt});
 
         //fill holes in the matrix with nulls, otherwise jVectorMap leaves the last valid value when changing date
-        for(mddt in pointData){
-            for(handle in markers){
-                if(typeof pointData[mddt][handle] == "undefined") pointData[mddt][handle]=null;
+        for(mddt in markerData){
+            for(latlon in latlons){
+                if(typeof markerData[mddt][latlon] == "undefined") markerData[mddt][latlon]={f: null, r: null};
             }
         }
     }
+    for(dateKey in mapDates){
+        aMapDates.push({
+            s: dateKey,
+            dt: dateFromMdDate(dateKey),
+            regionMin: mapDates[dateKey].regionMin,
+            regionMax: mapDates[dateKey].regionMax,
+            markerRadiusMin: mapDates[dateKey].markerRadiusMin,
+            markerRadiusMax: mapDates[dateKey].markerRadiusMax,
+            markerFillMin: mapDates[dateKey].markerFillMin,
+            markerFillMax: mapDates[dateKey].markerFillMax
+        });
+    }
+    aMapDates.sort(function(a,b){return a.dt - b.dt});
+
     graph.calculatedMapData = {
-        title: mapTitle,
-        period: mapPeriod,
-        units: mapUnits,
-        markers: markers,
-        markerData: pointData,
-        dates: aMapDates,
+        title: mapTitle,  //string
+        period: mapPeriod, //string: single periodicity for maps
+        mapUnits: mapUnits,  //string
+        markers: markers, //{pointid: {name:, style: {fill:}}  radius attribute set in CalcAttibute if
+        markerData: markerData,  //
+        dates: aMapDates,  // [{a: mdDate (string), dt: intval for js UTC date,  regionMin: (optional float), regionMax: (optional float), markerMin; (optional float), markerMax: (optional float)}]
         regionData: regionData,
-        regionDataMin:mapMin,
-        regionDataMax:mapMax,
-        markerDataMin:pointMin,
-        markerDataMax:pointMax
+        fillUnits: fillUnits,
+        radiusUnits: radiusUnits
     };
     return graph.calculatedMapData;
 }
-function calcAttributes(graph){
-    var i, j, dt, geo, min, max, calcData = graph.calculatedMapData;
-    //1. if graph start or end (crops) cut in map dates, recalc min and max values for regions and marker
 
-    //2. based on mapsets.options, set regionData attributes = regionFillColors
+function calcAttributes(graph){
+    var i, y, firstDateKey, dateKey, geo, min, max, calcData = graph.calculatedMapData;
+    var DEFAULT_RADIUS_SCALE = 20; //px
+
+    //1.  find start and end indexes
+    calcData.regionMin = Number.MAX_VALUE;
+    calcData.regionMax = Number.MIN_VALUE;
+    var startDateIndex=calcData.dates.length-1, endDateIndex=0;
+    for(i=0;i<calcData.dates.length;i++){
+        if((!graph.start || graph.start >= calcData.dates[i].dt.getTime()) && (!graph.end || graph.end <= calcData.dates[i].dt.getTime())){
+            if(startDateIndex>i)startDateIndex=i;
+            if(endDateIndex<i)endDateIndex=i;
+            if(graph.mapsets){
+                calcData.regionMin = Math.min(calcData.dates[i].regionMin, calcData.regionMin);
+                calcData.regionMax = Math.max(calcData.regionMax, calcData.dates[i].regionMax);
+            }
+        }
+    }
+
     if(graph.mapsets){
-        var bunny, bunnyIndex = 0, bunnyVal, spans, bunnySerie, regionFillColors = {}, options = graph.mapsets.options;
-        var continuous = !options.scale || options.scale=='continuous';
-        //2A: determine if we have a tracking bunny, and is so calc the series and fet a flag
-        if(options.bunny!== null && !isNaN(options.bunny)  && options.bunny < graph.plots.length){
-            bunny = true;
-            bunnySerie = createSerieFromPlot(graph, options.bunny);
-        } else {
-            bunny = false;
-        }
-        if(bunny){
-            calcData.regionDeltas = {};
-            calcData.regionDeltaMin = Number.MAX_VALUE;
-            calcData.regionDeltaMax = Number.MIN_VALUE;
-            for(dt in calcData.regionData){
-                while(bunnyIndex<bunnySerie.data.length && bunnySerie.data[bunnyIndex][0]<dateFromMdDate(dt,calcData.period)) bunnyIndex++;
-                if(bunnyIndex<bunnySerie.data.length) bunnyVal = bunnySerie.data[bunnyIndex][1];
-                calcData.regionDeltas[dt] = {};
-                if(bunnyIndex<bunnySerie.data.length && bunnyVal!==null){
-                    calcData.regionDeltas[dt] = {};
-                    for(geo in calcData.regionData[dt]){
-                        if(calcData.regionData[dt][geo]!==null){
-                            calcData.regionDeltas[dt][geo] = calcData.regionData[dt][geo]-bunnyVal;
-                            calcData.regionDeltaMin = Math.min(calcData.regionDeltas[dt][geo], calcData.regionDeltaMin);
-                            calcData.regionDeltaMax = Math.max(calcData.regionDeltas[dt][geo], calcData.regionDeltaMax);
-                        } else {
-                            calcData.regionDeltas[dt][geo] = null;
-                        }
-                    }
-                } else { //no tracking comparison -> trim
-                    for(i=0;i<calcData.dates.length;i++){
-                        if(calcData.dates[i].s==dt){
-                            calcData.dates.splice(i,1);
-                            break;
-                        }
-                    }
-                }
-            }
-            min = calcData.regionDeltaMin;
-            max = calcData.regionDeltaMax;
-        } else {
-            delete calcData.regionDeltas;
-            delete calcData.regionDeltaMin;
-            delete calcData.regionDeltaMax;
-            if((graph.start && graph.start > calcData.dates[0].dt.getTime()) || (graph.end && graph.end < calcData.dates[calcData.dates.length-1].dt.getTime())){
-                calcData.regionDataMin = Number.MAX_VALUE;
-                calcData.regionDataMax = Number.MIN_VALUE;
-                for(dt in calcData.regionData){
-                    for(geo in calcData.regionData[dt]){
-                        if(calcData.regionData[dt][geo]!==null){
-                            calcData.regionDataMin = Math.min(calcData.regionDataMin, calcData.regionData[dt][geo]);
-                            calcData.regionDataMax = Math.max(calcData.regionDataMax, calcData.regionData[dt][geo]);
-                        }
-                    }
-                }
-            }
-            min = calcData.regionDataMin;
-            max = calcData.regionDataMax;
-        }
-        //2B: calculate the color with an internal switch for delta (bunny) vs values (no tracking bunny)
+        var spans, regionFillColors = {}, mapOptions = graph.mapsets.options;
+        var rgb, continuous = !mapOptions.scale || mapOptions.scale=='continuous';
+
+        min = calcData.regionMin;
+        max = calcData.regionMax;
+
+        //2. based on mapOptions, set regionData attributes = regionFillColors
+        //2A  continuous attributes use the min and max just calculated (also used in legend)
         spans = min<0 && max>0;
         calcData.regionColors = {};
-        var rgb = {
-            pos: makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS),
-            neg: makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG),
-            posMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.posColor||MAP_COLORS.POS))),
-            negMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(graph.mapsets.options.negColor||MAP_COLORS.NEG))),
-            mid: makeRGB(MAP_COLORS.MID)
-        };
-        var y;
-        for(dt in calcData.regionData){
-            calcData.regionColors[dt] = {};
-            for(geo in calcData.regionData[dt]){
-                y = bunny?calcData.regionDeltas[dt][geo]:calcData.regionData[dt][geo];
-                //calcData.regionColors[dt][geo] = colorInRange(y, y<0?min:(spans?0:min), y>=0?max:(spans?0:max), y<0?rgb.neg:rgb.mid, y<0?rgb.mid:rgb.pos);
-                if(y==0) {
-                    calcData.regionColors[dt][geo] = MAP_COLORS.MID;
-                } else {
-                    calcData.regionColors[dt][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos);
+        if(continuous){  //this will be used in the loop
+            rgb = {
+                pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
+                neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
+                posMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
+                negMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
+                mid: makeRGB(MAP_COLORS.MID)
+            };
+        }
+        for(i=startDateIndex;i<=endDateIndex;i++){
+            dateKey = calcData.dates[i].s;
+            calcData.regionColors[dateKey] = {};
+            if(calcData.regionData[dateKey]){
+                for(geo in calcData.regionData[dateKey]){
+                    y = calcData.regionData[dateKey][geo];
+                    if(!isNaN(y)&&y!==null){
+                        y=parseFloat(y);
+                        if(continuous){ //CONTINUOUS = relative to min and max data
+                            if(y==0 && !spans) {
+                                calcData.regionColors[dateKey][geo] = MAP_COLORS.MID;
+                            } else {
+                                if(spans){
+                                    calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos);
+                                } else {
+                                    calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.mid, y<0?rgb.mid:rgb.pos);
+                                }
+                            }
+                        } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
+                            for(j=0;j<mapOptions.discreteColors.length;j++){
+                                if((j==0 && parseFloat(mapOptions.discreteColors[j].cutoff)<=y) || (j!=0 && parseFloat(mapOptions.discreteColors[j].cutoff)<y)){
+                                    calcData.regionColors[dateKey][geo] = mapOptions.discreteColors[j].color;
+                                } else break;
+                            }
+                        }
+                    } else {
+                        calcData.regionColors[dateKey][geo] = '#ffffff';
+                    }
+                }
+            } else {
+                //whiteFillCurrentRegionData()beyond map range: create white fill
+                for(firstDateKey in calcData.regionData){
+                    for(geo in calcData.regionData[firstDateKey]){
+                        calcData.regionColors[dateKey][geo] = '#ffffff'
+                    }
+                    break;
                 }
             }
         }
-
     }
     //3. based on mapconfig, set markerData attributes
+    if(graph.pointsets){
+        //3A. calc min and max data for current start/end crop of graph
+        var markerKey, markerValues;
+        var markerFillMin = Number.MAX_VALUE, markerFillMax = Number.MIN_VALUE;
+        var markerRadiusMin = Number.MAX_VALUE, markerRadiusMax = Number.MIN_VALUE;
+        for(i=startDateIndex;i<=endDateIndex;i++){
+            if(calcData.dates[i].markerRadiusMin){ //data for this marker that will determine its radius
+                markerRadiusMin = Math.min(calcData.dates[i].markerRadiusMin, markerRadiusMin);
+                markerRadiusMax = Math.max(calcData.dates[i].markerRadiusMax, markerRadiusMax);
+            }
+            if(calcData.dates[i].markerFillMin){  //data for this marker that will determine its fill color
+                markerFillMin = Math.min(calcData.dates[i].markerFillMin, markerFillMin);
+                markerFillMax = Math.max(calcData.dates[i].markerFillMax, markerFillMax);
+            }
+        }
+        //determine mode booleans (hasRadiusScaling, hasFillShading) and set the min and max r- and fill-data.
+        var markerRadiusAbs;
+        var hasRadiusScaling = (markerRadiusMin != Number.MAX_VALUE);
+        if(hasRadiusScaling) {
+            markerRadiusAbs = Math.max(Math.abs(markerRadiusMin), Math.abs(markerRadiusMax));
+            calcData.radiusScale = markerRadiusAbs;
+        }
+        var hasFillShading = (markerFillMin != Number.MAX_VALUE);
+        if(hasFillShading){
+            calcData.markerFillMinValue = markerFillMin;
+            calcData.markerFillMaxValue = markerFillMax;
+            continuous = hasFillShading &&(!graph.mapconfig.scale || mapOptions.scale=='continuous'); //redefined for pointsets
+            spans = markerFillMin<0 && markerFillMax>0;
+            if(continuous){  //this will be used in the loop
+                rgb =  makeRGB(graph.mapconfig.maxMarkerColor||MAP_COLORS.POS);
+            }
+        }
+        //3B. create attributes
+        //(leave the fill colors unchanged from creation if !hasFillShading is radius.)
+        var markerId, fillData, rData, markerAttr = {r:{}, fill:{}, stroke:{}};
 
+        for(dateKey in calcData.markerData){
+            markerAttr.r[dateKey] = {};
+            markerAttr.fill[dateKey] = {};
+            markerAttr.stroke[dateKey] = {};
+            for(markerId in calcData.markers){
+                if(hasRadiusScaling){
+                    rData = calcData.markerData[dateKey][markerId].r || null;
+                    if(rData<0){ //create the style object with the stroke = RED for neg numbers
+                        markerAttr.stroke[dateKey][markerId] = '#ff0000';
+                        rData = Math.abs(rData);
+                    } else {
+                        markerAttr.stroke[dateKey][markerId] = '#000000';
+                    }
+                    markerAttr.r[dateKey][markerId] = (graph.mapconfig.radius || DEFAULT_RADIUS_SCALE) *  Math.sqrt(rData)/Math.sqrt(markerRadiusAbs);
+                }
+                if(hasFillShading){
+                    fillData = calcData.markerData[dateKey][markerId].f || null;
+                    if(isNaN(fillData) || fillData===null){
+                        markerAttr.fill[dateKey][markerId] = '#ffffff';
+                    } else {
+                        if(continuous){
+                            if(spans){
+                                markerAttr.fill[dateKey][markerId] = colorInRange(fillData, fillData<0?markerFillMin:(spans?0:markerFillMin), fillData>0?markerFillMax:(spans?0:markerFillMax), fillData<0?rgb.neg:rgb.posMid, fillData<0?rgb.negMid:rgb.pos);
+                            } else {
+                                markerAttr.fill[dateKey][markerId] = colorInRange(fillData, fillData<0?markerFillMin:(spans?0:markerFillMin), fillData>0?markerFillMax:(spans?0:markerFillMax), fillData<0?rgb.neg:MAP_COLORS.MID, fillData<0?MAP_COLORS.MID:rgb.pos);
+                            }
+                        } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
+                            for(j=0;j<graph.mapconfig.discreteColors;j++){
+                                if((j==0 && parseFloat(graph.mapconfig.discreteColors[j].cutoff)<=fillData) || (j!=0 && parseFloat(graph.mapconfig.discreteColors[j].cutoff)<fillData)){
+                                    markerAttr.fill[dateKey][markerId] = graph.mapconfig.discreteColors[j].color;
+                                } else break;
+                            }
+                        }
+                    }
+                } else {
+                    markerAttr.fill[dateKey][markerId] = '#0000ff';
+                }
+            }
+
+        }
+        calcData.markerAttr = markerAttr;
+    }
 
     //DONE!!!
     function makeRGB(color){
@@ -1619,6 +1838,7 @@ function calcAttributes(graph){
         return '#' + r + g + b;
     }
 }
+
 function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match and then step back if weekly->monthly->annual or if monthly->annual
 //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
     while(mdDate.length>=4){
@@ -1714,7 +1934,7 @@ function downloadMadeFile(options){
 }
 
 function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
-
+    mask(window.SVGAngle?'drawing the graph':'drawing the graph<br>Note: Graphs will draw 20 times faster in a modern browser such as Chrome, Firefox, Safari or Internet Exploer 9 or later');
     console.time('buildGraphPanel');
     console.timeEnd('buildGraphPanel:header');
     var title, calculatedMapData;
@@ -1834,7 +2054,9 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             '<div class="container map-controls">' +
             '<div class="jvmap" style="display: inline-block;"></div>' +
             '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
+            '<button class="map-step-backward">step backwards</button>' +
             '<button class="map-play">play</button>' +
+            '<button class="map-step-forward">step forwards</button>' +
             '<button class="map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
             '<button class="make-map" disabled="disabled">reset</button>' +
             '<button class="merge group hidden" disabled="disabled">group</button>' +
@@ -2368,7 +2590,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 },
                 backgroundColor: mapBackground,
                 markersSelectable: true,
-                markerStyle: {initial: {r: 0}}, //default for null values in the data
+                markerStyle: {initial: {r: 5}}, //default for null values in the data
                 regionStyle: {
                     selected: {
                         "stroke-width": 2,
@@ -2382,21 +2604,29 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     }
                 },
                 series: {
-                    regions:  [{
-                        attribute: "fill"
-                        /* values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
-                         scale: ['#C8EEFF', '#ff0000'],
-                         normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
-                         min: calculatedMapData.regionDataMin,
-                         max: calculatedMapData.regionDataMax*/
-                    }],
-                    markers:  [{
-                        attribute: 'r',
-                        scale: [1, (isBubble()?50:20)],
-                        values: getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[calculatedMapData.dates.length-1].s),
-                        min: 0.00001,  //always nail radius to zero
-                        max: Math.max(Math.abs(calculatedMapData.markerDataMin), Math.abs(calculatedMapData.markerDataMax)) //will use setAttributes to use size for abs(value) and border color = balck/red for pos/neg
-                    }]
+                    regions:  [
+                        {
+                            attribute: "fill"
+                            /* values: getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
+                             scale: ['#C8EEFF', '#ff0000'],
+                             normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
+                             min: calculatedMapData.regionDataMin,
+                             max: calculatedMapData.regionDataMax*/
+                        }
+                    ],
+                    markers:  [
+                        {
+                            attribute: 'r'
+                            //scale: [1, (isBubble()?50:20)]
+                            //values: getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[calculatedMapData.dates.length-1].s),
+                        },
+                        {
+                            attribute: 'fill'
+                        },
+                        {
+                            attribute: 'stroke'
+                        }
+                    ]
                 },
                 onRegionLabelShow: function(event, label, code){
                     var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
@@ -2421,16 +2651,17 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 onMarkerLabelShow: function(event, label, code){
                     var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s);
                     for(i=0;i<calculatedMapData.dates.length;i++){
-                        if(calculatedMapData.markerData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code]);
+                        //show sparkline of radius data if exists; else fill data
+                        if(calculatedMapData.markerData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f);
                     }
                     if(containingDateData && containingDateData[code]){
-                        var y = containingDateData[code];
-                        label.html(
-                            '<span style="display: inline-block;"><b>'+label.html()+':</b><br />'
-                                + Highcharts.numberFormat(containingDateData[code], (parseInt(containingDateData[code])==containingDateData[code])?0:2)
-                                + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
-                                + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
-                        ).css("z-Index",400);
+
+                        var y = containingDateData[code].r;
+                        var html = '<span style="display: inline-block;"><b>'+label.html()+':</b><br />';
+                        if(containingDateData[code].r) html += Highcharts.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
+                        if(containingDateData[code].f) html += Highcharts.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
+                        html += '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
+                        label.html(html).css("z-Index",400);
                         var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
                         sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
                         $('.inlinesparkline').sparkline(vals, sparkOptions);
@@ -2491,7 +2722,10 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                         //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                     }
                     if(oGraph.pointsets || isBubble()){
-                        $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
+                        //$map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
+                        $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                        $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
+                        $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
                     }
                     if(oGraph.plots){
                         var timeAxis = oHighCharts[panelId].xAxis[0];
@@ -2591,6 +2825,16 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
                 }
             }).button({text: false, icons: {primary: "ui-icon-play"}});
+            $thisPanel.find('.map-step-backward')
+                .click(function(){
+                    $mapSlider.slider("value",$mapSlider.slider("value")-1);
+                })
+                .button({text: false, icons: {primary: "ui-icon-seek-first"}});
+            $thisPanel.find('.map-step-forward')
+                .click(function(){
+                    $mapSlider.slider("value",$mapSlider.slider("value")+1);
+                })
+                .button({text: false, icons: {primary: "ui-icon-seek-end"}});
             if(oGraph.plots)
                 $thisPanel.find('h3.map-title').hide();
             else
@@ -3039,6 +3283,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         return  oGraph.mapsets && oGraph.mapsets.options.mode && oGraph.mapsets.options.mode=='bubble';
     }
     console.timeEnd('buildGraphPanel');
+    unmask();
 }
 
 

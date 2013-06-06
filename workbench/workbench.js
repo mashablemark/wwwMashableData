@@ -282,6 +282,10 @@ function parseHash(newHash, oldHash){
                     }
                 }
         }
+
+    }
+    if(oH.g){
+        //g
     }
 }
 function setHashSilently(hash){
@@ -901,15 +905,12 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
         }
         if(account.loggedIn()){
             callApi(params, function(results, textStatus, jqXH){
-                var newHandle;
+                var dbHandle;
                 for(var localHandle in results.handles){
-                    //1C. update oMySeries, mySeries table, and in any graphs and graph assets
-                    newHandle = results.handles[localHandle]
-                    mySerie = oMySeries[localHandle];
-                    mySerie.handle = newHandle;
-                    mySerie.sid = newHandle.substr(1);
-                    oMySeries[newHandle] = seriesTree[localHandle];
-                    addMySeriesRow($.extend({},oMySeries[newHandle]));
+                    dbHandle = results.handles[localHandle];
+                    seriesTree[localHandle].handle = dbHandle;
+                    mySerie.usid = dbHandle.substr(1);
+                    addMySeriesRow($.extend({},seriesTree[localHandle])); //this will update or add the series as needed and add it to the oMySeries object
                 }
             });
         }
@@ -1568,7 +1569,7 @@ function showSeriesEditor(handle, map){
                 var data = oSerie.data.split("||").sort();
                 for(var i=0;i<data.length;i++){
                     data[i] = data[i].split("|");
-                    data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0],oSerie.period).getTime(),oSerie.period);
+                    data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
                 }
                 data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
                 $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
@@ -1583,7 +1584,7 @@ function showSeriesEditor(handle, map){
                         var data = jsoData.series[series_handle].data.split("||").sort();
                         for(var i=0;i<data.length;i++){
                             data[i] = data[i].split("|");
-                            data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0],oSerie.period).getTime(),oSerie.period);
+                            data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
                         }
                         data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
                         $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
@@ -2506,6 +2507,6 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
 function unmask(){
     $("#wrapper").unmask()
 }
-function mask(){
-    $("#wrapper").mask("Loading...");
+function mask(msg){
+    $("#wrapper").mask(msg||"Loading...");
 }

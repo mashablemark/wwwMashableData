@@ -74,7 +74,7 @@
             $data[$row["map"]] = $row;
         }
 print("var mapsList=".json_encode($data).";");
-
+    //setPointsetCounts();
 $sources = runQuery("select apiid, name from apis order by name");
 ?>
 </script>
