@@ -124,6 +124,10 @@ div #md-inner {
 */
 
 
+.ui-selected{
+    background-color: orange !important;
+}
+
 .md-DS_title {
     position:relative;
     height:42px;

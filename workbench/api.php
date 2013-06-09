@@ -335,7 +335,7 @@ switch($command){
     case "GetPublicGraph":  //data and all: the complete protein!
         $ghash =  $_POST['ghash'];
         if(strlen($ghash)>0){
-            $output = getGraphs(0, $ghash); //gets everything except the mapset data
+            $output = getGraphs(0, $ghash); //gets everything except the mapsets and pointsets
 
             foreach($output['graphs'] as $ghandle => $oGraph){
                 if($oGraph["map"]!=null && $oGraph["map"]!=""){

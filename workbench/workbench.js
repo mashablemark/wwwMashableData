@@ -96,6 +96,8 @@ var newPlotIDCounter = -1; //new plots get negative ids (i.e. 'P-8-') which get 
 var myPreferences = {uselatest: 'N'};
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 
+var parsingHash = false;
+
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}, time: function(m){}, timeEnd: function(m){}};  //prevents IE from breaking
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
@@ -192,6 +194,9 @@ $(document).ready(function(){
         add: function(event, ui) {
             var tab_content = 'Loading graph.  Please wait.';
             return($(ui.panel).append('<p>'+tab_content + '</p>'));
+        },
+        activate: function(event, ui){
+            setPanelHash();
         }
     });
 
@@ -221,6 +226,8 @@ $(document).ready(function(){
     //$("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable);  //set within resize() too
 
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable); //resizeCanvas already called, but need this after datatable calls
+
+    $('#seriesSearchBtn, #graphsSearchBtn').addClass('ui-state-active').button({icons: {secondary: 'ui-icon-search'}});
     unmask();
     $('ul#series-tabs').click(function(){
         showGraphEditor()
@@ -229,9 +236,13 @@ $(document).ready(function(){
     hasher.changed.add(parseHash); //add hash change listener
     hasher.initialized.add(parseHash); //add initialized listener (to grab initial value in case it is already set)
     hasher.init(); //initialize hasher (start listening for history changes)
+    window.onbeforeunload = function() {
+        return "Your work will be lost.";
+    };
 });
 
 function parseHash(newHash, oldHash){
+    parsingHash = true;
     var $search, oH={}, aryPair, aryH = newHash.split('&');
     for(var i=0;i<aryH.length;i++){
         aryPair = aryH[i].split('=');
@@ -269,7 +280,7 @@ function parseHash(newHash, oldHash){
                 $search = $('#public_graphs_search').find('input');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
                     $search.val(decodeURI(oH.s));
-                    $('#graphsSearchBtn').click();
+                    seriesCloudSearch(true);
                 }
                 break;
             default: //graphTab
@@ -277,21 +288,31 @@ function parseHash(newHash, oldHash){
                 if($graphTab.length==1) {
                     $graphTab.click();
                 } else {
-                    if(oH.g){
-                        //TODO: load the graph
+                    if(oH.graphcode){
+                        for(var g in oPanelGraphs){
+                            if(oPanelGraphs[g].ghash==oH.graphcode){
+                                var $tab = $('#graph-tabs a[href=\'#'+oH.graphcode+'\']');
+                                if($tab.length==1) {
+                                    var found = true;
+                                    $tab.click();
+                                }
+                            }
+                        }
+                        if(!found){
+                            viewGraph(oH.graphcode);
+                        }
                     }
                 }
         }
-
     }
-    if(oH.g){
-        //g
-    }
+    parsingHash = false;
 }
 function setHashSilently(hash){
-    hasher.changed.active = false; //disable changed signal
-    hasher.setHash(hash); //set hash without dispatching changed signal
-    hasher.changed.active = true; //re-enable signal
+    if(!parsingHash){
+        hasher.changed.active = false; //disable changed signal
+        hasher.setHash(hash); //set hash without dispatching changed signal
+        hasher.changed.active = true; //re-enable signal
+    }
 }
 
 function resizeCanvas(){
@@ -424,6 +445,7 @@ function setupPublicSeriesTable(){
                     console.log(data.command+" ("+data.search+"): "+data.exec_time);
 
                     fnCallback(data, textStatus, jqXHR);
+                    //dtPublicSeries.selectable({filter: 'tr'});
                 },
                 "error": function(results){
                     console.log(results);
@@ -504,7 +526,7 @@ function setupMyGraphsTable(){
         "aoColumns": [
             {"mDataProp":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
                 "fnRender": function(obj) {
-                    return '<button data="G' + obj.aData.gid + '" onclick="clickViewGraph(' + obj.aData.gid + ')">open</button>'}
+                    return '<button data="G' + obj.aData.gid + '" onclick="viewGraph(' + obj.aData.gid + ')">open</button>'}
             },
             {"mDataProp":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px", "fnRender": function(obj){
                 return getValue(obj)
@@ -706,7 +728,7 @@ function seriesCloudSearchKey(event){
         seriesCloudSearch();
     }
 }
-function seriesCloudSearch(){
+function seriesCloudSearch(noHashChange){
     browseClose();
     var searchText = $("#series_search_text").val();
     if(searchText.match(/(title|name|skey):"[^"]+"/i)==null){
@@ -717,7 +739,7 @@ function seriesCloudSearch(){
     }
     $('#tblPublicSeries_filter input').val(searchText);
     dtPublicSeries.fnFilter(searchText);
-    setPanelHash();
+    if(!noHashChange) setPanelHash();
 }
 function getPublicSeriesByCat(a){
     var titleSearch = 'title:"' + $(a).text() + '"';
@@ -771,8 +793,8 @@ function formatObjDate(obj) { //helper function for the data tables
     var val = getValue(obj);
     return formatDateByPeriod(val,obj.aData.period);
 }
-function clickViewGraph(gid){
-    createMyGraph(gid);
+function viewGraph(gid){
+    createMyGraph(gid, function(){setPanelHash();});
     hideGraphEditor();
 }
 function clickMySeriesCheck(node){  //called when the series selection box is checked or unchecked
@@ -2311,7 +2333,7 @@ function addTab(title) {
     if($("#delete-my-series").attr("disabled")!="disabled"){
         $("button.add-to-graph").removeAttr("disabled");
     }
-    //in revised layout, show only if graph tabs and seardh tables are show  $("#show-hide-pickers").show();
+    //in revised layout, show only if graph tabs and search tables are shown  $("#show-hide-pickers").show();
     $('#graph-tabs a:last').click(function(){
         hideGraphEditor()
     });
@@ -2427,7 +2449,7 @@ function seriesPanel(anchorClicked){
     return false;
 }
 
-function getPanelHash(){
+function panelHash(){
     var picker = $("#series-tabs li.ui-tabs-selected a").attr('data');
     switch(picker){
         case '#local-series':
@@ -2441,13 +2463,13 @@ function getPanelHash(){
         default:
             var visiblePanel = visiblePanelId();
             if(visiblePanel){
-                return encodeURI('t=g'+visiblePanel.substr(8));
+                return encodeURI('t=g'+visiblePanel.substr(8)+(oPanelGraphs[visiblePanel].ghash?'&graphcode='+oPanelGraphs[visiblePanel].ghash:''));
             }
     }
 }
 function setPanelHash(){
-    var hash = getPanelHash();
-    if(hash) setHashSilently(hash);
+    var hash = panelHash();
+    if(hash && hasher.getHash()!=hash) setHashSilently(hash);
 }
 
 function notLoggedInWarningDisplayed(){

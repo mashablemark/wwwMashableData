@@ -204,7 +204,7 @@ $sources = runQuery("select apiid, name from apis order by name");
             <fieldset class="tight-fieldset"><legend>graph</legend>
                 <select id="quick-view-to-graphs"></select>
                 <select class="quick-view-maps"></select>
-                <button class="quick-view-maps" onclick="quickViewToMap(this)">map entire set</button>
+                <button class="quick-view-maps" onclick="quickViewToMap(this)">map set</button>
                 <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
             </fieldset>
             <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>

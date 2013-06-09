@@ -511,19 +511,46 @@ function getAssets(graph, callBack){
     }
     if(assetsToFetch.M.length+assetsToFetch.X.length+assetsToFetch.U.length+assetsToFetch.S.length==0) callBack();
 }
-function createMyGraph(gid, onComplete){
-    var oMyGraph = oMyGraphs['G' + gid];
-    var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
-    if(oMyGraph.mapFile) fileAssets.push('js/maps/'+ oMyGraph.mapFile +'.js');   //get the map too if needed
-    require(fileAssets); //parallel load while getting db assets
-    getAssets(oMyGraph, function(){
-        require(fileAssets, function(){
-            buildGraphPanel($.extend(true, {}, oMyGraph));
-            unmask();
-            if(onComplete) onComplete();
-        }); //panelId not passed -> new panel
-    });
+function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a ghash
+    var mdGraph = oMyGraphs['G' + id];
+    if(mdGraph){
+        createGraph();
+    } else {
+        for(gid in oMyGraphs){ //check to check if this is one of my graphs
+            if(oMyGraphs[gid].ghash==id){
+                mdGraph = oMyGraphs[gid];
+                break;
+            }
+        }
+        if(mdGraph) {
+            createGraph();
+        } else {
+            callApi({command: 'GetPublicGraph', ghash: id},
+                function(oReturn, textStatus, jqXH){
+                    for(var ghandle in oReturn.graphs){
+                        mdGraph = oReturn.graphs[ghandle]
+                        delete mdGraph.gid;  //user must save a copy as their own
+                        createGraph();
+                    }
+                }
+            );
+        }
+    }
+    function createGraph(){
+        var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
+        if(mdGraph.mapFile) fileAssets.push('js/maps/'+ oMyGraph.mapFile +'.js');   //get the map too if needed
+        require(fileAssets); //parallel load while getting db assets
+        getAssets(mdGraph, function(){
+            require(fileAssets, function(){
+                buildGraphPanel($.extend(true, {}, mdGraph));  //panelId not passed -> new panel
+                unmask();
+                if(onComplete) onComplete();
+            });
+        });
+    }
 }
+
+
 function emptyGraph(){
     return  {
         annotations: [],
@@ -2151,7 +2178,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                     // calling the API ...
                     var obj = {
                         method: 'feed',
-                        link: 'http://www.mashabledata.com/workbench/view.php?g='+ oPanelGraphs[panelId].ghash,
+                        link: 'http://www.mashabledata.com/workbench?t=g&graphcode='+ oPanelGraphs[panelId].ghash,
                         picture: chartInfo.imageURL,
                         message: body,
                         name: 'Facebook Dialogs',
