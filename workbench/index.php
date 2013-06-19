@@ -95,7 +95,7 @@ $sources = runQuery("select apiid, name from apis order by name");
                 <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
             </ul>
         </div>
-        <button style="position:absolute;left:650px;top:5px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor()"><b>show graphs&nbsp;&nbsp;</b> </button>
+        <button style="position:absolute;left:650px;top:5px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor();setPanelHash()"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu--><fb:login>
             <button id="menu-help" class="prov-float-btn">Help</button>
             <button id="menu-account" class="prov-float-btn">Sign in</button>

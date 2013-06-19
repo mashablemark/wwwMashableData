@@ -530,6 +530,7 @@ function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a
                     for(var ghandle in oReturn.graphs){
                         mdGraph = oReturn.graphs[ghandle]
                         delete mdGraph.gid;  //user must save a copy as their own
+                        inflateGraph(mdGraph);
                         createGraph();
                     }
                 }
@@ -538,12 +539,11 @@ function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a
     }
     function createGraph(){
         var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
-        if(mdGraph.mapFile) fileAssets.push('js/maps/'+ oMyGraph.mapFile +'.js');   //get the map too if needed
+        if(mdGraph.mapFile) fileAssets.push('js/maps/'+ mdGraph.mapFile +'.js');   //get the map too if needed
         require(fileAssets); //parallel load while getting db assets
         getAssets(mdGraph, function(){
             require(fileAssets, function(){
                 buildGraphPanel($.extend(true, {}, mdGraph));  //panelId not passed -> new panel
-                unmask();
                 if(onComplete) onComplete();
             });
         });
@@ -844,7 +844,7 @@ function createSerieFromPlot(oGraph, plotIndex){
 
     //note freq in a plot must be the same, either natively or through transformations
     calculatedSeries.period = components[0].options.transformedPeriod || oGraph.assets[components[0].handle].period;
-    if(!plot.formula) plot.formula = plotFormula(plot);
+    plot.formula = plotFormula(plot);
 
     /*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
      calculatedSeries.data = oGraph.assets[components[0].handle].data;
@@ -1376,7 +1376,7 @@ function calcMap(graph){
     if(graph.mapsets){
         //THE BRAINS:
         var mapset = graph.mapsets;
-        if(!mapset.formula) mapset.formula = plotFormula(mapset);
+        mapset.formula = plotFormula(mapset);
         expression = 'return ' + mapset.formula.formula.replace(patVariable,'values.$1') + ';';
         var mapCompute = new Function('values', expression);
 
@@ -1698,7 +1698,7 @@ function calcAttributes(graph){
     calcData.regionMax = Number.MIN_VALUE;
     var startDateIndex=calcData.dates.length-1, endDateIndex=0;
     for(i=0;i<calcData.dates.length;i++){
-        if((!graph.start || graph.start >= calcData.dates[i].dt.getTime()) && (!graph.end || graph.end <= calcData.dates[i].dt.getTime())){
+        if((!graph.start || parseInt(graph.start) <= calcData.dates[i].dt.getTime()) && (!graph.end || parseInt(graph.end) >= calcData.dates[i].dt.getTime())){
             if(startDateIndex>i)startDateIndex=i;
             if(endDateIndex<i)endDateIndex=i;
             if(graph.mapsets){
@@ -1737,13 +1737,13 @@ function calcAttributes(graph){
                     if(!isNaN(y)&&y!==null){
                         y=parseFloat(y);
                         if(continuous){ //CONTINUOUS = relative to min and max data
-                            if(y==0 && !spans) {
+                            if(y==0 && spans) {
                                 calcData.regionColors[dateKey][geo] = MAP_COLORS.MID;
                             } else {
                                 if(spans){
                                     calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos);
                                 } else {
-                                    calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.mid, y<0?rgb.mid:rgb.pos);
+                                    calcData.regionColors[dateKey][geo] = colorInRange(y, min, max, Math.min(min,max)<0?rgb.neg:rgb.mid, Math.min(min,max)<0?rgb.mid:rgb.pos);
                                 }
                             }
                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
@@ -1959,11 +1959,13 @@ function downloadMadeFile(options){
     // clean up
     Highcharts.discardElement(form);
 }
-
 function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
     mask(window.SVGAngle?'drawing the graph':'drawing the graph<br>Note: Graphs will draw 20 times faster in a modern browser such as Chrome, Firefox, Safari or Internet Exploer 9 or later');
+    window.setTimeout(function(){buildGraphPanelCore(oGraph, panelId)}, 20);
+}
+function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
     console.time('buildGraphPanel');
-    console.timeEnd('buildGraphPanel:header');
+    console.time('buildGraphPanel:header');
     var title, calculatedMapData;
     if(oGraph.title.length==0){ // set title if blank and just one asset to name of asset
         var key, assetCount=0;
@@ -1983,8 +1985,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     }
     var $thisPanel = $('#' + panelId);
     var annotations = new AnnotationsController(panelId);
-    console.time('buildGraphPanel:header');
-    console.time('buildGraphPanel:thisPanel');
+    console.timeEnd('buildGraphPanel:header');
+    console.time('buildGraphPanel:timeEnd');
     $thisPanel.html(
         '<div class="graph-nav">' +
             '<ol class="graph-nav">' +
@@ -2375,18 +2377,19 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             redraw();
     });
     function fillChangeMapSelect(){
-        var handle, i, map, html='<option>'+oGraph.map+'</option>', maps={};
+        var handle, i, map, html='<option>'+oGraph.map+'</option>', maps=[];
         for(handle in oGraph.assets){
             if(handle[0]=='M' && oGraph.assets[handle].maps){
                 for(map in oGraph.assets[handle].maps){
                     if(map != oGraph.map){
-                        maps[map] = oGraph.assets[handle].maps[map].set;
+                        maps.push(map);
                     }
                 }
             }
         }
-        for(map in maps){
-            html += '<option>'+ map +'</option>'
+        maps.sort();
+        for(i=0;i<maps.length;i++){
+            html += '<option>'+ maps[i] +'</option>'
         }
         return html;
     }
@@ -2410,8 +2413,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         function findBunnies(plot){
             var asset;
             for(i=0;i<plot.components.length;i++){
-                asset = assets[plot.components[i].handle];
                 if(vectorPattern.test(plot.components[i].handle)){ //tests for "S" or "U"
+                    asset = assets[plot.components[i].handle];
                     if(asset.mapsetid && mapsList[oGraph.map].bunny && mapsList[oGraph.map].bunny==asset.geoid){
                         //found a bunny!
                         oBunnies[asset.handle] = {mapsetid: asset.mapsetid, handle: asset.handle}; //use object ot dedup
@@ -2476,7 +2479,6 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 getAssets(newGraph, function(){ //this will get the Map and Pointset
                     require(fileAssets, function(){ //ensure that we have the new map file
                         buildGraphPanel(newGraph);//panelId not passed -> new panel
-                        unmask();
                         $mapSelect.val(oGraph.map);//for old graph, continue to show its map in teh selector
                     });
                 });
@@ -2484,9 +2486,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
         );
     });
 
-    if(!oGraph.plots){
-        $thisPanel.find('div.graph-type').hide();
-    }
+    showChangeSelectors();
     function showChangeSelectors(){
         if(oGraph.plots){
             $thisPanel.find('div.graph-type').show();
@@ -2582,9 +2582,8 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     console.timeEnd('buildGraphPanel:provController');
     //DRAW THE CHART
     if(oGraph.plots){
-        chartPanel(panelId, annotations);
-
         console.time('buildGraphPanel:build annoatations');
+        chartPanel(panelId, annotations);
         annotations.build();
         setCropSlider(panelId);
 
@@ -2597,7 +2596,10 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     }
     ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
     var $map, vectorMapSettings, val;
+
+    console.time('buildGraphPanel:drawMap');
     drawMap();
+    console.timeEnd('buildGraphPanel:drawMap');
 
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
@@ -2657,7 +2659,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 },
                 onRegionLabelShow: function(event, label, code){
                     var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
-                    if(containingDateData && containingDateData[code]){
+                    if(containingDateData && typeof containingDateData[code] != 'undefined'){
                         for(i=0;i<calculatedMapData.dates.length;i++){
                             if(calculatedMapData.regionData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
                         }
@@ -2736,7 +2738,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             }
 
             //$thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
-            var $mapSlider = $thisPanel.find('.slider').show().slider({
+            var $mapSlider = $thisPanel.find('.slider').show().off().slider({
                 value: 0,
                 min: 0,
                 max: val,
@@ -2770,7 +2772,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 }
             }).slider( "value", val);
 
-            $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}})
+            $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}}).off()
                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
                     /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
                      If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
@@ -2835,29 +2837,35 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 });
 
             var $play = $thisPanel.find('.map-play');
-            var player;
-            $play.click(function(){
+            $play.off().click(function(){
+                var stepStart, stepEnd, timeToKill, optimalStepTime = Math.min(10000/calculatedMapData.dates.length, 500);  //total animation will take no more than 10 seconds
                 if($play.attr("title")=="play"){
                     $play.button({text: false, icons: {primary: "ui-icon-pause"}}).attr("title","pause");
                     if($mapSlider.slider("value")==calculatedMapData.dates.length-1) $mapSlider.slider("value",0);
-                    player = setInterval(function(){
-                        $mapSlider.slider("value",$mapSlider.slider("value")+1);
-                        if($mapSlider.slider("value")==calculatedMapData.dates.length-1) {
-                            clearInterval(player);
-                            $play.button({text: false, icons: {primary: "ui-icon-play"}});
-                        }
-                    }, Math.min(10000/calculatedMapData.dates.length, 500));  //total animation will take no more than 10 seconds
+                    advanceSlider();
                 } else {
-                    clearInterval(player);
                     $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
                 }
+                function advanceSlider(){
+                    stepStart = new Date();
+                    $mapSlider.slider("value",$mapSlider.slider("value")+1);
+                    stepEnd = new Date();
+                    timeToKill = Math.max(1, optimalStepTime - (stepEnd.getTime()-stepStart.getTime()));
+                    if($mapSlider.slider("value")==calculatedMapData.dates.length-1){
+                        $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
+                    } else {
+                        if($play.attr("title")=="pause" && $mapSlider.slider("value")<calculatedMapData.dates.length){
+                            window.setTimeout(advanceSlider, timeToKill);
+                        }
+                    }
+                }
             }).button({text: false, icons: {primary: "ui-icon-play"}});
-            $thisPanel.find('.map-step-backward')
+            $thisPanel.find('.map-step-backward').off()
                 .click(function(){
                     $mapSlider.slider("value",$mapSlider.slider("value")-1);
                 })
                 .button({text: false, icons: {primary: "ui-icon-seek-first"}});
-            $thisPanel.find('.map-step-forward')
+            $thisPanel.find('.map-step-forward').off()
                 .click(function(){
                     $mapSlider.slider("value",$mapSlider.slider("value")+1);
                 })
@@ -2867,15 +2875,16 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
             else
                 $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));  //initialize here ratehr than set slider value which would trigger a map redraw
 
-            $thisPanel.find('.make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).click(function(){
-                $map.clearSelectedMarkers();
-                $map.clearSelectedRegions();
-                $map.removeAllMarkers();
-                $map.addMarkers(calculatedMapData.markers);
-                calculatedMapData  = calcMap(oGraph);
-                calcAttributes(oGraph);
-                $mapSlider.slider("value", calculatedMapData.dates.length-1);
-                $thisPanel.find('.map-graph-selected, .make-map').button('disable');
+            $thisPanel.find('.make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
+                .click(function(){
+                    $map.clearSelectedMarkers();
+                    $map.clearSelectedRegions();
+                    $map.removeAllMarkers();
+                    $map.addMarkers(calculatedMapData.markers);
+                    calculatedMapData  = calcMap(oGraph);
+                    calcAttributes(oGraph);
+                    $mapSlider.slider("value", calculatedMapData.dates.length-1);
+                    $thisPanel.find('.map-graph-selected, .make-map').button('disable');
             });
             var mergablity = {};
             function setMergablity(){
@@ -2931,17 +2940,56 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                 $thisPanel.find('button.group').button((mergablity.new||mergablity.growable)?'enable':'disable');
                 $thisPanel.find('button.ungroup').button(mergablity.ungroupable?'enable':'disable');
             }
-            $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).click(function(){
-                if(mergablity.new){
-                    oGraph.mapsets.options.merges.push($map.getSelectedRegions());
-                }
-                if(mergablity.growable){
-                    var i, j, newMerge = [];
+            $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).off()
+                .click(function(){
+                    if(mergablity.new){
+                        oGraph.mapsets.options.merges.push($map.getSelectedRegions());
+                    }
+                    if(mergablity.growable){
+                        var i, j, newMerge = [];
+                        var selectedMarkers = $map.getSelectedMarkers();
+                        var selectedRegions = $map.getSelectedRegions();
+                        //step 1.  remove the existing merges of compound markers
+                        for(i=0;i<selectedMarkers.length;i++){
+                            newMerge = newMerge.concat(selectedMarkers[i].split("+"));
+                            if(selectedMarkers[i].split("+").length>1){
+                                for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                                    if(selectedMarkers[i] == oGraph.mapsets.options.merges[j].join("+")){
+                                        oGraph.mapsets.options.merges.splice(j, 1);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        //step 2 add merges to which a selected region belongs
+                        for(i=0;i<selectedRegions.length;i++){
+                            for(j=0;j<oGraph.mapsets.options.merges.length;j++){
+                                if(oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i])>-1){
+                                    newMerge = newMerge.concat(oGraph.mapsets.options.merges.splice(j,1)[0]);
+                                    break;
+                                }
+                            }
+                        }
+                        //step 3 add in new regions
+                        for(i=0;i<selectedRegions.length;i++){
+                            if(newMerge.indexOf(selectedRegions[i])==-1) newMerge.push(selectedRegions[i]);
+                        }
+                        oGraph.mapsets.options.merges.push(newMerge);
+                    }
+                    $map.removeAllMarkers();
+                    $map.clearSelectedRegions();
+                    bubbleCalc();
+                    positionBubbles();
+                    makeDirty();
+                    $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
+            });
+            $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).off()
+                .click(function(){
+                    var i, j;
                     var selectedMarkers = $map.getSelectedMarkers();
                     var selectedRegions = $map.getSelectedRegions();
-                    //step 1.  remove the existing merges of compound markers
+
                     for(i=0;i<selectedMarkers.length;i++){
-                        newMerge = newMerge.concat(selectedMarkers[i].split("+"));
                         if(selectedMarkers[i].split("+").length>1){
                             for(j=0;j<oGraph.mapsets.options.merges.length;j++){
                                 if(selectedMarkers[i] == oGraph.mapsets.options.merges[j].join("+")){
@@ -2951,65 +2999,28 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
                             }
                         }
                     }
-                    //step 2 add merges to which a selected region belongs
                     for(i=0;i<selectedRegions.length;i++){
                         for(j=0;j<oGraph.mapsets.options.merges.length;j++){
-                            if(oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i])>-1){
-                                newMerge = newMerge.concat(oGraph.mapsets.options.merges.splice(j,1)[0]);
+                            pos = oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i]);
+                            if(pos != -1){
+                                oGraph.mapsets.options.merges[j].splice(pos, 1);
+                                if(oGraph.mapsets.options.merges[j].length==0){
+                                    oGraph.mapsets.options.merges.splice(j,1);
+                                }
                                 break;
                             }
                         }
                     }
-                    //step 3 add in new regions
-                    for(i=0;i<selectedRegions.length;i++){
-                        if(newMerge.indexOf(selectedRegions[i])==-1) newMerge.push(selectedRegions[i]);
-                    }
-                    oGraph.mapsets.options.merges.push(newMerge);
-                }
-                $map.removeAllMarkers();
-                $map.clearSelectedRegions();
-                bubbleCalc();
-                positionBubbles();
-                makeDirty();
-                $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
-            });
-            $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).click(function(){
-                var i, j;
-                var selectedMarkers = $map.getSelectedMarkers();
-                var selectedRegions = $map.getSelectedRegions();
-
-                for(i=0;i<selectedMarkers.length;i++){
-                    if(selectedMarkers[i].split("+").length>1){
-                        for(j=0;j<oGraph.mapsets.options.merges.length;j++){
-                            if(selectedMarkers[i] == oGraph.mapsets.options.merges[j].join("+")){
-                                oGraph.mapsets.options.merges.splice(j, 1);
-                                break;
-                            }
-                        }
-                    }
-                }
-                for(i=0;i<selectedRegions.length;i++){
-                    for(j=0;j<oGraph.mapsets.options.merges.length;j++){
-                        pos = oGraph.mapsets.options.merges[j].indexOf(selectedRegions[i]);
-                        if(pos != -1){
-                            oGraph.mapsets.options.merges[j].splice(pos, 1);
-                            if(oGraph.mapsets.options.merges[j].length==0){
-                                oGraph.mapsets.options.merges.splice(j,1);
-                            }
-                            break;
-                        }
-                    }
-                }
-                $map.removeAllMarkers();
-                $map.clearSelectedRegions();
-                bubbleCalc();
-                positionBubbles();
-                $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
-                makeDirty();
+                    $map.removeAllMarkers();
+                    $map.clearSelectedRegions();
+                    bubbleCalc();
+                    positionBubbles();
+                    $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
+                    makeDirty();
             });
             var gLegend;
-            $thisPanel.find('.legend').button().change(function(){
-                if ($(this).prop('checked')) {
+            $thisPanel.find('.legend').button().off().change(function(){
+                if($(this).prop('checked')) {
                     oGraph.mapconfig.showLegend = true;
                     gLegend = makeLegend($map, {
                         legend: oGraph.mapconfig.legendLocation||'TR',
@@ -3311,6 +3322,7 @@ function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicke
     }
     console.timeEnd('buildGraphPanel');
     unmask();
+    setPanelHash();
 }
 
 

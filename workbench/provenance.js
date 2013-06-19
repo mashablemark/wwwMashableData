@@ -529,7 +529,8 @@ function ProvenanceController(panelId){
             var self = this;
             self.sortableOff();
             var $liPlot = $(liPlot);
-            var oPlot = self.plotsEdits[$liPlot.index()];
+            var plotIndex = $liPlot.index();
+            var oPlot = self.plotsEdits[plotIndex];
             var plotColor = oPlot.options.lineColor||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
             $liPlot.find(".edit-plot, .plot-info").hide();
             //line thickness selector

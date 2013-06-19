@@ -131,6 +131,9 @@ span.mashabledata_asc{
     cursor: pointer;
 }
 
+#mashabledata_panel input.mashabledata_filter{
+    width: 175px;
+}
 #mashabledata_panel input.mashabledata_inputmsg{
     font-style: italic;
     color: #888888;

@@ -339,10 +339,14 @@ switch($command){
 
             foreach($output['graphs'] as $ghandle => $oGraph){
                 if($oGraph["map"]!=null && $oGraph["map"]!=""){
-                    $mapsets = getGraphMapSets($oGraph["gid"], $oGraph["map"]);
-                    if($mapsets) $output['graphs'][$ghandle]['mapsets'] = $mapsets;
-                    $pointsets = getPointSets($oGraph["gid"], $oGraph["map"]);
-                    if($pointsets) $output['graphs'][$ghandle]['pointsets'] = $pointsets;
+                    if($mapsets){
+                        $mapsets = getGraphMapSets($oGraph["gid"], $oGraph["map"]);
+                        $output['graphs'][$ghandle]['mapsets'] = $mapsets;
+                    }
+                    if($pointsets){
+                        $pointsets = getPointSets($oGraph["gid"], $oGraph["map"]);
+                        $output['graphs'][$ghandle]['pointsets'] = $pointsets;
+                    }
                 }
             }
         } else {
@@ -1161,8 +1165,11 @@ switch($command){
                 if($aRow["geocounts"]!==null and count($clean_seriesids)==1) { //only get geophy counts for single series fetches
                     $ary = json_decode('{"a":{'.$aRow["geocounts"].'}}', true);
                     $aRow["geocounts"] = $ary["a"];
-                    if($aRow["geoid"]!==null){
+                    if($aRow["geoid"]!==null && ($aRow["mapsetid"]!==null || $aRow["pointsetid"]!==null)){
                         $sql = 'select m.map, geographycount from mapgeographies mg join maps m on mg.map=m.map where geoid='.$aRow["geoid"];
+                        if($aRow["pointsetid"]){
+                            $sql .= ' or bunny = '.$aRow["geoid"] . ' group by map';
+                        }
                         $geoResult = runQuery($sql,"GetMashableData geographies");
                         while ($gRow = $geoResult->fetch_assoc()) {
                             if(isset($aRow["geocounts"][$gRow["map"]])){
@@ -1269,25 +1276,21 @@ function getGraphs($userid, $ghash){
     }
     $sql = "SELECT g.graphid as gid, g.userid, g.title, text as analysis, "
         . " g.map, jvectormap, mapconfig, "
-        . " serieslist, s.name, s.units, skey, s.firstdt, s.lastdt, s.periodicity, data, "
+        . " serieslist, s.name, s.units, skey, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
         . " ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
         . " gp.plotid, gp.type as plottype, gp.options as plotoptions, legendorder, pc.objtype as comptype, objid, "
         . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
         . " from graphs g left outer join maps m on g.map=m.map, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid  "
         . " where g.graphid=gp.graphid and gp.plotid=pc.plotid ";
     if(strlen($ghash)>0){
-        $sql .=  " and ghash=".safeStringSQL($ghash);
-    }
-    if(intval($userid)>0){
+        $sql .=  " and ghash=".safeStringSQL($ghash);  //used by GetPublicGraph
+    }else{
         requiresLogin();
         $sql .= " and g.userid=" . intval($userid);  //used by GetMyGraphs
-    } else {
-        $sql .= " and g.published='Y'"; //used by GetPublicGraph
     }
     $sql .= " order by gid, plottype, legendorder, comporder";
 
-    logEvent("GetGraphs subfunc", $sql);
-    $result = runQuery($sql);
+    $result = runQuery($sql, "GetGraphs subfunc");
     if($result->num_rows==0){
         die('{"status":"no graphs."}');
     }
@@ -1328,7 +1331,6 @@ function getGraphs($userid, $ghash){
 
                     array_push($output['graphs']['G' . $gid]["plots"], array(
                         "handle"=>"P".$plotid,
-                        //"name" =>   $aRow["plotname"],
                         "options"=> $aRow["plotoptions"],
                         "components" => array()
                     ));
@@ -1336,8 +1338,6 @@ function getGraphs($userid, $ghash){
                 $thisPlotIndex = count($output['graphs']['G' . $gid]["plots"]) - 1;
                 array_push($output['graphs']['G' . $gid]["plots"][$thisPlotIndex]["components"], array(
                         "handle"=> $aRow["comptype"].$aRow["objid"],
-                        //"op"=> $aRow["op"],
-                        //"k" => $aRow["k"],
                         "options"=> $aRow["componentoptions"]
                     )
                 );
@@ -1347,15 +1347,12 @@ function getGraphs($userid, $ghash){
                     $plotid =  $aRow['plotid'];
                     $output['graphs']['G' . $gid]["mapsets"] = array(
                         "handle"=>"P".$plotid,
-//                        "name" =>   $aRow["plotname"],
                         "options"=> $aRow["plotoptions"],
                         "components" => array()
                     );
                 }
                 array_push($output['graphs']['G' . $gid]["mapsets"]["components"], array(
                     "handle"=> $aRow["comptype"].$aRow["objid"],
-//                    "op"=> $aRow["op"],
-//                    "k" => $aRow["k"],
                     "options"=> $aRow["componentoptions"]
                     )
                 );
@@ -1367,7 +1364,6 @@ function getGraphs($userid, $ghash){
 
                      array_push($output['graphs']['G' . $gid]["pointsets"], array(
                          "handle"=>"P".$plotid,
-//                         "name" =>   $aRow["plotname"],
                          "options"=> $aRow["plotoptions"],
                          "components" => array()
                      ));
@@ -1375,8 +1371,6 @@ function getGraphs($userid, $ghash){
                  $thisSetIndex = count($output['graphs']['G' . $gid]["pointsets"])-1;
                  array_push($output['graphs']['G' . $gid]["pointsets"][$thisSetIndex]["components"], array(
                          "handle"=> $aRow["comptype"].$aRow["objid"],
-//                         "op"=> $aRow["op"],
-//                         "k" => $aRow["k"],
                          "options"=> $aRow["componentoptions"]
                      )
                  );
@@ -1396,7 +1390,9 @@ function getGraphs($userid, $ghash){
                     "firstdt"=> $aRow["firstdt"],
                     "lastdt"=> $aRow["lastdt"],
                     "period"=> $aRow["periodicity"],
-                    "data" => $aRow["data"]
+                    "data" => $aRow["data"],
+                    "geoid" => $aRow["geoid"],
+                    "mapsetid" => $aRow["mapsetid"]
                 );
                 if($aRow["comptype"]=='S'){
                     $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]]["sid"] = $aRow["objid"];

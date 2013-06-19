@@ -112,9 +112,9 @@ window.fbAsyncInit = function() { //called by facebook auth library after it loa
 
     FB.getLoginStatus(function(response) {
         account.signInFB(response);
-    });
-    FB.Event.subscribe('auth.login', function(response) {
-        account.signInFB(response);
+        FB.Event.subscribe('auth.login', function(response) {
+            account.signInFB(response);
+        });
     });
 };
 
@@ -794,7 +794,7 @@ function formatObjDate(obj) { //helper function for the data tables
     return formatDateByPeriod(val,obj.aData.period);
 }
 function viewGraph(gid){
-    createMyGraph(gid, function(){setPanelHash();});
+    createMyGraph(gid);
     hideGraphEditor();
 }
 function clickMySeriesCheck(node){  //called when the series selection box is checked or unchecked
@@ -972,19 +972,14 @@ function showHideGraphEditor(){
     var current = $("div.picker:visible").length;
     if(current==1){
         $(".show-hide").slideToggle(function(){ //callback prevents close click from tiggering a showGraphEditor
-            //$("#graph-composer-header").on('click',function(evt){showGraphEditor()});
             var panelToDeactive = $("#series-tabs li.ui-tabs-selected").removeClass("ui-tabs-selected ui-state-active").find("a").attr("data");
             $(panelToDeactive).hide();
         });
-        /*        $(".graphEditorClosedControls").show();
-         $("div.graph-composer-header").css("cursor","pointer");*/
-        $("#show-hide-pickers").hide();  //html('<span class="ui-icon browse-rolldown">show search tables</span>');
+        $("#show-hide-pickers").hide({complete: setPanelHash});
     } else {
         $(".show-hide").slideToggle(function(){
+
         });
-        /*        $(".graphEditorClosedControls").hide();
-         $("div.graph-composer-header").css("cursor","default");
-         $("#graph-composer-header").off('click');*/
         if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();  //in revise layout, hide instead of state change: .html('show graphs <span class="ui-icon browse-rollup"></span>')
     }
 }
@@ -1086,22 +1081,26 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             + '<tr><td>Graphs (including unpublished) count:</td><td>' + obj.graphcount + '</td></tr>'
             + '<tr><td>Series key:</td><td>' + obj.skey + '</td></tr>'
             + '</table>';
-        var hasMaps = false;
+        var hasMaps = false, seriesMaps = [], otherMaps = [];
+        var $mapSelect =  $('select.quick-view-maps');
         if(obj.mapsetid || obj.pointsetid){
-            var $mapSelect =  $('select.quick-view-maps').html("");
-            var mapOptions = "";
             for(var map in obj.geocounts){
                 if(obj.geocounts[map].set>1){
-                    mapOptions+='<option value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>';
                     hasMaps = true;
+                    if(obj.geocounts[map].regions){
+                        seriesMaps.push('<option value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>');
+                    } else {
+                        otherMaps.push('<option class="other-map" value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>');
+                    }
                 }
             }
         }
         if(hasMaps){ //make sure we have maps to show
-            $mapSelect.html(mapOptions);
-            $('.quick-view-maps').show();
+            seriesMaps.sort();
+            otherMaps.sort();
+            $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):'')).show();
         } else {
-            $('.quick-view-maps').hide();
+            $mapSelect.hide();
         }
     } else $('.quick-view-maps').hide();
     $('#qv-info').html(qvNotes);
@@ -1905,6 +1904,7 @@ function publicCat(catName, catId, apiId){
 function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library loads and determines that user is authenticated
     if(account.loggedIn()) return account.info.userId;
     if(account.fb_user){
+        console.trace();
         var params = {
             'command':	'GetUserId',
             'authmode': 'FB',
@@ -2020,35 +2020,49 @@ function syncMyAccount(){ //called only after loggin and after initial report of
         function(results, textStatus, jqXH){
             for(var key in results.graphs){
                 oMyGraphs[key]=results.graphs[key];
-                if(oMyGraphs[key].annotations){
-                    oMyGraphs[key].annotations=jQuery.parseJSON(results.graphs[key].annotations);
-                } else {
-                    oMyGraphs[key].annotations=[];
-                }
-                for(var plot in oMyGraphs[key].plots){
-                    oMyGraphs[key].plots[plot].options = jQuery.parseJSON(oMyGraphs[key].plots[plot].options)
-                    for(var comp in oMyGraphs[key].plots[plot].components){
-                        oMyGraphs[key].plots[plot].components[comp].options = jQuery.parseJSON(oMyGraphs[key].plots[plot].components[comp].options);
-                    }
-                }
-                for(var plot in oMyGraphs[key].pointsets){
-                    oMyGraphs[key].pointsets[plot].options = jQuery.parseJSON(oMyGraphs[key].pointsets[plot].options)
-                    for(var comp in oMyGraphs[key].pointsets[plot].components){
-                        oMyGraphs[key].pointsets[plot].components[comp].options = jQuery.parseJSON(oMyGraphs[key].pointsets[plot].components[comp].options);
-                    }
-                }
-                oMyGraphs[key].mapconfig = jQuery.parseJSON(oMyGraphs[key].mapconfig)
-
-                if(oMyGraphs[key].mapsets){
-                    oMyGraphs[key].mapsets.options = jQuery.parseJSON(oMyGraphs[key].mapsets.options)
-                    for(var comp in oMyGraphs[key].mapsets.components){
-                        oMyGraphs[key].mapsets.components[comp].options = jQuery.parseJSON(oMyGraphs[key].mapsets.components[comp].options);
-                    }
-                }
+                inflateGraph(oMyGraphs[key]);
                 dtMyGraphs.fnAddData(oMyGraphs[key]);
             }
         }
     );
+}
+
+
+function inflateGraph(graph){
+    if(graph.annotations){
+        graph.annotations=safeParse(graph.annotations,[]);
+    } else {
+        graph.annotations=[];
+    }
+    for(var plot in graph.plots){
+        graph.plots[plot].options = safeParse(graph.plots[plot].options, {});
+        for(var comp in graph.plots[plot].components){
+            graph.plots[plot].components[comp].options = safeParse(graph.plots[plot].components[comp].options, {});
+        }
+    }
+    for(var plot in graph.pointsets){
+        graph.pointsets[plot].options = safeParse(graph.pointsets[plot].options, {});
+        for(var comp in graph.pointsets[plot].components){
+            graph.pointsets[plot].components[comp].options = safeParse(graph.pointsets[plot].components[comp].options, {});
+        }
+    }
+    graph.mapconfig = safeParse(graph.mapconfig, {});
+
+    if(graph.mapsets){
+        graph.mapsets.options = safeParse(graph.mapsets.options, {});
+        for(var comp in graph.mapsets.components){
+            graph.mapsets.components[comp].options = safeParse(graph.mapsets.components[comp].options, {});
+        }
+    }
+
+    function safeParse(jsonString, emptyValue){
+        try{
+            return JSON.parse(jsonString);
+        }
+        catch(e){
+            return emptyValue;
+        }
+    }
 }
 
 function getMySeries(){
@@ -2462,7 +2476,7 @@ function panelHash(){
             return encodeURI('t=cg&s='+$('#public_graphs_search input').val());
         default:
             var visiblePanel = visiblePanelId();
-            if(visiblePanel){
+            if(visiblePanel && oPanelGraphs[visiblePanel]){
                 return encodeURI('t=g'+visiblePanel.substr(8)+(oPanelGraphs[visiblePanel].ghash?'&graphcode='+oPanelGraphs[visiblePanel].ghash:''));
             }
     }

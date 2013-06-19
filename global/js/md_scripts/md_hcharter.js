@@ -281,7 +281,7 @@ window.MashableData = { //mashableData namespace
             + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span>Download chart as: <a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a><button id="mashabledata_print">print chart</button></span>':'')
             + '<div id="mashabledata_tabs">'
             +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span class="mashabledata_info">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span class="mashabledata_info">('+this.bookmarks.length+')</span></a></li></ol>'
-            +   '<span><input class="mashabledata_inputmsg" value="type here to filter series"></span>'
+            +   '<span><input class="mashabledata_inputmsg mashabledata_filter" value="type here to filter series"></span>'
             +   '<div id="mashabledata_recents">'
             +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.recents)+'</table></div>'
@@ -293,7 +293,7 @@ window.MashableData = { //mashableData namespace
             +   '<span class="mashabledata_these">applies to</span> <span id="mashabledata_check_all">check all</span> '
             +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="chart" checked>update chart</label>'
             +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="md">open in the MashableData.com Workbench</label>'
-            +   '<button id="mashabledata_ok" disabled="disabled">ok</button>'
+            +   '<button id="mashabledata_ok" disabled="disabled">ok</button>' //<a id="mashableddata_workbench" href="http://www.mashabledata.com/workbench" target="_blank">open workbench</a>'
             +   '<button id="mashabledata_cancel">close</button>'
             + '</div>'
             + '</div>';
@@ -439,6 +439,10 @@ window.MashableData = { //mashableData namespace
                 for(i=0;i<checkedKeys.length;i++){
                     self.postSeries(self.series[checkedKeys[i]]);
                 }
+                window.location.href="http://www.mashabledata.com/workbench";
+                //$panel.find('#mashableddata_workbench').click();
+
+
             }
             closePanel();
         });

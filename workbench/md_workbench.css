@@ -202,6 +202,13 @@ span#main-graph-buttons-top fieldset legend, fieldset.tight-fieldset legend{
     font-size: 12px;
 }
 
+option.other-maps{
+    font-weight: bold;
+}
+option.other-maps{
+    font-style: italic;
+    padding-left: 5px;
+}
 #quick-view-controls fieldset{
     padding: 1px 5px 5px 5px;
 }
