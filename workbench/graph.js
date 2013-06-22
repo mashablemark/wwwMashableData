@@ -2899,7 +2899,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             function setMergablity(){
                 var i, j, markerRegions;
                 mergablity = {
-                    "new": false,
+                    "newMerge": false,
                     "growable": false,
                     "splinter": false,
                     "ungroupable": false
@@ -2941,17 +2941,17 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             if(mergablity.ungroupable){
                                 mergablity.growable = true;
                             } else {
-                                mergablity['new'] = true; //IE compatiblity for reserved keyword
+                                mergablity['newMerge'] = true; //IE compatiblity for reserved keyword
                             }
                         }
                     }
                 }
-                $thisPanel.find('button.group').button((mergablity.new||mergablity.growable)?'enable':'disable');
+                $thisPanel.find('button.group').button((mergablity.newMerge||mergablity.growable)?'enable':'disable');
                 $thisPanel.find('button.ungroup').button(mergablity.ungroupable?'enable':'disable');
             }
             $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).off()
                 .click(function(){
-                    if(mergablity.new){
+                    if(mergablity.newMerge){
                         oGraph.mapsets.options.merges.push($map.getSelectedRegions());
                     }
                     if(mergablity.growable){
