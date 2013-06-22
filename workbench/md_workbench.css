@@ -576,10 +576,11 @@ h3 {
 }
 
 .ui-tabs li .ui-icon-close {
-    margin: .3em 0.4em 0 4em;
+    margin: 4px 5px 0 4px;
     cursor: pointer;
     top: 0px;
     right: 0;
+    display: inline-block;
 }
 .ui-tabs li .ui-icon-close:hover {
     background-position: -32px -192px;
@@ -1087,6 +1088,18 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     background-color: black;
     border: 0;
 }
+#series-tabs{
+    background:none;
+    border:0;
+    display:inline-block;
+    position:relative;
+    top:-2px;
+}
+@-moz-document url-prefix() {
+    #series-tabs {
+        top: 3px;
+    }
+}
 #series-tabs li{
     z-index: 100;
 }
@@ -1182,6 +1195,12 @@ div.annotations fieldset{
 
 table.annotations{
     border-spacing: 0;
+}
+div.searchability span.ui-button-text{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+    white-space: nowrap;
 }
 
 #edit-user-series{

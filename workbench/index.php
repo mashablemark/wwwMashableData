@@ -1,5 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
 <head>
     <link rel="shortcut icon" href="/favicon.ico" />
     <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
@@ -55,31 +55,29 @@
 
     <!--script type="text/javascript" src="templates.js"></script-->
 
-</head>
-<script type="text/javascript">
-<?php
-/*    if (apc_exists('app:mapsList') !== false)
-    {
-        $data = apc_get('app:mapsList');
-    }
-    else
-    {
-
-        apc_store('app:mapsList', $data);
-    }*/
-        include_once("../global/php/common_functions.php");
-        $result = runQuery("select * from maps order by name", "application mapsList");
-        $data = array();
-        while($row = $result->fetch_assoc()){
-            $data[$row["map"]] = $row;
+    <script type="text/javascript">
+    <?php
+    /*    if (apc_exists('app:mapsList') !== false)
+        {
+            $data = apc_get('app:mapsList');
         }
-print("var mapsList=".json_encode($data).";");
-    //setPointsetCounts();
-$sources = runQuery("select apiid, name from apis order by name");
-?>
-</script>
+        else
+        {
 
-
+            apc_store('app:mapsList', $data);
+        }*/
+            include_once("../global/php/common_functions.php");
+            $result = runQuery("select * from maps order by name", "application mapsList");
+            $data = array();
+            while($row = $result->fetch_assoc()){
+                $data[$row["map"]] = $row;
+            }
+    print("var mapsList=".json_encode($data).";");
+        //setPointsetCounts();
+    $sources = runQuery("select apiid, name from apis order by name");
+    ?>
+    </script>
+</head>
 <body onresize="resizeCanvas();">
 <div id="fb-root"></div>
 <div id="wrapper" class="wrapper">
@@ -88,7 +86,7 @@ $sources = runQuery("select apiid, name from apis order by name");
         <!--span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Workbench</span-->
         <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
             <!--PICKER TABS-->
-            <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" style="background:none;border:0; display:inline-block; position:relative; top:2px;">
+            <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all">
                 <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Series</a></li>
                 <li class="cloud-series ui-state-default ui-corner-top"><a data="#cloud-series">Public Series</a></li>
                 <li class="my-graphs ui-state-default ui-corner-top"><a data="#myGraphs">My Graphs</a></li>
@@ -135,7 +133,7 @@ $sources = runQuery("select apiid, name from apis order by name");
                 <div id="cloud-series-search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
                     <fieldset class="search-box">
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
-                        <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search" onkeyup="seriesCloudSearchKey(event)" />
+                        <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search" onKeyPress="seriesCloudSearchKey(event)" />
                         <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
                         <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><?php while($api=$sources->fetch_assoc()){print('<option value="'.$api['apiid'].'">'.$api['name'].'</option>');} ?></select>
                         <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>

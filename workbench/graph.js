@@ -57,8 +57,8 @@ var period = {
 var oPanelGraphs = {}; //MyGraph objects by panelID allows easy access to oMyCharts
 var oHighCharts = {}; //highchart objects by panelID
 var op = {
-    value: {"+":1,"-":2,"*":3,"/":4},
-    class: {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
+    "value": {"+":1,"-":2,"*":3,"/":4},
+    "cssClass": {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
 };
 var mapBackground = '#AAAAAA';
 var rowPosition = {
@@ -1696,11 +1696,12 @@ function calcAttributes(graph){
     //1.  find start and end indexes
     calcData.regionMin = Number.MAX_VALUE;
     calcData.regionMax = Number.MIN_VALUE;
-    var startDateIndex=calcData.dates.length-1, endDateIndex=0;
+    calcData.startDateIndex=calcData.dates.length-1;
+    calcData.endDateIndex=0;
     for(i=0;i<calcData.dates.length;i++){
         if((!graph.start || parseInt(graph.start) <= calcData.dates[i].dt.getTime()) && (!graph.end || parseInt(graph.end) >= calcData.dates[i].dt.getTime())){
-            if(startDateIndex>i)startDateIndex=i;
-            if(endDateIndex<i)endDateIndex=i;
+            if(calcData.startDateIndex>i)calcData.startDateIndex=i;
+            if(calcData.endDateIndex<i)calcData.endDateIndex=i;
             if(graph.mapsets){
                 calcData.regionMin = Math.min(calcData.dates[i].regionMin, calcData.regionMin);
                 calcData.regionMax = Math.max(calcData.regionMax, calcData.dates[i].regionMax);
@@ -1728,7 +1729,7 @@ function calcAttributes(graph){
                 mid: makeRGB(MAP_COLORS.MID)
             };
         }
-        for(i=startDateIndex;i<=endDateIndex;i++){
+        for(i=calcData.startDateIndex;i<=calcData.endDateIndex;i++){
             dateKey = calcData.dates[i].s;
             calcData.regionColors[dateKey] = {};
             if(calcData.regionData[dateKey]){
@@ -1774,7 +1775,7 @@ function calcAttributes(graph){
         var markerKey, markerValues;
         var markerFillMin = Number.MAX_VALUE, markerFillMax = Number.MIN_VALUE;
         var markerRadiusMin = Number.MAX_VALUE, markerRadiusMax = Number.MIN_VALUE;
-        for(i=startDateIndex;i<=endDateIndex;i++){
+        for(i=calcData.startDateIndex;i<=calcData.endDateIndex;i++){
             if(calcData.dates[i].markerRadiusMin){ //data for this marker that will determine its radius
                 markerRadiusMin = Math.min(calcData.dates[i].markerRadiusMin, markerRadiusMin);
                 markerRadiusMax = Math.max(calcData.dates[i].markerRadiusMax, markerRadiusMax);
@@ -2069,8 +2070,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
             //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
             '</div><div class="searchability">' +
-            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">publicly searchable</label>' +
-            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'searcahable by members of '+ account.info.orgName:'not searchable') + '</label>' +
+            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
+            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
             '</div>' +
             '</fieldset>' +
             '</div>' +
@@ -2619,7 +2620,13 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 },
                 backgroundColor: mapBackground,
                 markersSelectable: true,
-                markerStyle: {initial: {r: 5}}, //default for null values in the data
+                markerStyle: {
+                    initial: {r: 5},
+                    selected: {
+                        "stroke-width": 4,
+                        stroke: 'yellow'
+                    }
+                }, //default for null values in the data
                 regionStyle: {
                     selected: {
                         "stroke-width": 2,
@@ -2721,7 +2728,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
             };
 
-            val = calculatedMapData.dates.length-1; //initial value
+            val = calculatedMapData.endDateIndex; //initial value
             $thisPanel.find('div.map').show();
 
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
@@ -2740,8 +2747,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //$thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
             var $mapSlider = $thisPanel.find('.slider').show().off().slider({
                 value: 0,
-                min: 0,
-                max: val,
+                min: calculatedMapData.startDateIndex,
+                max: calculatedMapData.endDateIndex,
                 step: 1,
                 change: function( event, ui ) {
                     val = ui.value;
@@ -2770,7 +2777,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
 
                 }
-            }).slider( "value", val);
+            }).slider( "value", calculatedMapData.endDateIndex);
 
             $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}}).off()
                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
@@ -2847,15 +2854,17 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
                 }
                 function advanceSlider(){
-                    stepStart = new Date();
-                    $mapSlider.slider("value",$mapSlider.slider("value")+1);
-                    stepEnd = new Date();
-                    timeToKill = Math.max(1, optimalStepTime - (stepEnd.getTime()-stepStart.getTime()));
-                    if($mapSlider.slider("value")==calculatedMapData.dates.length-1){
-                        $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
-                    } else {
-                        if($play.attr("title")=="pause" && $mapSlider.slider("value")<calculatedMapData.dates.length){
-                            window.setTimeout(advanceSlider, timeToKill);
+                    if($play.attr("title")=="play"){
+                        stepStart = new Date();
+                        $mapSlider.slider("value",$mapSlider.slider("value")+1);
+                        stepEnd = new Date();
+                        timeToKill = Math.max(1, optimalStepTime - (stepEnd.getTime()-stepStart.getTime()));
+                        if($mapSlider.slider("value")==calculatedMapData.dates.length-1){
+                            $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
+                        } else {
+                            if($play.attr("title")=="pause" && $mapSlider.slider("value")<calculatedMapData.dates.length){
+                                window.setTimeout(advanceSlider, timeToKill);
+                            }
                         }
                     }
                 }
@@ -2890,10 +2899,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             function setMergablity(){
                 var i, j, markerRegions;
                 mergablity = {
-                    new: false,
-                    growable: false,
-                    splinter: false,
-                    ungroupable: false
+                    "new": false,
+                    "growable": false,
+                    "splinter": false,
+                    "ungroupable": false
                 };
                 if(!isBubble()) return;
                 var selectedMarkers = $map.getSelectedMarkers();
@@ -2932,7 +2941,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             if(mergablity.ungroupable){
                                 mergablity.growable = true;
                             } else {
-                                mergablity.new = true;
+                                mergablity['new'] = true; //IE compatiblity for reserved keyword
                             }
                         }
                     }

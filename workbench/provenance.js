@@ -150,10 +150,10 @@ function ProvenanceController(panelId){
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
                 if(comp.handle[0]=='M')type='map';  //overides default = 'plot'
                 if(comp.handle[0]=='X')type='point';
-                compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">'
-                    + '<span class="plot-op ui-icon ' + op.class[plot.components[j].options.op] + '">operation</span> '
-                    + (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:''))
-                    + '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> *</span>'
+                compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">' +
+                    '<span class="plot-op ui-icon ' + op.cssClass[plot.components[j].options.op] + '">operation</span> ' +
+                    (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:'')) +
+                    '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> *</span>'
                     + graph.assets[comp.handle].name
                     + ' ('+period.name[graph.assets[comp.handle].period]+') in '
                     + graph.assets[comp.handle].units
@@ -487,7 +487,7 @@ function ProvenanceController(panelId){
                 .click(function(){
                     self.set(plot.components[iComp].options, 'op', $(this).val());
                     self.setFormula(plot, $liComp.closest(".plot,.mapset"));
-                    $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.class[plot.components[iComp].options.op]);
+                    $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.cssClass[plot.components[iComp].options.op]);
                 });
 
             $editDiv.appendTo($liComp).slideDown();  //add the new comp editor and animate it open
@@ -495,7 +495,7 @@ function ProvenanceController(panelId){
 /*            $editDiv.find("ul.comp-op li").click(function(){
                 $editDiv.find("li.selected").removeClass("selected");
                 component.options.op = $(this).closest("li").addClass("selected").attr('data');
-                $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + op.class[component.options.op]);
+                $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + op.cssClass[component.options.op]);
             });*/
             $liComp.find('.comp-edit-k').show()
                 .find("input").change(function(){

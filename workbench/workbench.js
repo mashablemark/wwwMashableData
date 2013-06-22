@@ -98,7 +98,12 @@ var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 
 var parsingHash = false;
 
-if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}, time: function(m){}, timeEnd: function(m){}};  //prevents IE from breaking
+//prevent IE from breaking
+if(typeof console == 'undefined') console = {};
+if(typeof console.info == 'undefined') console.info = function(m){};
+if(typeof console.log == 'undefined') console.log = function(m){};
+if(typeof console.time == 'undefined') console.time = function(m){};
+if(typeof console.timeEnd == 'undefined') console.timeEnd = function(m){};
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
     FB.init({
@@ -726,6 +731,7 @@ function seriesCloudSearchKey(event){
     searchCatId=0; //exit category browse mode
     if((keyCode == 13 &&  event.target.id == 'series_search_text') || event.target.id != 'series_search_text') {
         seriesCloudSearch();
+        event.preventDefault();
     }
 }
 function seriesCloudSearch(noHashChange){
@@ -1904,7 +1910,6 @@ function publicCat(catName, catId, apiId){
 function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library loads and determines that user is authenticated
     if(account.loggedIn()) return account.info.userId;
     if(account.fb_user){
-        console.trace();
         var params = {
             'command':	'GetUserId',
             'authmode': 'FB',

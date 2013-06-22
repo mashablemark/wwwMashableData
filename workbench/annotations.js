@@ -289,11 +289,9 @@ function AnnotationsController(panelId){
             if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" style="font-style:italic;color:aaaaaa#">right-click on the chart to annotate a point, a band, or an event</td></tr>';
             $annotations.html(sTable).find('input, select').change(function(){self.change(this)});
             $annotations.find('.annotation-color-picker').colorPicker();
-            $annotations.find('.ui-icon-trash')
-                .click(function(){
-                    self.delete(this)
+            $annotations.find('.ui-icon-trash').click(function(){
+                    self['delete'](this)
                 });
-
             console.timeEnd('annotation rest');
         },
         change: function changeAnno(obj){
@@ -361,7 +359,7 @@ function AnnotationsController(panelId){
                     });
             }
         },
-        delete: function deleteAnno(deleteAnchor){
+        "delete": function deleteAnno(deleteAnchor){
             var idToDelete = $(deleteAnchor).closest('tr').attr('data');
             var oGraph = oPanelGraphs[panelId];
             for(var i=0;i< oGraph.annotations.length;i++){
