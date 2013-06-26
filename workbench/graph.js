@@ -3563,6 +3563,7 @@ function nextDate(dt, period){ //return a Javascript date object
         default: return null;
     }
 }
+var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function formatDateByPeriod(val, period) { //helper function for the data tables
     if(isNaN(val)==false) {
         var dt = new Date(parseInt(val));
@@ -3570,9 +3571,9 @@ function formatDateByPeriod(val, period) { //helper function for the data tables
             case 'A': return dt.getUTCFullYear();
             case 'Q': return ('Q'+ parseInt((dt.getUTCMonth()+3)/3) +' '+ dt.getUTCFullYear());
             case 'SA':
-            case 'M': return dt.toUTCString().substr(8,8);
+                case 'M': return months[dt.getUTCMonth()]+' '+dt.getUTCFullYear();
             case 'W':
-            case 'D': return dt.toUTCString().substr(5,11);
+            case 'D': return dt.getUTCDate() + ' ' + months[dt.getUTCMonth()] + ' ' + dt.getUTCFullYear();
             default: return dt.toUTCString().substr(5,20);
         }
     }

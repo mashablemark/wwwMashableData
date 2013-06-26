@@ -139,8 +139,8 @@ div #md-inner {
 
 .md-table {
 	width:100%;
-	width:684px\9; /* IE Fix */
-	overflow-y: scroll\9 !important;  /* IE Fix */
+	//width:684px\9; /* IE Fix */
+	//overflow-y: scroll\9 !important;  /* IE Fix */
 	table-layout:fixed;
 }
 
@@ -1095,11 +1095,15 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     position:relative;
     top:-2px;
 }
+.ie #series-tabs{
+    top:3px;
+}
 @-moz-document url-prefix() {
     #series-tabs {
         top: 3px;
     }
 }
+
 #series-tabs li{
     z-index: 100;
 }

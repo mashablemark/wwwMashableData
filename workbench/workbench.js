@@ -321,8 +321,8 @@ function setHashSilently(hash){
 }
 
 function resizeCanvas(){
-    var winHeight = Math.max(window.innerHeight-10, layoutDimensions.widths.windowMinimum);
-    var winWidth = Math.max(window.innerWidth-10, layoutDimensions.widths.windowMinimum);
+    var winHeight = Math.max($(window).innerHeight()-10, layoutDimensions.widths.windowMinimum);
+    var winWidth = Math.max($(window).innerWidth()-10, layoutDimensions.widths.windowMinimum);
     $("div#wrapper").height(winHeight).width(winWidth);
 
     layoutDimensions.heights.menuBar = $("#title-bar").outerHeight(true);
@@ -352,58 +352,58 @@ function setupMySeriesTable(){
         "bPaginate": false,
         "bFilter": true,
         "bAutoWidth": false,
-        /*"oColReorder": {"iFixedColumns": 2},*/
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return 'showing ' + ((iMax==iTotal)?'':(iTotal + ' of ')) + iMax + ' series';},
-        /*        "oColVis": {
-         "bRestore": true,
-         "aiExclude": [ 0,1]
-         },*/
         "oLanguage": {
             "sSearch": ""
         },
-        "sScrollY": (layoutDimensions.heights.innerDataTable-120) + "px", //extra for graph title
-        "sScrollX": tableWidth + "px",
+        "sScrollY": (layoutDimensions.heights.innerDataTable-140) + "px",
+   //     "sScrollX": tableWidth + "px",
         "aaSorting": [[MY_SERIES_DATE,'desc']],
         "aoColumns": [
-            { "mDataProp":null, "sTitle": "View", "sClass": "quick-view", "bSortable": true, "sWidth": colWidths.quickView + "px", "resize": false,
-                "fnRender": function(obj) {
-                    return '<button data="' + obj.aData.handle + '" onclick="getQuickViewData(this)">View</button>'
+            {   "mData":null,
+                "sTitle": "View",
+                "sClass": "quick-view",
+                "bSortable": true,
+                "sWidth": colWidths.quickView + "px",
+                "resize": false,
+                "mRender": function(value, type, obj) {
+                    return '<button data="' + obj.handle + '" onclick="getQuickViewData(this)">View</button>'
                 }
             },
-            {"mDataProp": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
-                "fnRender": function(obj){
-                    if(obj.aData.selected) {
-                        return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.aData.selected + '</a>';
+            {"mData": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
+                "mRender": function(value, type, obj){
+                    if(value) {
+                        return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.selected + '</a>';
                     } else {
                         return '<a class="select_cell md-check rico" onclick="clickMySeriesCheck(this)"  title="select series to graph">Not selected</a>';
                     }
                 }
             },
-            { "mDataProp": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
-                "fnRender": function(obj){
-                    return ((obj.aData.mapsetid)?iconsHMTL.mapset:'')
-                        + ((obj.aData.pointsetid)?iconsHMTL.pointset:'')
-                        + getValue(obj);
+            { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
+                "mRender": function(value, type, obj){
+                    return ((obj.mapsetid)?iconsHMTL.mapset:'')
+                        + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                        + value;
                 }
             },
-            { "mDataProp": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "fnRender": function(obj){return getValue(obj)}},
-            { "mDataProp": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "fnRender": function(obj){return formatPeriodWithSpan(obj.aData.period)}},
-            { "mDataProp":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
-                "fnRender": function(obj){return formatObjDate(obj)}
+            { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "mRender": function(value, type, obj){return value}},
+            { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}},
+            { "mData":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
+                "mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)}
             },
-            { "mDataProp":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"fnRender": function(obj){return formatObjDate(obj)} },
-            { "mDataProp": "graph", "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "fnRender": function(obj){return getValue(obj)}},
-            { "mDataProp": null, "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
-                "fnRender": function(obj){
-                    if(obj.aData.handle[0]=='S') {
-                        return formatAsUrl(obj.aData.url) + obj.aData.src;
+            { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)} },
+            { "mData": "graph",  "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "mRender": function(value, type, obj){return value}},
+            { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
+                "mRender": function(value, type, obj){
+                    if(obj.handle[0]=='S') {
+                        return formatAsUrl(obj.url) + obj.src;
                     } else {
-                        return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.aData.src;
+                        return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.src;
                     }
                 }
             },
-            { "mDataProp": "save_dt", "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'],  "sWidth": colWidths.shortDate + "px", "resize": false,
-                "fnRender": function(obj){ return timeOrDate(getValue(obj))}
+            { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'],  "sWidth": colWidths.shortDate + "px", "resize": false,
+                "mRender": function(value, type, obj){ return timeOrDate(value)}
             }
         ]
     });
@@ -472,31 +472,32 @@ function setupPublicSeriesTable(){
         "aaSorting": [],  //[[8,'desc']],  using namelen to show shortest first by default
         "iDeferLoading": 0,
         "aoColumns": [
-            { "mDataProp":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
-                "fnRender": function(obj) {
-                    return '<button class="view" data="S' + obj.aData.seriesid + '" onclick="getQuickViewData(this)">View</button>'
+            { "mData":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
+                "mRender": function(value, type, obj) {
+                    return '<button class="view" data="S' + obj.seriesid + '" onclick="getQuickViewData(this)">View</button>'
                 }
             },
-            { "mDataProp":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px", "fnRender": function(obj){
-                return ((obj.aData.mapsetid)?iconsHMTL.mapset:'')
-                    + ((obj.aData.pointsetid)?iconsHMTL.pointset:'')
-                    + formatAsSpanWithTitle(obj)
+            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px", 
+                "mRender": function(value, type, obj){
+                return ((obj.mapsetid)?iconsHMTL.mapset:'')
+                    + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                    + spanWithTitle(value)
             }},
-            { "mDataProp":"units", "sTitle": "Units<span></span>", "sWidth": unitsColWidth+"px", "bSortable": true, "fnRender": function(obj){return formatAsSpanWithTitle(obj)} },
-            { "mDataProp":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "fnRender": function(obj){return formatPeriodWithSpan(obj.aData.period)} },
-            { "mDataProp":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "fnRender": function(obj){return spanWithTitle(formatObjDate(obj))}},
-            { "mDataProp":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"fnRender": function(obj){return spanWithTitle(formatObjDate(obj))}},
-            { "mDataProp":"title", "sTitle": "Category<span></span>", "sWidth": graphColWidth+"px", "bSortable": true,
-                "fnRender": function(obj){
-                    if(obj.aData.apiid!=null&&obj.aData.title!=null){
-                        return '<span class="ui-icon browse-right" onclick="browseFromSeries('+ obj.aData.seriesid +')">browse similar series</span> ' + formatAsSpanWithTitle(obj);
+            { "mData":"units", "sTitle": "Units<span></span>", "sWidth": unitsColWidth+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
+            { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
+            { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
+            { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
+            { "mData":"title", "sTitle": "Category<span></span>", "sWidth": graphColWidth+"px", "bSortable": true,
+                "mRender": function(value, type, obj){
+                    if(obj.apiid!=null&&obj.title!=null){
+                        return '<span class="ui-icon browse-right" onclick="browseFromSeries('+ obj.seriesid +')">browse similar series</span> ' + spanWithTitle(value);
                     } else {
-                        return '<a class="link" onclick="getPublicSeriesByCat(this)">' + formatAsSpanWithTitle(obj) + '</a>'
+                        return '<a class="link" onclick="getPublicSeriesByCat(this)">' + spanWithTitle(value) + '</a>'
                     }
                 }
             },
-            { "mDataProp":null, "sTitle": "Source<span></span>","bSortable": false, "sClass": 'url',  "sWidth": colWidths.src+"px", "resize": false, "fnRender": function(obj){return formatAsUrl(obj.aData.url) + obj.aData.src}}
-            //{ "mDataProp":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
+            { "mData":null, "sTitle": "Source<span></span>","bSortable": false, "sClass": 'url',  "sWidth": colWidths.src+"px", "resize": false, "mRender": function(value, type, obj){return formatAsUrl(obj.url) + obj.src}}
+            //{ "mData":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
         ]
     });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
@@ -529,58 +530,58 @@ function setupMyGraphsTable(){
         "sScrollX": tableWidth + "px",
         "aaSorting": [[9,'desc']],
         "aoColumns": [
-            {"mDataProp":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
-                "fnRender": function(obj) {
-                    return '<button data="G' + obj.aData.gid + '" onclick="viewGraph(' + obj.aData.gid + ')">open</button>'}
+            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
+                "mRender": function(value, type, obj) {
+                    return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}
             },
-            {"mDataProp":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px", "fnRender": function(obj){
-                return getValue(obj)
+            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px", "mRender": function(value, type, obj){
+                return value
             }},
-            {"mDataProp":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "fnRender": function(obj){return formatAsSpanWithTitle(obj)} },
-            {"mDataProp":"serieslist", "sTitle": "Series<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "fnRender": function(obj){return formatAsSpanWithTitle(obj)}},
-            {"mDataProp":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
-                "fnRender": function(obj){
-                    return formatAsSpanWithTitle(obj)
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)} },
+            {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
+                "mRender": function(value, type, obj){
+                    return spanWithTitle(value)
                 }
             },
-            /* {"mDataProp":"from", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte',  "sWidth": colWidths.shortDate + "px",
-             "fnRender": function(obj){
-             if(obj.aData.start==0 || obj.aData.start == null){
+            /* {"mData":"from", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte',  "sWidth": colWidths.shortDate + "px",
+             "mRender": function(value, type, obj){
+             if(obj.start==0 || obj.start == null){
              var minFromSeries = null;
-             for(var key in obj.aData.series){
-             if(minFromSeries == null) minFromSeries =obj.aData.series[key];
-             else if(obj.aData.series[key].firstdt<minFromSeries.firstdt) minFromSeries =obj.aData.series[key];
+             for(var key in obj.series){
+             if(minFromSeries == null) minFromSeries =obj.series[key];
+             else if(obj.series[key].firstdt<minFromSeries.firstdt) minFromSeries =obj.series[key];
              }
              return formatDateByPeriod(minFromSeries.firstdt, minFromSeries.period);
              } else {
-             return formatDateByPeriod(obj.aData.start,'M');
+             return formatDateByPeriod(obj.start,'M');
              }
              }
              },
-             {"mDataProp":"to", "sTitle": "to<span></span>",  "bSortable": true,  "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte',  "sWidth": colWidths.shortDate + "px",
-             "fnRender": function(obj){
-             if(obj.aData.end==0 || obj.aData.end == null){
+             {"mData":"to", "sTitle": "to<span></span>",  "bSortable": true,  "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte',  "sWidth": colWidths.shortDate + "px",
+             "mRender": function(value, type, obj){
+             if(obj.end==0 || obj.end == null){
              var maxToSeries = null;
-             for(var key in obj.aData.series){
-             if(maxToSeries == null)maxToSeries =obj.aData.series[key];
-             else if(obj.aData.series[key].lastdt>maxToSeries.lastdt) maxToSeries =obj.aData.series[key];
+             for(var key in obj.series){
+             if(maxToSeries == null)maxToSeries =obj.series[key];
+             else if(obj.series[key].lastdt>maxToSeries.lastdt) maxToSeries =obj.series[key];
              }
              return formatDateByPeriod(maxToSeries.lastdt, maxToSeries.period);
              } else {
-             return formatDateByPeriod(obj.aData.end,'M');
+             return formatDateByPeriod(obj.end,'M');
              }
              }
              },*/
-            {"mDataProp":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
-                "fnRender": function(obj){
-                    if(obj.aData.published == 'N'){
+            {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
+                "mRender": function(value, type, obj){
+                    if(obj.published == 'N'){
                         return '<span class=" ui-icon ui-icon-locked" title="This graph has not been published.  You must publish your graphs from the graph editor">locked</span>';
                     } else {
-                        return '<a href="view.php?g='+obj.aData.ghash+'">' + obj.aData.views + '</a>';
+                        return '<a href="view.php?g='+obj.ghash+'">' + obj.views + '</a>';
                     }
                 }
             },
-            {"mDataProp":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "fnRender": function(obj){return  timeOrDate(getValue(obj))}}
+            {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
     });
     $('#my_graphs_table_filter').appendTo('#myGraphsHeader fieldset:first');
@@ -634,30 +635,30 @@ function setupPublicGraphsTable(){
         "sScrollX": tableWidth + "px",
         "aaSorting": [[6,'desc']],
         "aoColumns": [
-            /*            {"mDataProp": null, "sTitle": "Show", "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
-             "fnRender": function(obj) {
-             var gId = obj.aData.gid;
+            /*            {"mData": null, "sTitle": "Show", "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
+             "mRender": function(value, type, obj) {
+             var gId = obj.gid;
              return '<button data="G' + gId + '" onclick="createGraph(' + gId + ')">View</button>'
              }
              },*/
-            {"mDataProp":null, "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px',
-                "fnRender": function(obj){
-                    return '<a href="http://www.mashabledata.com/workbench/view.php?g='+obj.aData.ghash+'" target="graph_viewer">'+obj.aData.title+'</a>'
+            {"mData":null, "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px',
+                "mRender": function(value, type, obj){
+                    return '<a href="http://www.mashabledata.com/workbench/view.php?g='+obj.ghash+'" target="graph_viewer">'+obj.title+'</a>'
 
                 }
             },
-            {"mDataProp":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  analysisColWidth + 'px'},
-            {"mDataProp":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": seriesColWidth + 'px'},
-            {"mDataProp":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "fnRender": function(obj){return formatAsSpanWithTitle(obj)}},
-            /*            {"mDataProp":"fromdt", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sWidth": colWidths.shortDate + 'px',
-             "fnRender": function(obj){return formatDateByPeriod(getValue(obj),'M');}
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  analysisColWidth + 'px'},
+            {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": seriesColWidth + 'px'},
+            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            /*            {"mData":"fromdt", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sWidth": colWidths.shortDate + 'px',
+             "mRender": function(value, type, obj){return formatDateByPeriod(value,'M');}
              },
-             {"mDataProp":"todt", "sTitle": "to<span></span>",  "bSortable": true,  "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte', "resize": false, "sWidth": colWidths.shortDate + 'px',
-             "fnRender": function(obj){return formatDateByPeriod(getValue(obj),'M')}
+             {"mData":"todt", "sTitle": "to<span></span>",  "bSortable": true,  "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte', "resize": false, "sWidth": colWidths.shortDate + 'px',
+             "mRender": function(value, type, obj){return formatDateByPeriod(value,'M')}
              },*/
-            {"mDataProp":"views", "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'count', "sWidth": colWidths.views + 'px'},
-            {"mDataProp":"modified", "sTitle": "Modified<span></span>", "bSortable": true,  "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
-                "fnRender": function(obj){return timeOrDate(getValue(obj));}
+            {"mData":"views", "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'count', "sWidth": colWidths.views + 'px'},
+            {"mData":"modified", "sTitle": "Modified<span></span>", "bSortable": true,  "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
+                "mRender": function(value, type, obj){return timeOrDate(value);}
             }
         ]
     });
@@ -765,12 +766,6 @@ function graphsCloudSearch(event){
         setPanelHash();
     }
 }
-function getValue(obj){
-    return obj.aData[ obj.oSettings.aoColumns[obj.iDataColumn].mDataProp ];
-}
-function formatAsSpanWithTitle(obj){
-    return spanWithTitle(getValue(obj));
-}
 function formatPeriodWithSpan(period){
     switch(period){
         case 'D':
@@ -794,10 +789,6 @@ function spanWithTitle(val){
 }
 function formatAsUrl(url){
     return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span></a>';
-}
-function formatObjDate(obj) { //helper function for the data tables
-    var val = getValue(obj);
-    return formatDateByPeriod(val,obj.aData.period);
 }
 function viewGraph(gid){
     createMyGraph(gid);
@@ -2273,7 +2264,7 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
         for(var i=0;i<quickViewSeries.length;i++){
             var handle = quickViewSeries[i].handle;
             oGraph.assets[handle] = $.extend(true, {}, quickViewSeries[i]); //make copy
-            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}}],options: {}});
+            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}}], options: {}});
         }
     }  else {
 //building from MySeriesTable
@@ -2296,7 +2287,7 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
         }
 
         for(var handle in checkedSeries){
-            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}, options: {}}]});
+            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}}], options: {}});
         }
     }
     //got all the data?  If not, fetch before creating graph
@@ -2313,7 +2304,7 @@ function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ 
                 }
             }
             graphBuilder(oGraph, panelId);
-            unmask();
+            showHideGraphEditor();
         }
     );
 }
