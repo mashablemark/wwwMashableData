@@ -25,6 +25,11 @@ var iconsHMTL= {
     mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set."></span>',
     pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a point set."></span>'
 };
+var dialogues = {
+    noMySeries: 'Your My Series folder is empty.  Please search for Public Series, whihc can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
+    noSeriesSelected: 'Click on one or more series below to select them before previewing.<br><br>Alternatively, you can double-click on a series to quickly preview it.',
+    editLimit: "Only one series or set can be edited at a time."
+};
 //GLOBAL VARIABLES
 var colWidths = {
     quickView: 50,
@@ -55,13 +60,13 @@ var layoutDimensions= {
         windowMinimum: 750
     }
 };
-var MY_SERIES_DATE = 9, MY_SERIES_CHECK_COL = 1;  //important column indexes used for ordering
+var MY_SERIES_DATE = 9;  //important column indexes used for ordering
 var nonWhitePattern = /\S/;  //handy pattern to check for non-whitespace
 //Datatable variables set after onReady calls to... , setupMySeriesTable, setupMySeriesTable, and setupMySeriesTable,
-var dtMySeries = null; //...setupMySeriesTable
-var dtPublicSeries = null;  //...setupPublicSeriesTable
-var dtMyGraphs = null;    //...setupMyGraphsTable
-var dtPublicGraphs = null;   //...setupPublicGraphsTable
+var dtMySeries; //...setupMySeriesTable
+var dtPublicSeries;  //...setupPublicSeriesTable
+var dtMyGraphs;    //...setupMyGraphsTable
+var dtPublicGraphs;   //...setupPublicGraphsTable
 var checkedCount = 0;  //record of how many MySeries are checked
 var searchCatId=0;  //set on API browser selection, clear on public series search text change
 var lastSeriesSearch="", lastGraphSearch=""; //kill column sorting on new searches.  Sort is by name length asc to show most concise (best fit) first
@@ -76,10 +81,7 @@ var oPanelGraphs = {}; //oMyGraphs objects are copied and referenced by the tab'
 var oHighCharts = {}; //contained objects return by Highcharts.chart call referenced by panelID as per oPanelGraphs
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
-var anOpenRowsMySeries = []; //used in obselete OpenCloseMySeries (calling writeDrilldownMySreies).  Future state: allows investigation and navigation of series source api (i.e. FRED or World Bank) categories one row at a time
-//var anOpenRowsPublicSeries = []; //not coded up
-//var anOpenRowsMyGraphs = [];     //not coded up
-//var anOpenRowsPublicGraphs = []; //not coded up
+var $quickViewRows = null; //used to remember jQuery set of rows being previewed in case user chooses to delete them
 
 var editingPanelId = null;  //TODO:  phase out as global var.  (was used for editing a graph's series list via the MySeries panel.  Replaced by graph's series provenance panel and by add to graph from quickViews.
 var mySeriesLoaded = false;
@@ -149,6 +151,7 @@ $(document).ready(function(){
 
     addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
     $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}});
+    $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error');
     $('button.quick-view-maps').button({icons: {secondary: "ui-icon-flag"}});
     $('#quick-view-to-graph').button({icons: {secondary: "ui-icon-image"}});
     $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}});
@@ -182,7 +185,7 @@ $(document).ready(function(){
         .click(function(){
 
         });
-    lastTabAnchorClicked = $("#series-tabs li a").click(function (){seriesPanel(this)}).filter("[data='#local-series']").get(0);
+    lastTabAnchorClicked = $("#series-tabs li a").click(function (){pickerPanel(this)}).filter("[data='#local-series']").get(0);
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
     resizeCanvas();
     setupMySeriesTable();
@@ -226,10 +229,10 @@ $(document).ready(function(){
     });
 
     setupPublicSeriesTable();
+    $('#preview-public-series').button({icons: {secondary: "ui-icon-image"}}).click(previewPublicSeries);
     setupPublicGraphsTable();
-    $('#tblPublicSeries_processing, #tblPublicGraphs_processing').html('searching the MashableData servers...');
-    //$("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable);  //set within resize() too
 
+    $('#tblPublicSeries_processing, #tblPublicGraphs_processing').html('searching the MashableData servers...');
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable); //resizeCanvas already called, but need this after datatable calls
 
     $('#seriesSearchBtn, #graphsSearchBtn').addClass('ui-state-active').button({icons: {secondary: 'ui-icon-search'}});
@@ -259,14 +262,14 @@ function parseHash(newHash, oldHash){
                 $('#series-tabs').find('li.local-series a').click();
                 $search = $('#series-table_filter').find('input');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
-                    $search.val(decodeURI(oH.s));
+                    $search.click().val(decodeURI(oH.s));  //the click event will remove the grey-ghost class and click and focus events on first call
                 }
                 break;
             case 'cs': //cloud series
                 $('#series-tabs').find('li.cloud-series a').click();
                 $search = $('#series_search_text');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
-                    $search.val(decodeURI(oH.s));
+                    $search.click().val(decodeURI(oH.s)); //the click event will remove the grey-ghost class and click and focus events on first call
                     $('#seriesSearchBtn').click();  //to exec search
                 }
                 $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
@@ -277,14 +280,14 @@ function parseHash(newHash, oldHash){
                 $('#series-tabs').find('li.my-graphs a').click();
                 $search = $('#my_graphs_table_filter').find('input');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
-                    $search.val(decodeURI(oH.s));
+                    $search.click().val(decodeURI(oH.s));  //the click event will remove the grey-ghost class and click and focus events on first call
                 }
                 break;
             case 'cg': //cloud graphs
                 $('#series-tabs').find('li.public-graphs a').click();
                 $search = $('#public_graphs_search').find('input');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
-                    $search.val(decodeURI(oH.s));
+                    $search.click().val(decodeURI(oH.s));  //the click event will remove the grey-ghost class and click and focus events on first call
                     seriesCloudSearch(true);
                 }
                 break;
@@ -341,81 +344,114 @@ function resizeCanvas(){
 }
 function setupMySeriesTable(){
     var tableWidth = $("#canvas").width()-160;
-    var remainingWidth =  tableWidth - (colWidths.quickView + colWidths.checkbox + colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
+    var remainingWidth =  tableWidth - (colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
     var unitsColWidth = parseInt(remainingWidth * 0.20);
     var seriesColWidth = parseInt(remainingWidth * 0.55);
     var graphColWidth = parseInt(remainingWidth * 0.25);
 
-    dtMySeries = $('#series-table').html('').dataTable({
-        "bProcessing": true,
-        "sDom": 'frti',
-        "bPaginate": false,
-        "bFilter": true,
-        "bAutoWidth": false,
-        "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return 'showing ' + ((iMax==iTotal)?'':(iTotal + ' of ')) + iMax + ' series';},
-        "oLanguage": {
-            "sSearch": ""
-        },
-        "sScrollY": (layoutDimensions.heights.innerDataTable-140) + "px",
-   //     "sScrollX": tableWidth + "px",
-        "aaSorting": [[MY_SERIES_DATE,'desc']],
-        "aoColumns": [
-            {   "mData":null,
-                "sTitle": "View",
-                "sClass": "quick-view",
-                "bSortable": true,
-                "sWidth": colWidths.quickView + "px",
-                "resize": false,
-                "mRender": function(value, type, obj) {
-                    return '<button data="' + obj.handle + '" onclick="getQuickViewData(this)">View</button>'
-                }
+    dtMySeries = $('#series-table').html('')
+        .dataTable({
+            "bProcessing": true,
+            "sDom": 'frti',
+            "bPaginate": false,
+            "bFilter": true,
+            "bAutoWidth": false,
+            "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return 'showing ' + ((iMax==iTotal)?'':(iTotal + ' of ')) + iMax + ' series';},
+            "oLanguage": {
+                "sSearch": ""
             },
-            {"mData": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
-                "mRender": function(value, type, obj){
-                    if(value) {
-                        return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.selected + '</a>';
-                    } else {
-                        return '<a class="select_cell md-check rico" onclick="clickMySeriesCheck(this)"  title="select series to graph">Not selected</a>';
+            "sScrollY": (layoutDimensions.heights.innerDataTable-140) + "px",
+            //     "sScrollX": tableWidth + "px",
+            "aaSorting": [[MY_SERIES_DATE,'desc']],
+            "aoColumns": [
+    /*            {   "mData":null,
+                    "sTitle": "View",
+                    "sClass": "quick-view",
+                    "bSortable": true,
+                    "sWidth": colWidths.quickView + "px",
+                    "resize": false,
+                    "mRender": function(value, type, obj) {
+                        return '<button data="' + obj.handle + '" onclick="getQuickViewData(this)">View</button>'
                     }
-                }
-            },
-            { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
-                "mRender": function(value, type, obj){
-                    return ((obj.mapsetid)?iconsHMTL.mapset:'')
-                        + ((obj.pointsetid)?iconsHMTL.pointset:'')
-                        + value;
-                }
-            },
-            { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "mRender": function(value, type, obj){return value}},
-            { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}},
-            { "mData":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
-                "mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)}
-            },
-            { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)} },
-            { "mData": "graph",  "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "mRender": function(value, type, obj){return value}},
-            { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
-                "mRender": function(value, type, obj){
-                    if(obj.handle[0]=='S') {
-                        return formatAsUrl(obj.url) + obj.src;
-                    } else {
-                        return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.src;
+                },
+                {"mData": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
+                    "mRender": function(value, type, obj){
+                        if(value) {
+                            return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.selected + '</a>';
+                        } else {
+                            return '<a class="select_cell md-check rico" onclick="clickMySeriesCheck(this)"  title="select series to graph">Not selected</a>';
+                        }
                     }
+                },*/
+                { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
+                    "mRender": function(value, type, obj){
+                        return ((obj.mapsetid)?iconsHMTL.mapset:'')
+                            + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                            + value;
+                    }
+                },
+                { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "mRender": function(value, type, obj){return value}},
+                { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}},
+                { "mData":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
+                    "mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)}
+                },
+                { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)} },
+                { "mData": "graph",  "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "mRender": function(value, type, obj){return value}},
+                { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
+                    "mRender": function(value, type, obj){
+                        if(obj.handle[0]=='S') {
+                            return formatAsUrl(obj.url) + obj.src;
+                        } else {
+                            return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.src;
+                        }
+                    }
+                },
+                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'],  "sWidth": colWidths.shortDate + "px", "resize": false,
+                    "mRender": function(value, type, obj){ return timeOrDate(value)}
                 }
-            },
-            { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'],  "sWidth": colWidths.shortDate + "px", "resize": false,
-                "mRender": function(value, type, obj){ return timeOrDate(value)}
+            ]
+        })
+        .click(function(e){
+            var $tr = $(e.target).closest('tr');
+            if($tr.hasClass('ui-selected')) $tr.removeClass('ui-selected'); else $tr.addClass('ui-selected');
+        }).dblclick(function(e){
+            $(e.target).closest('tr').addClass('ui-selected');
+            previewMySeries();
+        });
+    $('#series-table_filter')
+        .appendTo('#series-bar-controls')
+        .append('<span id="filterReset" class="ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#series-table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
+        .find('input')
+        .val('enter key phrase to filter')
+        .addClass('grey-italics')
+        .click(function(){
+            $(this).removeClass('grey-italics').val('').off('click focus');
+        })
+        .keyup(seriesFilterChange);
+
+    $('#new-series').button();
+    $('#preview-my-series').button({icons: {secondary: "ui-icon-image"}}).click(previewMySeries);
+    $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
+        var series = [], hasMySeries = false;
+        dtMySeries.find('tr.ui-selected').each(function(){
+            series.push(dtMySeries.fnGetData(this));
+        });
+        if(series.length==0){
+            for(var handle in oMySeries){
+                hasMySeries = true;
+                break;
             }
-        ]
+            if(hasMySeries) dialogShow('info', dialogues.noSeriesSelected); else dialogShow('info',dialogues.noMySeries);
+        } else {
+            if(series.lenght==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
+        }
     });
-    $('#series-table_filter').appendTo('#series-bar-controls');
-    $('#series-table_filter').append('<span id="filterReset" class="ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#series-table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>');
-    $('#series-table_filter :input').keyup(function(){seriesFilterChange()}).css('width','300px');
-    //$('#local-series .ColVis').parent().appendTo('#local-series-header fieldset:first');
-    $('#series-table_info').appendTo('#local-series-header fieldset:first');
+
+    $('#series-table_info').appendTo('#local-series-header');
 }
 function setupPublicSeriesTable(){
     var tableWidth = $("#canvas").width()-8*11-40; //padding/borders/margins + scroll
-    var remainingWidth =  tableWidth - (colWidths.quickView + colWidths.periodicity + colWidths.src + 2*colWidths.mmmyyyy);
+    var remainingWidth =  tableWidth - (colWidths.periodicity + colWidths.src + 2*colWidths.mmmyyyy);
     var seriesColWidth = remainingWidth * 0.4;
     var unitsColWidth = remainingWidth * 0.3;
     var graphColWidth = remainingWidth * 0.3;
@@ -448,9 +484,8 @@ function setupPublicSeriesTable(){
                 "data": aoData,
                 "success": function(data, textStatus, jqXHR){
                     console.log(data.command+" ("+data.search+"): "+data.exec_time);
-
                     fnCallback(data, textStatus, jqXHR);
-                    //dtPublicSeries.selectable({filter: 'tr'});
+                    if(data.aaData.length>0) $('#preview-public-series').button('enable'); else $('#preview-public-series').button('disable');
                 },
                 "error": function(results){
                     console.log(results);
@@ -472,17 +507,17 @@ function setupPublicSeriesTable(){
         "aaSorting": [],  //[[8,'desc']],  using namelen to show shortest first by default
         "iDeferLoading": 0,
         "aoColumns": [
-            { "mData":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
+           /* { "mData":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
                 "mRender": function(value, type, obj) {
                     return '<button class="view" data="S' + obj.seriesid + '" onclick="getQuickViewData(this)">View</button>'
                 }
-            },
-            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px", 
+            },*/
+            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px",
                 "mRender": function(value, type, obj){
-                return ((obj.mapsetid)?iconsHMTL.mapset:'')
-                    + ((obj.pointsetid)?iconsHMTL.pointset:'')
-                    + spanWithTitle(value)
-            }},
+                    return ((obj.mapsetid)?iconsHMTL.mapset:'')
+                        + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                        + spanWithTitle(value)
+                }},
             { "mData":"units", "sTitle": "Units<span></span>", "sWidth": unitsColWidth+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
@@ -499,6 +534,12 @@ function setupPublicSeriesTable(){
             { "mData":null, "sTitle": "Source<span></span>","bSortable": false, "sClass": 'url',  "sWidth": colWidths.src+"px", "resize": false, "mRender": function(value, type, obj){return formatAsUrl(obj.url) + obj.src}}
             //{ "mData":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
         ]
+    }).click(function(e){
+        var $tr = $(e.target).closest('tr');
+        if($tr.hasClass('ui-selected')) $tr.removeClass('ui-selected'); else $tr.addClass('ui-selected');
+    }).dblclick(function(e){
+        $(e.target).closest('tr').addClass('ui-selected');
+        previewPublicSeries();
     });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
@@ -507,7 +548,7 @@ function setupPublicSeriesTable(){
 }
 function setupMyGraphsTable(){
     var tableWidth = $("#canvas").width()-7*11-40;
-    var remainingWidth =  tableWidth - (2*colWidths.quickView + colWidths.shortDate + colWidths.map);
+    var remainingWidth =  tableWidth - (colWidths.quickView + colWidths.shortDate + colWidths.map);
     var titleColWidth = parseInt(remainingWidth * 0.25);
     var analysisColWidth = parseInt(remainingWidth * 0.50);
     var seriesColWidth = parseInt(remainingWidth * 0.25);
@@ -518,6 +559,7 @@ function setupMyGraphsTable(){
         "bAutoWidth": false,
         "bProcessing": true,
         "bDestroy": true,
+        "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return ((iMax==iTotal)?'':'found ' + iTotal + ' of ') + iMax + ' graphs'+(iTotal>0?' <i>Double-click on title to open</i>':'');},
         "oLanguage": {
             "sSearch": ""
         },
@@ -530,48 +572,15 @@ function setupMyGraphsTable(){
         "sScrollX": tableWidth + "px",
         "aaSorting": [[9,'desc']],
         "aoColumns": [
-            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
-                "mRender": function(value, type, obj) {
-                    return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}
-            },
-            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px", "mRender": function(value, type, obj){
-                return value
-            }},
-            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)} },
-            {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+/*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
+            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px"},
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
                     return spanWithTitle(value)
                 }
             },
-            /* {"mData":"from", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte',  "sWidth": colWidths.shortDate + "px",
-             "mRender": function(value, type, obj){
-             if(obj.start==0 || obj.start == null){
-             var minFromSeries = null;
-             for(var key in obj.series){
-             if(minFromSeries == null) minFromSeries =obj.series[key];
-             else if(obj.series[key].firstdt<minFromSeries.firstdt) minFromSeries =obj.series[key];
-             }
-             return formatDateByPeriod(minFromSeries.firstdt, minFromSeries.period);
-             } else {
-             return formatDateByPeriod(obj.start,'M');
-             }
-             }
-             },
-             {"mData":"to", "sTitle": "to<span></span>",  "bSortable": true,  "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte',  "sWidth": colWidths.shortDate + "px",
-             "mRender": function(value, type, obj){
-             if(obj.end==0 || obj.end == null){
-             var maxToSeries = null;
-             for(var key in obj.series){
-             if(maxToSeries == null)maxToSeries =obj.series[key];
-             else if(obj.series[key].lastdt>maxToSeries.lastdt) maxToSeries =obj.series[key];
-             }
-             return formatDateByPeriod(maxToSeries.lastdt, maxToSeries.period);
-             } else {
-             return formatDateByPeriod(obj.end,'M');
-             }
-             }
-             },*/
             {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
                 "mRender": function(value, type, obj){
                     if(obj.published == 'N'){
@@ -583,11 +592,24 @@ function setupMyGraphsTable(){
             },
             {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
+    }).click(function(e){
+        $(this).find('tr.ui-selected').removeClass('ui-selected');
+        var $tr = $(e.target).closest('tr');
+        $tr.addClass('ui-selected');
+    }).dblclick(function(e){
+        $(this).find('tr.ui-selected').removeClass('ui-selected');
+        var graphRow = dtMyGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
+        viewGraph(graphRow.gid);
     });
-    $('#my_graphs_table_filter').appendTo('#myGraphsHeader fieldset:first');
-    $('#my_graphs_table_filter').append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>');
-    $('#my_graphs_table_info').appendTo('#myGraphsHeader fieldset:first');
-    $('#myGraphs .showhidecol').appendTo('#myGraphsHeader fieldset:first');
+    $('#my_graphs_table_filter')
+        .appendTo('#myGraphsHeader')
+        .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
+        .find('input')
+        .val('search my graphs').addClass('grey-italics')
+        .on('click keydown',function(e){
+            $(this).removeClass('grey-italics').val('').off('click keydown');
+        });
+    $('#my_graphs_table_info').appendTo('#myGraphsHeader');
 }
 function setupPublicGraphsTable(){
     var tableWidth = $("#canvas").width()-6*11-40;
@@ -623,7 +645,7 @@ function setupPublicGraphsTable(){
             });
         },
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
-            return iTotal + " series";
+            return iTotal + " graph"+((iTotal==1)?'s':'')+((iTotal>0)?' <i>double-click on title to view</i>':'');
         },
         "oColVis": {
             "bRestore": true,
@@ -641,12 +663,7 @@ function setupPublicGraphsTable(){
              return '<button data="G' + gId + '" onclick="createGraph(' + gId + ')">View</button>'
              }
              },*/
-            {"mData":null, "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px',
-                "mRender": function(value, type, obj){
-                    return '<a href="http://www.mashabledata.com/workbench/view.php?g='+obj.ghash+'" target="graph_viewer">'+obj.title+'</a>'
-
-                }
-            },
+            {"mData":null, "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px'},
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  analysisColWidth + 'px'},
             {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": seriesColWidth + 'px'},
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
@@ -661,6 +678,14 @@ function setupPublicGraphsTable(){
                 "mRender": function(value, type, obj){return timeOrDate(value);}
             }
         ]
+    }).click(function(e){
+        $(this).find('tr.ui-selected').removeClass('ui-selected');
+        var $tr = $(e.target).closest('tr');
+        $tr.addClass('ui-selected');
+    }).dblclick(function(e){
+        $(this).find('tr.ui-selected').removeClass('ui-selected');
+        var graphRow = dtPublicGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected'));
+        viewGraph(graphRow.gid);
     });
     $('#publicGraphs .ColVis').parent().css("float","right").appendTo('#publicGraphsHeader');
     $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
@@ -675,44 +700,6 @@ function seriesFilterChange(){ //
         $('#filterReset').removeClass('ui-icon-circle-close').addClass('ui-icon-circle-close-inactive')
     }
 }
-function OpenCloseMySeries(img){  //NOT CURRENTLY USED
-// to be modified to get and show category chains for API series, show siblings/children on request and fetch series in category
-    var nTr = img.parentNode.parentNode;
-    var i = $.inArray( nTr, anOpenRowsMySeries );
-
-    if ( i === -1 ) {
-        $(img).attr( 'src', "images/details_close.png" );
-        var nDetailsRow = dtMySeries.fnOpen( nTr, writeDrilldownMySreies(dtMySeries, nTr), 'details' );
-        $('div.innerDetails', nDetailsRow).slideDown();
-        anOpenRowsMySeries.push( nTr );
-    }
-    else {
-        $(img).attr( 'src', "images/details_open.png" );
-        $('div.innerDetails', $(nTr).next()[0]).slideUp( function () {
-            dtMySeries.fnClose( nTr );
-            anOpenRowsMySeries.splice( i, 1 );
-        });
-    }
-}
-function writeDrilldownMySreies( oTable, nTr ){
-    var oData = oTable.fnGetData( nTr );
-    var sOut =
-        '<div class="innerDetails">'+
-            '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">'+
-            '<tr><td><b>Series date range:</b> '+oData.firstdt+ ' to ' + oData.lastdt + '&nbsp;&nbsp;&nbsp;&nbsp; Number of data points:'+ oData.points +'</td></tr>';
-    if(oData.skey != undefined){
-        if(oData.skey.length>0){
-            sOut += '<tr><td><b>Series key:</b> ' + oData.skey + '</td></tr>';
-        }
-    }
-    if(oData.lastestCid != oData.cid && !isNaN(oData.lastestCid)){
-        sOut += '<tr><td>A newer capture is available.  <button onclick="useLastest(oData)">Compare</button></td></tr>';
-    }
-    sOut += '<tr><td><b>From Graph entitled:</b> '+oData.graph+'&nbsp;&nbsp;&nbsp;&nbsp; Source graph credit:'+ oData.source +'</td></tr>'+
-        '</table>'+
-        '</div>';
-    return sOut;
-}
 function timeOrDate(dateValue){
     var dt = new Date();
     var today = dt.toDateString();
@@ -726,6 +713,9 @@ function timeOrDate(dateValue){
     } else {
         return '<span title="' + dt.toString().substr(4,20) + '">' + dt.toString().substr(4,11) + '</span>'
     }
+}
+function textClear(txt){
+    if($(txt).hasClass('grey-italics')) $(txt).removeClass('grey-italics').val('');
 }
 function seriesCloudSearchKey(event){
     var keyCode = ('which' in event) ? event.which : event.keyCode;
@@ -755,10 +745,9 @@ function getPublicSeriesByCat(a){
 }
 function graphsCloudSearch(event){
     var keyCode = ('which' in event) ? event.which : event.keyCode;
-    if((keyCode == 13 &&  event.target.id == 'graphs_search_text') || event.target.id == 'graphsSearchBtn') {
-        var searchText = $("#graphs_search_text").val();
-        searchText = (' ' + searchText + ' ').replace(/[\s]+/g,' ');
-        //if(searchText==' ')return false; //no search on empty strings
+    if((keyCode == 13 &&  event.target.id == 'graphs_search_text') || event.target.innerHTML == 'search') {
+        var searchText = $('#graphs_search_text').val();
+        searchText = (' ' + searchText + ' ').replace(/[\s]+/g,' ');  //eliminate extra spaces.
         searchText = searchText.substring(1, searchText.length-1);
         searchText = '+' + searchText.replace(/ /g,' +');
         $('#tblPublicGraphs_filter input').val(searchText);
@@ -793,54 +782,6 @@ function formatAsUrl(url){
 function viewGraph(gid){
     createMyGraph(gid);
     hideGraphEditor();
-}
-function clickMySeriesCheck(node){  //called when the series selection box is checked or unchecked
-    var trSeries = $(node).closest('tr').get(0);
-    var tdView = $(trSeries).children('.dt-vw').get(0);
-    var obj = dtMySeries.fnGetData(trSeries);
-    checkedCount = $("#series-table td.dt-vw a.md-checked").length;
-    if($(trSeries).find("a.md-checked").length==1){
-        checkedCount -= 1;
-        dtMySeries.fnUpdate(false,trSeries, tdView.cellIndex, false);
-    } else {
-        checkedCount += 1;
-        //obj.selected = checkedCount;
-        dtMySeries.fnUpdate(checkedCount,trSeries, tdView.cellIndex, true);
-    }
-    if(checkedCount==0){
-        $(".series-checked,.add-to-graph").attr("disabled","disabled");
-    } else {
-        $(".series-checked").removeAttr("disabled");
-        if($("ul#graph-tabs li").length>0)$(".add-to-graph").removeAttr("disabled");
-    }
-}
-function clickSave(anchorSave){  //called when the save icon is clicked
-    if(!notLoggedInWarningDisplayed()){
-        var tdSave = anchorSave.parentNode;
-        var oTableMD = dtMySeries.fnGetData(tdSave.parentNode);
-        var oMD = oMySeries['S' + oTableMD.sid]; //oTableMD is a copy, not a reference
-        oMD.save = (oMD.save=='S')?'H':'S';
-        updateMySeries(oMD); //need to have a reference to revert on call failure
-        dtMySeries.fnUpdate(oMD.save, tdSave.parentNode, tdSave.cellIndex, false);
-    }
-}
-function clearChecksMySeries(){
-    $('#series-table_filter :input').attr('value','').keyup();
-    seriesFilterChange();
-    $("td.dt-vw a.md-checked").each(function(){
-        $(this).removeClass("md-checked").addClass("md-check").html("Graph");
-        var cellHTML = $(this).parent().html();  //dataTable overwrites
-        var tdView = this.parentNode;
-        //console.log(cellHTML)
-        dtMySeries.fnUpdate("Graph", dtMySeries.fnGetPosition(tdView.parentNode), tdView.cellIndex);
-        $(tdView).html(cellHTML); //rewrite the link
-    });
-    $(".series-checked,.add-to-graph").attr("disabled","disabled");
-    dtMySeries.fnSort([[MY_SERIES_DATE, 'desc']]);
-}
-function rowDblClick(evt){ //executed on dblClick of a datatable row
-    $(evt.target).closest("tr").find("button").click();
-    //evt.stopPropogation();
 }
 //DIALOG FUNCTIONS
 var $dialog;
@@ -898,7 +839,7 @@ function dialogShow(title, text, buttons){
     $('.ui-dialog-titlebar-close').remove();
 }
 
-//LOCALSTORAGE HELPER FUNCTIONS  (LS also referenced from doc.ready, syncMyAccount, deleteCheckedSeries
+//LOCALSTORAGE HELPER FUNCTIONS  (LS also referenced from doc.ready, syncMyAccount
 function loadMySeriesByKey(){ //called on document.ready and when page get focus
     var mySerie, seriesLoadCount=0, seriesTree= {}, localSeries = window.localStorage.getItem('newSeries'); //converted to a single master index from separate Saved and History indexes
     if(localSeries!=null){
@@ -922,6 +863,7 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
                 addMySeriesRow($.extend({}, mySerie));
             }
         }
+        if(seriesKeys.length>0) $('#preview-my-series, #edit-my-series').button('enable');
         if(account.loggedIn()){
             callApi(params, function(results, textStatus, jqXH){
                 var dbHandle;
@@ -1003,41 +945,70 @@ function titleChange(titleControl){
     //oMyGraphs & table synced only when user clicks save
 }
 
+function previewMySeries(){
+    var series = [], hasMySeries = false;
+    $('#local-series-header input').focus(); //deselect anything table text accidentally selected through double-clicking
+    $quickViewRows = dtMySeries.find('tr.ui-selected').each(function(){
+        series.push(dtMySeries.fnGetData(this));
+    }).removeClass('ui-selected');
+    if(series.length==0){
+        for(var handle in oMySeries){
+            hasMySeries = true;
+            break;
+        }
+        if(hasMySeries) dialogShow('info', dialogues.noSeriesSelected); else dialogShow('info', dialogues.noMySeries);
+    } else {
+
+        preview(series, false);
+    }
+}
+function previewPublicSeries(){
+    var series = [], hasMySeries = false;
+    $('#series_search_text').focus(); //deselect anything table text accidentally selected through double-clicking
+    dtPublicSeries.find('tr.ui-selected').each(function(){
+        series.push(dtPublicSeries.fnGetData(this));
+    }).removeClass('ui-selected');
+    if(series.length==0){
+        dialogShow('info', dialogues.noSeriesSelected);
+    } else {
+        preview(series, true);
+    }
+}
 //QUICK VIEW FUNCTIONS
-function getQuickViewData(btn){
+function preview(series, showAddSeries){
     //if(notLoggedInWarningDisplayed()) return false;     // need to allow some playing before forcing a signup
-    $("#quick-view-controls button").removeAttr("disabled");
-    var tableId = $(btn).closest('table').attr("id");
-    var sHandle = $(btn).attr('data'); //could be L or S or U prefixed depending on log in state and whether this is a public or user series
-    var canAddSeries = (tableId == dtPublicSeries.attr("id"));
-    if(!canAddSeries){ //assumption: if not PublicSeries, this is from MySeries and maybe it already has data
-        if(oMySeries[sHandle].data){ //if L, it *must* have its own data
-            quickGraph(oMySeries[sHandle],canAddSeries);
-            return;
+    var sids = [], usids=[], handle, i;
+    for(i=0;i<series.length;i++){
+        if(!series[i].data){ //note:  if L, it *must* have its own data
+            if(series[i].handle[0]=='S') sids.push(series[i].handle.substring(1));
+            if(series[i].handle[0]=='U') usids.push(series[i].handle.substring(1));
         }
     }
-    var sids = [], usids=[];
-    if(sHandle.charAt(0)=="U")usids.push(parseInt(sHandle.substr(1))); else sids.push(parseInt(sHandle.substr(1)));
 
-    getQuickData();
-
-    function getQuickData(){
+    if(sids.length+usids.length==0){
+        quickGraph(series, showAddSeries);
+    } else {
         callApi({command:  'GetMashableData',
                 sids: sids,
                 usids: usids
             },
             function(jsoData, textStatus, jqXH){
-                if(oMySeries[sHandle]){ //if this happens to be in mySeries...
-                    oMySeries[sHandle].data = jsoData.series[sHandle].data;
-                    oMySeries[sHandle].notes = jsoData.series[sHandle].notes;
-                    oMySeries[sHandle].geocounts = jsoData.series[sHandle].geocounts;
+                for(i=0;i<series.length;i++){
+                    handle = series[i].handle;
+                    if(oMySeries[handle]){ //if this happens to be in mySeries...
+                        oMySeries[handle].data = jsoData.series[handle].data;
+                        oMySeries[handle].notes = jsoData.series[handle].notes;
+                        oMySeries[handle].geocounts = jsoData.series[handle].geocounts;
+                    }
+                    series.splice(i, 1, jsoData.series[handle]);
                 }
-                quickGraph(jsoData.series[sHandle],canAddSeries)
+                quickGraph(series, showAddSeries);
             }
         );
     }
 }
-function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra of series objects, or a complete grpah object
+
+function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
     oQuickViewSeries = obj; //store in global var
     var quickGraph;
     //quickGraph.title = 'Selected data series from the map';
@@ -1104,8 +1075,10 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
 
     if(showAddSeries){
         $('#quick-view-to-series').show();
+        $('#quick-view-delete-series').hide();
     } else {
         $('#quick-view-to-series').hide();
+        $('#quick-view-delete-series').show();
     }
 
     var graphOptions = '<option value="new">new graph</option>';
@@ -1127,7 +1100,7 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
 }
 function quickViewToChart(btn){
     $(btn).attr("disabled","disabled");
-    var panelId =  $('#quick-view-to-graphs').val();
+    var graph, panelId =  $('#quick-view-to-graphs').val();
     if(oQuickViewSeries.plots){  //we have a complete graph object!
         if(panelId!='new') {
             var plots = oQuickViewSeries.plots;
@@ -1145,28 +1118,24 @@ function quickViewToChart(btn){
         }
     } else {
         if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
-        if(panelId!='new') {
-            if(!oPanelGraphs[panelId].plots)oPanelGraphs[panelId].plots=[];
-            for(var i=0;i<oQuickViewSeries.length;i++){
-                oPanelGraphs[panelId].assets[oQuickViewSeries[i].handle] = $.extend({save_dt: new Date().getTime()}, oQuickViewSeries[i]); //make copy
-                oPanelGraphs[panelId].plots.push({
-                    components:
-                        [{
-                            handle:   oQuickViewSeries[i].handle,
-                            options: {k:1.0, op:'+'}
-                        }],
-                    options: {}
-                });
-
-                //not sure what the role of MySeries should be going forward...
-                var rowInMySeries = dtMySeries.find('button[data="' + oQuickViewSeries[i].handle + '"]');
-                if(rowInMySeries.legnth==1) clickMySeriesCheck(rowInMySeries[0]); //check the newly added series
-            }
-
+        graph = (panelId!='new')?oPanelGraphs[panelId]:emptyGraph();
+        if(!graph.plots)graph.plots=[];
+        for(var i=0;i<oQuickViewSeries.length;i++){
+            graph.assets[oQuickViewSeries[i].handle] = $.extend({save_dt: new Date().getTime()}, oQuickViewSeries[i]); //make copy
+            graph.plots.push({
+                components:
+                    [{
+                        handle:   oQuickViewSeries[i].handle,
+                        options: {k:1.0, op:'+'}
+                    }],
+                options: {}
+            });
+        }
+        if(panelId!='new'){
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
             $('#' + panelId + ' .graph-type').change();
         } else {
-            createUpdateGraphFromMySeries(buildGraphPanel, undefined, oQuickViewSeries);
+            buildGraphPanel(graph);
         }
     }
     quickViewClose();
@@ -1185,7 +1154,6 @@ function quickViewToMap(){
     }
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
     oGraph.map = map;
-    oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapFile = mapsList[map].jvectormap;
     require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
@@ -1220,6 +1188,7 @@ function quickViewToMap(){
 }
 function quickViewClose(){
     quickChart.destroy();
+    delete $quickViewRows;
     $('#fancybox-close').click();
 }
 
@@ -1296,9 +1265,8 @@ function browseFromSeries(seriesId){
         $('div#cloudSeriesTableDiv').hide();
     });
 }
-function editCheckedSeries(){//edit the first visible
-    var sHandle = $("td.dt-vw a.md-checked:first").closest("tr").find("td.quick-view button").attr("data");
-    if(sHandle) {
+function editSeries(sHandle){//edit the first visible
+    if(sHandle){
         var $select, serie = oMySeries[sHandle];
         if(serie.mapsetid||serie.pointsetid){
             //see if user wants to edit the entire set or just this series
@@ -1959,7 +1927,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                 delete oMySeries[oldHandle];
                 oMySeries[newHandle] = serie;
 
-                $('#series-table').find("td.quick-view button[data='"+oldHandle+"']").attr('data',serie.handle);
+                //$('#series-table').find("td.quick-view button[data='"+oldHandle+"']").attr('data',serie.handle);
 
                 for(tab in oPanelGraphs){
                     updateHandles(oPanelGraphs[tab],oldHandle, serie);
@@ -2074,7 +2042,9 @@ function getMySeries(){
                 oMySeries[sHandle] = results.series[sHandle]; //if exists, it will be overwritten with new data
                 series.push(results.series[sHandle]);  //takes an array or object, not an object
             }
+            dtMySeries.fnClearTable();
             dtMySeries.fnAddData(series);
+            if(series.length>0) $('#preview-my-series, #edit-my-series').button('enable');
         }
     );
 }
@@ -2156,7 +2126,6 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
             modal: "none",
             jsts: oSeries.save_dt,
             handle:  oSeries.handle,
-            cid:	oSeries.cid,
             to:		oSeries.save  //"H" for history, "S" for saved, null to remove
         },
         function(results, textStatus, jqXH){}
@@ -2246,86 +2215,19 @@ function md_calcSeriesInfo(PointArray){
 }
 
 //GRAPHING FUNCTIONS (note:  most graphing routines are in graph.js)
-function createUpdateGraphFromMySeries(graphBuilder, panelId, quickViewSeries){ //optional oserie used to create new graph from quickview
-    var oGraph;
-    mask();
-    if(panelId===undefined){
-        var oGraph = emptyGraph();
-        oGraph.plots = [];
-    } else {
-        oGraph = oPanelGraphs[panelId];
-    }
-    if(quickViewSeries){
-//building from quickViewSeries
-        if(!(quickViewSeries instanceof Array)){
-            quickViewSeries = [quickViewSeries];
-        }
-        oGraph.seriesCount = quickViewSeries.length;
-        for(var i=0;i<quickViewSeries.length;i++){
-            var handle = quickViewSeries[i].handle;
-            oGraph.assets[handle] = $.extend(true, {}, quickViewSeries[i]); //make copy
-            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}}], options: {}});
-        }
-    }  else {
-//building from MySeriesTable
-//the jQuery will only find unfiltered rows, therefore...
-        $('#series-table_filter :input').attr('value','').keyup();
-        seriesFilterChange();
-        dtMySeries.fnSort([[MY_SERIES_CHECK_COL, 'asc']]);
-//build an object of the checked series
-        var checkedSeries = {};
-        oGraph.seriesCount = 0;
-        $("#series-table a.md-checked.select_cell").each(function(){
-            var tblObj = dtMySeries.fnGetData($(this).closest('tr').get(0));
-            var key = $(this).closest('tr').find('td.quick-view button').attr('data'); //button data will be prefixed with L or S (or eventually U) ...
-            checkedSeries[key] = oMySeries[key];  // ... and will be keep in sync with oMySeries
-            oGraph.seriesCount++;
-        });
-        //this is needed when updating graph series based on checks.  Will be replaced by series provenance table and quickAdd functionality
-        for(var existingKey in oGraph.assets){ //
-            if(!(existingKey in checkedSeries)){delete oGraph.assets[existingKey]}
-        }
 
-        for(var handle in checkedSeries){
-            oGraph.plots.push({components: [{handle: handle, options: {k: 1.0, op: '+'}}], options: {}});
-        }
-    }
-    //got all the data?  If not, fetch before creating graph
-    getAssets(oGraph,
-        function(jsoData, textStatus, jqXH){
-            if(jsoData){
-                for(var i=0;i<jsoData.seriesData.length;i++){
-                    //Local series will always have data.  Eventually, add support for 'U' series
-                    if(jsoData.seriesData[i].cid==jsoData.seriesData[i].lastestcid){
-                        //graph may not being using the latest, but mySeries always will
-                        oMySeries['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
-                    }
-                    oGraph.assets['S'+jsoData.seriesData[i].sid].data = jsoData.seriesData[i].data;
-                }
-            }
-            graphBuilder(oGraph, panelId);
-            showHideGraphEditor();
-        }
-    );
-}
-
-function deleteCheckedSeries(){
-    //show checked series
-    $('#series-table_filter :input').attr('value','').keyup();
-    seriesFilterChange();
-    dtMySeries.fnSort([[1, 'asc']]);
-//build an object of the checked series
-    var checkedSeries = {};
-    $("#series-table a.md-checked.select_cell").each(function(){
-        var trSeries = $(this).closest('tr').get(0);  //this is the checked table cell
-        delete oMySeries[$(trSeries).find("td.dt-vw a").attr("data")]; //delete from oMySeries
-        var obj = dtMySeries.fnGetData(trSeries);
+function deleteMySeries(){  //called from quickViewer
+    //$quickViewRows array is only filled when previewing MySeries
+    var obj, trMySeries;
+    for(var i=0;i<$quickViewRows.length;i++){
+        obj = dtMySeries.fnGetData($quickViewRows.get(i));
         if(account.loggedIn()){
             obj.save = null;
             updateMySeries(obj);  //delete from DB
         }
-        dtMySeries.fnDeleteRow(trSeries); //delete from "My Series" dataTable
-    });
+        delete oMySeries[obj.handle];
+        dtMySeries.fnDeleteRow($quickViewRows.get(i));
+    }
 }
 
 // actual addTab function: adds new tab using the title input from the form above.  Also checks and sets the edit graph button
@@ -2365,61 +2267,12 @@ function removeTab(span){
         editingPanelId = null; //dissociate the chart from the this edit session
         $("#btnEditGraphTop").attr("disabled","disabled");
         $("button.add-to-graph").attr("disabled","disabled");
-        clearChecksMySeries(); //set up panels
         lastTabAnchorClicked.click();
     } else  {
         $('#graph-tabs a:last').click();
     }
     $("#graph_title").attr('value','');
     $(".series-checked").attr('disabled','disabled');
-}
-
-
-
-/*
- function editGraph(){    //no longer called.  This used to be how the series could be added or deleted to an chart by checking / unchecking MySeries.
- // TODO:  Add series from quickViews and deleting them from graph's series provenance panel
-
- var activePanelId = $graphTabs.find(".ui-tabs-selected").find("a").attr("href");  //this finds the li/a that is active and gets it href
- editingPanelId = activePanelId.substr(1);
- var oGraph = oPanelGraphs[editingPanelId];
- //    $("#graph_title").attr("value",chart.options.title.text);
-
- //clear filter and checkboxes, and sort on (checked, date)
- $('#series-table_filter :input').attr('value','').keyup();
- seriesFilterChange();
-
- $(".update-graph").removeAttr("disabled");
- showGraphEditor();
-
- //did not work:  dtMySeries.fnSort([-1,'asc']);
- $(dtMySeries).find("td.dt-vw a.md-checked").each(function(){
- clickMySeriesCheck(this);
- });
- var allSeriesFound = true;
- for(var key in oGraph.assets){
- var thisSeriesFound = checkSeriesById(oGraph.assets[key]);
- allSeriesFound = allSeriesFound && thisSeriesFound;
- if(thisSeriesFound!=true){
- alert("Error: Unable to find series '" + oGraph.assets[key].name + '" in My Series.');
- }
- }
- dtMySeries.fnSort([[1,'asc'],[MY_SERIES_DATE, 'desc']]);
- $('a[data=#localSeries]').click();
- }
- */
-
-function checkSeriesById(ogSeries){
-//only checks visible series, therefore filter must be off
-    var id;
-    id = (ogSeries.localId)? ogSeries.localId : 'S' + ogSeries.sid;
-    var btn = dtMySeries.find("button[data='" + id + "']").closest('tr').find("td.dt-vw a");
-    if(btn.length==1){
-        clickMySeriesCheck(btn.get(0));
-        return(true);
-    }else{
-        return(false);
-    }
 }
 
 function destroyChartObject(key){
@@ -2448,7 +2301,7 @@ function synthesizeTitle(titles){
     return(synTitle.join(" "));
 }
 
-function seriesPanel(anchorClicked){
+function pickerPanel(anchorClicked){
     lastTabAnchorClicked = anchorClicked;
     var panelToDeactive = $("#series-tabs li.ui-tabs-selected").removeClass("ui-tabs-selected ui-state-active").find("a").attr("data");
     var panelToActivate = $(anchorClicked).attr("data");
@@ -2460,16 +2313,20 @@ function seriesPanel(anchorClicked){
 }
 
 function panelHash(){
-    var picker = $("#series-tabs li.ui-tabs-selected a").attr('data');
+    var $search, picker = $("#series-tabs li.ui-tabs-selected a").attr('data'), gi='grey-italics';
     switch(picker){
         case '#local-series':
-            return encodeURI('t=ms&s='+$('#series-table_filter input').val());
+            $search = $('#series-table_filter input');
+            return encodeURI('t=ms'+($search.hasClass(gi)?'':'&s='+$search.val()));
         case '#cloud-series':
-            return encodeURI('t=cs&s='+$('#series_search_text').val()+'&f='+$('#series_search_periodicity').val()+'&api='+$('#series_search_source').val()+'&sets='+$('#public-mapset-radio').find('input:checked').val());
+            $search = $('#series_search_text');
+            return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val()+'&f='+$('#series_search_periodicity').val())+'&api='+$('#series_search_source').val()+'&sets='+$('#public-mapset-radio').find('input:checked').val());
         case '#myGraphs':
-            return encodeURI('t=mg&s='+$('#my_graphs_table_filter input').val());
+            $search = $('#my_graphs_table_filter input');
+            return encodeURI('t=mg'+($search.hasClass(gi)?'':'&s='+$search.val()));
         case '#publicGraphs':
-            return encodeURI('t=cg&s='+$('#public_graphs_search input').val());
+            $search =$('#public_graphs_search input');
+            return encodeURI('t=cg'+($search.hasClass(gi)?'':'&s='+$search.val()));
         default:
             var visiblePanel = visiblePanelId();
             if(visiblePanel && oPanelGraphs[visiblePanel]){

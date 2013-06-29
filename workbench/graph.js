@@ -2361,7 +2361,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     $thisPanel.find('input.graph-publish')
         .change(function(){
             oGraph.published = (this.checked?'Y':'N');
-    });
+        });
     $thisPanel.find('select.graph-type')
         .val(oGraph.type)
         .change(function(){
@@ -2376,7 +2376,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             }
             oGraph.type=$(this).val();
             redraw();
-    });
+        });
     function fillChangeMapSelect(){
         var handle, i, map, html='<option>'+oGraph.map+'</option>', maps=[];
         for(handle in oGraph.assets){
@@ -2491,7 +2491,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     function showChangeSelectors(){
         if(oGraph.plots){
             $thisPanel.find('div.graph-type').show();
-         } else {
+        } else {
             $thisPanel.find('div.graph-type').hide();
         }
         if(oGraph.mapsets||oGraph.pointsets){
@@ -2596,7 +2596,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         $thisPanel.find('div.chart').hide();
     }
     ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
-    var $map, vectorMapSettings, val;
+    var $map, vectorMapSettings, val, mergablity;
 
     console.time('buildGraphPanel:drawMap');
     drawMap();
@@ -2848,21 +2848,22 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 var stepStart, stepEnd, timeToKill, optimalStepTime = Math.min(10000/calculatedMapData.dates.length, 500);  //total animation will take no more than 10 seconds
                 if($play.attr("title")=="play"){
                     $play.button({text: false, icons: {primary: "ui-icon-pause"}}).attr("title","pause");
-                    if($mapSlider.slider("value")==calculatedMapData.dates.length-1) $mapSlider.slider("value",0);
                     advanceSlider();
                 } else {
                     $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
                 }
                 function advanceSlider(){
-                    if($play.attr("title")=="play"){
+                    if($play.attr("title")=="pause"){
                         stepStart = new Date();
-                        $mapSlider.slider("value",$mapSlider.slider("value")+1);
+                        var newValue = $mapSlider.slider("value")+1;
+                        if(newValue>calculatedMapData.endDateIndex) newValue = calculatedMapData.startDateIndex;
+                        $mapSlider.slider("value", newValue);
                         stepEnd = new Date();
                         timeToKill = Math.max(1, optimalStepTime - (stepEnd.getTime()-stepStart.getTime()));
-                        if($mapSlider.slider("value")==calculatedMapData.dates.length-1){
+                        if(newValue==calculatedMapData.endDateIndex){
                             $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
                         } else {
-                            if($play.attr("title")=="pause" && $mapSlider.slider("value")<calculatedMapData.dates.length){
+                            if($play.attr("title")=="pause"){
                                 window.setTimeout(advanceSlider, timeToKill);
                             }
                         }
@@ -2894,8 +2895,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     calcAttributes(oGraph);
                     $mapSlider.slider("value", calculatedMapData.dates.length-1);
                     $thisPanel.find('.map-graph-selected, .make-map').button('disable');
-            });
-            var mergablity = {};
+                });
             function setMergablity(){
                 var i, j, markerRegions;
                 mergablity = {
@@ -2991,7 +2991,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     positionBubbles();
                     makeDirty();
                     $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
-            });
+                });
             $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).off()
                 .click(function(){
                     var i, j;
@@ -3026,7 +3026,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     positionBubbles();
                     $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
                     makeDirty();
-            });
+                });
             var gLegend;
             $thisPanel.find('.legend').button().off().change(function(){
                 if($(this).prop('checked')) {
@@ -3571,7 +3571,7 @@ function formatDateByPeriod(val, period) { //helper function for the data tables
             case 'A': return dt.getUTCFullYear();
             case 'Q': return ('Q'+ parseInt((dt.getUTCMonth()+3)/3) +' '+ dt.getUTCFullYear());
             case 'SA':
-                case 'M': return months[dt.getUTCMonth()]+' '+dt.getUTCFullYear();
+            case 'M': return months[dt.getUTCMonth()]+' '+dt.getUTCFullYear();
             case 'W':
             case 'D': return dt.getUTCDate() + ' ' + months[dt.getUTCMonth()] + ' ' + dt.getUTCFullYear();
             default: return dt.toUTCString().substr(5,20);

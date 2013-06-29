@@ -56,27 +56,7 @@
     <!--script type="text/javascript" src="templates.js"></script-->
 
     <script type="text/javascript">
-    <?php
-    /*    if (apc_exists('app:mapsList') !== false)
-        {
-            $data = apc_get('app:mapsList');
-        }
-        else
-        {
-
-            apc_store('app:mapsList', $data);
-        }*/
-            include_once("../global/php/common_functions.php");
-            $result = runQuery("select * from maps order by name", "application mapsList");
-            $data = array();
-            while($row = $result->fetch_assoc()){
-                $data[$row["map"]] = $row;
-            }
-    print("var mapsList=".json_encode($data).";");
-        //setPointsetCounts();
-    $sources = runQuery("select apiid, name from apis order by name");
-    ?>
-    </script>
+        var mapsList={"Africa":{"map":"Africa","name":"Africa","geographycount":"58","bunny":null,"jvectormap":"africa_mill_en","legend":"BL"},"Alabama":{"map":"Alabama","name":"Alabama","geographycount":"67","bunny":"250","jvectormap":"usal_merc_en","legend":"BR"},"Alaska":{"map":"Alaska","name":"Alaska","geographycount":"27","bunny":"251","jvectormap":"usak_merc_en","legend":"TR"},"Arizona":{"map":"Arizona","name":"Arizona","geographycount":"15","bunny":"252","jvectormap":"usaz_merc_en","legend":"BR"},"Arkansas":{"map":"Arkansas","name":"Arkansas","geographycount":"74","bunny":"253","jvectormap":"usar_merc_en","legend":"BR"},"California":{"map":"California","name":"California","geographycount":"58","bunny":"254","jvectormap":"usca_merc_en","legend":"TR"},"Colorado":{"map":"Colorado","name":"Colorado","geographycount":"64","bunny":"255","jvectormap":"usco_merc_en","legend":"BR"},"Connecticut":{"map":"Connecticut","name":"Connecticut","geographycount":"8","bunny":"256","jvectormap":"usct_merc_en","legend":"BR"},"Delaware":{"map":"Delaware","name":"Delaware","geographycount":"3","bunny":"257","jvectormap":"usde_merc_en","legend":"TR"},"District of Columbia":{"map":"District of Columbia","name":"District of Columbia","geographycount":"2","bunny":"694","jvectormap":"usdc_merc_en","legend":"BR"},"European Union":{"map":"European Union","name":"European Union","geographycount":"27","bunny":"307","jvectormap":"europe_mill_en","legend":"BL"},"Florida":{"map":"Florida","name":"Florida","geographycount":"67","bunny":"258","jvectormap":"usfl_merc_en","legend":"BL"},"Georgia":{"map":"Georgia","name":"Georgia","geographycount":"159","bunny":"259","jvectormap":"usga_merc_en","legend":"TR"},"Hawaii":{"map":"Hawaii","name":"Hawaii","geographycount":"4","bunny":"260","jvectormap":"ushi_merc_en","legend":"BL"},"Idaho":{"map":"Idaho","name":"Idaho","geographycount":"44","bunny":"261","jvectormap":"usid_merc_en","legend":"TR"},"Illinois":{"map":"Illinois","name":"Illinois","geographycount":"102","bunny":"262","jvectormap":"usil_merc_en","legend":"BL"},"Indiana":{"map":"Indiana","name":"Indiana","geographycount":"92","bunny":"263","jvectormap":"usin_merc_en","legend":"BR"},"Iowa":{"map":"Iowa","name":"Iowa","geographycount":"99","bunny":"264","jvectormap":"usia_merc_en","legend":"BR"},"Kansas":{"map":"Kansas","name":"Kansas","geographycount":"105","bunny":"265","jvectormap":"usks_merc_en","legend":"BR"},"Kentucky":{"map":"Kentucky","name":"Kentucky","geographycount":"120","bunny":"266","jvectormap":"usky_merc_en","legend":"TL"},"Louisiana":{"map":"Louisiana","name":"Louisiana","geographycount":"64","bunny":"267","jvectormap":"usla_merc_en","legend":"TR"},"Maine":{"map":"Maine","name":"Maine","geographycount":"16","bunny":"268","jvectormap":"usme_merc_en","legend":"TR"},"Maryland":{"map":"Maryland","name":"Maryland","geographycount":"24","bunny":"269","jvectormap":"usmd_merc_en","legend":"BL"},"Massachusetts":{"map":"Massachusetts","name":"Massachusetts","geographycount":"14","bunny":"270","jvectormap":"usma_merc_en","legend":"BL"},"Michigan":{"map":"Michigan","name":"Michigan","geographycount":"83","bunny":"271","jvectormap":"usmi_merc_en","legend":"BL"},"Minnesota":{"map":"Minnesota","name":"Minnesota","geographycount":"87","bunny":"272","jvectormap":"usmn_merc_en","legend":"BR"},"Mississippi":{"map":"Mississippi","name":"Mississippi","geographycount":"82","bunny":"273","jvectormap":"usms_merc_en","legend":"BR"},"Missouri":{"map":"Missouri","name":"Missouri","geographycount":"115","bunny":"274","jvectormap":"usmo_merc_en","legend":"TR"},"Montana":{"map":"Montana","name":"Montana","geographycount":"56","bunny":"275","jvectormap":"usmt_merc_en","legend":"BR"},"Nebraska":{"map":"Nebraska","name":"Nebraska","geographycount":"93","bunny":"276","jvectormap":"usne_merc_en","legend":"BL"},"Nevada":{"map":"Nevada","name":"Nevada","geographycount":"17","bunny":"277","jvectormap":"usnv_merc_en","legend":"BR"},"New Hampshire":{"map":"New Hampshire","name":"New Hampshire","geographycount":"10","bunny":"278","jvectormap":"usnh_merc_en","legend":"TL"},"New Jersey":{"map":"New Jersey","name":"New Jersey","geographycount":"21","bunny":"279","jvectormap":"usnj_merc_en","legend":"BR"},"New Mexico":{"map":"New Mexico","name":"New Mexico","geographycount":"33","bunny":"280","jvectormap":"usnm_merc_en","legend":"BR"},"New York":{"map":"New York","name":"New York","geographycount":"62","bunny":"281","jvectormap":"usny_merc_en","legend":"TL"},"North Carolina":{"map":"North Carolina","name":"North Carolina","geographycount":"100","bunny":"282","jvectormap":"usnc_merc_en","legend":"BR"},"North Dakota":{"map":"North Dakota","name":"North Dakota","geographycount":"53","bunny":"283","jvectormap":"usnd_merc_en","legend":"BR"},"Ohio":{"map":"Ohio","name":"Ohio","geographycount":"88","bunny":"284","jvectormap":"usoh_merc_en","legend":"BR"},"Oklahoma":{"map":"Oklahoma","name":"Oklahoma","geographycount":"77","bunny":"285","jvectormap":"usok_merc_en","legend":"BR"},"Oregon":{"map":"Oregon","name":"Oregon","geographycount":"36","bunny":"286","jvectormap":"usor_merc_en","legend":"BR"},"Pennsylvania":{"map":"Pennsylvania","name":"Pennsylvania","geographycount":"67","bunny":"287","jvectormap":"uspa_merc_en","legend":"BR"},"Rhode Island":{"map":"Rhode Island","name":"Rhode Island","geographycount":"5","bunny":"288","jvectormap":"usri_merc_en","legend":"BR"},"South Carolina":{"map":"South Carolina","name":"South Carolina","geographycount":"46","bunny":"289","jvectormap":"ussc_merc_en","legend":"BR"},"South Dakota":{"map":"South Dakota","name":"South Dakota","geographycount":"66","bunny":"290","jvectormap":"ussd_merc_en","legend":"BR"},"Tennessee":{"map":"Tennessee","name":"Tennessee","geographycount":"95","bunny":"291","jvectormap":"ustn_merc_en","legend":"BR"},"Texas":{"map":"Texas","name":"Texas","geographycount":"254","bunny":"292","jvectormap":"ustx_merc_en","legend":"TL"},"US states":{"map":"US states","name":"US states","geographycount":"51","bunny":"235","jvectormap":"us_aea_en","legend":"BR"},"Utah":{"map":"Utah","name":"Utah","geographycount":"29","bunny":"293","jvectormap":"usut_merc_en","legend":"BR"},"Vermont":{"map":"Vermont","name":"Vermont","geographycount":"14","bunny":"294","jvectormap":"usvt_merc_en","legend":"BR"},"Virginia":{"map":"Virginia","name":"Virginia","geographycount":"136","bunny":"295","jvectormap":"usva_merc_en","legend":"TL"},"Washington":{"map":"Washington","name":"Washington","geographycount":"39","bunny":"296","jvectormap":"uswa_merc_en","legend":"BR"},"West Virginia":{"map":"West Virginia","name":"West Virginia","geographycount":"55","bunny":"297","jvectormap":"uswv_merc_en","legend":"BR"},"Wisconsin":{"map":"Wisconsin","name":"Wisconsin","geographycount":"72","bunny":"298","jvectormap":"uswi_merc_en","legend":"BL"},"world":{"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL"},"Wyoming":{"map":"Wyoming","name":"Wyoming","geographycount":"23","bunny":"299","jvectormap":"uswy_merc_en","legend":"BR"}};    </script>
 </head>
 <body onresize="resizeCanvas();">
 <div id="fb-root"></div>
@@ -106,12 +86,12 @@
                 <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel right">cancel</button> <!--button class="series-edit-save-as right" onclick="saveSeriesEditor(true)">save as copy</button--> <button class="series-edit-save right">save</button> <button class="series-edit-preview right">preview</button>
             </div>
             <div id="local-series-header" class="md-DS_title">
-                <fieldset class="tight-fieldset"><legend>Filter</legend>
-                        <span id="series-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
-                        </span>
-                </fieldset>
+                <span id="series-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px"></span>
                     <span id="main-graph-buttons-top">
-                        <fieldset style="padding: 1px 5px;"><legend>Graph</legend>
+                        <button id="preview-my-series" style="background-color: orange;background: orange;" class="series-checked">preview</button>
+                        <button id="edit-my-series" class="series-checked">edit</button>
+                        <button id="new-series" onclick="showSeriesEditor()">new series</button>
+                        <!---fieldset style="padding: 1px 5px;"><legend>Graph</legend>
                             <button disabled="disabled" class="series-checked" onclick="createUpdateGraphFromMySeries(buildGraphPanel)">create</button>
                             <button disabled="disabled" class="add-to-graph" onclick="addMySeriesToCurrentGraph()">add to current</button>
                         </fieldset>
@@ -120,7 +100,7 @@
                              <button class="" onclick="showSeriesEditor()">new</button>
                              <button disabled="disabled" class="series-checked" onclick="editCheckedSeries()">edit</button>
                              <button id="delete-my-series" disabled="disabled" class="series-checked" onclick="deleteCheckedSeries()">delete</button>
-                         </fieldset>
+                         </fieldset--->
                     </span>
             </div>
             <div>
@@ -131,14 +111,16 @@
         <div id="cloud-series" class="picker">
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                    <fieldset class="search-box">
+                    <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" onKeyPress="seriesCloudSearchKey(event)" onclick="textClear(this)" value="enter search keywords (-keyword to exclude)" />
+                    <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
+                    <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><option value="1">petroleum and NG data from EIA</option><option value="2">St. Louis Federal Reserve</option><option value="5">U.N. Food and Agricultural Organization</option><option value="4">US Energy Information Administration</option><option value="3">World Bank Indicators</option></select>
+                    <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
+                    <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
+                    <button disabled="disabled" id="preview-public-series" class="public-series-selected" style="background-color: orange;background: orange;">preview</button>
+
+                    <!--fieldset class="search-box">
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
-                        <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search" onKeyPress="seriesCloudSearchKey(event)" />
-                        <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
-                        <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><?php while($api=$sources->fetch_assoc()){print('<option value="'.$api['apiid'].'">'.$api['name'].'</option>');} ?></select>
-                        <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
-                        <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
-                    </fieldset>
+                    </fieldset-->
                 </div>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>
@@ -153,12 +135,8 @@
         <!--BEGIN MY GRAPHS DATATABLE-->
         <div id="myGraphs" class="picker">
             <div id="myGraphsHeader" class="md-DS_title">
-                <fieldset class="tight-fieldset"><legend>Search and Display</legend>
-                        <span id="graphs-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
-                        </span>
-                </fieldset>
-                <!--div id="graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px">
-                </div-->
+                <span id="graphs-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
+                </span>
             </div>
             <table id="my_graphs_table" class="md-table graphs-table scrollable series-table">
             </table>
@@ -167,10 +145,7 @@
         <div id="publicGraphs" class="picker">
             <div id="publicGraphsHeader" class="md-DS_title">
                 <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                    <fieldset class="search-box">
-                        <legend>Search MashableData server for published graphs</legend>
-                        <input maxlength="200" id="graphs_search_text" class="long" onkeyup="graphsCloudSearch(event)" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
-                    </fieldset>
+                    <input maxlength="200" id="graphs_search_text" class="long grey-italics" onclick="textClear(this)" onkeyup="graphsCloudSearch(event)" val="graph search terms or leave blank for latest graphs" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
                 </div>
                 <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>
@@ -206,6 +181,7 @@
                 <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
             </fieldset>
             <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
+            <button id="quick-view-delete-series" onclick="deleteMySeries()">delete from My Series</button>
             <button id="quick-view-close" class="right" onclick="quickViewClose()">Close</button>
         </div>
     </div>

@@ -130,9 +130,9 @@ div #md-inner {
 
 .md-DS_title {
     position:relative;
-    height:42px;
-    top:0px;
-    padding:0px;
+    height:30px;
+    top:0;
+    padding: 9px 9px 0 9px;
     margin:0;
 }
 
@@ -154,19 +154,22 @@ div #md-inner {
 	text-align:left;
 }
 .dataTables_scrollBody th{
-    padding: 0px 5px 0px 5px !important;
+    padding: 0 5px 0 5px !important;
     margin: 0;
-    border: 1;
+    border: 1px;
 }
-.md-table .odd {
+/*.md-table .` {
 	background-color:#f5f5f5;
-}
-.md-table tr:hover, tr.odd:hover{background-color:#dddddd;}
+}*/
+.md-table tr:hover{background-color:#dddddd;}
 .md-table td{
 	padding:3px 5px 3px 5px !important;
 	border-right: 1px solid #8e8d8d;
 	border-bottom: 1px solid #afafaf;
 	font-size:11px !important;
+}
+#series-table_filter input{
+    width: 300px;
 }
 .graphs-table td{
     overflow:hidden;
@@ -188,8 +191,8 @@ div#picker-divs{
     z-index: 20;
 }
 span#main-graph-buttons-top {
-    display:block;
-    float:right;
+    display:inline-block;
+    margin-left: 50px;
 }
 
 span#main-graph-buttons-top fieldset, fieldset.tight-fieldset{
@@ -940,7 +943,10 @@ td.expanded{
     background-image: url(images/ui-icons_cd0a0a_256x240.png);
 }
 .italics {font-style:italic;}
-
+.grey-italics {
+    font-style:italic;
+    color: #aaaaaa;
+}
 .ui-widget-overlay { background: #888888 url(images/overlay_stripes.png) 50% 50% repeat; opacity: .30;filter:Alpha(Opacity=30); }
 
 /* start ACCOUNT SCREENS */
@@ -1044,22 +1050,19 @@ span.sibling{
 }
 .dataTables_info{
     display:inline-block;
-    float: none;
+    float: right;
     width: auto;
     margin-left: 10px;
     margin-right: 5px;
     color: #444;
     font-size: 12px;
 }
+#my_graphs_table_filter input{
+    width: 300px;
+}
 .showhidecol{
     height:  20px;
     display:inline-block;
-}
-.ColVis{
-    margin-bottom: 0px;
-}
-.ColVis_Button{
-    height:auto;
 }
 .dataTables_processing {
     position: absolute;
