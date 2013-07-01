@@ -28,7 +28,10 @@ var iconsHMTL= {
 var dialogues = {
     noMySeries: 'Your My Series folder is empty.  Please search for Public Series, whihc can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
     noSeriesSelected: 'Click on one or more series below to select them before previewing.<br><br>Alternatively, you can double-click on a series to quickly preview it.',
-    editLimit: "Only one series or set can be edited at a time."
+    editLimit: "Only one series or set can be edited at a time.",
+    noGraphSelected: 'Click on a row in the table below to select a graph first.<br><br>As a shortcut, you can double-click on a graph to select and open it.',
+    noMyGraphs: 'You have no My Graphs.  Graphs are built by searching for public series or upload your own data and building a graph. Saving graphs you build adds to them to your My Graphs folder.<br><br>You can also view a public graph and make a personal copy.<br><br>See the help (upper right after you close this dialogue) to learn more.',
+    noPublicGraphs: 'First search for public graphs.  Note that a search with no keywords will return the most recent published graphs.'
 };
 //GLOBAL VARIABLES
 var colWidths = {
@@ -387,7 +390,8 @@ function setupMySeriesTable(){
                     "mRender": function(value, type, obj){
                         return ((obj.mapsetid)?iconsHMTL.mapset:'')
                             + ((obj.pointsetid)?iconsHMTL.pointset:'')
-                            + value;
+                            + value
+                            + '<span class="handle">' + obj.handle + '</span>';
                     }
                 },
                 { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "mRender": function(value, type, obj){return value}},
@@ -517,6 +521,7 @@ function setupPublicSeriesTable(){
                     return ((obj.mapsetid)?iconsHMTL.mapset:'')
                         + ((obj.pointsetid)?iconsHMTL.pointset:'')
                         + spanWithTitle(value)
+                        + '<span class="handle">' + (obj.userid?'U':'S') + obj.seriesid + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sWidth": unitsColWidth+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
@@ -564,16 +569,14 @@ function setupMyGraphsTable(){
             "sSearch": ""
         },
         "oColReorder": {"iFixedColumns": 2},
-        "oColVis": {
-            "bRestore": true,
-            "aiExclude": [ 0,1,2]
-        },
         "sScrollY": (layoutDimensions.heights.innerDataTable-120) + "px",
         "sScrollX": tableWidth + "px",
         "aaSorting": [[9,'desc']],
         "aoColumns": [
 /*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
-            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px"},
+            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px",
+                "mRender": function(value, type, obj){return value + '<span class="handle">G' + obj.gid + '</span> '}
+            },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
@@ -598,11 +601,11 @@ function setupMyGraphsTable(){
         $tr.addClass('ui-selected');
     }).dblclick(function(e){
         $(this).find('tr.ui-selected').removeClass('ui-selected');
-        var graphRow = dtMyGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
-        viewGraph(graphRow.gid);
+        var rowObject = dtMyGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
+        viewGraph(rowObject.gid);
     });
     $('#my_graphs_table_filter')
-        .appendTo('#myGraphsHeader')
+        .prependTo('#myGraphsHeader')
         .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
         .find('input')
         .val('search my graphs').addClass('grey-italics')
@@ -610,6 +613,19 @@ function setupMyGraphsTable(){
             $(this).removeClass('grey-italics').val('').off('click keydown');
         });
     $('#my_graphs_table_info').appendTo('#myGraphsHeader');
+    $('#open-my-graph').button({icons: {secondary: 'ui-icon-folder-open'}}).click(function(){
+        var $graphRow = dtMyGraphs.find('tr.ui-selected');
+        if($graphRow.length==1){
+            var rowObject = dtMyGraphs.fnGetData($graphRow.get(0));
+            viewGraph(rowObject.gid);
+        } else {
+            if(dtMyGraphs.fnGetData().length==0){
+                dialogShow('no graph selected',dialogues.noMyGraphs);
+            } else {
+                dialogShow('no graph selected',dialogues.noGraphSelected);
+            }
+        }
+    });
 }
 function setupPublicGraphsTable(){
     var tableWidth = $("#canvas").width()-6*11-40;
@@ -638,18 +654,21 @@ function setupPublicGraphsTable(){
                 "type": "POST",
                 url: "api.php",
                 data: aoData,
-                "success": fnCallback,
+                "success": function(data, textStatus, jqXHR){
+                    fnCallback(data, textStatus, jqXHR);
+                    if(data.aaData.length==0){
+                        $('#view-public-graph').button('disable');
+                    } else {
+                        $('#view-public-graph').button('enable');
+                    }
+                },
                 "complete": function(results){
-                    console.log(results)
+                    console.log(results);
                 }
             });
         },
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
             return iTotal + " graph"+((iTotal==1)?'s':'')+((iTotal>0)?' <i>double-click on title to view</i>':'');
-        },
-        "oColVis": {
-            "bRestore": true,
-            "aiExclude": [ 0,1,2]
         },
         "iDeferLoading": 0,
         "oColReorder": {"iFixedColumns": 2},
@@ -663,7 +682,9 @@ function setupPublicGraphsTable(){
              return '<button data="G' + gId + '" onclick="createGraph(' + gId + ')">View</button>'
              }
              },*/
-            {"mData":null, "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px'},
+            {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px',
+                "mRender": function(value, type, obj){return value + '<span class="handle">G'+obj.graphid+'</span>';}
+            },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  analysisColWidth + 'px'},
             {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": seriesColWidth + 'px'},
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
@@ -684,12 +705,24 @@ function setupPublicGraphsTable(){
         $tr.addClass('ui-selected');
     }).dblclick(function(e){
         $(this).find('tr.ui-selected').removeClass('ui-selected');
-        var graphRow = dtPublicGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected'));
-        viewGraph(graphRow.gid);
+        var graphRow = dtPublicGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
+            $('#view-public-graph').click();
     });
-    $('#publicGraphs .ColVis').parent().css("float","right").appendTo('#publicGraphsHeader');
     $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
     $('#tblPublicGraphs_filter').hide();
+    $('#view-public-graph').button({icons: {secondary: 'ui-icon-folder-open'}}).click(function(){
+        var $graphRow = dtPublicGraphs.find('tr.ui-selected');
+        if($graphRow.length==1){
+            var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
+            hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
+        } else {
+            if(dtPublicGraphs.fnGetData().length==0){
+                dialogShow('no graph selected', dialogues.noPublicGraphs);
+            } else {
+                dialogShow('search for public graphs', dialogues.noGraphSelected);
+            }
+        }
+    });
 }
 
 //DATATABLE HELPER FUNCTIONS
@@ -2034,11 +2067,11 @@ function getMySeries(){
         function(results, textStatus, jqXH){
             var series=[];
             for(var sHandle in results.series){
-                if(oMySeries[sHandle]){
+/*                if(oMySeries[sHandle]){
                     var trSeries = dtMySeries.find("button[data='" + sHandle + "']").closest('tr').get(0);
                     //dtMySeries.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
                     dtMySeries.fnDeleteRow(trSeries);
-                }
+                }*/
                 oMySeries[sHandle] = results.series[sHandle]; //if exists, it will be overwritten with new data
                 series.push(results.series[sHandle]);  //takes an array or object, not an object
             }
@@ -2336,7 +2369,13 @@ function panelHash(){
 }
 function setPanelHash(){
     var hash = panelHash();
-    if(hash && hasher.getHash()!=hash) setHashSilently(hash);
+    if(hash && hasher.getHash()!=hash) {
+        if(hasher.getHash().search('t=g&graphcode=')==-1){
+            setHashSilently(hash);
+        } else {
+            hasher.replaceHash(hash);
+        }
+    }
 }
 
 function notLoggedInWarningDisplayed(){

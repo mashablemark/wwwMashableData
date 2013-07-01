@@ -137,6 +137,7 @@
             <div id="myGraphsHeader" class="md-DS_title">
                 <span id="graphs-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
                 </span>
+                <button disabled="disabled" id="open-my-graph" style="background-color: orange;background: orange;">open</button>
             </div>
             <table id="my_graphs_table" class="md-table graphs-table scrollable series-table">
             </table>
@@ -145,7 +146,9 @@
         <div id="publicGraphs" class="picker">
             <div id="publicGraphsHeader" class="md-DS_title">
                 <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
-                    <input maxlength="200" id="graphs_search_text" class="long grey-italics" onclick="textClear(this)" onkeyup="graphsCloudSearch(event)" val="graph search terms or leave blank for latest graphs" /> <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
+                    <input maxlength="200" id="graphs_search_text" class="long grey-italics" onclick="textClear(this)" onkeyup="graphsCloudSearch(event)" val="graph search terms or leave blank for latest graphs" />
+                    <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
+                    <button disabled="disabled" id="view-public-graph" style="background-color: orange;background: orange;">view</button>
                 </div>
                 <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>

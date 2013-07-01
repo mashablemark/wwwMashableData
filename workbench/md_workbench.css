@@ -183,6 +183,9 @@ td.dte{
     overflow:hidden;
     white-space:nowrap;
 }
+span.handle{
+    display: none;
+}
 div#picker-divs{
     position:relative;
     top:0;

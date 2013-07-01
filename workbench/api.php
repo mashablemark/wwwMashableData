@@ -98,7 +98,7 @@ switch($command){
 
         $aColumns=array("s.seriesid", "name", "units", "periodicity", "title", "url", "firstdt", "lastdt", "updated");
 
-        $sql = "SELECT SQL_CALC_FOUND_ROWS s.seriesid, mapsetid, pointsetid, name, units, periodicity as period, title, src, url, "
+        $sql = "SELECT SQL_CALC_FOUND_ROWS s.seriesid, s.userid, mapsetid, pointsetid, name, units, periodicity as period, title, src, url, "
         . " firstdt, lastdt, apiid"
         . " FROM series s ";
 
@@ -220,9 +220,11 @@ switch($command){
         $aColumns=array("g.graphid", "g.title", "g.text", "g.serieslist", "ifnull(g.fromdt, min(c.firstdt))", "ifnull(g.todt ,max(c.lastdt))", "views", "ifnull(g.updatedt , g.createdt)");
 
         $sql = "SELECT g.graphid, g.title, text as analysis, "
-       . "   serieslist, map, ghash,  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, views, ifnull(updatedt, createdt) as modified"
-       . " FROM graphs g, graphplots gp, plotcomponents pc, series s "
-       . " WHERE g.graphid=gp.graphid and gp.plotid=pc.plotid and pc.objid=s.seriesid and (pc.objtype='S' or pc.objtype='U') and g.graphid is not null and published='Y'";
+       . "   serieslist, map, ghash,  "
+       //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
+       . " views, ifnull(updatedt, createdt) as modified"
+       . " FROM graphs g " //, graphplots gp, plotcomponents pc, series s " WHERE g.graphid=gp.graphid and gp.plotid=pc.plotid and pc.objid=s.seriesid and (pc.objtype='S' or pc.objtype='U') and g.graphid is not null
+       . " WHERE published='Y'";
         if($search!='+ +'){
             $sql .= "   and  match(g.title, g.text, g.serieslist, g.map) against ('" . $search . "' IN BOOLEAN MODE) ";
         }
@@ -259,8 +261,7 @@ switch($command){
        foreach($_POST as $key => $value){$log = $log . $key.": ".$value.';'; };
        logEvent("SearchGraphs POST", $log);
 
-       logEvent("SearchGraphs", $sql);
-       $result = runQuery($sql);
+       $result = runQuery($sql, "SearchGraphs");
 
        /* Data set length after filtering */
        $sQuery = "

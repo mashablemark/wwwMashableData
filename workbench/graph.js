@@ -2619,6 +2619,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     y: 0.5
                 },
                 backgroundColor: mapBackground,
+                zoomOnScroll: true,
                 markersSelectable: true,
                 markerStyle: {
                     initial: {r: 5},
