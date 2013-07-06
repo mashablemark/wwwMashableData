@@ -80,7 +80,7 @@ var isIE = /msie/i.test(navigator.userAgent) && !window.opera;
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
 
-function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
+function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
     console.time('chartPanel');
 //panel can either be a DOM node anywhere is the panel or a panelID
     var panelId = typeof panel == 'string'?panel:$(panel).closest('div.graph-panel').get(0).id;
@@ -90,7 +90,9 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
     }
     var oGraph = oPanelGraphs[panelId];
     var chart;
+    console.time('makeChartOptionsObject');
     var oChartOptions = makeChartOptionsObject(oPanelGraphs[panelId]);
+    console.timeEnd('makeChartOptionsObject');
     var $chart = $('#' + panelId + ' div.chart');
     if(oChartOptions.series.length==0){
         $chart.hide();
@@ -161,7 +163,9 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
             }
         }
     };
+    console.time('highcharts');
     chart = new Highcharts.Chart(oChartOptions);
+    console.timeEnd('highcharts');
     oHighCharts[panelId] = chart;
     annotations.plotAllLinearRegressions();
     //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
@@ -201,7 +205,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
             }
         });
 
-
+    console.time('contextMenu');
     $.contextMenu({
         selector: '#' + panelId + ' div.chart',
         build: function($trigger, e) {  //menu is built or cancelled dynamically in build function startin on the following line
@@ -320,6 +324,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
             }
         }
     });
+    console.timeEnd('contextMenu');
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
 
     console.timeEnd('chartPanel');
@@ -538,8 +543,7 @@ function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a
         }
     }
     function createGraph(){
-        var fileAssets = ["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/highcharts/js/modules/exporting.2.1.6.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
-        if(mdGraph.mapFile) fileAssets.push('js/maps/'+ mdGraph.mapFile +'.js');   //get the map too if needed
+        var fileAssets = graphScriptFiles.concat(mdGraph.mapFile?['js/maps/'+ mdGraph.mapFile +'.js']:[]);  //get the map too if needed
         require(fileAssets); //parallel load while getting db assets
         getAssets(mdGraph, function(){
             require(fileAssets, function(){
@@ -2277,7 +2281,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         oGraph.intervals = null;
         oGraph.start = oHighCharts[panelId].options.chart.x[values[0]];
         oGraph.end = oHighCharts[panelId].options.chart.x[values[1]];
-        $thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
+        redraw();  //should be signals or a call to a local var  = function
     };
     var cropDates = function(slider){
         var values = $(slider).slider("values");
@@ -2316,8 +2320,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             oGraph.intervals = interval;
             oGraph.start = null;
             oGraph.end = null;
-            chartPanel(panelId, annotations);
-            annotations.build();
+            redraw();
         }
     });
     $('#'+panelId+'-rad-no-crop').change(function(){
@@ -2326,10 +2329,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         oGraph.end = null;
         oGraph.minZoom = oGraph.firstdt;
         oGraph.maxZoom = oGraph.lastdt;
-        //oHighCharts[panelId].xAxis[0].setExtremes(oPanelGraphs[panelId].firstdt,oPanelGraphs[panelId].lastdt);
-        chartPanel(panelId, annotations);
-        annotations.build();
-        //$thisPanel.find('.graph-type').change();  //should be signals or a call to a local var  = function
+        redraw();
     });
 
     $thisPanel.find('input.interval-crop-count').spinner({
@@ -2501,15 +2501,19 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         }
     }
     function redraw(){
-        if(oGraph.plots){
-            chartPanel(panelId, annotations);
-            annotations.build();
-        }
-        if(oGraph.mapsets||oGraph.pointsets){
-            drawMap();
-            $thisPanel.find('select.change-map').html(fillChangeMapSelect());
-        }
-        showChangeSelectors();
+        mask('redrawing');
+        setTimeout(function(){
+            if(oGraph.plots){
+                chartPanel(panelId, annotations);
+                annotations.build();
+            }
+            if(oGraph.mapsets||oGraph.pointsets){
+                drawMap();
+                $thisPanel.find('select.change-map').html(fillChangeMapSelect());
+            }
+            showChangeSelectors();
+            unmask();
+        }, 1);
     }
     $thisPanel.find('.graph-analysis')
         .keydown(function(){
@@ -2555,6 +2559,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             $('ul#graph-tabs a[href=#' + panelId + ']').siblings('span').click();
         });
     $thisPanel.find('button.graph-delete').button({icons: {secondary: "ui-icon-trash"}, disabled: (!oGraph.gid)})
+        .addClass('ui-state-error')
         .click(function(){
             dialogShow("Permanently Delete Graph", "Are you sure you want to delete this graph?",
                 [
@@ -2762,6 +2767,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         //$map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
                         $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
                         $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
+                    }
+                    if(oGraph.pointsets){
                         $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
                     }
                     if(oGraph.plots){
@@ -2790,34 +2797,49 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
                     var selectedRegions = $map.getSelectedRegions();
                     var selectedMarkers = $map.getSelectedMarkers();
-                    var grph = emptyGraph(), plt, formula, i;
+                    var grph = emptyGraph(), plt, formula, i, j, c, X, regionCodes, pointset, mapComps, comps, newComp, asset, found;
                     grph.plots =[];
                     grph.title = 'from map of ' + oGraph.title;
-                    for(i=0;i<selectedMarkers.length;i++){
-                        var compPattern = /[SU][0-9]+/g;
-                        var comps = selectedMarkers[i].match(compPattern);  //!!!!point markers must use the formula of series handles as their ID
-                        plt = {options:{}, components:[]};
-                        formula = selectedMarkers[i];
-                        for(var c=0;c<comps.length;c++){ //loops through the component for this marker
-                            formula.replace(comps[c], String.fromCharCode("a".charAt(0)+c));  //make the formula
-                            plt.components.push({options:{},handle: comps[c]});
-                            //find asset:  either directly in assets or part of a point or mapset
-                            if(oGraph.assets[comps[c]]){
-                                grph.assets[comps[c]] = oGraph.assets[comps[c]]
-                            } else {
-                                for(var aHandle in oGraph.assets){
-                                    if(oGraph.assets[aHandle].data[comps[c]]){
-                                        grph.assets[comps[c]] = oGraph.assets[aHandle].data[comps[c]];
-                                        grph.assets[comps[c]].period = oGraph.assets[aHandle].period;
-                                        grph.assets[comps[c]].units = oGraph.assets[aHandle].units;
-                                        break;
+                    for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
+                        if(isBubble()){
+                            //get array of regions codes
+                            plt = $.extend(true, {}, oGraph.mapset);
+                            mapComps = plt.components;
+                            plt.components = [];
+                            regionCodes = selectedMarkers[i].split('+');
+                            for(j=0;j<regionCodes.length;j++){
+                                for(c=0;c<mapComps.length;c++){
+                                    if(mapComps[c].handle[0]=='M'){
+                                        asset = $.extend({units: oGraph.assets[mapComps[c].handle].units, period: oGraph.assets[mapComps[c].handle].period}, oGraph.assets[mapComps[c].handle].data[regionCodes[j]]);
+                                        newComp = $.extend(true, {}, mapComps[c]);
+                                        newComp.handle = asset.handle;
+                                        grph.assets[asset.handle] = asset; //data, first/lastdt, handle & name
+                                        plt.components.push(newComp);
+                                    } else {
+                                        plt.components.push($.extend(true, {}, mapComps[c]));
+                                        grph.assets[mapComps[c].handle] = oGraph.assets[mapComps[c].handle];
                                     }
                                 }
                             }
+                            grph.plots.push(plt);
+                        } else {
+                            for(X=0;X<oGraph.pointsets.length;X++){
+                                pointset = $.extend({}, oGraph.pointsets[X]);
+                                found = false;
+                                comps = pointset.components;
+                                for(c=0;c<comps.length;c++){
+                                    if(comps[c].handle[0]=='X' && oGraph.assets[comps[c].handle].data[selectedMarkers[i]]){
+                                        found = true;
+                                        sHandle = oGraph.assets[comps[c].handle].data[selectedMarkers[i]].handle;
+                                        grph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle].units, period: oGraph.assets[comps[c].handle].period}, oGraph.assets[comps[c].handle].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
+                                        comps[c].handle = sHandle;
+                                    } else {
+                                        grph.assets[comps[c].handle] = oGraph.assets[comps[c].handle];
+                                    }
+                                }
+                                if(found) grph.plots.push(pointset);
+                            }
                         }
-                        plt.options.name = calculatedMapData.markers[selectedMarkers[i]].name;
-                        plt.options.formula = formula;
-                        grph.plots.push(plt);
                     }
                     //regions (mapsets) are simply than markers (pointsets) because there is only one
                     if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
@@ -2825,7 +2847,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
                                 if(calculatedMapData.regionData[dateSet][selectedRegions[i]]){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
                                     plt = $.extend(true, {}, oGraph.mapsets);
-                                    for(var j=0;j<plt.components.length;j++){
+                                    for(j=0;j<plt.components.length;j++){
                                         if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
                                             var mapAsset = oGraph.assets[plt.components[j].handle];
                                             var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
@@ -2835,6 +2857,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                                             grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
                                         }
                                     }
+                                    if(plt.name) plt.name += ' - ' + $map.getRegionName(selectedRegions[i]);
                                     grph.plots.push(plt);
                                 }
                                 break;
@@ -2953,6 +2976,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).off()
                 .click(function(){
                     if(mergablity.newMerge){
+                        if(!oGraph.mapsets.options.merges) oGraph.mapsets.options.merges = [];
                         oGraph.mapsets.options.merges.push($map.getSelectedRegions());
                     }
                     if(mergablity.growable){
@@ -3232,26 +3256,39 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             }
             return gLegend;
         }
-        function bubbleCalc(){ //defined in the closure, there has access to calculatedMapData and other variabls specific to this panelGraph
-            var markerTitle, regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
+        function bubbleCalc(){ //defined in the closure, therefor has access to calculatedMapData and other variables specific to this panelGraph
+            var dateKey, markerId, markerTitle, regionColors = primeColors.concat(hcColors); //use bright + Highcharts colors
             calculatedMapData.regionsColorsForBubbles={};
             calculatedMapData.markers={};
             var pnt = {x:100, y:100};  //somewhere in the US.  If this works, need to fetch geometric center of map (US, world, Europe..)
             if(isBubble()){
                 var region, mergedSum, i=0, d, j, allMergedRegions = [];
-                //co-opt the markers functionality
-                calculatedMapData.markerDataMin = calculatedMapData.regionDataMin;  //initialize, but also checked merges below
-                calculatedMapData.markerDataMax = calculatedMapData.regionDataMax;  //initialize, but also checked merges below
-                //create markerData
-                var markerData = {};
-                for(d=0;d<calculatedMapData.dates.length;d++){
-                    markerData[calculatedMapData.dates[d].s] = {};  //initalize
+                /*co-opt the marker variables:
+                 calculatedMapData.markerDataMin
+                 calculatedMapData.markerDataMax
+                 calculatedMapData.markerData
+                 calculatedMapData.markerAttr.r[dateKey][markerId]
+                 calculatedMapData.markerAttr.stroke[dateKey][markerId]
+                */
+
+
+                //initialize markerData variable object
+                var markerData = {}, markerAttr = {r: {}, stroke: {}};
+                for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
+                    dateKey = calculatedMapData.dates[d].s;
+                    markerData[dateKey] = {};  //initalize
+                    markerAttr.r[dateKey] = {};
+                    markerAttr.stroke[dateKey] = {};
                 }
+                calculatedMapData.markerDataMin = Number.MAX_VALUE; //initialized; to be minned against merged and single point values below
+                calculatedMapData.markerDataMax = Number.MIN_VALUE;  //initialize; to be maxxed against merged and single point values below
+
+                //1A: calculate the merge values within the graph date range as determined by calculatedMapData.startDateIndex and .endDateIndex
                 if(oGraph.mapsets.options.merges){
                     for(i=0;i<oGraph.mapsets.options.merges.length;i++){
                         markerTitle = calculatedMapData.title + ' - ' + oGraph.mapsets.options.merges[i].join(', ');
-                        calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};  //TODO: calc value and set color
-                        for(d=0;d<calculatedMapData.dates.length;d++){
+                        calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
+                        for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                             mergedSum = 0;  //merging regions only adds.  There is no complex math
                             for(j=0;j<oGraph.mapsets.options.merges[i].length;j++){
                                 mergedSum += calculatedMapData.regionData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i][j]];
@@ -3268,19 +3305,38 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         allMergedRegions = allMergedRegions.concat(oGraph.mapsets.options.merges[i]);
                     }
                 }
+
+                //1B: calculate the unmerged values (also within the graph date range as determined by calculatedMapData.startDateIndex and .endDateIndex)
                 for(region in calculatedMapData.regionData[calculatedMapData.dates[0].s]){
                     if(allMergedRegions.indexOf(region) == -1 && calculatedMapData.regionData[calculatedMapData.dates[0].s][region]){  //this region is not part of a amerge and also has data
                         markerTitle = calculatedMapData.title + ' - ' + region;
                         calculatedMapData.markers[region] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
                         calculatedMapData.regionsColorsForBubbles[region] = regionColors[i++%regionColors.length];
-                        for(d=0;d<calculatedMapData.dates.length;d++){
-                            markerData[calculatedMapData.dates[d].s][region] = calculatedMapData.regionData[calculatedMapData.dates[d].s][region];
+                        for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
+                            dateKey = calculatedMapData.dates[d].s;
+                            markerData[dateKey][region] = calculatedMapData.regionData[dateKey][region];
+                            if(markerData[dateKey][region]!==null){ //Math object methods treat nulls as zero
+                                calculatedMapData.markerDataMin = Math.min(calculatedMapData.markerDataMin, markerData[dateKey][region]);
+                                calculatedMapData.markerDataMax = Math.max(calculatedMapData.markerDataMax, markerData[dateKey][region]);
+                            }
                         }
                     }
                 }
-                calculatedMapData.markerData = markerData;  //set (or replace if new merge)
+                //2.  go back and create attribute (.r and .stroke) objects
+                var rScale = (graph.mapconfig.radius || DEFAULT_RADIUS_SCALE) / Math.sqrt(Math.max(Math.abs(calculatedMapData.markerDataMax), Math.abs(calculatedMapData.markerDataMin)));
+                for(dateKey in markerData){
+                    for(markerId in markerData[dateKey]){
+                        rData = markerData[dateKey][markerId].r || null;
+                        markerAttr.r[dateKey][markerId] = rScale *  Math.sqrt(Math.abs(rData));
+                        markerAttr.stroke[dateKey][markerId] = rData<0?'#ff0000':'#000000'; //create the style object with the stroke = RED for neg numbers
+                    }
+                }
+
+                calculatedMapData.markerData = markerData;  //set (or replace if user is adding and removing merges)
+                calculatedMapData.markerAttr = markerAttr;
             }
         }
+
         function geometricCenter(regions){
             var bBox, totalArea=0, xArm=0, yArm=0, center;
             for(var i=0;i<regions.length;i++){  //iterate through the list
@@ -3295,6 +3351,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             };
             return center;
         }
+
         function positionBubbles(){
             var center, latLng;
             if(isBubble()){

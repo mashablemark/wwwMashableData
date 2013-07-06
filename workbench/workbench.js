@@ -17,10 +17,7 @@ var templates = {
             + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
 };
 
-
-//ERASE AFTER TESTING
-var hexcase=0;var b64pad="";function hex_sha1(a){return rstr2hex(rstr_sha1(str2rstr_utf8(a)))}function hex_hmac_sha1(a,b){return rstr2hex(rstr_hmac_sha1(str2rstr_utf8(a),str2rstr_utf8(b)))}function sha1_vm_test(){return hex_sha1("abc").toLowerCase()=="a9993e364706816aba3e25717850c26c9cd0d89d"}function rstr_sha1(a){return binb2rstr(binb_sha1(rstr2binb(a),a.length*8))}function rstr_hmac_sha1(c,f){var e=rstr2binb(c);if(e.length>16){e=binb_sha1(e,c.length*8)}var a=Array(16),d=Array(16);for(var b=0;b<16;b++){a[b]=e[b]^909522486;d[b]=e[b]^1549556828}var g=binb_sha1(a.concat(rstr2binb(f)),512+f.length*8);return binb2rstr(binb_sha1(d.concat(g),512+160))}function rstr2hex(c){try{hexcase}catch(g){hexcase=0}var f=hexcase?"0123456789ABCDEF":"0123456789abcdef";var b="";var a;for(var d=0;d<c.length;d++){a=c.charCodeAt(d);b+=f.charAt((a>>>4)&15)+f.charAt(a&15)}return b}function str2rstr_utf8(c){var b="";var d=-1;var a,e;while(++d<c.length){a=c.charCodeAt(d);e=d+1<c.length?c.charCodeAt(d+1):0;if(55296<=a&&a<=56319&&56320<=e&&e<=57343){a=65536+((a&1023)<<10)+(e&1023);d++}if(a<=127){b+=String.fromCharCode(a)}else{if(a<=2047){b+=String.fromCharCode(192|((a>>>6)&31),128|(a&63))}else{if(a<=65535){b+=String.fromCharCode(224|((a>>>12)&15),128|((a>>>6)&63),128|(a&63))}else{if(a<=2097151){b+=String.fromCharCode(240|((a>>>18)&7),128|((a>>>12)&63),128|((a>>>6)&63),128|(a&63))}}}}}return b}function rstr2binb(b){var a=Array(b.length>>2);for(var c=0;c<a.length;c++){a[c]=0}for(var c=0;c<b.length*8;c+=8){a[c>>5]|=(b.charCodeAt(c/8)&255)<<(24-c%32)}return a}function binb2rstr(b){var a="";for(var c=0;c<b.length*32;c+=8){a+=String.fromCharCode((b[c>>5]>>>(24-c%32))&255)}return a}function binb_sha1(v,o){v[o>>5]|=128<<(24-o%32);v[((o+64>>9)<<4)+15]=o;var y=Array(80);var u=1732584193;var s=-271733879;var r=-1732584194;var q=271733878;var p=-1009589776;for(var l=0;l<v.length;l+=16){var n=u;var m=s;var k=r;var h=q;var f=p;for(var g=0;g<80;g++){if(g<16){y[g]=v[l+g]}else{y[g]=bit_rol(y[g-3]^y[g-8]^y[g-14]^y[g-16],1)}var z=safe_add(safe_add(bit_rol(u,5),sha1_ft(g,s,r,q)),safe_add(safe_add(p,y[g]),sha1_kt(g)));p=q;q=r;r=bit_rol(s,30);s=u;u=z}u=safe_add(u,n);s=safe_add(s,m);r=safe_add(r,k);q=safe_add(q,h);p=safe_add(p,f)}return Array(u,s,r,q,p)}function sha1_ft(e,a,g,f){if(e<20){return(a&g)|((~a)&f)}if(e<40){return a^g^f}if(e<60){return(a&g)|(a&f)|(g&f)}return a^g^f}function sha1_kt(a){return(a<20)?1518500249:(a<40)?1859775393:(a<60)?-1894007588:-899497514}function safe_add(a,d){var c=(a&65535)+(d&65535);var b=(a>>16)+(d>>16)+(c>>16);return(b<<16)|(c&65535)}function bit_rol(a,b){return(a<<b)|(a>>>(32-b))};
-
+graphScriptFiles = ["/global/js/highcharts/js/highcharts.3.0.2.src.js","/global/js/highcharts/js/modules/exporting.3.0.2.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
 var iconsHMTL= {
     mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set."></span>',
     pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a point set."></span>'
@@ -250,6 +247,20 @@ $(document).ready(function(){
     window.onbeforeunload = function() {
         return "Your work will be lost.";
     };
+
+    require(graphScriptFiles, function(){
+        $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
+        Highcharts.setOptions({
+            tooltip: {
+                formatter: function(){  //shorten the data accord to period; add commas to number; show units
+                    var tooltip = formatDateByPeriod(this.point.x, this.series.options.period) + '<br>'
+                        + this.series.name.trim() + ':<br>'
+                        + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text;
+                    return tooltip;
+                }
+            }
+        });
+    });
 });
 
 function parseHash(newHash, oldHash){
@@ -265,7 +276,7 @@ function parseHash(newHash, oldHash){
                 $('#series-tabs').find('li.local-series a').click();
                 $search = $('#series-table_filter').find('input');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
-                    $search.click().val(decodeURI(oH.s));  //the click event will remove the grey-ghost class and click and focus events on first call
+                    $search.click().val(decodeURI(oH.s)).keyup();  //the click event will remove the grey-ghost class and click and focus events on first call
                 }
                 break;
             case 'cs': //cloud series
@@ -283,7 +294,7 @@ function parseHash(newHash, oldHash){
                 $('#series-tabs').find('li.my-graphs a').click();
                 $search = $('#my_graphs_table_filter').find('input');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
-                    $search.click().val(decodeURI(oH.s));  //the click event will remove the grey-ghost class and click and focus events on first call
+                    $search.click().val(decodeURI(oH.s)).keyup();  //the click event will remove the grey-ghost class and click and focus events on first call
                 }
                 break;
             case 'cg': //cloud graphs
@@ -367,25 +378,25 @@ function setupMySeriesTable(){
             //     "sScrollX": tableWidth + "px",
             "aaSorting": [[MY_SERIES_DATE,'desc']],
             "aoColumns": [
-    /*            {   "mData":null,
-                    "sTitle": "View",
-                    "sClass": "quick-view",
-                    "bSortable": true,
-                    "sWidth": colWidths.quickView + "px",
-                    "resize": false,
-                    "mRender": function(value, type, obj) {
-                        return '<button data="' + obj.handle + '" onclick="getQuickViewData(this)">View</button>'
-                    }
-                },
-                {"mData": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
-                    "mRender": function(value, type, obj){
-                        if(value) {
-                            return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.selected + '</a>';
-                        } else {
-                            return '<a class="select_cell md-check rico" onclick="clickMySeriesCheck(this)"  title="select series to graph">Not selected</a>';
-                        }
-                    }
-                },*/
+                /*            {   "mData":null,
+                 "sTitle": "View",
+                 "sClass": "quick-view",
+                 "bSortable": true,
+                 "sWidth": colWidths.quickView + "px",
+                 "resize": false,
+                 "mRender": function(value, type, obj) {
+                 return '<button data="' + obj.handle + '" onclick="getQuickViewData(this)">View</button>'
+                 }
+                 },
+                 {"mData": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
+                 "mRender": function(value, type, obj){
+                 if(value) {
+                 return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.selected + '</a>';
+                 } else {
+                 return '<a class="select_cell md-check rico" onclick="clickMySeriesCheck(this)"  title="select series to graph">Not selected</a>';
+                 }
+                 }
+                 },*/
                 { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
                     "mRender": function(value, type, obj){
                         return ((obj.mapsetid)?iconsHMTL.mapset:'')
@@ -428,8 +439,8 @@ function setupMySeriesTable(){
         .find('input')
         .val('enter key phrase to filter')
         .addClass('grey-italics')
-        .click(function(){
-            $(this).removeClass('grey-italics').val('').off('click focus');
+        .on('click keydown', function(){
+            $(this).removeClass('grey-italics').val('').off('click keydown');
         })
         .keyup(seriesFilterChange);
 
@@ -445,7 +456,7 @@ function setupMySeriesTable(){
                 hasMySeries = true;
                 break;
             }
-            if(hasMySeries) dialogShow('info', dialogues.noSeriesSelected); else dialogShow('info',dialogues.noMySeries);
+            if(hasMySeries) dialogShow('selection required', dialogues.noSeriesSelected); else dialogShow('selection required',dialogues.noMySeries);
         } else {
             if(series.lenght==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
         }
@@ -489,7 +500,6 @@ function setupPublicSeriesTable(){
                 "success": function(data, textStatus, jqXHR){
                     console.log(data.command+" ("+data.search+"): "+data.exec_time);
                     fnCallback(data, textStatus, jqXHR);
-                    if(data.aaData.length>0) $('#preview-public-series').button('enable'); else $('#preview-public-series').button('disable');
                 },
                 "error": function(results){
                     console.log(results);
@@ -511,11 +521,11 @@ function setupPublicSeriesTable(){
         "aaSorting": [],  //[[8,'desc']],  using namelen to show shortest first by default
         "iDeferLoading": 0,
         "aoColumns": [
-           /* { "mData":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
-                "mRender": function(value, type, obj) {
-                    return '<button class="view" data="S' + obj.seriesid + '" onclick="getQuickViewData(this)">View</button>'
-                }
-            },*/
+            /* { "mData":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
+             "mRender": function(value, type, obj) {
+             return '<button class="view" data="S' + obj.seriesid + '" onclick="getQuickViewData(this)">View</button>'
+             }
+             },*/
             { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px",
                 "mRender": function(value, type, obj){
                     return ((obj.mapsetid)?iconsHMTL.mapset:'')
@@ -540,16 +550,22 @@ function setupPublicSeriesTable(){
             //{ "mData":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
         ]
     }).click(function(e){
-        var $tr = $(e.target).closest('tr');
-        if($tr.hasClass('ui-selected')) $tr.removeClass('ui-selected'); else $tr.addClass('ui-selected');
-    }).dblclick(function(e){
-        $(e.target).closest('tr').addClass('ui-selected');
-        previewPublicSeries();
-    });
+            var $tr = $(e.target).closest('tr');
+            if($tr.hasClass('ui-selected')) $tr.removeClass('ui-selected'); else $tr.addClass('ui-selected');
+        }).dblclick(function(e){
+            $(e.target).closest('tr').addClass('ui-selected');
+            previewPublicSeries();
+        });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
     $('#public-mapset-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
-    //dtPublicSeries.fnAdjustColumnSizing();
+
+    $('#series_search_text')
+        .val('enter search keywords (-keyword to exclude)')
+        .keyup(function(event){ seriesCloudSearchKey(event)})
+        .on('click keydown',function(e){
+            $(this).removeClass('grey-italics').val('').off('click keydown');
+        });
 }
 function setupMyGraphsTable(){
     var tableWidth = $("#canvas").width()-7*11-40;
@@ -573,7 +589,7 @@ function setupMyGraphsTable(){
         "sScrollX": tableWidth + "px",
         "aaSorting": [[9,'desc']],
         "aoColumns": [
-/*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
+            /*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
             {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px",
                 "mRender": function(value, type, obj){return value + '<span class="handle">G' + obj.gid + '</span> '}
             },
@@ -596,14 +612,14 @@ function setupMyGraphsTable(){
             {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
     }).click(function(e){
-        $(this).find('tr.ui-selected').removeClass('ui-selected');
-        var $tr = $(e.target).closest('tr');
-        $tr.addClass('ui-selected');
-    }).dblclick(function(e){
-        $(this).find('tr.ui-selected').removeClass('ui-selected');
-        var rowObject = dtMyGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
-        viewGraph(rowObject.gid);
-    });
+            $(this).find('tr.ui-selected').removeClass('ui-selected');
+            var $tr = $(e.target).closest('tr');
+            $tr.addClass('ui-selected');
+        }).dblclick(function(e){
+            $(this).find('tr.ui-selected').removeClass('ui-selected');
+            var rowObject = dtMyGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
+            viewGraph(rowObject.gid);
+        });
     $('#my_graphs_table_filter')
         .prependTo('#myGraphsHeader')
         .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
@@ -700,14 +716,14 @@ function setupPublicGraphsTable(){
             }
         ]
     }).click(function(e){
-        $(this).find('tr.ui-selected').removeClass('ui-selected');
-        var $tr = $(e.target).closest('tr');
-        $tr.addClass('ui-selected');
-    }).dblclick(function(e){
-        $(this).find('tr.ui-selected').removeClass('ui-selected');
-        var graphRow = dtPublicGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
+            $(this).find('tr.ui-selected').removeClass('ui-selected');
+            var $tr = $(e.target).closest('tr');
+            $tr.addClass('ui-selected');
+        }).dblclick(function(e){
+            $(this).find('tr.ui-selected').removeClass('ui-selected');
+            var graphRow = dtPublicGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
             $('#view-public-graph').click();
-    });
+        });
     $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
     $('#tblPublicGraphs_filter').hide();
     $('#view-public-graph').button({icons: {secondary: 'ui-icon-folder-open'}}).click(function(){
@@ -715,6 +731,7 @@ function setupPublicGraphsTable(){
         if($graphRow.length==1){
             var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
             hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
+            dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
         } else {
             if(dtPublicGraphs.fnGetData().length==0){
                 dialogShow('no graph selected', dialogues.noPublicGraphs);
@@ -723,6 +740,12 @@ function setupPublicGraphsTable(){
             }
         }
     });
+    $('#graphs_search_text')
+        .val('enter search terms or leave blank for latest graphs')
+        .keyup(function(event){ graphsCloudSearch(event)})
+        .on('click keydown',function(e){
+            $(this).removeClass('grey-italics').val('').off('click keydown');
+        });
 }
 
 //DATATABLE HELPER FUNCTIONS
@@ -747,9 +770,6 @@ function timeOrDate(dateValue){
         return '<span title="' + dt.toString().substr(4,20) + '">' + dt.toString().substr(4,11) + '</span>'
     }
 }
-function textClear(txt){
-    if($(txt).hasClass('grey-italics')) $(txt).removeClass('grey-italics').val('');
-}
 function seriesCloudSearchKey(event){
     var keyCode = ('which' in event) ? event.which : event.keyCode;
     searchCatId=0; //exit category browse mode
@@ -760,7 +780,7 @@ function seriesCloudSearchKey(event){
 }
 function seriesCloudSearch(noHashChange){
     browseClose();
-    var searchText = $("#series_search_text").val();
+    var searchText = $("#series_search_text").hasClass('grey-italics')?'':$("#series_search_text").val();
     if(searchText.match(/(title|name|skey):"[^"]+"/i)==null){
         searchText = (' ' + searchText + ' ').replace(/[\s]+/g,' ');
         //if(searchText==' ')return false; //no search on empty strings
@@ -779,7 +799,7 @@ function getPublicSeriesByCat(a){
 function graphsCloudSearch(event){
     var keyCode = ('which' in event) ? event.which : event.keyCode;
     if((keyCode == 13 &&  event.target.id == 'graphs_search_text') || event.target.innerHTML == 'search') {
-        var searchText = $('#graphs_search_text').val();
+        var searchText = $('#graphs_search_text').hasClass('grey-italics')?'':$('#graphs_search_text').val();
         searchText = (' ' + searchText + ' ').replace(/[\s]+/g,' ');  //eliminate extra spaces.
         searchText = searchText.substring(1, searchText.length-1);
         searchText = '+' + searchText.replace(/ /g,' +');
@@ -989,7 +1009,7 @@ function previewMySeries(){
             hasMySeries = true;
             break;
         }
-        if(hasMySeries) dialogShow('info', dialogues.noSeriesSelected); else dialogShow('info', dialogues.noMySeries);
+        if(hasMySeries) dialogShow('no series selected', dialogues.noSeriesSelected); else dialogShow('no series selected', dialogues.noMySeries);
     } else {
 
         preview(series, false);
@@ -1002,7 +1022,7 @@ function previewPublicSeries(){
         series.push(dtPublicSeries.fnGetData(this));
     }).removeClass('ui-selected');
     if(series.length==0){
-        dialogShow('info', dialogues.noSeriesSelected);
+        dialogShow('selection required', dialogues.noSeriesSelected);
     } else {
         preview(series, true);
     }
@@ -1042,68 +1062,68 @@ function preview(series, showAddSeries){
 }
 
 function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
-    oQuickViewSeries = obj; //store in global var
-    var quickGraph;
-    //quickGraph.title = 'Selected data series from the map';
+    var quickGraph, aoSeries, i;
+    var hasMaps = false, seriesMaps = [], otherMaps = [], sets = [];
+    var $mapSelect =  $('select.quick-view-maps');
 
-    if(obj instanceof Array){
+    if(obj.plots){ // a graphs object was passed in
+        quickGraph = obj; // everything including title should be set by caller
+        oQuickViewSeries = obj; //store in global var
+    } else {
+        if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
+        oQuickViewSeries = aoSeries;
         quickGraph = emptyGraph();
         quickGraph.plots = [];
         var handles = [];
-        for(var i=0;i<obj.length;i++){
-            quickGraph.assets[obj[i].handle] = obj[i];
-            quickGraph.plots.push({components:[{handle:obj[i].handle, options:{k:1, op:'+'}}],  options:{}});
-            handles.push(obj[i].handle);
+        for(i=0;i<aoSeries.length;i++){
+            quickGraph.assets[aoSeries[i].handle] = aoSeries[i];
+            quickGraph.plots.push({components:[{handle:aoSeries[i].handle, options:{k:1, op:'+'}}],  options:{}});
+            handles.push(aoSeries[i].handle);
             $('#quick-view-controls').attr('data', handles.join(","));
         }
-    } else {
-        if(obj.plots){ //a graphs object was passed in
-            quickGraph = obj; //everything including title should be set by caller
-        } else {
-            quickGraph = emptyGraph();
-            quickGraph.assets[obj.handle] = obj;
-            quickGraph.title = obj.name;
-            quickGraph.plots = [{components:[{handle:obj.handle, options:{k:1, op:'+'}}],  options:{}}];
-            $('#quick-view-controls').attr('data', obj.handle);
-        }
     }
+
     var quickChartOptions = makeChartOptionsObject(quickGraph);
     delete quickChartOptions.chart.height;
     quickChartOptions.chart.borderWidth = 2;
     quickChartOptions.chart.renderTo = 'highcharts-div';
-
     quickChart = new Highcharts.Chart(quickChartOptions);
-    //this are the series info added to the quickView panel.  Could be more complete & styled
+
     var qvNotes='';
-    if(!(obj instanceof Array) && !obj.plots){ //only if single series
-        qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + obj.graph + '</td></tr>'
-            + '<tr><td>Series notes:</td><td>' + obj.notes + '</td></tr>'
-            + '<tr><td>My Series count:</td><td>' + obj.myseriescount + '</td></tr>'
-            + '<tr><td>Graphs (including unpublished) count:</td><td>' + obj.graphcount + '</td></tr>'
-            + '<tr><td>Series key:</td><td>' + obj.skey + '</td></tr>'
+    if(!obj.plots){ //only if single series
+        if(aoSeries.length==1 && aoSeries[0].notes){
+            //this are the series info added to the quickView panel.  Could be more complete & styled
+            qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph + '</td></tr>'
+            + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes + '</td></tr>'
+            + '<tr><td>My Series count:</td><td>' + aoSeries[0].myseriescount + '</td></tr>'
+            + '<tr><td>Graphs (including unpublished) count:</td><td>' + aoSeries[0].graphcount + '</td></tr>'
+            + '<tr><td>Series key:</td><td>' + aoSeries[0].skey + '</td></tr>'
             + '</table>';
-        var hasMaps = false, seriesMaps = [], otherMaps = [];
-        var $mapSelect =  $('select.quick-view-maps');
-        if(obj.mapsetid || obj.pointsetid){
-            for(var map in obj.geocounts){
-                if(obj.geocounts[map].set>1){
-                    hasMaps = true;
-                    if(obj.geocounts[map].regions){
-                        seriesMaps.push('<option value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>');
-                    } else {
-                        otherMaps.push('<option class="other-map" value="'+map+'">'+map+' ('+obj.geocounts[map].set+')</option>');
+        }
+        //determine whether and which maps to show in the selector
+        for(i=0;i<aoSeries.length;i++){
+            if((aoSeries[i].mapsetid && sets.indexOf('M'+aoSeries[i].mapsetid)==-1) || (aoSeries[i].pointsetid && sets.indexOf('X'+aoSeries[i].pointsetid)==-1)){
+                if(aoSeries[i].mapsetid) sets.push('M'+aoSeries[i].mapsetid); else sets.push('X'+aoSeries[i].pointsetid);
+                for(var map in aoSeries[i].geocounts){
+                    if(aoSeries[i].geocounts[map].set>1){
+                        hasMaps = true;
+                        if(aoSeries[i].geocounts[map].regions){
+                            seriesMaps.push('<option value="'+map+'">'+map+' ('+aoSeries[i].geocounts[map].set+')</option>');
+                        } else {
+                            otherMaps.push('<option class="other-map" value="'+map+'">'+map+' ('+aoSeries[i].geocounts[map].set+')</option>');
+                        }
                     }
                 }
             }
         }
-        if(hasMaps){ //make sure we have maps to show
-            seriesMaps.sort();
-            otherMaps.sort();
-            $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):'')).show();
-        } else {
-            $mapSelect.hide();
-        }
-    } else $('.quick-view-maps').hide();
+    }
+    if(hasMaps){ //make sure we have maps to show
+        seriesMaps.sort();
+        otherMaps.sort();
+        $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):'')).show();
+    } else {
+        $mapSelect.hide();
+    }
     $('#qv-info').html(qvNotes);
 
     if(showAddSeries){
@@ -1125,11 +1145,12 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
     $(btn).attr("disabled","disabled");
-    oQuickViewSeries.save_dt = new Date().getTime();
-    var serieskey = addMySeriesRow(oQuickViewSeries);  //table and oMySeries add/update
-    updateMySeries(oQuickViewSeries); //cloud update
-    //$('#fancybox-close').click(); < explicitly close it
-    return serieskey;
+    for(var i=0;i<oQuickViewSeries.length;i++){
+        oQuickViewSeries[i].save_dt = new Date().getTime();
+        var serieskey = addMySeriesRow(oQuickViewSeries[i]);  //table and oMySeries add/update
+        updateMySeries(oQuickViewSeries[i]); //cloud update
+    }
+    //quickView not closed automatically, user can subsequently chart or close
 }
 function quickViewToChart(btn){
     $(btn).attr("disabled","disabled");
@@ -1176,48 +1197,73 @@ function quickViewToChart(btn){
     setPanelHash();
 }
 function quickViewToMap(){
-    var mapsetid = oQuickViewSeries.mapsetid;
-    var pointsetid = oQuickViewSeries.pointsetid;
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
     var map = $("select.quick-view-maps").val();
     if(oPanelGraphs[panelId] && oPanelGraphs[panelId].map && oPanelGraphs[panelId].map!=map){
-        dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+"map.  Additional map data can be added, but must use the same base map.")
+        dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+"map.  Additional map data can be added, but must use the same base map.");
         return null;
     }
+    require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
+
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapFile = mapsList[map].jvectormap;
-    require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
-    if(!isNaN(mapsetid) && mapsetid>0){
-        if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
-        addedHandle = 'M'+mapsetid;
-        oGraph.mapsets.components.push({handle: addedHandle, options:{} });
-    }
-    if(!isNaN(pointsetid) && pointsetid>0){
-        if(!oGraph.pointsets) oGraph.pointsets = [];
-        addedHandle = 'X'+pointsetid;
-        oGraph.pointsets.push({options:{}, components:[{handle: addedHandle, options:{} } ] } );
+    if(!oGraph.plots) oGraph.plots = [];
+
+    for(var s=0;s<oQuickViewSeries.length;s++){
+        serie = oQuickViewSeries[s];
+        oGraph.plots.push({options:{}, components:[{handle: serie.handle, options: {k:1.0, op:'+'}}]});  //always plot the series in addition to any map
+        if(serie.geocounts && serie.geocounts[map]){
+            if(!isNaN(serie.mapsetid) && serie.mapsetid>0 && !hasMapset(serie.mapsetid)){
+                if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
+                addedHandle = 'M'+mapsetid;
+                oGraph.mapsets.components.push({handle: addedHandle, options:{k:1.0, op:(oGraph.mapsets.components.length==0?'+':'/')}});
+            }
+            if(!isNaN(serie.pointsetid) && serie.pointsetid>0 && !hasPointset(serie.pointsetid)){
+                if(!oGraph.pointsets) oGraph.pointsets = [];
+                addedHandle = 'X'+pointsetid;
+                oGraph.pointsets.push({options:{}, components:[{handle: addedHandle, options: {k:1.0, op:'+'} } ] } );
+            }
+        }
     }
 
     getAssets(oGraph, function(){
         require(['js/maps/' + oGraph.mapFile + '.js'],function(){
-            if(oGraph.title===null || oGraph.title=='') oGraph.title = oGraph.assets[addedHandle].name;
+            if(oGraph.title===null || oGraph.title==''){
+                oGraph.title = oGraph.mapset?plotName(oGraph, oGraph.mapset):plotName(oGraph, oGraph.pointsets[0]);
+            }
             if(panelId=="new"){
                 buildGraphPanel(oGraph);
             } else {
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                /*var $makeMapButton= $('#' + panelId + ' .make-map');
-                 if($makeMapButton.length==1) $makeMapButton.click(); else*/
                 $('#' + panelId + ' .graph-type').change();
             }
+            unmask();
+            setPanelHash();
         });
-        unmask();
         hideGraphEditor();
-        setPanelHash();
     });
     quickViewClose();
+    function hasMapset(mapsetid){
+        if(oGraph.mapset){
+            for(var c=0;c<oGraph.mapset.components.length;c++){
+                if(oGraph.mapset.components.handle=='M'+mapsetid) return true;
+            }
+        }
+        return false;
+    }
+    function hasPointset(pointsetid){
+        if(oGraph.pointsets){
+            for(var x=0;oGraph.pointsets.length;x++){
+                for(var c=0;c<oGraph.pointsets[x].components.length;c++){
+                    if(oGraph.pointsets[x].components.handle=='X'+pointsetid) return true;
+                }
+            }
+        }
+        return false;
+    }
 }
 function quickViewClose(){
     quickChart.destroy();
@@ -2067,11 +2113,11 @@ function getMySeries(){
         function(results, textStatus, jqXH){
             var series=[];
             for(var sHandle in results.series){
-/*                if(oMySeries[sHandle]){
-                    var trSeries = dtMySeries.find("button[data='" + sHandle + "']").closest('tr').get(0);
-                    //dtMySeries.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
-                    dtMySeries.fnDeleteRow(trSeries);
-                }*/
+                /*                if(oMySeries[sHandle]){
+                 var trSeries = dtMySeries.find("button[data='" + sHandle + "']").closest('tr').get(0);
+                 //dtMySeries.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
+                 dtMySeries.fnDeleteRow(trSeries);
+                 }*/
                 oMySeries[sHandle] = results.series[sHandle]; //if exists, it will be overwritten with new data
                 series.push(results.series[sHandle]);  //takes an array or object, not an object
             }
@@ -2269,7 +2315,7 @@ function addTab(title) {
     var newTab = $graphTabs.tabs('add', '#graphTab'+tab_counter, tab_title);
     $('#graphTab'+tab_counter).addClass('graph-panel');
     //this causes problem when deleting tabs
-    $( "#canvas" ).tabs().find( ".ui-tabs-nav" ).sortable({ axis: "x" });
+    $( "#canvas" ).tabs().find( ".ui-tabs-nav" ).sortable({ axis: "x", distance: 10  });
     $graphTabs.tabs('select', $graphTabs.tabs('length') - 1);
     $(".ui-tabs-selected a").each(function(){$(this).attr("title", $(this).html())});
     tab_counter++;

@@ -380,13 +380,13 @@ div.graph {
     padding-right:20px;
 }
 #series-tabs li a{
-    font-size:12px;
+    font-size: 14px;
 }
 div#pickers {
     bottom: 0;
     padding:0;
-    margin:0;
-    height: 27px;
+    margin: 10px 0 0 0;
+    height: 32px;
     position:relative;
     left:5px;
     border:0;
@@ -963,7 +963,7 @@ td.expanded{
  }
 div#signin-fb, div#signin-or, div#signin-md{
     display: inline-block;
-    float: left;
+    float: right;
     width: 250px;
     height: 160px;
     padding: 10px;
@@ -1094,6 +1094,9 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     background-color: black;
     border: 0;
 }
+#title-bar-buttons{
+    margin: 20px 20px 0 0;;
+}
 #series-tabs{
     background:none;
     border:0;
@@ -1101,7 +1104,7 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     position:relative;
     top:-2px;
 }
-.ie #series-tabs{
+.ie #series-tabs{  /*ie6-9; does not fix ie10  */
     top:3px;
 }
 @-moz-document url-prefix() {
@@ -1122,25 +1125,25 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
 
 /*very light + border theme*/
 #series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{
-    background-color: #f9fde8;
+    background-color: #d1e65c;
     border-top: 1px solid #a2bc13;
     border-left: 1px solid #a2bc13;
     border-right: 1px solid #a2bc13;
 }
 #series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover, #cloud-series{
-    background-color: #fbf9e9;
+    background-color: #faefaf;
     border-top: 1px solid #e3cf57;
     border-left: 1px solid #e3cf57;
     border-right: 1px solid #e3cf57;
 }
 #series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover, #myGraphs{
-    background-color: #eef3f6;
+    background-color: #bcdef5;
     border-top: 1px solid #6ca6cd;
     border-left: 1px solid #6ca6cd;
     border-right: 1px solid #6ca6cd;
 }
 #series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover, #publicGraphs{
-    background-color: #fff4e5;
+    background-color: #ffeabf;
     border-top: 1px solid #ff9912;
     border-left: 1px solid #ff9912;
     border-right: 1px solid #ff9912;

@@ -9,22 +9,6 @@
 var BAND_TRANSPARENCY = 0.5;
 var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
 var standardAnnotations = [];  //filled by API call on first use
-$(document).ready(function(){
-    require(["/global/js/highcharts/js/highcharts.src.2.3.5.js","/global/js/colorpicker/jquery.colorPicker.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"], function(){
-        require(["/global/js/highcharts/js/modules/exporting.2.1.6.src.js"]);
-        $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
-        Highcharts.setOptions({
-            tooltip: {
-                formatter: function(){  //shorten the data accord to period; add commas to number; show units
-                    var tooltip = formatDateByPeriod(this.point.x, this.series.options.period) + '<br>'
-                        + this.series.name.trim() + ':<br>'
-                        + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text;
-                    return tooltip;
-                }
-            }
-        });
-    });
-});
 
 function AnnotationsController(panelId){
     var controller  = {

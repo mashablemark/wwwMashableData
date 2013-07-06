@@ -98,7 +98,7 @@ switch($command){
 
         $aColumns=array("s.seriesid", "name", "units", "periodicity", "title", "url", "firstdt", "lastdt", "updated");
 
-        $sql = "SELECT SQL_CALC_FOUND_ROWS s.seriesid, s.userid, mapsetid, pointsetid, name, units, periodicity as period, title, src, url, "
+        $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, name, units, periodicity as period, title, src, url, "
         . " firstdt, lastdt, apiid"
         . " FROM series s ";
 
@@ -338,6 +338,11 @@ switch($command){
         if(strlen($ghash)>0){
             $output = getGraphs(0, $ghash); //gets everything except the mapsets and pointsets
 
+            if(isset($_POST["uid"]) && $output['userid'] == intval($_POST["uid"])){
+                requiresLogin();  //login not required, but if claiming to be the author then verify the token
+            } else {
+                $output['userid'] = null;  //cannot save graph; only save as a copy
+            }
             foreach($output['graphs'] as $ghandle => $oGraph){
                 if($oGraph["map"]!=null && $oGraph["map"]!=""){
                     if($mapsets){
