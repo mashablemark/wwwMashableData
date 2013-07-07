@@ -1168,7 +1168,7 @@ switch($command){
             $result = runQuery($sql, "GetMashableData series");
 
             while ($aRow = $result->fetch_assoc()) {
-                if($aRow["geocounts"]!==null and count($clean_seriesids)==1) { //only get geophy counts for single series fetches
+                if($aRow["geocounts"]!==null) { //stored as JSON without final braces by /admin/crawlers/start_apirun?command=SetCounts
                     $ary = json_decode('{"a":{'.$aRow["geocounts"].'}}', true);
                     $aRow["geocounts"] = $ary["a"];
                     if($aRow["geoid"]!==null && ($aRow["mapsetid"]!==null || $aRow["pointsetid"]!==null)){

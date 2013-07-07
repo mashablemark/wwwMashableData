@@ -1,6 +1,7 @@
 //GLOBAL VARIABLES mce
 
 var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000', MID: '#CCCCCC'};
+var DEFAULT_RADIUS_SCALE = 20; //(px) used for both bubble maps and marker maps
 var hcColors = [
     '#4572A7',
     '#AA4643',
@@ -1405,7 +1406,7 @@ function calcMap(graph){
                         if(!oComponentData[point[0].toString()][symbol]){
                             oComponentData[point[0].toString()][symbol] = {};
                         }
-                        oComponentData[point[0].toString()][symbol][geo] = point[1];
+                        oComponentData[point[0].toString()][symbol][geo] = (point[1]===null || point[1]=='null')?null:parseFloat(point[1]);
                     }
                 }
             } else {
@@ -1415,7 +1416,7 @@ function calcMap(graph){
                     if(!oComponentData[point[0].toString()]){
                         oComponentData[point[0].toString()] = {};
                     }
-                    oComponentData[point[0].toString()][symbol] = point[1];
+                    oComponentData[point[0].toString()][symbol] =  (point[1]===null || point[1]=='null')?null:parseFloat(point[1]);
                 }
             }
         }
@@ -1695,7 +1696,6 @@ function calcMap(graph){
 
 function calcAttributes(graph){
     var i, y, firstDateKey, dateKey, geo, min, max, calcData = graph.calculatedMapData;
-    var DEFAULT_RADIUS_SCALE = 20; //px
 
     //1.  find start and end indexes
     calcData.regionMin = Number.MAX_VALUE;
@@ -2740,6 +2740,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             $thisPanel.find('div.jvmap').show().height(($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
+            var $mapDateDiv = $('<div class="map-date"></div>').prependTo($thisPanel.find('div.jvectormap-container'));
 
             //BBBUUUUBBBBBLLEESS!!!!!
             var $g = $thisPanel.find('div.jvmap svg g:first');  //goes in createGraph closure
@@ -2766,10 +2767,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     if(oGraph.pointsets || isBubble()){
                         //$map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
                         $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
-                        $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
-                    }
-                    if(oGraph.pointsets){
                         $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
+                        if(oGraph.pointsets){
+                            $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
+                        }
                     }
                     if(oGraph.plots){
                         var timeAxis = oHighCharts[panelId].xAxis[0];
@@ -2783,7 +2784,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     } else {
                         $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
                     }
-
+                    $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
                 }
             }).slider( "value", calculatedMapData.endDateIndex);
 
@@ -3014,8 +3015,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $map.clearSelectedRegions();
                     bubbleCalc();
                     positionBubbles();
-                    makeDirty();
                     $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
+                    makeDirty();
                 });
             $thisPanel.find('button.ungroup').button({icons: {secondary: 'ui-icon-arrow-4-diag'}}).off()
                 .click(function(){
@@ -3273,7 +3274,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
 
                 //initialize markerData variable object
-                var markerData = {}, markerAttr = {r: {}, stroke: {}};
+                var merge, mergeCode, markerData = {}, markerAttr = {r: {}, stroke: {}};
                 for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                     dateKey = calculatedMapData.dates[d].s;
                     markerData[dateKey] = {};  //initalize
@@ -3286,23 +3287,25 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 //1A: calculate the merge values within the graph date range as determined by calculatedMapData.startDateIndex and .endDateIndex
                 if(oGraph.mapsets.options.merges){
                     for(i=0;i<oGraph.mapsets.options.merges.length;i++){
-                        markerTitle = calculatedMapData.title + ' - ' + oGraph.mapsets.options.merges[i].join(', ');
-                        calculatedMapData.markers[oGraph.mapsets.options.merges[i].join('+')] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
+                        merge = oGraph.mapsets.options.merges[i];
+                        mergeCode = merge.join('+');
+                        markerTitle = calculatedMapData.title + ' for ' + mergeCode ;
+                        calculatedMapData.markers[merge.join('+')] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
                         for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                             mergedSum = 0;  //merging regions only adds.  There is no complex math
-                            for(j=0;j<oGraph.mapsets.options.merges[i].length;j++){
-                                mergedSum += calculatedMapData.regionData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i][j]];
+                            for(j=0;j<merge.length;j++){
+                                mergedSum += calculatedMapData.regionData[calculatedMapData.dates[d].s][merge[j]]||0;
                             }
-                            markerData[calculatedMapData.dates[d].s][oGraph.mapsets.options.merges[i].join('+')] = mergedSum;
+                            markerData[calculatedMapData.dates[d].s][mergeCode] = {r: mergedSum};
                             if(mergedSum!==null){ //Math object methods treat nulls as zero
                                 calculatedMapData.markerDataMin = Math.min(calculatedMapData.markerDataMin, mergedSum);
                                 calculatedMapData.markerDataMax = Math.max(calculatedMapData.markerDataMax, mergedSum);
                             }
                         }
-                        for(j=0;j<oGraph.mapsets.options.merges[i].length;j++){
-                            calculatedMapData.regionsColorsForBubbles[oGraph.mapsets.options.merges[i][j]] = regionColors[i%regionColors.length];
+                        for(j=0;j<merge.length;j++){
+                            calculatedMapData.regionsColorsForBubbles[merge[j]] = regionColors[i%regionColors.length];
                         }
-                        allMergedRegions = allMergedRegions.concat(oGraph.mapsets.options.merges[i]);
+                        allMergedRegions = allMergedRegions.concat(merge);
                     }
                 }
 
@@ -3314,16 +3317,16 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         calculatedMapData.regionsColorsForBubbles[region] = regionColors[i++%regionColors.length];
                         for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                             dateKey = calculatedMapData.dates[d].s;
-                            markerData[dateKey][region] = calculatedMapData.regionData[dateKey][region];
-                            if(markerData[dateKey][region]!==null){ //Math object methods treat nulls as zero
-                                calculatedMapData.markerDataMin = Math.min(calculatedMapData.markerDataMin, markerData[dateKey][region]);
-                                calculatedMapData.markerDataMax = Math.max(calculatedMapData.markerDataMax, markerData[dateKey][region]);
+                            markerData[dateKey][region] = {r: calculatedMapData.regionData[dateKey][region]};
+                            if(markerData[dateKey][region].r!==null){ //Math object methods treat nulls as zero
+                                calculatedMapData.markerDataMin = Math.min(calculatedMapData.markerDataMin, markerData[dateKey][region].r);
+                                calculatedMapData.markerDataMax = Math.max(calculatedMapData.markerDataMax, markerData[dateKey][region].r);
                             }
                         }
                     }
                 }
                 //2.  go back and create attribute (.r and .stroke) objects
-                var rScale = (graph.mapconfig.radius || DEFAULT_RADIUS_SCALE) / Math.sqrt(Math.max(Math.abs(calculatedMapData.markerDataMax), Math.abs(calculatedMapData.markerDataMin)));
+                var rScale = (oGraph.mapconfig.radius || DEFAULT_RADIUS_SCALE) / Math.sqrt(Math.max(Math.abs(calculatedMapData.markerDataMax), Math.abs(calculatedMapData.markerDataMin)));
                 for(dateKey in markerData){
                     for(markerId in markerData[dateKey]){
                         rData = markerData[dateKey][markerId].r || null;
@@ -3352,7 +3355,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             return center;
         }
 
-        function positionBubbles(){
+        function positionBubbles(){  //must be called after map creation in order to get x-y coordinates of SVG boundingBoxes and to use jvMap's pointToLatLng method
             var center, latLng;
             if(isBubble()){
                 var region, i=0, j, allMergedRegions = [];
@@ -3375,12 +3378,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 /*                for(var m in calculatedMapData.markers){
                  $map.addMarker()
                  }*/
-                $map.series.markers[0].maxValue = calculatedMapData.markerDataMax;
-                $map.series.markers[0].minValue = calculatedMapData.markerDataMin;
-                $map.series.markers[0].clearMaxValue = calculatedMapData.markerDataMax;
-                $map.series.markers[0].clearMinValue = calculatedMapData.markerDataMin;
                 $map.addMarkers(calculatedMapData.markers); //if the marker id exists, this method will reposition the marker
-                $map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
+                //$map.series.markers[0].setAttributes (getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
             }
         }
     }

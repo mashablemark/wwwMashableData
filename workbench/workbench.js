@@ -1200,16 +1200,19 @@ function quickViewToMap(){
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
     var map = $("select.quick-view-maps").val();
-    if(oPanelGraphs[panelId] && oPanelGraphs[panelId].map && oPanelGraphs[panelId].map!=map){
-        dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+"map.  Additional map data can be added, but must use the same base map.");
+    var oGraph
+    if(oPanelGraphs[panelId]
+    && oPanelGraphs[panelId].map
+    && (oPanelGraphs[panelId].map!=map || oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)){
+        dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
         return null;
     }
-    require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
 
     var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapFile = mapsList[map].jvectormap;
+    require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
     if(!oGraph.plots) oGraph.plots = [];
 
     for(var s=0;s<oQuickViewSeries.length;s++){
@@ -1218,12 +1221,12 @@ function quickViewToMap(){
         if(serie.geocounts && serie.geocounts[map]){
             if(!isNaN(serie.mapsetid) && serie.mapsetid>0 && !hasMapset(serie.mapsetid)){
                 if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
-                addedHandle = 'M'+mapsetid;
+                addedHandle = 'M'+serie.mapsetid;
                 oGraph.mapsets.components.push({handle: addedHandle, options:{k:1.0, op:(oGraph.mapsets.components.length==0?'+':'/')}});
             }
             if(!isNaN(serie.pointsetid) && serie.pointsetid>0 && !hasPointset(serie.pointsetid)){
                 if(!oGraph.pointsets) oGraph.pointsets = [];
-                addedHandle = 'X'+pointsetid;
+                addedHandle = 'X'+serie.pointsetid;
                 oGraph.pointsets.push({options:{}, components:[{handle: addedHandle, options: {k:1.0, op:'+'} } ] } );
             }
         }
@@ -1232,7 +1235,7 @@ function quickViewToMap(){
     getAssets(oGraph, function(){
         require(['js/maps/' + oGraph.mapFile + '.js'],function(){
             if(oGraph.title===null || oGraph.title==''){
-                oGraph.title = oGraph.mapset?plotName(oGraph, oGraph.mapset):plotName(oGraph, oGraph.pointsets[0]);
+                oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets):plotName(oGraph, oGraph.pointsets[0]);
             }
             if(panelId=="new"){
                 buildGraphPanel(oGraph);
@@ -1247,9 +1250,9 @@ function quickViewToMap(){
     });
     quickViewClose();
     function hasMapset(mapsetid){
-        if(oGraph.mapset){
-            for(var c=0;c<oGraph.mapset.components.length;c++){
-                if(oGraph.mapset.components.handle=='M'+mapsetid) return true;
+        if(oGraph.mapsets){
+            for(var c=0;c<oGraph.mapsets.components.length;c++){
+                if(oGraph.mapsets.components.handle=='M'+mapsetid) return true;
             }
         }
         return false;
