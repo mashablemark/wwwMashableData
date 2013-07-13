@@ -338,7 +338,7 @@ switch($command){
         if(strlen($ghash)>0){
             $output = getGraphs(0, $ghash); //gets everything except the mapsets and pointsets
 
-            if(isset($_POST["uid"]) && $output['userid'] == intval($_POST["uid"])){
+            if(isset($_POST["uid"]) && $output['userid']!=0 && $output['userid'] == intval($_POST["uid"])){
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
             } else {
                 $output['userid'] = null;  //cannot save graph; only save as a copy

@@ -2798,17 +2798,21 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
                     var selectedRegions = $map.getSelectedRegions();
                     var selectedMarkers = $map.getSelectedMarkers();
-                    var grph = emptyGraph(), plt, formula, i, j, c, X, regionCodes, pointset, mapComps, comps, newComp, asset, found;
+                    var grph = emptyGraph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
                     grph.plots =[];
                     grph.title = 'from map of ' + oGraph.title;
                     for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
                         if(isBubble()){
                             //get array of regions codes
-                            plt = $.extend(true, {}, oGraph.mapset);
+                            plt = $.extend(true, {}, oGraph.mapsets);
+                            delete plt.formula;
+                            delete plt.options.calculatedFormula;
                             mapComps = plt.components;
                             plt.components = [];
                             regionCodes = selectedMarkers[i].split('+');
+                            regionNames = [];
                             for(j=0;j<regionCodes.length;j++){
+                                regionNames.push($map.getRegionName(regionCodes[j]));
                                 for(c=0;c<mapComps.length;c++){
                                     if(mapComps[c].handle[0]=='M'){
                                         asset = $.extend({units: oGraph.assets[mapComps[c].handle].units, period: oGraph.assets[mapComps[c].handle].period}, oGraph.assets[mapComps[c].handle].data[regionCodes[j]]);
@@ -2822,6 +2826,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                                     }
                                 }
                             }
+                            plt.options.name = plotName(oGraph, oGraph.mapsets) + " for " + regionNames.join('+');
                             grph.plots.push(plt);
                         } else {
                             for(X=0;X<oGraph.pointsets.length;X++){
@@ -2918,6 +2923,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $map.addMarkers(calculatedMapData.markers);
                     calculatedMapData  = calcMap(oGraph);
                     calcAttributes(oGraph);
+                    bubbleCalc();
                     $mapSlider.slider("value", calculatedMapData.dates.length-1);
                     $thisPanel.find('.map-graph-selected, .make-map').button('disable');
                 });

@@ -17,7 +17,7 @@ var templates = {
             + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
 };
 
-graphScriptFiles = ["/global/js/highcharts/js/highcharts.3.0.2.src.js","/global/js/highcharts/js/modules/exporting.3.0.2.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
+graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.3.0.2.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
 var iconsHMTL= {
     mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set."></span>',
     pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a point set."></span>'
@@ -1200,10 +1200,15 @@ function quickViewToMap(){
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
     var map = $("select.quick-view-maps").val();
-    var oGraph
-    if(oPanelGraphs[panelId]
-    && oPanelGraphs[panelId].map
-    && (oPanelGraphs[panelId].map!=map || oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)){
+    if(
+        oPanelGraphs[panelId]
+        && oPanelGraphs[panelId].map
+        && (
+            oPanelGraphs[panelId].map!=map
+            || (oPanelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)
+            ||(oPanelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].pointsets.components[0].handle].period)
+            )
+        ){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
         return null;
     }
@@ -1259,8 +1264,8 @@ function quickViewToMap(){
     }
     function hasPointset(pointsetid){
         if(oGraph.pointsets){
-            for(var x=0;oGraph.pointsets.length;x++){
-                for(var c=0;c<oGraph.pointsets[x].components.length;c++){
+            for(var x= 0, len=oGraph.pointsets.length;x<len;x++){
+                for(var c=0, len=oGraph.pointsets[x].components.length;c<len;c++){
                     if(oGraph.pointsets[x].components.handle=='X'+pointsetid) return true;
                 }
             }
