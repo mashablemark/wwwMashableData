@@ -18,14 +18,18 @@
     <link rel="stylesheet" href="js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css" type="text/css">
 
-    <!--JavaScript files-->
-    <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script><!-- latest verions is 1.8.3-->
-    <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
+    <!--Google API JavaScript files-->
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+
+    <!--domestic JavaScript files-->
+    <!--script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script-->
+    <!--script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script-->
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.9.4.js"></script><!-- latest version is 1.9.4-->
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
     <script type="text/javascript" src="js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
     <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
-    <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.2.src.js"></script>
+    <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.2.min.js"></script>
     <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
     <script type="text/javascript" src="workbench.js"></script>
@@ -119,7 +123,7 @@
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
                     <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
                     <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><option value="1">petroleum and NG data from EIA</option><option value="2">St. Louis Federal Reserve</option><option value="5">U.N. Food and Agricultural Organization</option><option value="4">US Energy Information Administration</option><option value="3">World Bank Indicators</option></select>
-                    <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">point sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a point set."></span></label></div>
+                    <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
                     <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
                     <button id="preview-public-series" class="public-series-selected" style="background-color: orange;background: orange;">preview</button>
 

@@ -1529,11 +1529,10 @@ function calcMap(graph){
                         if(markers[latlon]){
                             markers[latlon].name += '<br>' + Xdata[latlon].name;
                         } else {
-                            markers[latlon] = {latLng: latlon.split(','), name: Xdata[latlon].name};
+                            markers[latlon] = {latLng: latlon.split(','), name: Xdata[latlon].name, style: {fill: pointset.options.markerColor||hcColors[i%hcColors.length]}};
                             markers[latlon].latLng[0] = parseFloat(markers[latlon].latLng[0]);
                             markers[latlon].latLng[1] = parseFloat(markers[latlon].latLng[1]);
                         }
-                        markers[latlon].fill = "#ff0000";  //REMOVE AFTER TESTING
                         data = Xdata[latlon].data.split("||");
                         for(k=0; k<data.length; k++){
                             point = data[k].split("|");
@@ -1845,7 +1844,7 @@ function calcAttributes(graph){
                         }
                     }
                 } else {
-                    markerAttr.fill[dateKey][markerId] = '#0000ff';
+                    //markerAttr.fill[dateKey][markerId] = '#0000ff';
                 }
             }
 

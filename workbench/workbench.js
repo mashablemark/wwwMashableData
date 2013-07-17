@@ -20,7 +20,7 @@ var templates = {
 graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.3.0.2.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
 var iconsHMTL= {
     mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set."></span>',
-    pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a point set."></span>'
+    pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a set of markers (defined longitude and latitude)."></span>'
 };
 var dialogues = {
     noMySeries: 'Your My Series folder is empty.  Please search for Public Series, whihc can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
@@ -98,6 +98,7 @@ var newPlotIDCounter = -1; //new plots get negative ids (i.e. 'P-8-') which get 
 var myPreferences = {uselatest: 'N'};
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 
+var mapsArray = []; //sorted array of available maps created from mapsList object
 var parsingHash = false;
 
 //prevent IE from breaking
@@ -247,6 +248,10 @@ $(document).ready(function(){
     window.onbeforeunload = function() {
         return "Your work will be lost.";
     };
+
+    for(var map in mapsList) mapsArray.push(map);
+    mapsArray.sort();
+
 
     require(graphScriptFiles, function(){
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
@@ -1121,10 +1126,14 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         seriesMaps.sort();
         otherMaps.sort();
         $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):'')).show();
+        $('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
     } else {
         $mapSelect.hide();
+        $('button.quick-view-maps').hide();
     }
     $('#qv-info').html(qvNotes);
+
+
 
     if(showAddSeries){
         $('#quick-view-to-series').show();
@@ -1206,7 +1215,7 @@ function quickViewToMap(){
         && (
             oPanelGraphs[panelId].map!=map
             || (oPanelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)
-            ||(oPanelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].pointsets.components[0].handle].period)
+            ||(oPanelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].pointsets[0].components[0].handle].period)
             )
         ){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
@@ -1674,8 +1683,8 @@ function showSeriesEditor(handle, map){
 
         function showPanel(){
             var $panel, mapsAsOptions='', i;
-            for(i=0;i<mapsList.length;i++){
-                mapsAsOptions += '<option value="'+mapsList[i].map+'">'+mapsList[i].name+'</option>';
+            for(i=0;i<mapsArray.length;i++){
+                mapsAsOptions += '<option value="'+mapsArray[i].map+'">'+mapsArray[i].name+'</option>';
             }
             var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
                 +   '<h4>Create a set of series that can be mapped:</h4>'

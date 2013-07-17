@@ -207,6 +207,9 @@ span#main-graph-buttons-top fieldset legend, fieldset.tight-fieldset legend{
     color: #444;
     font-size: 12px;
 }
+div.legend-scale, div.legend-continuous, div.legend-discrete{
+    display: inline-block;
+}
 
 option.other-maps{
     font-weight: bold;
@@ -754,6 +757,9 @@ li.component-landing{
 ol.blank-plot{
     list-style-type: none;
 }
+.plot-info{
+    margin-bottom: 8px;
+}
 .plot-type{
     margin: 5px;
 }
@@ -788,6 +794,19 @@ input.plot-name{
 div.edit-block{
     display: inline-block;
     margin-right: 20px;
+}
+div.attribute{
+    display: inline-block;
+}
+div.marker{
+    display: inline-block;
+    height: 14px;
+    width: 14px;
+    border: thin black solid;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+    -khtml-border-radius: 8px;
+    border-radius: 8px;
 }
 span.edit-label {
     padding-right: 10px;
