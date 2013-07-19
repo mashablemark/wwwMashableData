@@ -2,7 +2,17 @@
 
 var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000', MID: '#CCCCCC'};
 var DEFAULT_RADIUS_SCALE = 20; //(px) used for both bubble maps and marker maps
+var DEFAULT_RADIUS_FIXED = 20; //size of marker using full scaling and fixed radius
 var hcColors = [
+    '#2f7ed8',
+    '#8bbc21',
+    '#910000',
+    '#1aadce',
+    '#492970',
+    '#f28f43',
+    '#77a1e5',
+    '#c42525',
+    '#a6c96a',
     '#4572A7',
     '#AA4643',
     '#89A54E',
@@ -11,7 +21,9 @@ var hcColors = [
     '#DB843D',
     '#92A8CD',
     '#A47D7C',
-    '#B5CA92'];
+    '#B5CA92',
+    '#0d233a'  //very close to black
+];
 var primeColors=['#008000', '#FF0000','#0000FF', '#FFFF00', '#FF9900', '#00FFFF', '#FF0000'];  //green, red, blue, yellow, orange, azure, lime green
 var dashStyles = [
     'Solid',
@@ -453,7 +465,7 @@ function assetNeeded(handle, graph, assetsToFetch){
     graph.assets = graph.assets || {};
     if(!graph.assets[handle]){
         if(oMySeries&&oMySeries[handle]&&oMySeries[handle].data){
-            graph.assets[handle] = $.extend({}, oMySeries[handle]);
+            graph.assets[handle] = $.extend(true, {}, oMySeries[handle]);
         } else {
             assetsToFetch[handle.charAt(0)].push(handle.substr(1));
         }
@@ -582,7 +594,6 @@ function makeChartOptionsObject(oGraph){
             height: ($('div.graph-panel').height()-70 - (oGraph.map?70:0)) * ((oGraph.mapsets||oGraph.pointsets)?0.4:1), //leave space for analysis textarea
             x: []
         },
-        colors: hcColors,
         exporting: {enabled: false},  //don't show buttons.  Access through interface.
         plotOptions: {
             area: {stacking: 'normal'},
@@ -647,24 +658,23 @@ function makeChartOptionsObject(oGraph){
     var lineIndex = 0;
 
     for(i=0;i<oGraph.plots.length;i++){
+        var oPlot = oGraph.plots[i];
         var oSerie = createSerieFromPlot(oGraph, i);
+        if(!oPlot.options.color) oPlot.options.color = nextColor(oGraph.plots);
         var oDataSeries = {
             name: oSerie.name,
             marker: {enabled: false},
             id: 'P'+i,
             period: oSerie.period,
+            color: oPlot.options.color,
             data: oSerie.data,
             yAxis: 0
         };
-        var oPlot = oGraph.plots[i];
         if(oPlot.options.type){
             if(oPlot.options.type!='default') oDataSeries.type = oPlot.options.type;
         }
         if(oPlot.options.lineWidth) oDataSeries.lineWidth = oPlot.options.lineWidth;
         if(oPlot.options.lineStyle) oDataSeries.dashStyle  = oPlot.options.lineStyle;
-        if(oPlot.options.lineColor) {
-            jschart.colors.splice(i,1,oPlot.options.lineColor);
-        }
         if(oGraph.type=='area' || oDataSeries.stack=='area'){
             oDataSeries.stack = oSerie.units; //TODO: (1) convert units
         }
@@ -1511,6 +1521,7 @@ function calcMap(graph){
         var index = 0, pointset, cmp, k;
         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
             pointset = graph.pointsets[i];
+            if(!pointset.options.color) pointset.options.color = nextColor(graph.pointsets);
             pointset.formula = plotFormula(pointset);
             expression = 'return ' + pointset.formula.formula.replace(patVariable,'values.$1') + ';';
             var pointsetCompute = new Function('values', expression);
@@ -1529,7 +1540,7 @@ function calcMap(graph){
                         if(markers[latlon]){
                             markers[latlon].name += '<br>' + Xdata[latlon].name;
                         } else {
-                            markers[latlon] = {latLng: latlon.split(','), name: Xdata[latlon].name, style: {fill: pointset.options.markerColor||hcColors[i%hcColors.length]}};
+                            markers[latlon] = {latLng: latlon.split(','), name: Xdata[latlon].name, style: {fill: pointset.options.color}};
                             markers[latlon].latLng[0] = parseFloat(markers[latlon].latLng[0]);
                             markers[latlon].latLng[1] = parseFloat(markers[latlon].latLng[1]);
                         }
@@ -1711,10 +1722,11 @@ function calcAttributes(graph){
             }
         }
     }
-
+    var rgb, continuous, spans, mapOptions;
     if(graph.mapsets){
-        var spans, regionFillColors = {}, mapOptions = graph.mapsets.options;
-        var rgb, continuous = !mapOptions.scale || mapOptions.scale=='continuous';
+        var regionFillColors = {};
+        mapOptions = graph.mapsets.options;
+        continuous = !mapOptions.scale || mapOptions.scale=='continuous';
 
         min = calcData.regionMin;
         max = calcData.regionMax;
@@ -1727,8 +1739,8 @@ function calcAttributes(graph){
             rgb = {
                 pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
                 neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
-                posMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
-                negMid: makeRGB(colorInRange(1, 0, 3, makeRGB('FFFFFF'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
+                posMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
+                negMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
                 mid: makeRGB(MAP_COLORS.MID)
             };
         }
@@ -1775,7 +1787,11 @@ function calcAttributes(graph){
     //3. based on mapconfig, set markerData attributes
     if(graph.pointsets){
         //3A. calc min and max data for current start/end crop of graph
-        var markerKey, markerValues;
+        mapOptions = graph.mapconfig;
+        continuous = !mapOptions.scale || mapOptions.scale=='continuous';
+        if(continuous){  //this will be used in the loop
+
+        }
         var markerFillMin = Number.MAX_VALUE, markerFillMax = Number.MIN_VALUE;
         var markerRadiusMin = Number.MAX_VALUE, markerRadiusMax = Number.MIN_VALUE;
         for(i=calcData.startDateIndex;i<=calcData.endDateIndex;i++){
@@ -1802,7 +1818,14 @@ function calcAttributes(graph){
             continuous = hasFillShading &&(!graph.mapconfig.scale || mapOptions.scale=='continuous'); //redefined for pointsets
             spans = markerFillMin<0 && markerFillMax>0;
             if(continuous){  //this will be used in the loop
-                rgb =  makeRGB(graph.mapconfig.maxMarkerColor||MAP_COLORS.POS);
+                rgb = {
+                    pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
+                    neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
+                    posMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
+                    negMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
+                    mid: makeRGB(MAP_COLORS.MID)
+                };
+                //rgb =  makeRGB(graph.mapconfig.maxMarkerColor||MAP_COLORS.POS);
             }
         }
         //3B. create attributes
@@ -1833,7 +1856,7 @@ function calcAttributes(graph){
                             if(spans){
                                 markerAttr.fill[dateKey][markerId] = colorInRange(fillData, fillData<0?markerFillMin:(spans?0:markerFillMin), fillData>0?markerFillMax:(spans?0:markerFillMax), fillData<0?rgb.neg:rgb.posMid, fillData<0?rgb.negMid:rgb.pos);
                             } else {
-                                markerAttr.fill[dateKey][markerId] = colorInRange(fillData, fillData<0?markerFillMin:(spans?0:markerFillMin), fillData>0?markerFillMax:(spans?0:markerFillMax), fillData<0?rgb.neg:MAP_COLORS.MID, fillData<0?MAP_COLORS.MID:rgb.pos);
+                                markerAttr.fill[dateKey][markerId] = colorInRange(fillData, fillData<0?markerFillMin:(spans?0:markerFillMin), fillData>0?markerFillMax:(spans?0:markerFillMax), fillData<0?rgb.neg:rgb.mid, fillData<0?rgb.mid :rgb.pos);
                             }
                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
                             for(j=0;j<graph.mapconfig.discreteColors;j++){
@@ -2612,6 +2635,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
             calcAttributes(oGraph);
             if(isBubble()) bubbleCalc();
+            var fillScaling = hasFillScaling(oGraph.pointsets);
+            var radiusScaling = hasRadiusScaling(oGraph.pointsets);
             console.info(calculatedMapData);
             var minScale = /us.._merc_en/.test(oGraph.mapFile)?0.9:1;
             vectorMapSettings = {
@@ -2763,13 +2788,18 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         $map.series.regions[0].setAttributes(getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s));
                         //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                     }
-                    if(oGraph.pointsets || isBubble()){
-                        //$map.series.markers[0].setValues(getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s));
-                        $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
-                        $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
-                        if(oGraph.pointsets){
+                    if(oGraph.pointsets){
+                        if(radiusScaling){
+                            $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                            $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
+                        }
+                        if(fillScaling){
                             $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
                         }
+                    }
+                    if(isBubble()){
+                        $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                        $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
                     }
                     if(oGraph.plots){
                         var timeAxis = oHighCharts[panelId].xAxis[0];
@@ -2829,7 +2859,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             grph.plots.push(plt);
                         } else {
                             for(X=0;X<oGraph.pointsets.length;X++){
-                                pointset = $.extend({}, oGraph.pointsets[X]);
+                                pointset = $.extend(true, {}, oGraph.pointsets[X]);
                                 found = false;
                                 comps = pointset.components;
                                 for(c=0;c<comps.length;c++){
@@ -3671,3 +3701,44 @@ function calcGraphMinMaxZoomPeriod(oGraph){
     oGraph.maxZoom = oGraph.end || oGraph.lastdt;
 }
 
+function nextColor(aryOptionedObjects){ //either graph.plots or graph.pointsets
+    var usedColors = [];
+    each(aryOptionedObjects, function(){
+        if(this.options && this.options.color) usedColors.push(this.options.color);
+    });
+    var allColors = hcColors.concat(primeColors);
+    for(var i=0;i<allColors.length;i++){
+        if(usedColors.indexOf(allColors[i])==-1) return allColors[i];
+    }
+    return allColors[aryOptionedObjects.length % allColors.length];
+}
+
+function each(ary, callback){
+    for(var i=0;i<ary.length;i++){
+        callback.call(ary[i], i);
+    }
+}
+function eachComponent(graph, callback){
+    if(graph.mapsets) each(graph.mapsets.components, callback);
+    if(graph.pointsets) each(graph.pointsets, function(){each(this.components, callback)});
+    if(graph.plots) each(graph.plots, function(){each(this.components, callback)});
+}
+
+function hasFillScaling(pointsets){
+    var fill = false;
+    if(pointsets instanceof Array) {   //returns if not an array
+        each(pointsets, function(){
+            if(this.options.attribute=='fill') fill = true;
+        });
+    }
+    return fill;
+}
+function hasRadiusScaling(pointsets){
+    var r = false;
+    if(pointsets instanceof Array) {  //returns if not an array
+        each(pointsets, function(){
+            if(this.options.attribute!='fill') r = true; // defaults to r if not fill
+        });
+    }
+    return r;
+}

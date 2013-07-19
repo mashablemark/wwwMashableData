@@ -217,17 +217,18 @@ switch($command){
            $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
         }
-        $aColumns=array("g.graphid", "g.title", "g.text", "g.serieslist", "ifnull(g.fromdt, min(c.firstdt))", "ifnull(g.todt ,max(c.lastdt))", "views", "ifnull(g.updatedt , g.createdt)");
+        $aColumns=array("g.graphid", "g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
 
-        $sql = "SELECT g.graphid, g.title, text as analysis, "
-       . "   serieslist, map, ghash,  "
+        $sql = "SELECT g.graphid, g.title, map, text as analysis, serieslist, ghash, views, "
        //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
-       . " views, ifnull(updatedt, createdt) as modified"
-       . " FROM graphs g " //, graphplots gp, plotcomponents pc, series s " WHERE g.graphid=gp.graphid and gp.plotid=pc.plotid and pc.objid=s.seriesid and (pc.objtype='S' or pc.objtype='U') and g.graphid is not null
-       . " WHERE published='Y'";
+       . " ifnull(updatedt, createdt) as modified "
+       //. ", count(gpm.type) as mapsets, count(gpx.type) as pointsets "
+       . " FROM graphs g " //left outer join graphplots gpm on g.graphid=gpm.graphid left outer join graphplots gpx on g.graphid=gpx.graphid "
+       . " WHERE published='Y' "; // and (gpm.type='M' or gpm.type is null) and (gpx.type='X' or gpx.type is null) ";
         if($search!='+ +'){
             $sql .= "   and  match(g.title, g.text, g.serieslist, g.map) against ('" . $search . "' IN BOOLEAN MODE) ";
         }
+        //$sql .= " group by graphid, g.title, g.map, g.text, g.serieslist, views, ifnull(g.updatedt , g.createdt) ";
 /*        if($periodicity != "all") {
             $sql = $sql . " and periodicity='" . $periodicity . "'";
         }
@@ -260,7 +261,6 @@ switch($command){
        $log="";
        foreach($_POST as $key => $value){$log = $log . $key.": ".$value.';'; };
        logEvent("SearchGraphs POST", $log);
-
        $result = runQuery($sql, "SearchGraphs");
 
        /* Data set length after filtering */
@@ -790,10 +790,10 @@ switch($command){
         if(count($gid) == 0 || $gid==0){
             $ghash = makeGhash($uid);  //ok to use uid instead of gid as ghash is really just a random number
             $sql = "insert into graphs (userid, published, title, text, type, "
-            . " intervalcount, fromdt, todt, annotations, map, mapconfig, views, createdt, ghash) values ("
+            . " intervalcount, fromdt, todt, annotations, serieslist, map, mapconfig, views, createdt, ghash) values ("
             . $user_id . ", '" . $published . "',". safeSQLFromPost("title") . "," . safeSQLFromPost("analysis")
             . ", '" . $type . "', " . $intervals
-            . ", " . $from . ", ". $to . ", ". safeSQLFromPost("annotations")
+            . ", " . $from . ", ". $to . ", ". safeSQLFromPost("annotations") . ", " . safeSQLFromPost("serieslist")
                 . ", " . safeSQLFromPost("map") . ", " . safeSQLFromPost("mapconfig")   . ", 0, ".$createdt.",'". $ghash . "')";
             if(!runQuery($sql, "ManageMyGraphs: insert graphs record")){$output = array("status" => "fail on graph record insert", "post" => $_POST);break;}
             $gid = $db->insert_id;
@@ -802,6 +802,7 @@ switch($command){
                 . ", text=" . safeSQLFromPost("analysis") . ", type='" . $type . "', intervalcount="
                 . $intervals . " , fromdt=" . $from
                 . ", todt=" . $to . ", annotations=" . safeSQLFromPost("annotations") . ", updatedt=".$updatedt
+                . ", serieslist=" . safeSQLFromPost("serieslist")
                 . ", map=" . safeSQLFromPost("map") . ", mapconfig=" . safeSQLFromPost("mapconfig")
                 . " where graphid = " . $gid . " and userid=" . $user_id;
             if(!runQuery($sql,"ManageMyGraphs: update graphs record")){$output = array("status" => "fail on graph record update");break;}
@@ -879,6 +880,7 @@ switch($command){
             }
         }*/
 
+/* serieslist created by client = more thorough = gets all the assets
         $sql = "update graphs g  inner join "
         . " (select graphid, group_concat(s.name SEPARATOR  '; ') as serieslist "
         . " from series s  inner join plotcomponents pc on s.seriesid=pc.objid inner join graphplots gp on pc.plotid=gp.plotid where gp.graphid=" . $gid  . " and (objtype='S' or objtype='U') order by pc.comporder)  sl "
@@ -886,7 +888,7 @@ switch($command){
         . " set g.serieslist = sl.serieslist "
         . " WHERE g.graphid=" . $gid;
         if(!runQuery($sql, "ManageMyGraphs: update graphs.serieslist")){$output = array("status" => "fail on graph update");break;}
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
+        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];*/
 
         break;
 	case "ManageMySeries":
@@ -1327,6 +1329,7 @@ function getGraphs($userid, $ghash){
             $output['graphs']['G' . $gid]["mapconfig"] = $aRow["mapconfig"];
             $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             //}
+            if(strlen($ghash)>0) $output['graphs']['G' . $gid]["assets"] = array();
         }
         //each record represents a new graph.plots.components object which are handle differently depending on whether it is a Line, Mapset or Pointset
         switch($aRow['plottype']){  //note: a region plot may have series in its calculation and therefore components ->  plottype <> objtype!
@@ -1387,10 +1390,10 @@ function getGraphs($userid, $ghash){
 
         //each may create a new series asset. Repeated assets simply get overwritten and output only once.
         if(strlen($ghash)>0){
-            $output['graphs']['G' . $gid]["assets"] = array();
+            $handle = $aRow["comptype"].$aRow["objid"];
             if($aRow["comptype"]=='S'||$aRow["comptype"]=='U'){
-                $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]] = array(
-                    "handle"=>$aRow["comptype"].$aRow["objid"],
+                $output['graphs']['G' . $gid]["assets"][$handle] = array(
+                    "handle"=>$handle,
                     "name"=>$aRow["name"],
                     "units"=>$aRow["units"],
                     "firstdt"=> $aRow["firstdt"],
@@ -1401,15 +1404,18 @@ function getGraphs($userid, $ghash){
                     "mapsetid" => $aRow["mapsetid"]
                 );
                 if($aRow["comptype"]=='S'){
-                    $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]]["sid"] = $aRow["objid"];
+                    $output['graphs']['G' . $gid]["assets"][$handle]["sid"] = $aRow["objid"];
                 }  else {
-                    $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]]["usid"] = $aRow["objid"];
+                    $output['graphs']['G' . $gid]["assets"][$handle]["usid"] = $aRow["objid"];
                 }
             } elseif($aRow["comptype"]=='M'){
-            //map assets created separately
-                $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]] = getMapSets($aRow["map"] ,array($aRow["objid"]));
+            //map assets created separately;
+                $mapAsset = getMapSets($aRow["map"], array($aRow["objid"]));
+                $output['graphs']['G' . $gid]["assets"][$handle] = $mapAsset[$handle];
             } elseif($aRow["comptype"]=='X'){
-                $output['graphs']['G' . $gid]["assets"][$aRow["comptype"].$aRow["objid"]] = getPointSets($aRow["map"]  ,array($aRow["objid"]));
+
+                $mapAsset = getPointSets($aRow["map"], array($aRow["objid"]));
+                $output['graphs']['G' . $gid]["assets"][$handle] = $mapAsset[$handle];
             }
         }
     }

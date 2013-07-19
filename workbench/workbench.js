@@ -19,8 +19,11 @@ var templates = {
 
 graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.3.0.2.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
 var iconsHMTL= {
-    mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set."></span>',
-    pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a set of markers (defined longitude and latitude)."></span>'
+    mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set"></span>',
+    pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a set of markers (defined longitude and latitude)"></span>',
+    hasHeatMap: '<span class="ui-icon ui-icon-mapset" title="contains a heat-map"></span>',
+    hasMarkerMap: '<span class="ui-icon ui-icon-pointset" title="contains sets of mapped markers (defined longitude and latitude)."></span>',
+    hasBubbleMap: '<span class="ui-icon ui-icon-bubble" title="bubble map of data aggregated into user-defined regions"></span>'
 };
 var dialogues = {
     noMySeries: 'Your My Series folder is empty.  Please search for Public Series, whihc can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
@@ -402,7 +405,7 @@ function setupMySeriesTable(){
                  }
                  }
                  },*/
-                { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'sn', "bSortable": true, "sWidth": seriesColWidth + "px",
+                { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'title', "bSortable": true, "sWidth": seriesColWidth + "px",
                     "mRender": function(value, type, obj){
                         return ((obj.mapsetid)?iconsHMTL.mapset:'')
                             + ((obj.pointsetid)?iconsHMTL.pointset:'')
@@ -531,7 +534,7 @@ function setupPublicSeriesTable(){
              return '<button class="view" data="S' + obj.seriesid + '" onclick="getQuickViewData(this)">View</button>'
              }
              },*/
-            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px",
+            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px", "sClass": "title",
                 "mRender": function(value, type, obj){
                     return ((obj.mapsetid)?iconsHMTL.mapset:'')
                         + ((obj.pointsetid)?iconsHMTL.pointset:'')
@@ -595,16 +598,16 @@ function setupMyGraphsTable(){
         "aaSorting": [[9,'desc']],
         "aoColumns": [
             /*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
-            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap", "sWidth": titleColWidth+"px",
-                "mRender": function(value, type, obj){return value + '<span class="handle">G' + obj.gid + '</span> '}
+            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap title", "sWidth": titleColWidth+"px",
+                "mRender": function(value, type, obj){return value + '<span class="handle" data="G' + obj.gid + '">G' + obj.gid + '</span> '}
+            },
+            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
+                "mRender": function(value, type, obj){
+                    return (obj.mapsets?(obj.mapsets.options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'') + (obj.pointsets?iconsHMTL.hasMarkerMap:'') + spanWithTitle(value)
+                }
             },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
-                "mRender": function(value, type, obj){
-                    return spanWithTitle(value)
-                }
-            },
             {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
                 "mRender": function(value, type, obj){
                     if(obj.published == 'N'){
@@ -703,12 +706,12 @@ function setupPublicGraphsTable(){
              return '<button data="G' + gId + '" onclick="createGraph(' + gId + ')">View</button>'
              }
              },*/
-            {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'sn',  "sWidth":  titleColWidth + 'px',
+            {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'title',  "sWidth":  titleColWidth + 'px',
                 "mRender": function(value, type, obj){return value + '<span class="handle">G'+obj.graphid+'</span>';}
             },
+            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  analysisColWidth + 'px'},
             {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": seriesColWidth + 'px'},
-            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             /*            {"mData":"fromdt", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sWidth": colWidths.shortDate + 'px',
              "mRender": function(value, type, obj){return formatDateByPeriod(value,'M');}
              },
@@ -2151,6 +2154,11 @@ function saveGraph(oGraph) {
     } else {
         oGraph.createdt = (new Date()).getTime();
     }
+    //create/update the series list
+    oGraph.serieslist = [];
+    eachComponent(oGraph, function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
+    oGraph.serieslist = oGraph.serieslist.join('; ');
+
     var params = {command: 'ManageMyGraphs'};
     $.extend(true, params, oGraph);
     params.annotations = serializeAnnotations(oGraph);  // over write array of object with a single serialized field
@@ -2182,8 +2190,10 @@ function saveGraph(oGraph) {
             oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
             oGraph.ghash = jsoData.ghash;
             oGraph.isDirty = false;
+            var assets = oGraph.assets;  //but don't copy the potentially very large assets.   unattach and reattech instead
+            delete oGraph.assets;
             var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
-            delete objForDataTable.assets;
+            oGraph.assets = assets;
             objForDataTable.updatedt = new Date().getTime();
             if(('G' + oGraph.gid) in oMyGraphs){
                 var trMyGraph;
