@@ -645,12 +645,14 @@ switch($command){
     case "GetMySeries":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
-        $sql = "SELECT  s.userid, mapsetid, pointsetid, geoid, name, skey, s.seriesid as id, "
+        $sql = "SELECT  s.userid, u.name as username, mapsetid, pointsetid, geoid, s.name, skey, s.seriesid as id, "
         . " title as graph, s.notes, saved as save, null as 'decimal', src, s.url, s.units,"
         . " updatets, adddt as save_dt, 'datetime' as type, periodicity as period, firstdt, lastdt,"
         . " hash as datahash"
-        . " FROM series s, myseries ms "
-        . " WHERE s.seriesid=ms.seriesid and ms.userid=" . $user_id;
+        . " FROM series s "
+            . " inner join  myseries ms on s.seriesid=ms.seriesid  "
+            . " left outer join users u on s.userid=u.userid  "
+        . " WHERE ms.userid=" . $user_id;
         $result = runQuery($sql);
         $output = array("status"=>"ok","series" => array());
         while ($aRow = $result->fetch_assoc()){

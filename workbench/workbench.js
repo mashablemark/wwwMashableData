@@ -233,13 +233,12 @@ $(document).ready(function(){
     });
 
     setupPublicSeriesTable();
-    $('#preview-public-series').button({icons: {secondary: "ui-icon-image"}}).click(previewPublicSeries);
     setupPublicGraphsTable();
 
     $('#tblPublicSeries_processing, #tblPublicGraphs_processing').html('searching the MashableData servers...');
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable); //resizeCanvas already called, but need this after datatable calls
 
-    $('#seriesSearchBtn, #graphsSearchBtn').addClass('ui-state-active').button({icons: {secondary: 'ui-icon-search'}});
+    $('#series-search-button, #graphs-search-button').addClass('ui-state-active').button({icons: {secondary: 'ui-icon-search'}});
     unmask();
     $('ul#series-tabs').click(function(){
         showGraphEditor()
@@ -292,7 +291,7 @@ function parseHash(newHash, oldHash){
                 $search = $('#series_search_text');
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
                     $search.click().val(decodeURI(oH.s)); //the click event will remove the grey-ghost class and click and focus events on first call
-                    $('#seriesSearchBtn').click();  //to exec search
+                    $('#series-search-button').click();  //to exec search
                 }
                 $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
                 $('#series_search_source').val(oH.api||'all'); //search executes on API change
@@ -425,7 +424,7 @@ function setupMySeriesTable(){
                         if(obj.handle[0]=='S') {
                             return formatAsUrl(obj.url) + obj.src;
                         } else {
-                            return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.src;
+                            return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.username;
                         }
                     }
                 },
@@ -435,25 +434,25 @@ function setupMySeriesTable(){
             ]
         })
         .click(function(e){
-            var $tr = $(e.target).closest('tr');
-            if($tr.hasClass('ui-selected')) $tr.removeClass('ui-selected'); else $tr.addClass('ui-selected');
-        }).dblclick(function(e){
-            $(e.target).closest('tr').addClass('ui-selected');
-            previewMySeries();
+            var $td = $(e.target).closest('td');
+            if($td.hasClass('title')){
+                dtMySeries.find('tr.ui-selected').removeClass('ui-selected');
+                $td.closest('tr').addClass('ui-selected');
+                previewMySeries();
+            }
         });
     $('#series-table_filter')
         .appendTo('#series-bar-controls')
-        .append('<span id="filterReset" class="ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#series-table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
+        .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#series-table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
         .find('input')
         .val('enter key phrase to filter')
         .addClass('grey-italics')
         .on('click keydown', function(){
             $(this).removeClass('grey-italics').val('').off('click keydown');
         })
-        .keyup(seriesFilterChange);
+        .on('keyup change', seriesFilterChange);
 
-    $('#new-series').button();
-    $('#preview-my-series').button({icons: {secondary: "ui-icon-image"}}).click(previewMySeries);
+    $('.new-series').button().click(function(){showSeriesEditor()});
     $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
         var series = [], hasMySeries = false;
         dtMySeries.find('tr.ui-selected').each(function(){
@@ -558,12 +557,13 @@ function setupPublicSeriesTable(){
             //{ "mData":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
         ]
     }).click(function(e){
-            var $tr = $(e.target).closest('tr');
-            if($tr.hasClass('ui-selected')) $tr.removeClass('ui-selected'); else $tr.addClass('ui-selected');
-        }).dblclick(function(e){
-            $(e.target).closest('tr').addClass('ui-selected');
+        var $td = $(e.target).closest('td');
+        if($td.hasClass('title')){
+            dtPublicSeries.find('tr.ui-selected').removeClass('ui-selected');
+            $td.closest('tr').addClass('ui-selected');
             previewPublicSeries();
-        });
+        }
+    });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
     $('#public-mapset-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
@@ -588,7 +588,7 @@ function setupMyGraphsTable(){
         "bAutoWidth": false,
         "bProcessing": true,
         "bDestroy": true,
-        "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return ((iMax==iTotal)?'':'found ' + iTotal + ' of ') + iMax + ' graphs'+(iTotal>0?' <i>Double-click on title to open</i>':'');},
+        "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return ((iMax==iTotal)?'':'found ' + iTotal + ' of ') + iMax + ' graphs'+(iTotal>0?' <b>Click on a title to open</b>':'');},
         "oLanguage": {
             "sSearch": ""
         },
@@ -620,14 +620,13 @@ function setupMyGraphsTable(){
             {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
     }).click(function(e){
-            $(this).find('tr.ui-selected').removeClass('ui-selected');
-            var $tr = $(e.target).closest('tr');
-            $tr.addClass('ui-selected');
-        }).dblclick(function(e){
-            $(this).find('tr.ui-selected').removeClass('ui-selected');
-            var rowObject = dtMyGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
+        var $td = $(e.target).closest('td');
+        if($td.hasClass('title')){
+            dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
+            var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
             viewGraph(rowObject.gid);
-        });
+        }
+    });
     $('#my_graphs_table_filter')
         .prependTo('#myGraphsHeader')
         .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
@@ -635,21 +634,9 @@ function setupMyGraphsTable(){
         .val('search my graphs').addClass('grey-italics')
         .on('click keydown',function(e){
             $(this).removeClass('grey-italics').val('').off('click keydown');
-        });
+        })
+        .on('keyup change', seriesFilterChange);
     $('#my_graphs_table_info').appendTo('#myGraphsHeader');
-    $('#open-my-graph').button({icons: {secondary: 'ui-icon-folder-open'}}).click(function(){
-        var $graphRow = dtMyGraphs.find('tr.ui-selected');
-        if($graphRow.length==1){
-            var rowObject = dtMyGraphs.fnGetData($graphRow.get(0));
-            viewGraph(rowObject.gid);
-        } else {
-            if(dtMyGraphs.fnGetData().length==0){
-                dialogShow('no graph selected',dialogues.noMyGraphs);
-            } else {
-                dialogShow('no graph selected',dialogues.noGraphSelected);
-            }
-        }
-    });
 }
 function setupPublicGraphsTable(){
     var tableWidth = $("#canvas").width()-6*11-40;
@@ -680,11 +667,6 @@ function setupPublicGraphsTable(){
                 data: aoData,
                 "success": function(data, textStatus, jqXHR){
                     fnCallback(data, textStatus, jqXHR);
-                    if(data.aaData.length==0){
-                        $('#view-public-graph').button('disable');
-                    } else {
-                        $('#view-public-graph').button('enable');
-                    }
                 },
                 "complete": function(results){
                     console.log(results);
@@ -724,30 +706,25 @@ function setupPublicGraphsTable(){
             }
         ]
     }).click(function(e){
-            $(this).find('tr.ui-selected').removeClass('ui-selected');
-            var $tr = $(e.target).closest('tr');
-            $tr.addClass('ui-selected');
-        }).dblclick(function(e){
-            $(this).find('tr.ui-selected').removeClass('ui-selected');
-            var graphRow = dtPublicGraphs.fnGetData($(e.target).closest('tr').addClass('ui-selected').get(0));
-            $('#view-public-graph').click();
-        });
-    $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
-    $('#tblPublicGraphs_filter').hide();
-    $('#view-public-graph').button({icons: {secondary: 'ui-icon-folder-open'}}).click(function(){
-        var $graphRow = dtPublicGraphs.find('tr.ui-selected');
-        if($graphRow.length==1){
-            var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
-            hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
+        var $td = $(e.target).closest('td');
+        if($td.hasClass('title')){
             dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
-        } else {
-            if(dtPublicGraphs.fnGetData().length==0){
-                dialogShow('no graph selected', dialogues.noPublicGraphs);
+            var rowObject = dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+            var $graphRow = dtPublicGraphs.find('tr.ui-selected');
+            if($graphRow.length==1){
+                var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
+                hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
             } else {
-                dialogShow('search for public graphs', dialogues.noGraphSelected);
+                if(dtPublicGraphs.fnGetData().length==0){
+                    dialogShow('no graph selected', dialogues.noPublicGraphs);
+                } else {
+                    dialogShow('search for public graphs', dialogues.noGraphSelected);
+                }
             }
         }
     });
+    $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
+    $('#tblPublicGraphs_filter').hide();
     $('#graphs_search_text')
         .val('enter search terms or leave blank for latest graphs')
         .keyup(function(event){ graphsCloudSearch(event)})
@@ -757,11 +734,13 @@ function setupPublicGraphsTable(){
 }
 
 //DATATABLE HELPER FUNCTIONS
-function seriesFilterChange(){ //
-    if($('#series-table_filter :input').attr('value').length != 0){
-        $('#filterReset').removeClass('ui-icon-circle-close-inactive').addClass('ui-icon-circle-close')
+function seriesFilterChange(){
+    var $filter = $(this);
+    var $reset = $filter.closest('div').find('span.filterReset');
+    if($filter.val().length == 0){
+        $reset.removeClass('ui-icon-circle-close').addClass('ui-icon-circle-close-inactive')
     } else {
-        $('#filterReset').removeClass('ui-icon-circle-close').addClass('ui-icon-circle-close-inactive')
+        $reset.removeClass('ui-icon-circle-close-inactive').addClass('ui-icon-circle-close')
     }
 }
 function timeOrDate(dateValue){
@@ -924,7 +903,7 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
                 addMySeriesRow($.extend({}, mySerie));
             }
         }
-        if(seriesKeys.length>0) $('#preview-my-series, #edit-my-series').button('enable');
+        if(seriesKeys.length>0) $('#edit-my-series').button('enable');
         if(account.loggedIn()){
             callApi(params, function(results, textStatus, jqXH){
                 var dbHandle;
@@ -1011,7 +990,7 @@ function previewMySeries(){
     $('#local-series-header input').focus(); //deselect anything table text accidentally selected through double-clicking
     $quickViewRows = dtMySeries.find('tr.ui-selected').each(function(){
         series.push(dtMySeries.fnGetData(this));
-    }).removeClass('ui-selected');
+    });
     if(series.length==0){
         for(var handle in oMySeries){
             hasMySeries = true;
@@ -1028,7 +1007,7 @@ function previewPublicSeries(){
     $('#series_search_text').focus(); //deselect anything table text accidentally selected through double-clicking
     dtPublicSeries.find('tr.ui-selected').each(function(){
         series.push(dtPublicSeries.fnGetData(this));
-    }).removeClass('ui-selected');
+    });
     if(series.length==0){
         dialogShow('selection required', dialogues.noSeriesSelected);
     } else {
@@ -1411,6 +1390,7 @@ function editSeries(sHandle){//edit the first visible
 
 function validatePaste(changes){}
 function showSeriesEditor(handle, map){
+    $('#series-tabs').find('li.local-series a').click();
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
@@ -2143,7 +2123,7 @@ function getMySeries(){
             }
             dtMySeries.fnClearTable();
             dtMySeries.fnAddData(series);
-            if(series.length>0) $('#preview-my-series, #edit-my-series').button('enable');
+            if(series.length>0) $('#edit-my-series').button('enable');
         }
     );
 }
@@ -2378,7 +2358,6 @@ function removeTab(span){
         $('#graph-tabs a:last').click();
     }
     $("#graph_title").attr('value','');
-    $(".series-checked").attr('disabled','disabled');
 }
 
 function destroyChartObject(key){

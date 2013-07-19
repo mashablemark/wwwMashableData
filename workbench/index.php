@@ -96,20 +96,8 @@
             </div>
             <div id="local-series-header" class="md-DS_title">
                 <span id="series-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px"></span>
-                    <span id="main-graph-buttons-top">
-                        <button id="preview-my-series" style="background-color: orange;background: orange;" class="series-checked">preview</button>
-                        <button id="edit-my-series" class="series-checked">edit</button>
-                        <button id="new-series" onclick="showSeriesEditor()">new series</button>
-                        <!---fieldset style="padding: 1px 5px;"><legend>Graph</legend>
-                            <button disabled="disabled" class="series-checked" onclick="createUpdateGraphFromMySeries(buildGraphPanel)">create</button>
-                            <button disabled="disabled" class="add-to-graph" onclick="addMySeriesToCurrentGraph()">add to current</button>
-                        </fieldset>
-                         <fieldset style="padding: 1px 5px;"><legend>Series</legend>
-                             <button disabled="disabled" class="series-checked" onclick="clearChecksMySeries()">uncheck all</button>
-                             <button class="" onclick="showSeriesEditor()">new</button>
-                             <button disabled="disabled" class="series-checked" onclick="editCheckedSeries()">edit</button>
-                             <button id="delete-my-series" disabled="disabled" class="series-checked" onclick="deleteCheckedSeries()">delete</button>
-                         </fieldset--->
+                    <span id="main-graph-buttons-top" class="right">
+                        <button class="new-series">new series</button>
                     </span>
             </div>
             <div>
@@ -124,14 +112,15 @@
                     <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
                     <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><option value="1">petroleum and NG data from EIA</option><option value="2">St. Louis Federal Reserve</option><option value="5">U.N. Food and Agricultural Organization</option><option value="4">US Energy Information Administration</option><option value="3">World Bank Indicators</option></select>
                     <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
-                    <button id="seriesSearchBtn" onclick="seriesCloudSearch()">search</button>
-                    <button id="preview-public-series" class="public-series-selected" style="background-color: orange;background: orange;">preview</button>
-
+                    <button id="series-search-button" onclick="seriesCloudSearch()" style="background-color: orange;background: orange;">search</button>
                     <!--fieldset class="search-box">
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
                     </fieldset-->
                 </div>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
+                    <span id="public-series-buttons-top" class="right">
+                        <button class="new-series">new series</button>
+                    </span>
                 </div>
                 <div id="cloud_series_info" style="display:inline;font-size:8px;"></div>
             </div>
@@ -146,7 +135,6 @@
             <div id="myGraphsHeader" class="md-DS_title">
                 <span id="graphs-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px">
                 </span>
-                <button id="open-my-graph" style="background-color: orange;background: orange;margin-left: 50px;">open</button>
             </div>
             <table id="my_graphs_table" class="md-table graphs-table scrollable series-table">
             </table>
@@ -156,8 +144,7 @@
             <div id="publicGraphsHeader" class="md-DS_title">
                 <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
                     <input maxlength="200" id="graphs_search_text" class="long grey-italics"/>
-                    <button id="graphsSearchBtn" onclick="graphsCloudSearch(event)">search</button>
-                    <button id="view-public-graph" style="background-color: orange;background: orange;">view</button>
+                    <button id="graphs-search-button" style="background-color: orange;background: orange;" onclick="graphsCloudSearch(event)">search</button>
                 </div>
                 <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>
@@ -192,6 +179,7 @@
                 <button class="quick-view-maps" onclick="quickViewToMap(this)">map set</button>
                 <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
             </fieldset>
+            <button id="edit-my-series">edit</button>
             <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
             <button id="quick-view-delete-series" onclick="deleteMySeries()">delete from My Series</button>
             <button id="quick-view-close" class="right" onclick="quickViewClose()">Close</button>

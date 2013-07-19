@@ -899,7 +899,7 @@ div.jvectormap-container{
 .ui-icon-bubble{
     background-image: url(images/ui-icons_222222_256x240.png);
     height: 11px;
-    background-position: -96px -144px;
+    background-position: -96px -148px;
     display: inline-block;
 }
 .ui-icon-triangle-1-e{
@@ -1229,15 +1229,19 @@ table.dataTable td.title:hover{
 
 #seriesTabs li.ui-state-default{ border: 1px solid #d3d3d3; background: green; font-weight: normal; color: #555555; }
 #seriesTabs li.ui-state-default a, #seriesTabs li.ui-state-default a:link, #seriesTabs li.ui-state-default a:visited { color: #555555; text-decoration: none; }
-#seriesTabs li.ui-state-hover, { border: 1px solid #999999; background:red; font-weight: bold; color: #212121; }
+#seriesTabs li.ui-state-hover { border: 1px solid #999999; background:red; font-weight: bold; color: #212121; }
 #seriesTabs li.ui-state-hover a, #seriesTabs li.ui-state-hover a:hover { color: #212121; text-decoration: none; }
 #seriesTabs li.ui-state-active { border: 1px solid #aaaaaa; background: #ffffff url(images/ui-bg_glass_65_ffffff_1x400.png) 50% 50% repeat-x; font-weight: normal; color: #212121; }
 #seriesTabs li.ui-state-active a, #seriesTabs li.ui-state-active a:link, #seriesTabs li.ui-state-active a:visited { color: #212121; text-decoration: none; }
 
 fieldset.search-box{
-    display:inline;
+    display: inline;
     margin: 1px 1px 1px 5px;
     padding: 0 5px;
+}
+#graphs-search-button, #series-search-button{
+    position: relative;
+    top: -2px;
 }
 div.annotations fieldset{
     overflow-y: auto;
