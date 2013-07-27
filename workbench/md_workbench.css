@@ -75,7 +75,7 @@ div #md-inner {
 	display:inline-block;
 	}
 .md-title{
-	background: no-repeat url('md_assets.png') top left    ;
+	background: no-repeat url('images/md_assets.png') top left    ;
 	height:28px;
 	width:241px;
 }
@@ -244,30 +244,30 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
 }
   .link:hover{text-decoration:underline;}
 /* Icons */
-.wlinks a.expander{background: no-repeat url('md_assets.png') 0px -30px  ; height:15px; width:17px;}
-  .wlinks a.expander:hover{background: no-repeat url('md_assets.png') -34px -30px  ;}
-.wlinks a.closer{background: no-repeat url('md_assets.png') -17px -30px  ; height:15px; width:15px;}
-  .wlinks a.closer:hover{background: no-repeat url('md_assets.png') -51px -30px  ;}
-.md-csv {background: no-repeat url('md_assets.png') 0px -50px  ; height:20px; width:32px;cursor:pointer;}
-  .md-csv:hover{background: no-repeat url('md_assets.png') 0px -72px  ;}
-.md-xls {background: no-repeat url('md_assets.png') -34px -50px  ; height:20px; width:32px;cursor:pointer;}
-  .md-xls:hover{background: no-repeat url('md_assets.png') -34px -72px  ;}
-.md-png {background: no-repeat url('md_assets.png') -68px -50px  ; height:20px; width:32px;cursor:pointer;}
-  .md-png:hover{background: no-repeat url('md_assets.png') -68px -72px  ;}
-.md-jpg {background: no-repeat url('md_assets.png') -102px -50px  ; height:20px; width:32px;cursor:pointer;}
-  .md-jpg:hover{background: no-repeat url('md_assets.png') -102px -72px  ;}
-.md-svg {background: no-repeat url('md_assets.png') -136px -50px  ; height:20px; width:32px;cursor:pointer;}
-  .md-svg:hover{background: no-repeat url('md_assets.png') -136px -72px  ;}
-.md-pdf {background: no-repeat url('md_assets.png') -170px -50px  ; height:20px; width:32px;cursor:pointer;}
-  .md-pdf:hover{background: no-repeat url('md_assets.png') -170px -72px  ;}
-.md-save {background: no-repeat url('md_assets.png') -63px -96px  ; height:18px; width:16px; cursor:pointer;}
-  .md-save:hover{background: no-repeat url('md_assets.png') -21px -96px  ;}
-.md-saved {background: no-repeat url('md_assets.png') 0px -96px  ; height:18px; width:16px; cursor:pointer;}
-  .md-saved:hover{background: no-repeat url('md_assets.png') -42px -96px  ;}
-.md-check {background: no-repeat url('md_assets.png') -84px -96px  ; height:18px; width:15px; cursor:pointer;}
-  .md-check:hover{background: no-repeat url('md_assets.png') -103px -96px  ;}
-.md-checked {background: no-repeat url('md_assets.png') -122px -96px  ; height:18px; width:15px; cursor:pointer;}
-/*  .md-checked:hover{background: no-repeat url('md_assets.png') -103px -96px  ;} */
+.wlinks a.expander{background: no-repeat url('images/md_assets.png') 0px -30px  ; height:15px; width:17px;}
+  .wlinks a.expander:hover{background: no-repeat url('images/md_assets.png') -34px -30px  ;}
+.wlinks a.closer{background: no-repeat url('images/md_assets.png') -17px -30px  ; height:15px; width:15px;}
+  .wlinks a.closer:hover{background: no-repeat url('images/md_assets.png') -51px -30px  ;}
+.md-csv {background: no-repeat url('images/md_assets.png') 0px -50px  ; height:20px; width:32px;cursor:pointer;}
+  .md-csv:hover{background: no-repeat url('images/md_assets.png') 0px -72px  ;}
+.md-xls {background: no-repeat url('images/md_assets.png') -34px -50px  ; height:20px; width:32px;cursor:pointer;}
+  .md-xls:hover{background: no-repeat url('images/md_assets.png') -34px -72px  ;}
+.md-png {background: no-repeat url('images/md_assets.png') -68px -50px  ; height:20px; width:32px;cursor:pointer;}
+  .md-png:hover{background: no-repeat url('images/md_assets.png') -68px -72px  ;}
+.md-jpg {background: no-repeat url('images/md_assets.png') -102px -50px  ; height:20px; width:32px;cursor:pointer;}
+  .md-jpg:hover{background: no-repeat url('images/md_assets.png') -102px -72px  ;}
+.md-svg {background: no-repeat url('images/md_assets.png') -136px -50px  ; height:20px; width:32px;cursor:pointer;}
+  .md-svg:hover{background: no-repeat url('images/md_assets.png') -136px -72px  ;}
+.md-pdf {background: no-repeat url('images/md_assets.png') -170px -50px  ; height:20px; width:32px;cursor:pointer;}
+  .md-pdf:hover{background: no-repeat url('images/md_assets.png') -170px -72px  ;}
+.md-save {background: no-repeat url('images/md_assets.png') -63px -96px  ; height:18px; width:16px; cursor:pointer;}
+  .md-save:hover{background: no-repeat url('images/md_assets.png') -21px -96px  ;}
+.md-saved {background: no-repeat url('images/md_assets.png') 0px -96px  ; height:18px; width:16px; cursor:pointer;}
+  .md-saved:hover{background: no-repeat url('images/md_assets.png') -42px -96px  ;}
+.md-check {background: no-repeat url('images/md_assets.png') -84px -96px  ; height:18px; width:15px; cursor:pointer;}
+  .md-check:hover{background: no-repeat url('images/md_assets.png') -103px -96px  ;}
+.md-checked {background: no-repeat url('images/md_assets.png') -122px -96px  ; height:18px; width:15px; cursor:pointer;}
+/*  .md-checked:hover{background: no-repeat url('images/md_assets.png') -103px -96px  ;} */
 
 /* dataTable associated styles */
 .sorting_asc span {

@@ -82,6 +82,7 @@ var oMyGraphs = {};  //complete fetch from API.GetMyGraphs.  Kept in sync with c
 
 var oPanelGraphs = {}; //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. oPanelGraphs['graphTab1']).  Kept in sync by UI events.  Used by save/publish operations.
 var oHighCharts = {}; //contained objects return by Highcharts.chart call referenced by panelID as per oPanelGraphs
+var oJVectorMaps = {}; //contained objects return by jVectorMaps referenced by panelID as per oPanelGraphs
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
 var $quickViewRows = null; //used to remember jQuery set of rows being previewed in case user chooses to delete them
@@ -557,13 +558,13 @@ function setupPublicSeriesTable(){
             //{ "mData":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
         ]
     }).click(function(e){
-        var $td = $(e.target).closest('td');
-        if($td.hasClass('title')){
-            dtPublicSeries.find('tr.ui-selected').removeClass('ui-selected');
-            $td.closest('tr').addClass('ui-selected');
-            previewPublicSeries();
-        }
-    });
+            var $td = $(e.target).closest('td');
+            if($td.hasClass('title')){
+                dtPublicSeries.find('tr.ui-selected').removeClass('ui-selected');
+                $td.closest('tr').addClass('ui-selected');
+                previewPublicSeries();
+            }
+        });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
     $('#public-mapset-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
@@ -620,13 +621,13 @@ function setupMyGraphsTable(){
             {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
     }).click(function(e){
-        var $td = $(e.target).closest('td');
-        if($td.hasClass('title')){
-            dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
-            var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
-            viewGraph(rowObject.gid);
-        }
-    });
+            var $td = $(e.target).closest('td');
+            if($td.hasClass('title')){
+                dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
+                var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+                viewGraph(rowObject.gid);
+            }
+        });
     $('#my_graphs_table_filter')
         .prependTo('#myGraphsHeader')
         .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
@@ -706,23 +707,23 @@ function setupPublicGraphsTable(){
             }
         ]
     }).click(function(e){
-        var $td = $(e.target).closest('td');
-        if($td.hasClass('title')){
-            dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
-            var rowObject = dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
-            var $graphRow = dtPublicGraphs.find('tr.ui-selected');
-            if($graphRow.length==1){
-                var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
-                hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
-            } else {
-                if(dtPublicGraphs.fnGetData().length==0){
-                    dialogShow('no graph selected', dialogues.noPublicGraphs);
+            var $td = $(e.target).closest('td');
+            if($td.hasClass('title')){
+                dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
+                var rowObject = dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+                var $graphRow = dtPublicGraphs.find('tr.ui-selected');
+                if($graphRow.length==1){
+                    var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
+                    hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
                 } else {
-                    dialogShow('search for public graphs', dialogues.noGraphSelected);
+                    if(dtPublicGraphs.fnGetData().length==0){
+                        dialogShow('no graph selected', dialogues.noPublicGraphs);
+                    } else {
+                        dialogShow('search for public graphs', dialogues.noGraphSelected);
+                    }
                 }
             }
-        }
-    });
+        });
     $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
     $('#tblPublicGraphs_filter').hide();
     $('#graphs_search_text')
@@ -1081,11 +1082,11 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         if(aoSeries.length==1 && aoSeries[0].notes){
             //this are the series info added to the quickView panel.  Could be more complete & styled
             qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph + '</td></tr>'
-            + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes + '</td></tr>'
-            + '<tr><td>My Series count:</td><td>' + aoSeries[0].myseriescount + '</td></tr>'
-            + '<tr><td>Graphs (including unpublished) count:</td><td>' + aoSeries[0].graphcount + '</td></tr>'
-            + '<tr><td>Series key:</td><td>' + aoSeries[0].skey + '</td></tr>'
-            + '</table>';
+                + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes + '</td></tr>'
+                + '<tr><td>My Series count:</td><td>' + aoSeries[0].myseriescount + '</td></tr>'
+                + '<tr><td>Graphs (including unpublished) count:</td><td>' + aoSeries[0].graphcount + '</td></tr>'
+                + '<tr><td>Series key:</td><td>' + aoSeries[0].skey + '</td></tr>'
+                + '</table>';
         }
         //determine whether and which maps to show in the selector
         for(i=0;i<aoSeries.length;i++){
@@ -1193,11 +1194,11 @@ function quickViewToMap(){
     var map = $("select.quick-view-maps").val();
     if(
         oPanelGraphs[panelId]
-        && oPanelGraphs[panelId].map
-        && (
+            && oPanelGraphs[panelId].map
+            && (
             oPanelGraphs[panelId].map!=map
-            || (oPanelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)
-            ||(oPanelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].pointsets[0].components[0].handle].period)
+                || (oPanelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)
+                ||(oPanelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].pointsets[0].components[0].handle].period)
             )
         ){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
@@ -1894,9 +1895,10 @@ function showSiblingCats(spn){
                     $td.find("span.chain").append('<span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>');
                 }
             } else {
-                $td.append('<div><span class="ui-icon ui-icon-triangle-1-e"></span><span class="sibling" data="'+ props.catid +'">'
-                    + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name +' (' + props.scount + ')</a>':props.name) + '</span>'
+                $td.append('<div>'
                     + ((props.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)">show child categories</span>':'')
+                    + '<span class="ui-icon ui-icon-triangle-1-e"></span><span class="sibling" data="'+ props.catid +'">'
+                    + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat(\''+props.name+'\','+props.catid+')">' + props.name +' (' + props.scount + ')</a>':props.name) + '</span>'
                     + '</div>');
             }
 
@@ -2335,9 +2337,6 @@ function addTab(title) {
     $('#graph-tabs a:last').click(function(){
         hideGraphEditor()
     });
-    /*    $('#canvas .graph-panel:last div.chart').dblclick(function(){
-     editGraph(); todo: modify the graph's plots by adding from quickViews or by deleting form graphs's series provenance panel
-     });*/
     return($('#canvas .graph-panel:last').attr('id'));
 }
 //run when a graph tab is deleted.  Also checks and sets the edit graph button and global variable
@@ -2346,7 +2345,7 @@ function removeTab(span){
     var panelId = panelRef.substr(1);
     $(panelRef).remove();
     $(span).parent().remove();
-    destroyChartObject(panelId);
+    destroyChartMap(panelId);
     delete oPanelGraphs[panelId];
     $graphTabs.tabs('refresh'); //tell JQUI to sync up
     if($graphTabs.find("li").length == 0){
@@ -2360,10 +2359,15 @@ function removeTab(span){
     $("#graph_title").attr('value','');
 }
 
-function destroyChartObject(key){
-    if(oHighCharts[key]){
-        oHighCharts[key].destroy();
-        delete oHighCharts[key];
+function destroyChartMap(panelId){
+    if(oHighCharts[panelId]){
+        oHighCharts[panelId].destroy();
+        $.contextMenu('destroy', '#' + panelId + ' div.chart');
+        delete oHighCharts[panelId];
+    }
+    if(oJVectorMaps[panelId]){
+        oJVectorMaps[panelId].remove();
+        delete oJVectorMaps[panelId];
     }
 }
 

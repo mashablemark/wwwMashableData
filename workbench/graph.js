@@ -1,8 +1,8 @@
 //GLOBAL VARIABLES mce
 
 var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000', MID: '#CCCCCC'};
-var DEFAULT_RADIUS_SCALE = 20; //(px) used for both bubble maps and marker maps
-var DEFAULT_RADIUS_FIXED = 20; //size of marker using full scaling and fixed radius
+var DEFAULT_RADIUS_SCALE = 30; //(px) used for both bubble maps and marker maps
+var DEFAULT_RADIUS_FIXED = 10; //size of marker using full scaling and fixed radius
 var hcColors = [
     '#2f7ed8',
     '#8bbc21',
@@ -605,10 +605,10 @@ function makeChartOptionsObject(oGraph){
                 zIndex: 10,
                 marker: {
                     enabled: true,
-                    radius: 2,
+                    radius: 4,
                     symbol: 'circle',
-                    fillColor: '#FFFFFF',
-                    lineColor: null,
+                    //fillColor: '#FFFFFF',
+                    //lineColor: null,
                     states: {
                         hover: {
                             enabled: true
@@ -663,7 +663,7 @@ function makeChartOptionsObject(oGraph){
         if(!oPlot.options.color) oPlot.options.color = nextColor(oGraph.plots);
         var oDataSeries = {
             name: oSerie.name,
-            marker: {enabled: false},
+            marker: {enabled: oGraph.type=='marker'},
             id: 'P'+i,
             period: oSerie.period,
             color: oPlot.options.color,
@@ -734,7 +734,6 @@ function makeChartOptionsObject(oGraph){
             doNotShow: true
         });
     }
-    // additional series object process for specialty charts
     switch(oGraph.type){
         case "pie":
             var oPieSeries = [{type: 'pie', data: []}];
@@ -765,6 +764,9 @@ function makeChartOptionsObject(oGraph){
             jschart.plotOptions.area.stacking="percent";
         case "area":
             jschart.chart.type = "area";
+            break;
+        case "marker":
+            //handle in series creation
             break;
         case "auto":
             if(oGraph.smallestPeriod!=oGraph.largestPeriod ){
@@ -842,6 +844,7 @@ function makeChartOptionsObject(oGraph){
 
             jschart.yAxis = [{title:{text: 'Normalized to 1'}}];
     }
+    // additional series object process for specialty charts
     for(var key in allX){
         jschart.chart.x.push(Number(key));
     }
@@ -2048,6 +2051,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<select class="graph-type">' +
             '<option value="auto">auto (line &amp; column)</option>' +
             '<option value="line">line</option>' +
+            '<option value="marker">line with markers</option>' +
             '<option value="column">column</option>' +
             '<option value="stacked-column">stacked column</option>' +
             '<option value="area-percent">stacked percent</option>' +
@@ -2440,7 +2444,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     asset = assets[plot.components[i].handle];
                     if(asset.mapsetid && mapsList[oGraph.map].bunny && mapsList[oGraph.map].bunny==asset.geoid){
                         //found a bunny!
-                        oBunnies[asset.handle] = {mapsetid: asset.mapsetid, handle: asset.handle}; //use object ot dedup
+                        oBunnies[asset.handle] = {mapsetid: asset.mapsetid, handle: asset.handle}; //use object to dedup
                     } else {
                         //not a bunny so we will need this asset...
                         newGraph.assets[asset.handle] = asset;
@@ -2525,17 +2529,24 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     function redraw(){
         mask('redrawing');
         setTimeout(function(){
+            //destroy
+            destroyChartMap(panelId); //destroy the Highchart, the map and the contectMenu if they exist.
             if(oGraph.plots){
                 chartPanel(panelId, annotations);
                 annotations.build();
+                $thisPanel.find('div.chart').show();
+            } else {
+                $thisPanel.find('div.chart').hide();
             }
             if(oGraph.mapsets||oGraph.pointsets){
-                drawMap();
+                drawMap(); //show the map div
                 $thisPanel.find('select.change-map').html(fillChangeMapSelect());
+            } else {
+                $thisPanel.find('div.map').hide();
             }
             showChangeSelectors();
             unmask();
-        }, 1);
+        }, 10);
     }
     $thisPanel.find('.graph-analysis')
         .keydown(function(){
@@ -2623,7 +2634,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         $thisPanel.find('div.chart').hide();
     }
     ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
-    var $map, vectorMapSettings, val, mergablity;
+    var $map = null, vectorMapSettings, val, mergablity;
 
     console.time('buildGraphPanel:drawMap');
     drawMap();
@@ -2631,12 +2642,12 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
-            if(typeof $map != 'undefined') $map.remove();
+            if($map) $map.remove();
             calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
             calcAttributes(oGraph);
             if(isBubble()) bubbleCalc();
-            var fillScaling = hasFillScaling(oGraph.pointsets);
-            var radiusScaling = hasRadiusScaling(oGraph.pointsets);
+            var fillScaling = fillScalingCount(oGraph.pointsets);
+            var areaScaling = areaScalingCount(oGraph.pointsets);
             console.info(calculatedMapData);
             var minScale = /us.._merc_en/.test(oGraph.mapFile)?0.9:1;
             vectorMapSettings = {
@@ -2764,6 +2775,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             $thisPanel.find('div.jvmap').show().height(($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
+            oJVectorMaps[panelId] = $map;
             var $mapDateDiv = $('<div class="map-date"></div>').prependTo($thisPanel.find('div.jvectormap-container'));
 
             //BBBUUUUBBBBBLLEESS!!!!!
@@ -2789,7 +2801,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
                     }
                     if(oGraph.pointsets){
-                        if(radiusScaling){
+                        if(areaScaling){
                             $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
                             $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
                         }
@@ -3089,66 +3101,56 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     makeDirty();
                 });
             var gLegend;
-            $thisPanel.find('.legend').button().off().change(function(){
-                if($(this).prop('checked')) {
-                    oGraph.mapconfig.showLegend = true;
-                    gLegend = makeLegend($map, {
-                        legend: oGraph.mapconfig.legendLocation||'TR',
-                        markers:{
-                            fill:{
-                                named:[
-                                    {name:'coal', color:'#000000'},
-                                    {name:'hydro', color:'#0000FF'},
-                                    {name:'wind', color:'#00FF00'}
-                                ]
-                                //alternate to named =   variable: {colorValueMin: , colorValueMax, colorPos:, colorNeg:}
-                            },
-                            radius:{
-                                maxRadius:50,
-                                radiusValueMin:300, // missing for fixed radius (markers' single attribute is expressed in color)
-                                radiusValueMax:12000  // missing for fixed radius (markers' single attribute is expressed in color)
-                            }
-                        },
-                        regions:{
-                            //discrete: [{color: 'lightblue', cutoff: 1000},{color: 'lightgreen', cutoff: 2000},{color: 'pink', cutoff: 3000},{color: 'yellow', cutoff: 5000}],
-                            min:300,
-                            max:1200,
-                            colorPos:'#00FF00',
-                            colorNeg:'#FF0000'
-                        }
-                    });
+            $thisPanel.find('.legend').change(function(){
+                oGraph.mapconfig.showLegend = ($(this).prop('checked'));
+                if(oGraph.mapconfig.showLegend) {
+                    gLegend = makeLegend($map);
                 } else {
                     gLegend.remove();
                 }
             });
+            if(oGraph.mapconfig.showLegend) gLegend = makeLegend($map);
         }
-        function makeLegend(map, options){
-            var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y, i, yOffset, xOffset;
-
+        function makeLegend(map){
+            var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;
 
             if(oGraph.mapsets){
-                if(oGraph.mapsets.options.discrete){
+                if(oGraph.mapsets.options.scale == 'discrete'){
                     regionLegendWidth=185;
-                    regionHeight = lineHeight + 2*spacer + options.regions.discrete.length*(spacer+20);
+                    regionHeight = lineHeight + 2*spacer + oGraph.mapsets.options.discreteColors.length*(spacer+20);
                 } else {
                     regionLegendWidth=100;
-                    if(oGraph.calculatedMapData.regionDataMin<0 && oGraph.calculatedMapData.regionDataMax>0) {
-                        regionHeight = 6*spacer+2*80+3*lineHeight;
+                    if(oGraph.calculatedMapData.regionMin<0 && oGraph.calculatedMapData.regionMax>0) { //spans?
+                        regionHeight = 6*spacer+2*80+3*lineHeight; //yes = need two continuous scale segments
                     } else {
-                        regionHeight = 4*spacer+80+2*lineHeight;
+                        regionHeight = 4*spacer+80+2*lineHeight;  //no = just one continuous scale segment
                     }
                 }
             } else regionLegendWidth=0;
-            if(options.markers) {
+
+/*for markers, we need to know if how many pointset attribute are fill and how many are area:
+            area=1 & fill=0: show filled min and max circles only with unit label
+            area>1 & fill=0: show hollow min and max circles with units + colored fixed-radius circles with names
+            area=0 & fill>0: color scale with units
+            area>0 & fill>0: show hollow min and max circles with units + color scale with units
+legend components:
+    1. solid fix-radius circle with names iff area>1 & fill=0
+    2. min & max cicles iff area>0
+    2b. never fill the scale circles XXXfill min and max iif (area=1 & fill=0)
+    3. show color scale iff fill>0
+*/
+            var areaCount = areaScalingCount(oGraph.pointsets), fillCount = fillScalingCount(oGraph.pointsets);
+            if(oGraph.pointsets) {
                 markerLegendWidth=185;
-                if(options.markers.fill && options.markers.fill.named){
-                    markerHeight += (options.markers.fill.named.length)*(spacer+2*standardRadius)+(markerHeight==0?spacer:0);
+                if(areaCount>1 && fillCount==0){
+                    markerHeight += (areaCount)*(spacer+2*standardRadius)+(markerHeight==0?spacer:0);
                 }
-                if(options.markers.radius && options.markers.radius.radiusValueMax){
-                    markerHeight += 2*(spacer+options.markers.radius.maxRadius+(options.markers.radius.minRadius||5))+(markerHeight==0?spacer:0);
+                if(areaCount>0){
+                    var maxRadius = oGraph.mapconfig.maxRadius||DEFAULT_RADIUS_SCALE;
+                    var smallRadius = +maxRadius/Math.sqrt(10);
+                    markerHeight += 2*(spacer + maxRadius + smallRadius) + (markerHeight==0?spacer:0);
                 }
             } else markerLegendWidth = 0;
-
 
             //use JVM to add a new group not subject to zooming, where map = new jvm.WorldMap({....});
             var gLegend = map.canvas.addGroup(); //variable scoped one level up;
@@ -3162,7 +3164,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             hcr.box = gLegend.node;
             $('#dummyLegend').remove();
 
-            switch((options.legend||'B').substr(0,1)){
+            switch((oGraph.mapconfig.legendLocation || 'TR').substr(0,1)){
                 case 'T':
                     yOffset = spacer;
                     break;
@@ -3173,7 +3175,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     yOffset = map.height - Math.max(markerHeight,regionHeight) - spacer;
             }
 
-            switch((options.legend||'B').substr(1,1)){
+            switch((oGraph.mapconfig.legendLocation || 'TR').substr(1,1)){
                 case 'L':
                     xOffset = spacer;
                     if(options.legend&&options.legend[0]=='T')xOffset+30; //space for zoom buttons
@@ -3221,72 +3223,72 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
 
             }
-            if(options.markers){
-                if(options.markers.fill.named){
-                    for(i=0;i<options.markers.fill.named.length;i++){
-                        y = (i+1)*(spacer+2*standardRadius)-standardRadius;
-                        hcr.circle(xOffset + spacer + standardRadius, yOffset + y, (options.markers.radius.maxRadius<standardRadius?options.markers.radius.maxRadius:standardRadius)).attr({
-                            fill: options.markers.fill.named[i].color,
-                            opacity: 1,
-                            'fill-opacity': 1,
-                            stroke: 'black',
-                            'stroke-width': 1
-                        }).add();
-                        hcr.text(options.markers.fill.named[i].name, xOffset + 2*(spacer + standardRadius), yOffset + y).add();
-                    }
-                    y += standardRadius;
-                } else {
-                    //must be options.markers.fill.variable
-                    //TODO:  variable color
+            if(oGraph.pointsets){
+                if(areaCount>1 && fillCount==0){
+                //POINTSET LABELS
+                    each(oGraph.pointsets, function(i){
+                        if(this.options.attribute!='fill'){
+                            y = (i+1)*(spacer+2*standardRadius)-standardRadius;
+                            hcr.circle(xOffset + spacer + standardRadius, yOffset + y, Math.min(maxRadius, standardRadius)).attr({
+                                fill: this.options.color,
+                                opacity: 1,
+                                'fill-opacity': 1,
+                                stroke: 'black',
+                                'stroke-width': 1
+                            }).add();
+                            hcr.text(plotName(oGraph, oGraph.pointsets[i]).substring(0, MAX_MARKER_LABEL_LENGTH), xOffset + 2*(spacer + standardRadius), yOffset + y).add(); //clip at MAX_MARKER_LABEL_LENGTH
+                        }
+                        y += standardRadius;
+                    });
                 }
-                if(options.markers.radius.radiusValueMax){
-                    //min radius size
-                    y += spacer+(options.markers.radius.minRadius||5);
+                if(areaCount>1){
+                //RADIUS SCALING
+                    y += spacer+(smallRadius||5);
                     var MarkerSizeAttributes = {
                         'fill-opacity': 0,
                         opacity: 1,
                         stroke: 'black',
                         'stroke-width': 1
                     };
-                    hcr.circle(xOffset + spacer + options.markers.radius.maxRadius, yOffset + y, options.markers.radius.minRadius||5).attr(MarkerSizeAttributes).add();
-                    hcr.text(options.markers.radius.radiusValueMin, xOffset + 2*(options.markers.radius.maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    hcr.circle(xOffset + spacer + maxRadius, yOffset + y, smallRadius).attr(MarkerSizeAttributes).add();
+                    hcr.text(shorten(oGraph.calculatedMapData.radiusScale/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
                     y+= (options.markers.radius.minRadius||5) + spacer + options.markers.radius.maxRadius;
 
                     hcr.circle(xOffset + spacer + options.markers.radius.maxRadius, yOffset + y, options.markers.radius.maxRadius).attr(MarkerSizeAttributes).add();
-                    hcr.text(options.markers.radius.radiusValueMax, xOffset + 2*(options.markers.radius.maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    hcr.text(shorten(oGraph.calculatedMapData.radiusScale), xOffset + 2*(options.markers.radius.maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
                 }
             }
             if(oGraph.mapsets){
-                if(oGraph.mapsets.options.discrete){
-                    for(i=0;i<options.regions.discrete.length;i++){
+                if(oGraph.mapsets.options.scale == 'discrete'){
+                    for(i=0;i<oGraph.mapsets.options.discreteColors.length;i++){
                         y = spacer + i*(spacer+20);
                         hcr.rect(xOffset + markerLegendWidth + spacer, yOffset + y, lineHeight, lineHeight, 0).attr({
-                            fill: options.regions.discrete[i].color,
+                            fill: oGraph.mapsets.options.discreteColors[i].color,
                             opacity: 1,
                             stroke: 'black',
                             'stroke-width': 1
                         }).add();
-                        hcr.text((i==0?'&#8804; ':'&gt; ')+options.regions.discrete[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                        hcr.text((i==0?'&#8804; ':'&gt; ')+oGraph.mapsets.options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     }
                 } else {
                     y = spacer;
-                    hcr.text(oGraph.calculatedMapData.regionDataMax, xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    hcr.text(shorten(oGraph.calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
 
 
-                    if(oGraph.calculatedMapData.regionDataMax>0){
+                    if(oGraph.calculatedMapData.regionMax>0){
                         gradient(xOffset + markerLegendWidth + spacer, yOffset + y, oGraph.mapsets.options.posColor||MAP_COLORS.POS, MAP_COLORS.MID);
                         y += 80 + spacer;
-                        if(oGraph.calculatedMapData.regionDataMin<0){
+                        if(oGraph.calculatedMapData.regionMin<0){
                             hcr.text('0', xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                             y += lineHeight + spacer;
                         }
                     }
-                    if(oGraph.calculatedMapData.regionDataMin<0){
+                    if(oGraph.calculatedMapData.regionMin<0){
                         gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets.options.negColor||MAP_COLORS.NEG);
                         y += 80 + spacer;
                     }
-                    hcr.text(oGraph.calculatedMapData.regionDataMin, xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    hcr.text(shorten(oGraph.calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
                 }
             }
@@ -3305,7 +3307,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                  calculatedMapData.markerData
                  calculatedMapData.markerAttr.r[dateKey][markerId]
                  calculatedMapData.markerAttr.stroke[dateKey][markerId]
-                */
+                 */
 
 
                 //initialize markerData variable object
@@ -3724,21 +3726,25 @@ function eachComponent(graph, callback){
     if(graph.plots) each(graph.plots, function(){each(this.components, callback)});
 }
 
-function hasFillScaling(pointsets){
-    var fill = false;
+function fillScalingCount(pointsets){
+    var fill = 0;
     if(pointsets instanceof Array) {   //returns if not an array
-        each(pointsets, function(){
-            if(this.options.attribute=='fill') fill = true;
-        });
+        fill = pointsets.length - areaScalingCount(pointsets);
     }
     return fill;
 }
-function hasRadiusScaling(pointsets){
-    var r = false;
+function areaScalingCount(pointsets){
+    var area = 0;
     if(pointsets instanceof Array) {  //returns if not an array
         each(pointsets, function(){
-            if(this.options.attribute!='fill') r = true; // defaults to r if not fill
+            if(this.options.attribute!='fill') area++; // defaults to r if not fill
         });
     }
-    return r;
+    return area;
+}
+
+function shorten(value){ //value will always be non-negative
+    var sign = (value<0?-1:1);
+    var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
+    return sign * Math.round(value / Math.pow(10,order-1)) * Math.pow(10,order-1);
 }
