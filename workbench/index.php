@@ -104,10 +104,10 @@
                 <table id="series-table" class="md-table"></table>
             </div>
         </div>
-        <!--BEGIN COMMUNITY SERIES DATATABLE-->
+        <!--BEGIN PUBLIC SERIES DATATABLE-->
         <div id="cloud-series" class="picker">
             <div id="cloud-series-header" class="md-DS_title">
-                <div id="cloud-series-search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
+                <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
                     <select id="series_search_periodicity"  onchange="seriesCloudSearch()"><option selected="selected" value="all">all frequencies</option><option value="D">daily</option><option value="W">weekly</option><option value="M">monthly</option><option value="Q">quarterly</option><option value="SA">semi-annual</option><option value="A">annual</option></select>
                     <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()"><option value="ALL">all sources</option><option value="1">petroleum and NG data from EIA</option><option value="2">St. Louis Federal Reserve</option><option value="5">U.N. Food and Agricultural Organization</option><option value="4">US Energy Information Administration</option><option value="3">World Bank Indicators</option></select>
@@ -117,6 +117,7 @@
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
                     </fieldset-->
                 </div>
+                <button id="cloud-series-browse">browse</button>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                     <span id="public-series-buttons-top" class="right">
                         <button class="new-series">new series</button>

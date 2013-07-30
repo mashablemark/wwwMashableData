@@ -575,6 +575,7 @@ function setupPublicSeriesTable(){
         .on('click keydown',function(e){
             $(this).removeClass('grey-italics').val('').off('click keydown');
         });
+    $('#cloud-series-browse').button({icons: {secondary: "ui-icon-circle-triangle-e"}});
 }
 function setupMyGraphsTable(){
     var tableWidth = $("#canvas").width()-7*11-40;
@@ -2179,7 +2180,7 @@ function saveGraph(oGraph) {
             objForDataTable.updatedt = new Date().getTime();
             if(('G' + oGraph.gid) in oMyGraphs){
                 var trMyGraph;
-                trMyGraph = $(dtMyGraphs).find('button[data=G' + oGraph.gid + ']').closest('tr').get(0);
+                trMyGraph = $(dtMyGraphs).find('span.handle[data=G' + oGraph.gid + ']').closest('tr').get(0);
                 dtMyGraphs.fnUpdate(objForDataTable, trMyGraph);
             } else {
                 dtMyGraphs.fnAddData(objForDataTable);

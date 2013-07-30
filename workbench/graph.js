@@ -2121,7 +2121,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<button class="make-map" disabled="disabled">reset</button>' +
             '<button class="merge group hidden" disabled="disabled">group</button>' +
             '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
-            '<span class="right"><input type="checkbox" id="'+panelId+'-legend" class="legend"><label for="'+panelId+'-legend">legend</label></span>' +
+            '<span class="right"><input type="checkbox" id="'+panelId+'-legend" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'><label for="'+panelId+'-legend">legend</label></span>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -2232,7 +2232,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         });
     $thisPanel.find('.email').button({icons: {primary: "ui-icon-mail-closed"},
         click: function(){
-            //TODO: mail to code here
+            var link = "mailto:"
+                + "?subject=" + escape(oGraph.title||"link to my MashableData visualization")
+                + "&body=" + escape((oGraph.analysis||'Link to my interactive visualization on MashableData.com:')+'<br><br>http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash);
+            window.location.href = link;
         }
     });
     $thisPanel.find('.link').button({icons: {primary: "ui-icon-link"}})
@@ -2249,7 +2252,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     '<button id="ghash-reset" class="ui-state-error right">reset link code</button>' +
                     '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
                     '<em>The code below will create a link to your graph</em>' +
-                    '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/view?g='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableData graph')+'&lt;/a&gt;</textarea>' +
+                    '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableData graph')+'&lt;/a&gt;</textarea>' +
                     '</div>';
 
             $.fancybox(linkDivHTML,
@@ -2539,7 +2542,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 $thisPanel.find('div.chart').hide();
             }
             if(oGraph.mapsets||oGraph.pointsets){
-                drawMap(); //show the map div
+                drawMap(); //shows the map div
+                if(oGraph.plots) $thisPanel.find('map-title').hide(); else $thisPanel.find('map-title').show();
                 $thisPanel.find('select.change-map').html(fillChangeMapSelect());
             } else {
                 $thisPanel.find('div.map').hide();
@@ -3241,7 +3245,7 @@ legend components:
                         y += standardRadius;
                     });
                 }
-                if(areaCount>1){
+                if(areaCount>0){
                 //RADIUS SCALING
                     y += spacer+(smallRadius||5);
                     var MarkerSizeAttributes = {
@@ -3251,11 +3255,13 @@ legend components:
                         'stroke-width': 1
                     };
                     hcr.circle(xOffset + spacer + maxRadius, yOffset + y, smallRadius).attr(MarkerSizeAttributes).add();
-                    hcr.text(shorten(oGraph.calculatedMapData.radiusScale/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
-                    y+= (options.markers.radius.minRadius||5) + spacer + options.markers.radius.maxRadius;
+                    hcr.text(formatRationalize(oGraph.calculatedMapData.radiusScale/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    y+= (smallRadius||5) + spacer + maxRadius;
 
-                    hcr.circle(xOffset + spacer + options.markers.radius.maxRadius, yOffset + y, options.markers.radius.maxRadius).attr(MarkerSizeAttributes).add();
-                    hcr.text(shorten(oGraph.calculatedMapData.radiusScale), xOffset + 2*(options.markers.radius.maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    hcr.circle(xOffset + spacer + maxRadius, yOffset + y, maxRadius).attr(MarkerSizeAttributes).add();
+                    hcr.text(formatRationalize(oGraph.calculatedMapData.radiusScale), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+
+                    hcr.text(oGraph.calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + spacer).css({fontSize: '12px'}).add();
                 }
             }
             if(oGraph.mapsets){
@@ -3268,11 +3274,11 @@ legend components:
                             stroke: 'black',
                             'stroke-width': 1
                         }).add();
-                        hcr.text((i==0?'&#8804; ':'&gt; ')+oGraph.mapsets.options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                        hcr.text((i==0?'&gt; ':' ')+oGraph.mapsets.options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     }
                 } else {
                     y = spacer;
-                    hcr.text(shorten(oGraph.calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    hcr.text(formatRationalize(oGraph.calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
 
 
@@ -3288,9 +3294,11 @@ legend components:
                         gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets.options.negColor||MAP_COLORS.NEG);
                         y += 80 + spacer;
                     }
-                    hcr.text(shorten(oGraph.calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                    hcr.text(formatRationalize(oGraph.calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
                 }
+                hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset + y + 2 * lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+
             }
             return gLegend;
         }
@@ -3743,8 +3751,15 @@ function areaScalingCount(pointsets){
     return area;
 }
 
-function shorten(value){ //value will always be non-negative
+function rationalize(value){ //value will always be non-negative
     var sign = (value<0?-1:1);
     var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
     return sign * Math.round(value / Math.pow(10,order-1)) * Math.pow(10,order-1);
+}
+
+
+function formatRationalize(value){
+    var y = rationalize(value);
+    var order = Math.floor(Math.log(y)/Math.LN10);
+    return Highcharts.numberFormat(y, (order>1?0:2-order))
 }

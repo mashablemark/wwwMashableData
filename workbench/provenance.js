@@ -443,11 +443,6 @@ function ProvenanceController(panelId){
                 if(self.pointsetsEdits && self.pointsetsEdits.length>0) self.graph.pointsets = self.pointsetsEdits; else delete self.graph.pointsets;
                 self.graph.mapconfig = self.mapconfigEdits;
 
-                delete self.plotsEdits;
-                delete self.annoEdits;
-                delete self.mapsetEdits;
-                delete self.pointsetsEdits;
-                delete self.mapconfigEdits;
                 this.provClose();
                 $('#'+panelId).find(".graph-type").change();  //trigger redaw
             }
@@ -683,6 +678,7 @@ function ProvenanceController(panelId){
                 + '<div class="attribute">'
                 +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-r-'+panelId+'" data="attribute" value="r"/><label for="attribute-r-'+panelId+'">area</label>'
                 +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-fill-'+panelId+'" data="attribute" value="fill" /><label for="attribute-fill-'+panelId+'">color</label>'
+                + '</div>'
                 + '<span class="edit-label">Point calculations:</span>'
                 + self.HTML.compMath
                 //+   '<label><input type="radio" name="attribute-'+panelId+'"  data="attribute" value="none" />no scaling</label>'
@@ -850,8 +846,10 @@ function ProvenanceController(panelId){
             //if(self.plotsEdits.length>0){
                 editDiv +=   '<div class="edit-block bunny-selector"><span class="bunny-selector" data="bunny">Color map relative to: <select class="bunny-selector">'
                 + '<option value="-1">none (simple heat map)</option>';
-                for(i=0;i<self.plotsEdits.length;i++){
-                    editDiv += '<option ' + (options.bunny==i?'selected':'') +' value="'+i+'" >'+(i+1)+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
+                if(self.plotsEdits){
+                    for(i=0;i<self.plotsEdits.length;i++){
+                        editDiv += '<option ' + (options.bunny==i?'selected':'') +' value="'+i+'" >'+(i+1)+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
+                    }
                 }
                 editDiv += '<option value="add"><b>create regional plot for me</b></option>'
                 +  '</select></span></div> ';
@@ -891,18 +889,20 @@ function ProvenanceController(panelId){
                             }
                             //check to see if this already exists
                             var p, plots = self.plotsEdits, bunnyExists = false;
-                            for(p=0;p<plots.length;p++){
-                                if(bunnyPlot.options.k!=plots.options.k||1){ //check plot options first for consistency
-                                    for(i=0;i<plots[p].components.length;i++){ // then check component and component options for consistency
-                                        if(plots[p].components[i].handle!=bunnyPlot.components[i].handle
-                                            || plots[p].components[i].options.k||1!=bunnyPlot.components[i].options.k
-                                            || plots[p].components[i].options.op||'+'!=bunnyPlot.components[i].options.op) break;
+                            if(plots){
+                                for(p=0;p<plots.length;p++){
+                                    if(bunnyPlot.options.k!=plots.options.k||1){ //check plot options first for consistency
+                                        for(i=0;i<plots[p].components.length;i++){ // then check component and component options for consistency
+                                            if(plots[p].components[i].handle!=bunnyPlot.components[i].handle
+                                                || plots[p].components[i].options.k||1!=bunnyPlot.components[i].options.k
+                                                || plots[p].components[i].options.op||'+'!=bunnyPlot.components[i].options.op) break;
 
-                                    }
-                                    if(i==plots[p].components.length){
-                                        bunnyExists = true;
-                                        $(this).val(p);  //this will force the selector to the bunny plot already foudn to be exisiting and trigger another call to this routine where the bunny property will be set
-                                        break;
+                                        }
+                                        if(i==plots[p].components.length){
+                                            bunnyExists = true;
+                                            $(this).val(p);  //this will force the selector to the bunny plot already found to be exisiting and trigger another call to this routine where the bunny property will be set
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -1036,10 +1036,10 @@ function ProvenanceController(panelId){
             $legend.find('.radius-spinner')
                 .spinner({min: 2, max:200})
                 .change(function(){
-                    if(options.attribute=='fill'){
-                        options.maxRadius = $(this).val();  //mapconfig.maxRadius
+                    if(type=='M' || options.attribute=='fill'){
+                        self.mapconfigEdits.maxRadius = $(this).val();
                     } else {
-                        options.fixedRadius = $(this).val();  //mapconfig.fixedRadius
+                        self.mapconfigEdits.fixedRadius = $(this).val();
                     }
                     makeDirty();
                 });
@@ -1067,7 +1067,7 @@ function ProvenanceController(panelId){
                     $legend.find('div.radius').slideUp();
                 }
                 //color scale if heatmap OR markerShading
-                if((type=='M' && options.mode!='bubble') || (type=='X' && self.mapconfigEdits.markerScaling!='none' && hasFillScaling(self.pointsetsEdits))){
+                if((type=='M' && options.mode!='bubble') || (type=='X' && self.mapconfigEdits.markerScaling!='none' && fillScalingCount(self.pointsetsEdits)>0)){
                     $legend.find('div.color-scale').slideDown();
                     if(options.scale=='discrete'){ //default is 'continuous'
                         $legend.find('div.legend-continuous').hide();

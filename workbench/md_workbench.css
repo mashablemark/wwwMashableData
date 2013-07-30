@@ -1163,6 +1163,15 @@ table.dataTable td.title:hover{
     background-image: url(http://www.mashabledata.com/wp-content/themes/Chameleon/images/body-bg14.png);
 }
 
+#cloud-series-search {
+    display: inline;
+    padding: 10px 0 7px 6px;
+    background-color: lightyellow;
+}
+#cloud-series-browse{
+    margin-left: 20px;
+}
+
 /*very light + border theme*/
 #series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{
     background-color: #d1e65c;
