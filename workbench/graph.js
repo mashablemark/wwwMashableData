@@ -3267,14 +3267,14 @@ legend components:
             if(oGraph.mapsets){
                 if(oGraph.mapsets.options.scale == 'discrete'){
                     for(i=0;i<oGraph.mapsets.options.discreteColors.length;i++){
-                        y = spacer + i*(spacer+20);
+                        y = spacer + (oGraph.mapsets.options.discreteColors.length-i)*(spacer+20);
                         hcr.rect(xOffset + markerLegendWidth + spacer, yOffset + y, lineHeight, lineHeight, 0).attr({
                             fill: oGraph.mapsets.options.discreteColors[i].color,
                             opacity: 1,
                             stroke: 'black',
                             'stroke-width': 1
                         }).add();
-                        hcr.text((i==0?'&gt; ':' ')+oGraph.mapsets.options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                        hcr.text((i==oGraph.mapsets.options.discreteColors.length-1?'&gt; ':' ')+oGraph.mapsets.options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     }
                 } else {
                     y = spacer;
@@ -3297,7 +3297,7 @@ legend components:
                     hcr.text(formatRationalize(oGraph.calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
                 }
-                hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset + y + 2 * lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+                hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
 
             }
             return gLegend;

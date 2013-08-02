@@ -2225,7 +2225,7 @@ function deleteMyGraph(panelID){
     //TODO: rewire this function to be executed from the graph editor
     var gid = oPanelGraphs[panelID].gid;
     var tabAnchor = $('a[href=#' + panelID + ']');
-    var trGraph = dtMyGraphs.find('button[data=G' + gid + ']').closest('tr').get(0);
+    var trGraph = dtMyGraphs.find('span.handle[data=G' + gid + ']').closest('tr').get(0);
     callApi({command: 'DeleteMyGraphs',
             gids: [gid]
         },
