@@ -35,14 +35,13 @@ $time_start = microtime(true);
 
 //GET INPUT PARAMETERS
 $command =  $_REQUEST['command'];
-$api_id =  intval($_REQUEST['apiid']);
-$since =  $_REQUEST['since'];
-$periodicity =  $_REQUEST['periodicity'];
-if(strlen($periodicity)==0) $periodicity = 'all';
+$api_id =  isset($_REQUEST['apiid'])?intval($_REQUEST['apiid']):0;
+$since =  isset($_REQUEST['since'])?$_REQUEST['since']:'';
+$periodicity =  isset($_REQUEST['periodicity'])?$_REQUEST['periodicity']:'all';
 $user_id =  intval($_REQUEST['uid']);
-$access_token=  $_REQUEST['accesstoken'];
-$catid =  intval($_REQUEST['catid']);
-$runid =  intval($_REQUEST['runid']);
+$access_token=  isset($_REQUEST['accesstoken'])?$_REQUEST['accesstoken']:"";
+$catid =  intval(isset($_REQUEST['catid'])?$_REQUEST['catid']:0);
+$runid =  isset($_REQUEST['runid'])?intval($_REQUEST['runid']):0;
 
 error_reporting(E_ALL);
 
