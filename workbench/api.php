@@ -539,13 +539,13 @@ switch($command){
         //2. check for emailroot match to org with autosignup enabled
         $mailParts = explode("@", $_POST["email"]);
         if(count($mailParts)==2){
-            $sql = "select orgid, orgname, name from organizations o, users u where o.userid=u.userid and joinbyemail='T' and emailroot = " . safeStringSQL($mailParts[1]);
+            $sql = "select o.orgid, orgname, name from organizations o, users u where o.userid=u.userid and joinbyemail='T' and emailroot = " . safeStringSQL($mailParts[1]);
             $result = runQuery($sql, "CheckEmailForOrgInv");
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
                 $userid = isset($_POST["uid"])?intval($_POST["uid"]):0;
                 //no longer needed:  emailRootInvite($_POST["email"], $row["orgid"], $row["orgname"], $row["name"], $userid);
-                //note: emailValidationCode was sent as soon as an unknown email address was enter in the subscription form
+                //note: validationCode was sent as soon as an unknown email address was enter in the subscription form
                 $output =  array("status"=>"ok", "eligible"=>true, "orgname"=>$row["orgname"]);
                 break;
             }
@@ -554,8 +554,8 @@ switch($command){
         $output =  array("status"=>"ok", "invited"=>false, "eligible"=>false);
         break;
 
-    case "emailVerify":
-        $validEmailCode = emailValidationCode($_POST["email"]);
+    case "EmailVerify":
+        $validEmailCode = validationCode($_POST["email"]);
         if($validEmailCode == $_POST["verification"]){
             $output =  array("status"=>"ok","verfied" => true);
         } else {
@@ -584,14 +584,14 @@ switch($command){
         $validRegCode = false;
         $uid=0;
         $orgId = null;
-        if(isset($_POST["uid"])) { //new accounts do not have to be logged in, but if user claims a userid, verify accesstoken
+        if(isset($_POST["uid"]) && $_POST["uid"]!=null) { //new accounts do not have to be logged in, but if user claims a userid, verify accesstoken
             requiresLogin();
             $uid = intval($_POST["uid"]);
         }
         if(isset($_POST["regCode"]) && count($_POST["regCode"])>0){
-            $sql = "select * from users where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode");
+            $sql = "select * from invitations where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode");
             $result = runQuery($sql);
-            if($result->num_rows==1){
+            if($_POST["regCode"] == validationCode($_POST["email"])){
                 $user = $result->fetch_assoc();
                 if($uid>0 && $uid!=$user["userid"]){ //logged account different from invitation account
                     if($user[""]){
@@ -604,7 +604,7 @@ switch($command){
                 $sql = "update users set emailverify = now() where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode") . " and emailverify is null";
                 runQuery($sql); //only stamp it verified the first time
             } else {
-                die('{"status":"The registration code is invalid or did not match the primary email address provided."}');
+                die('{"status":"The registration code is invalid for the primary email address provided."}');
             }
         } elseif(isset($_POST["uid"]) && intval($_POST["uid"])>0){
             $sql = "select * from users where email=".safeSQLFromPost("email")." and userid<>".intval($_POST["uid"]);
@@ -613,12 +613,6 @@ switch($command){
                 die('{"status":"An account already exists for '. $_POST["email"] .'.  If this is your account, please sign in to manage it."}');
             }
         }
-
-
-
-
-
-
         break;
 /*
         command: 'Subscribe',
@@ -952,11 +946,11 @@ switch($command){
         $output = array("status" => "ok");
 		break;
 	case "GetUserId":
-		$username =  $_REQUEST['username'];
-		$accesstoken =  $_REQUEST['accesstoken'];
-        $email =  $_REQUEST['email'];
-        $expires =  $_REQUEST['expires'];
-        $authmode = $_REQUEST['authmode'];   //currently, FB (Facebook) and MD (MashableData) are supported
+		$username =  safePostVar('username');
+		$accesstoken =  safePostVar('accesstoken');
+        //$email =  $_REQUEST['email'];
+        //$expires =  $_REQUEST['expires'];
+        $authmode = safePostVar('authmode');   //currently, FB (Facebook) and MD (MashableData) are supported
 		//get account type
         if(strlen($username)==0){
             $output = array("status" => "invalid user name");
@@ -1204,7 +1198,7 @@ switch($command){
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
 		break;
     case  "GetAnnotations":
-        if($_POST['whose']=="M"){
+        if(safePostVar('whose')=="M"){
             requiresLogin();
             $anno_userid = intval($_POST["uid"]);
         } else {
@@ -1541,7 +1535,7 @@ function getGraphMapSets($gid, $map){
     return $mapsetdata;
 }
 
-function emailValidationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}
+function validationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}
 function emailAdminInvite($email, $name='', $adminid=0, $orgid=0){ 
 //resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
     global $db, $MAIL_HEADER;

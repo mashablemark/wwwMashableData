@@ -44,8 +44,8 @@ account = {
                 '<span class="over">main email:</span><input class="req email medium" data="email" type="text" /><br />' +
 
                 '<div class="account-pwd hidden blue-inset">' +
-                '<span class="over">MashableData password:</span><input class="req medium" data="pwd" type="password" /><br />' +
-                '<span class="over">confirm password:</span><input class="req medium" data="pwdConfirm" type="password" />' +
+                '<span class="over">MashableData password:</span><input class="req medium pwd" data="pwd" type="password" /><br />' +
+                '<span class="over">confirm password:</span><input class="req medium pwdConfirm" data="pwdConfirm" type="password" />' +
                 '</div>' +
                 /*'<div id="account-post">' +
                 '<h3>Connect my Facebook and Twitter accounts:</h3>' +
@@ -210,10 +210,12 @@ account = {
             for(i=0;i<oReturn.years.length;i++){
                 $years.append('<option>'+oReturn.years[i]+'</option>');
             }
-            var aex = account.info.ccexpiration.split('/');
-            if(aex.length==2){
-                $years.val(aex[1]);
-                $screen.find('.cardMonth').val(aex[0]);
+            if(account.info.ccexpiration){
+                var aex = account.info.ccexpiration.split('/');
+                if(aex.length==2){
+                    $years.val(aex[1]);
+                    $screen.find('.cardMonth').val(aex[0]);
+                }
             }
         });
         //authenticate with Facebook or MashableData
@@ -270,13 +272,14 @@ account = {
             if(!account.isValidEmail($screen.find('input.email').val().trim())) validationMessage += '<li>Your main email is not a valid email address</li>';
             //twitter email selection made
             //auth mode radio selection made
-            if(!$screen.find('input[name=auth]:checked').val()) validationMessage += '<li>Please indicate how you wish to be authenticated</li>';
+            if(!$screen.find('input[name=auth]:checked')) validationMessage += '<li>Please indicate how you wish to be authenticated</li>';
             //matching password > 5 if md auth
-            if($screen.find('input[name=auth]:checked').val()=='md' && ($screen.find('pwd').val().trim().length<8 || $screen.find('pwd').val().trim()!=$screen.find('pwdConfirm').val().trim())){
+            if($screen.find('input[name=auth]:checked').val()=='md' && ($screen.find('.pwd').val().trim().length<8 || $screen.find('.pwd').val().trim()!=$screen.find('.pwdConfirm').val().trim())){
                 validationMessage += '<li>Your passwords must match and be at 8 characters long</li>';
-                $screen.find('pwd').val('');
-                $screen.find('pwdConfirm').val('');
+                $screen.find('.pwd').val('');
+                $screen.find('.pwdConfirm').val('');
             }
+        /*
             //fb email selection made
             if(!$screen.find('input[name=account-fb]:checked').val()) validationMessage += '<li>Please indicate whether and how to integrate your Facebook account</li>';
             //valid fb email if separate is given
@@ -285,6 +288,7 @@ account = {
             if(!$screen.find('input[name=account-twit]:checked').val()) validationMessage += '<li>Please indicate whether and how to integrate your Twitter account</li>';
             //valid twitter email if separate is given
             if($screen.find('input[name=account-fb]:checked').val()=='twitdiff' && !account.isValidEmail($screen.find('input#account-twitemail').val().trim())) validationMessage += '<li>Your Twitter email is not a valid email address</li>';
+     */
             //subscription type radio selection made
             var accountLevel = $screen.find('input[name=account-level]:checked').val();
             if(!accountLevel) validationMessage += '<li>You must select a subscription level</li>';
@@ -305,7 +309,7 @@ account = {
                     name: $screen.find('input.uname').val().trim(),
                     email: $screen.find('input.email').val().trim(),
                     auth: $screen.find('input[name=auth]:checked').val(),
-                    pwd: $screen.find('pwd').val().trim(),
+                    pwd: $screen.find('input.pwd').val().trim(),
                     fbemail: $screen.find('input[name=account-fb]:checked').val()=='fbdiff'?$screen.find('input#account-fbemail').val().trim():$screen.find('input.email').val().trim(),
                     twitemail: $screen.find('input[name=account-twit]:checked').val()=='twitdiff'?$screen.find('input#account-twitemail').val().trim():$screen.find('input.email').val().trim(),
                     accountLevel: accountLevel,
@@ -413,7 +417,7 @@ account = {
         return (this.info.userId!=null)
     },
     sendVerificationCode: function(email){
-        callApi({command: 'emailVerify', email: email, verification: 'x'}, function(jsoData, textStatus, jqXH){
+        callApi({command: 'EmailVerify', email: email, verification: 'x'}, function(jsoData, textStatus, jqXH){
             dialogShow('email verification code','A verification code was sent to '+ email +'.  Please check this email account and enter the code where directed. ');
         });
     }
