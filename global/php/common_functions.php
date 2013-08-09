@@ -57,10 +57,24 @@ function logEvent($command, $sql){
         $db->query($log_sql);
     }
 }
-
+function safeRequest($key){
+    if(isset($_REQUEST[$key])){
+        $val = $_REQUEST[$key];
+    } else {
+        $val = "";
+    }
+    return $val;
+}
 function safeSQLFromPost($key){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
-    $val = $_POST[$key];
-    return safeStringSQL($val);
+    return safeStringSQL(safePostVar($key));
+}
+function safePostVar($key){
+    if(isset($_POST[$key])){
+        $val = $_POST[$key];
+    } else {
+        $val = "";
+    }
+    return $val;
 }
 function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
     if(($val == NULL  || $val === NULL) && $val != ''){  //removed "|| $val==''" test
@@ -72,10 +86,8 @@ function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mys
 
 function getConnection(){
     global $db;
-    if(strpos($_SERVER["SERVER_NAME"],"mashabledata.com")>=0){
-        $db = new mysqli("localhost","melbert_admin","g4bmyLl890e0");
-    } else {
-        $db = new mysqli("127.0.0.1:3306","root","");
+    if(strpos($_SERVER["SERVER_NAME"],"mashabledata.info")>=0){
+        $db = new mysqli("localhost","mashabledata","UxH3XERJ");
     }
     if (!$db) die("status: 'db connection error'");
     $db->select_db("melbert_mashabledata");

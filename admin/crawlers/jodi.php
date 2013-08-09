@@ -6,18 +6,21 @@
 /*To clean JODI API, leaving only the 3 root cats:
     DELETE FROM series WHERE apiid = 6;
     DELETE FROM categories WHERE apiid=6 AND catid >= 318252;
-    DELETE FROM catcat WHERE childid >= 318252;
+    DELETE FROM catcat WHERE parentidid > 318249;
     DELETE FROM catseries WHERE catid >= 318249;
 */
 
 $JODI_FILES = array(
     "secondary petroleum products" => array(
         "url" => "http://www.jodidata.org/_resources/files/downloads/data/world_secondary_csv1.zip",
-        "filename" => "world_Secondary_CSV"
+        "filename" => "world_Secondary_CSV",
+        "filenum"=> 2
+
     ),
     "primary petroleum products" => array(
         "url" => "http://www.jodidata.org/_resources/files/downloads/data/world_primary_csv1.zip",
-        "filename" => "world_Primary_CSV"
+        "filename" => "world_Primary_CSV",
+        "filenum"=> 1
     )
 );
 
@@ -165,37 +168,83 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
 
     $csv = fopen("bulkfiles/jodi/".$jobInfo["filename"].".csv", "r");
     $header = fgets($csv);  //throw away the header line
+    set_time_limit(300);
     if($HEADER==trim($header)){ //confirm file format
+        runQuery("delete from temp_jodi where file = " . $jobInfo["filenum"], "clear jodi processing table");
         $initial = true;
-        $series_header = explode(",", $header); //data for first check
+        $series_header = explode(",", $header);
+        $i=0;
         while(!feof($csv)){
             $line = fgets($csv); //double quotes not used
             $aryLine = explode(",", $line);
             if(count($aryLine)==8){
+                $mdDate = substr($aryLine[$COL_DATE], 3) . $MONTHS[substr($aryLine[$COL_DATE], 0, 3)];
+                $aryLine[$COL_DATE] = $mdDate;
                 if($aryLine[$COL_COUNTRY]!=$series_header[$COL_COUNTRY] || $aryLine[$COL_PRODUCT]!=$series_header[$COL_PRODUCT] || $aryLine[$COL_FLOW]!=$series_header[$COL_FLOW] || $aryLine[$COL_UNIT]!=$series_header[$COL_UNIT]){ //series
+                    set_time_limit(60);
                     if(!$initial){
-                        saveSeries($status, $apirunjob, $jobInfo, $series_header, $lastLine, $data);
+                        updateTempJodi($jobInfo["filenum"], $series_header, $data);
                         runQuery($timestamp_run_sql);
                         runQuery($timestamp_job_sql);
                     } else {
                         $initial = false;
                     }
                     //start series
-                    set_time_limit(60);
                     $series_header = $aryLine;
-                    $lastLine = $aryLine;
-                    $mdDate = substr($aryLine[$COL_DATE], 3) . $MONTHS[substr($aryLine[$COL_DATE], 0, 3)];
-                    $data = $mdDate."|".$aryLine[$COL_VALUE];
+                    $data = $mdDate."|".($aryLine[$COL_VALUE]==""?"null":$aryLine[$COL_VALUE]);
                 } else { //another point in current series
-                    $mdDate = substr($aryLine[$COL_DATE], 3) . $MONTHS[substr($aryLine[$COL_DATE], 0, 3)];
-                    $data .= "||".$mdDate ."|".$aryLine[$COL_VALUE];
-                    $lastLine = $aryLine;
+                    $data .= "," . $mdDate ."|".($aryLine[$COL_VALUE]==""?"null":$aryLine[$COL_VALUE]);
                 }
-            } else {
-                die("mal-formed line: " . $line);
+            }
+            $i++;
+            if($i/100 == intval($i/100)){
+                runQuery($timestamp_run_sql);
+                runQuery($timestamp_job_sql);
             }
         }
-        saveSeries($status, $apirunjob, $jobInfo, $series_header, $lastLine, $data);
+        updateTempJodi($jobInfo["filenum"], $series_header, $data);
+
+
+        $jodi_records = runQuery("select * from temp_jodi where file=" . $jobInfo["filenum"]);
+        while ($aRow = $jodi_records->fetch_assoc()){
+            $line = $aRow["keypart"]; //double quotes not used
+            $aryLine = explode(",", $line);
+
+            $i++;
+            if($i/100 == intval($i/100)){
+                runQuery($timestamp_run_sql);
+                runQuery($timestamp_job_sql);
+            }
+
+            $parentCatId = setCategory($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]], $jobInfo["catid"]);
+            $flowCatId = setCategory($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]], $parentCatId);
+
+            $countryRow = countryLookup($aryLine[$COL_COUNTRY]);
+            $skey = $countryRow["iso3166"]."-".$aryLine[$COL_PRODUCT]."-".$aryLine[$COL_FLOW]."-".$aryLine[$COL_UNIT];
+            $setName = $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]] .": ". $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]];
+            if($countryRow["geoid"]!==null) {
+                $mapSetId = getMapSet($setName, $apirunjob["apiid"], "M", $jodi_codes["unit"][$aryLine[$COL_UNIT]]);
+            } else {
+                $mapSetId = null;
+            }
+            $arydata = explode(",", $aRow["data"]);
+            sort($arydata);
+            $data = implode("||", $arydata);
+            $aryFirstPoint= explode("|", $arydata[0]);
+            $aryLastPoint= explode("|", $arydata[count($arydata)-1]);
+            $firstDate = strtotime(substr($aryFirstPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")*1000;
+            $lastDate = strtotime(substr($aryLastPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")*1000;
+
+            $seriesid = updateSeries($status, $skey, $setName.": ".$countryRow["name"],"Joint Oil Data Initiative","http://www.jodidata.org/database/data-downloads.aspx","M",
+                $jodi_codes["unit"][$aryLine[$COL_UNIT]], $jodi_codes["unit"][$aryLine[$COL_UNIT]],
+                "For methodology and data visit http://http://www.jodidata.org/database/data-downloads.aspx. For codes, see http://www.jodidata.org/_resources/files/downloads/resources/jodi-wdb-short-long-names.pdf",
+                $setName, $apirunjob["apiid"], date("Y-m-d"),
+                $firstDate,
+                $lastDate,
+                $data, $countryRow["geoid"], $mapSetId,
+                null, null, null);
+            catSeries($flowCatId, $seriesid);
+        }
         $updatedJobJson = json_encode(array_merge($status, $jobInfo));
         runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$apirunjob["jobid"]);
         runQuery($timestamp_run_sql);
@@ -211,34 +260,22 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
     return $status;
 }
 
-function saveSeries(&$status, $api_row, $jobInfo, $aryFirstLine, $aryLastLine, $data){
+function updateTempJodi($filenum, $aryLine, $data){
+    static $i=0;
+    $i++;
+    global $jodi_codes, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
+    $keys = implode(array_slice($aryLine, 0, $COL_UNIT+1), ",");
+    $sql = "insert into temp_jodi values(".$filenum.",'".$keys."','".$data."') on duplicate key update data=concat(data,',','" . $data . "')";
+    if($keys=="") die($i.": ".implode(",", $aryLine));
+    runQuery($sql);
+}
+
+function saveSeries(&$status, $api_row, $jobInfo, $aryFirstLine, $aryLastLine, $arydata){
     global $jodi_codes, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
     //find catid and create categories as needed
 
 
-    print($jobInfo["name"]."-".$aryFirstLine[$COL_PRODUCT].":".$jodi_codes[$jobInfo["name"]][$aryFirstLine[$COL_PRODUCT]]."<br>");
-    $parentCatId = setCategory($api_row["apiid"], $jodi_codes[$jobInfo["name"]][$aryFirstLine[$COL_PRODUCT]], $jobInfo["catid"]);
-    print("parentCatId ".$parentCatId."<BR>" );
-    $flowCatId = setCategory($api_row["apiid"], $jodi_codes[$jobInfo["name"]][$aryFirstLine[$COL_FLOW]], $parentCatId);
-    print("flowCatId ".$flowCatId."<BR>" );
 
-    $countryRow = countryLookup($aryFirstLine[$COL_COUNTRY]);
-    $skey = $countryRow["iso3166"]."-".$aryFirstLine[$COL_PRODUCT]."-".$aryFirstLine[$COL_FLOW]."-".$aryFirstLine[$COL_UNIT];
-    $setName = $jodi_codes[$jobInfo["name"]][$aryFirstLine[$COL_PRODUCT]] .": ". $jodi_codes[$jobInfo["name"]][$aryFirstLine[$COL_FLOW]];
-    if($countryRow["geoid"]!==null) {
-        $mapSetId = getMapSet($setName, $api_row["apiid"], "M", $jodi_codes["unit"][$aryFirstLine[$COL_UNIT]]);
-    } else {
-        $mapSetId = null;
-    }
-    $seriesid = updateSeries($status, $skey, $setName.": ".$countryRow["name"],"JODI","http://www.jodidata.org/database/data-downloads.aspx","M",
-        $jodi_codes["unit"][$aryFirstLine[$COL_UNIT]], $jodi_codes["unit"][$aryFirstLine[$COL_UNIT]],
-        "For methodology and data visit http://http://www.jodidata.org/database/data-downloads.aspx. For codes, see http://www.jodidata.org/_resources/files/downloads/resources/jodi-wdb-short-long-names.pdf",
-        $setName, $api_row["apiid"], date("Y-m-d"),
-        strtotime($aryFirstLine[$COL_DATE]." UTC")*1000,
-        strtotime($aryLastLine[$COL_DATE]." UTC")*1000,
-        $data, $countryRow["geoid"], $mapSetId,
-        null, null, null);
-    catSeries($flowCatId, $seriesid);
 }
 
 function countryLookup($country){
@@ -253,7 +290,7 @@ function countryLookup($country){
         "GUATEMAL" => array("iso3166"=>"GTM"),
         "HONGKONG" => array("iso3166"=>"HKG"),
         "LUXEMBOU" => array("iso3166"=>"LUX"),
-        "MYANUNSD" => array("iso3166"=>"???  MMR"),
+        "MYANUNSD" => array("iso3166"=>"MMR"),
         "NETHLAND" => array("iso3166"=>"NLD"),
         "NZ" => array("iso3166"=>"NZL"),
         "PAPUANG" => array("iso3166"=>"PNG"),
@@ -267,6 +304,8 @@ function countryLookup($country){
         "UAE" => array("iso3166"=>"ARE"),
         "UK" => array("iso3166"=>"GBR"),
         "USA" => array("iso3166"=>"USA"),
+        "KOREA" => array("iso3166"=>"KOR"),
+        "VIETNAM" => array("iso3166"=>"VNM"),
         "VENEZOPEC" => array("iso3166"=>"VEN")
         );
     if(!isset($countries[$country])){
