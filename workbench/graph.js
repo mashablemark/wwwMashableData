@@ -2717,13 +2717,13 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         }
                         var y = containingDateData[code];
                         label.html(
-                            '<span style="display: inline-block;"><b>'+label.html()+':</b><br />'
+                            '<div><b>'+label.html()+': </b>'
                                 + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
-                                + " " + ((calculatedMapData.units)?calculatedMapData.units:'')
-                                + '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
+                                + " " + (calculatedMapData.mapUnits||'')
+                                + '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
                         ).css("z-Index",400);
-                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, disableInteraction:true, width: "400px"};
-                        //sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: "400px"};
+                        sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
                         $('.inlinesparkline').sparkline(vals, sparkOptions);
                     }
                 },
@@ -2738,10 +2738,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     if(containingDateData && containingDateData[code]){
 
                         var y = containingDateData[code].r;
-                        var html = '<span style="display: inline-block;"><b>'+label.html()+':</b><br />';
+                        var html = '<div><b>'+label.html()+':</b> ';
                         if(containingDateData[code].r) html += Highcharts.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
                         if(containingDateData[code].f) html += Highcharts.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
-                        html += '</span><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
+                        html += '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
                         label.html(html).css("z-Index",400);
                         var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
                         sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
@@ -3066,6 +3066,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $map.clearSelectedRegions();
                     bubbleCalc();
                     positionBubbles();
+
+                    $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                    $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
+
                     $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
                     makeDirty();
                 });
@@ -3101,6 +3105,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $map.clearSelectedRegions();
                     bubbleCalc();
                     positionBubbles();
+                    $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                    $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
                     $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
                     makeDirty();
                 });
