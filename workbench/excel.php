@@ -8,7 +8,8 @@ date_default_timezone_set('UTC');
 error_reporting(E_ALL);
 
 /** Include path **/
-ini_set('include_path', ini_get('include_path').';../classes/');
+//failed because of odd initial path of ".:" -> ini_set('include_path', ini_get('include_path').';../classes/');
+ini_set('include_path', '../classes/');
 
 /** PHPExcel */
 include 'PHPExcel.php';
@@ -21,11 +22,12 @@ $data = json_decode($_POST['data'], true);
 $objPHPExcel = new PHPExcel();
 
 // Set properties
-$objPHPExcel->getProperties()->setCreator("Maarten Balliauw");
-$objPHPExcel->getProperties()->setLastModifiedBy("Maarten Balliauw");
-$objPHPExcel->getProperties()->setTitle("Office 2007 XLSX Test Document");
-$objPHPExcel->getProperties()->setSubject("Office 2007 XLSX Test Document");
-$objPHPExcel->getProperties()->setDescription("Graph data download for Office 2007 XLSX.");
+$objPHPExcel->getProperties()->setCreator("MashableData user");
+$objPHPExcel->getProperties()->setLastModifiedBy("MashableData user");
+$objPHPExcel->getProperties()->setTitle("MashableData graph data");
+$objPHPExcel->getProperties()->setSubject("MashableData graph data");
+$objPHPExcel->getProperties()->setDescription("MashableData graph data download in Office 2007 XLSX format, with separate worksheets for charts, maps, and locations.  Underlying component data and sources create transparency.");
+
 $i = 0;
 $objPHPExcel->removeSheetByIndex(0);
 for($sheet=0;$sheet<count($data);$sheet++){
@@ -36,8 +38,8 @@ for($sheet=0;$sheet<count($data);$sheet++){
     //echo('<br>sheet:'.$sheet);
     for($row=0;$row<count($data[$sheet]['grid']);$row++){
         for($col=0;$col<count($data[$sheet]['grid'][$row]);$col++){
-            //echo('<br>'.$row.':'.$col);
-            $objWorksheet->setCellValueByColumnAndRow($col+1, $row+1, $data[$sheet]['grid'][$row]{$col});
+            //echo('<br>'.$row.':'.$col." = ". $data[$sheet]['grid'][$row][$col]);
+            $objWorksheet->setCellValueByColumnAndRow($col+1, $row+1, $data[$sheet]['grid'][$row][$col]);
         }
     }
     // Rename sheet
@@ -45,12 +47,12 @@ for($sheet=0;$sheet<count($data);$sheet++){
     $i++;
 }
 
-// Save Excel 2007 file
-$objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
-$filename = sha1(time().rand()) . '.xlsx';
-$objWriter->save($filename);
+// Redirect output to a client’s web browser (Excel2007)
+header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+header('Content-Disposition: attachment;filename="graph_data.xlsx"');
+header('Cache-Control: max-age=0');
 
-header("Content-Disposition: attachment; filename=\"graph_data.xlsx\"");
-header("Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-echo file_get_contents($filename);
+$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+$objWriter->save('php://output');
+exit;
 

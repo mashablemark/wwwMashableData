@@ -117,9 +117,9 @@
                         <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
                     </fieldset-->
                 </div>
-                <button id="cloud-series-browse">browse</button>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                     <span id="public-series-buttons-top" class="right">
+                        <button id="cloud-series-browse">browse</button>
                         <button class="new-series">new series</button>
                     </span>
                 </div>

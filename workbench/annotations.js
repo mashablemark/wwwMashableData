@@ -362,35 +362,44 @@ function AnnotationsController(panelId){
                 this.build( "point");
             }
         },
-        startLinearRegression: function(point){
+        startAnalysisBanding: function(point, analysisType){
             var seriesColor = point.series.color;
             r = parseInt(seriesColor.substr(1,2),16);
             g = parseInt(seriesColor.substr(3,2),16);
             b = parseInt(seriesColor.substr(5,2),16);
             this.bandColor = 'rgba(' + r +','+  g +','+  b +',0.5)';
-            this.banding = 'linreg-' + point.series.index;
+            this.banding = analysisType + '-' + point.series.index;
             this.bandStartPoint = point;
             oHighCharts[panelId].xAxis[0].addPlotBand({
                 from:  this.bandStartPoint.x,
                 to: point.x,
                 color:  this.bandColor,
-                id: 'lr' + this.bandNo++,
+                id: analysisType + this.bandNo++,
                 label:  {text: ' ', y: 0, zIndex: 3}
             })
         },
-        deleteRegression: function(pointSelected){
-            var fromX, toX, i, linRegressions, plotId = pointSelected.series.options.regression;
+        deleteAnalysis: function(pointSelected){
+            var fromX, toX, i, analyses, plotId = pointSelected.series.options.regression;
+            var analysisType = pointSelected.series.options.id.substr(0,2);
             if(plotId){
                 fromX = pointSelected.series.data[0][0];
                 toX = pointSelected.series.data[pointSelected.series.data.length-1][0];
                 pointSelected.series.remove();
-                linRegressions = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.linRegressions;
-                for(i=0;i<linRegressions.length;i++){
-                    if(linRegressions[i][0]==toX && linRegressions[i][1]==fromX){
-                        linRegressions.splice(i,1);
+                switch (analysisType){
+                    case 'LR':
+                        analyses = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.linRegressions;
+                        break;
+                    case 'AV':
+                        analyses = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.averages;
+                        break;
+                }
+                for(i=0;i<analyses.length;i++){
+                    if(analyses[i][0]==toX && analyses[i][1]==fromX){
+                        analyses.splice(i,1);
                         return true;
                     }
                 }
+                return false;
             }
         },
         parseDate: function annoDateParse(partialDateString){
@@ -453,16 +462,17 @@ function AnnotationsController(panelId){
                 });
                 return;
             }
-            if(this.banding.substr(0,7)=='linreg-'){
+            if(this.banding.substr(0,3)=='LR-' || this.banding.substr(0,3)=='AV-'){
+                var analysisType = this.banding.substr(0,2);
                 try{
-                    chart.xAxis[0].removePlotBand('lr'+this.bandNo);
+                    chart.xAxis[0].removePlotBand(analysisType+this.bandNo);
                 }catch(err){}
                 this.endingX = closestDate(point.x, this.bandStartPoint.series.data);
                 chart.xAxis[0].addPlotBand({
                     from:  this.bandStartPoint.x,
                     to: this.endingX,
                     color: this.bandColor,
-                    id: 'lr' + this.bandNo,
+                    id: analysisType + this.bandNo,
                     label:  {text: ' ', y: 0, zIndex: 3}
                 });
             }
@@ -493,18 +503,29 @@ function AnnotationsController(panelId){
                     return {items: {info: {name:"Mouse-over a series before right-clicking to terminate a vertical band.",callback: function(key, opt){ }}}}
                 }
             }
-            if(this.banding && this.banding.substr(0,7)=='linreg-'){
+            if(this.banding && (this.banding.substr(0,3)=='LR-' || this.banding.substr(0,3)=='AV-')){
                 //ending linear regression
-                oHighCharts[panelId].xAxis[0].removePlotBand('lr'+this.bandNo);
+                var analysisType = this.banding.substr(0,2);
+                oHighCharts[panelId].xAxis[0].removePlotBand(analysisType + this.bandNo);
                 var fromX = Math.min(this.bandStartPoint.x, this.endingX);
                 var toX = Math.max(this.bandStartPoint.x, this.endingX);
                 if(fromX<toX){
-                    this.plotLinearRegression(this.bandStartPoint.series, fromX, toX, true);
-                    var plotOptions = oGraph.plots[parseInt(this.bandStartPoint.series.options.id.substr(1))].options;
-                    if(!plotOptions.linRegressions) plotOptions.linRegressions= [];
-                    plotOptions.linRegressions.push([fromX, toX]);
+                    switch(analysisType){
+                        case 'LR':
+                            this.plotLinearRegression(this.bandStartPoint.series, fromX, toX, true);
+                            var plotOptions = oGraph.plots[parseInt(this.bandStartPoint.series.options.id.substr(1))].options;
+                            if(!plotOptions.linRegressions) plotOptions.linRegressions= [];
+                            plotOptions.linRegressions.push([fromX, toX]);
+                            break;
+                        case 'AV':
+                            this.plotAverage(this.bandStartPoint.series, fromX, toX, true);
+                            var plotOptions = oGraph.plots[parseInt(this.bandStartPoint.series.options.id.substr(1))].options;
+                            if(!plotOptions.averages) plotOptions.averages = [];
+                            plotOptions.averages.push([fromX, toX]);
+                            break;
+                    }
                 } else {
-                    dialogShow("Error","The starting point and ending points of a Linear Regression must be different." );
+                    dialogShow("Error","The starting point and ending points must be different." );
                 }
                 this.banding = false;
                 return;
@@ -580,8 +601,8 @@ function AnnotationsController(panelId){
                 }
             }
         },
-        plotAllLinearRegressions: function(){  //COPIED DIRECTLY FROM md_hcharter.js.  NEEDS ADAPTING
-            var p, i, LR;
+        plotAnnotationSeries: function(){  //COPIED DIRECTLY FROM md_hcharter.js.  NEEDS ADAPTING
+            var p, i, LR, AV;
             var chart = oHighCharts[panelId];
             var oGraph = oPanelGraphs[panelId];
             if(oGraph.plots && oGraph.plots.length>0){
@@ -591,6 +612,14 @@ function AnnotationsController(panelId){
                             LR = oGraph.plots[p].options.linRegressions[i];
                             if((LR[0]>=parseInt(oGraph.start||oGraph.firstdt) && LR[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (LR[1]>=parseInt(oGraph.start||oGraph.firstdt) && LR[1]<=parseInt(oGraph.to||oGraph.lastdt))){
                                 this.plotLinearRegression(chart.get("P"+p), LR[0], LR[1]);
+                            }
+                        }
+                    }
+                    if(oGraph.plots[p].options.averages){
+                        for(i=0;i<oGraph.plots[p].options.averages.length;i++){
+                            AV = oGraph.plots[p].options.averages[i];
+                            if((AV[0]>=parseInt(oGraph.start||oGraph.firstdt) && AV[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (AV[1]>=parseInt(oGraph.start||oGraph.firstdt) && AV[1]<=parseInt(oGraph.to||oGraph.lastdt))){
+                                this.plotAverage(chart.get("P"+p), AV[0], AV[1]);
                             }
                         }
                     }
@@ -644,15 +673,19 @@ function AnnotationsController(panelId){
             //console.log(b1 + "=" + num + "/" + den);
             var b0 = avgY - b1 * avgX;
 
+            var m = b1*period.value[series.options.period];
+            var firstDigit = m.toString().search(/[1-9]/);
+            var decimalLocation = m.toString().indexOf('.');
+
             var newSeries = {
-                name:  "Linear regression of " + series.name + "<BR>(m="+b1*period.value[series.options.period]+" per "+period.units[series.options.period]+")",
+                name:  "Linear regression of " + series.name + "<BR> (m="+Highcharts.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.period]+")",
                 dashStyle: 'LongDash',
                 period: series.options.period,
                 lineWidth: 1,
                 color: series.color,
                 data: [],
                 id: "LR"+this.bandNo++,
-                regression: series.options.id,
+                fromPlot: series.options.id,
                 shadow: false,
                 marker: {enabled: false}
             };
@@ -663,6 +696,43 @@ function AnnotationsController(panelId){
             }
             //newSeries.data.push([minX, (b1*minX + b0)]);  //y = b1*x + b0
             return(hChart.addSeries(newSeries, redraw));
+        },
+        plotAverage: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
+            if(!redraw) redraw = false;
+            var hChart = oHighCharts[panelId];
+            var sumY = 0, pointCount = 0;
+            var j, data=[], points = 0;
+            if(typeof start == "undefined" || typeof end == "undefined"){
+                data = series.data;
+            } else {
+                for(j=0;j<series.data.length;j++){
+                    if(series.data[j].x>=start && series.data[j].x<=end){
+                        data.push(series.data[j]);
+                        if(series.data[j].y !== null){
+                            sumY += series.data[j].y;
+                            pointCount++;
+                        }
+                    }
+                }
+            }
+            var avg = sumY / pointCount;
+
+            var newSeries = {
+                name:  "Average of " + series.name,
+                dashStyle: 'ShortDash',
+                period: series.options.period,
+                lineWidth: 1,
+                color: series.color,
+                data: [],
+                id: "AV"+this.bandNo++,
+                fromPlot: series.options.id,
+                shadow: false,
+                marker: {enabled: false}
+            };
+            for(j=0;j<data.length;j++){
+                newSeries.data.push([data[j].x , avg]);
+            }
+            return(hChart.addSeries(newSeries, redraw));
         }
     };
     controller.fetchStandards();
@@ -671,55 +741,3 @@ function AnnotationsController(panelId){
 
 
 //ANNOTATION CODE
-
-
-
-function XXXclickHCSeries(evt){
-    if(banding){
-        banding = false;  //band was already drawn in the mouseOver event
-        bandNo++;
-        var panelId = visiblePanelId();
-        oPanelGraphs[panelId].annotations.push({
-            type:	'band',
-            text: 	'',
-            id: 'xb' + bandNo,
-            color: 	'#'+colorsPlotBands[0],
-            from: 	formatDateByPeriod(bandStartPoint.x,bandStartPoint.series.options.period),
-            to: formatDateByPeriod(evt.point.x, evt.point.series.options.period)
-        });
-        this.build('none');  //redraw the annotation table only
-    } else {
-        if(standardAnnotations.length==0){
-            callApi({command: "GetAnnotations"}, function(results){
-                standardAnnotations = results.annotations;
-                for(var i=0;i<standardAnnotations.length;i++){
-                    $("div#annotationMenu table").append('<tr style="margin: 5px 0px;"><td><a style="cursor: pointer;" onclick="addStandardAnnotation('+standardAnnotations[i].annoid+')" title="'+standardAnnotations[i].description+'">'+standardAnnotations[i].name+'</a></td></tr>');
-                }
-            });
-        }
-        var x = evt.pageX-20;  // account for fancybox padding divs
-        var y = evt.pageY-20;
-        $('.showAnnotationMenu').click();
-        $("#fancybox-wrap").stop().css({
-            'top': y +'px',
-            'left': x + 'px'
-        });
-        evt.point.select(true);
-    }
-}
-
-function equivalentRGBA(hexColor, alpha){
-    var r, g, b;
-    if(hexColor.substr(0,1)=='#')hexColor=hexColor.substr(1);  //get rid of any potential # prefix
-    r = gun(parseInt(hexColor.substr(0,2),16), alpha);
-    g = gun(parseInt(hexColor.substr(2,2),16), alpha);
-    b = gun(parseInt(hexColor.substr(4,2),16), alpha);
-    if(r>0&&g>0&&b>0){
-        return 'rgba(' + r +','+  g +','+  b +','+alpha+')';
-    } else {
-        return 'rgb(' + parseInt(hexColor.substr(0,2),16) +','+  parseInt(hexColor.substr(2,2),16) +','+  parseInt(hexColor.substr(4,2),16) +')';
-    }
-    function gun(desired, alpha){
-        return  parseInt(desired/alpha - (1-alpha)*255/alpha);
-    }
-}

@@ -12,19 +12,17 @@
  * $svg string The SVG source code to convert.
  */
 
-
 // Options
 define ('BATIK_PATH', 'batik-rasterizer.jar');
 
 ///////////////////////////////////////////////////////////////////////////////
 //ini_set('magic_quotes_gpc', 'off');
 
-$type = $_POST['type'];
-$svg = (string) $_POST['svg'];
-$filename = (string) $_POST['filename'];
+$type = $_POST['type']; //required
+$svg = (string) $_POST['svg']; //required
+$filename = isset($_POST['filename'])? (string) $_POST['filename'] : 'chart'; //optional
 
 // prepare variables
-if (!$filename) $filename = 'chart';
 if (get_magic_quotes_gpc()) {
 	$svg = stripslashes($svg);	
 }
@@ -34,11 +32,11 @@ if (get_magic_quotes_gpc()) {
 $tempName = md5(rand());
 
 // allow no other than predefined types
-if ($type == 'image/png') {
+if ($type == 'image/png'  || $type == 'FB') {
 	$typeString = '-m image/png';
 	$ext = 'png';
 	
-} elseif ($type == 'image/jpeg'  || $type == 'FB') {
+} elseif ($type == 'image/jpeg') { //this output format is throwing error on the OVH server running Batik 1.7 (vs. 1.6)
 	$typeString = '-m image/jpeg';
 	$ext = 'jpg';
 
@@ -51,23 +49,23 @@ if ($type == 'image/png') {
 }
 $outfile = "temp/$tempName.$ext";
 
-if ($typeString) {
+if (isset($typeString)) {
 	
 	// size
-	if ($_POST['width']) {
-		$width = (int)$_POST['width'];
-		if ($width) $width = "-w $width";
-	}
+	if (isset($_POST['width']) && intVal($_POST['width'])>0) {
+		$width = "-w " .  intVal($_POST['width']);
+	} else $width = "";
 
 	// generate the temporary file
+    //print($svg);
 	if (!file_put_contents("./temp/$tempName.svg", $svg)) {
 		die("Couldn't create temporary file. Check that the directory permissions for
 			the /temp directory are set to 777.");
 	}
 	
-	// do the conversion
-    $cmd = "/usr/java/bin/java -jar ". BATIK_PATH ." $typeString -d $outfile -q 0.999 $width temp/$tempName.svg";
-    $cmd = "/usr/java/bin/java -jar /home/melbert/batik/". BATIK_PATH ." $typeString -d /home/melbert/public_html/workbench/export/temp -q 0.999 $width /home/melbert/public_html/workbench/export/temp/$tempName.svg";
+	// do the conversion (from some reason, cannot convert to JPG on new server with Batik 1.7)
+    //$cmd = "/usr/java/bin/java -jar ". BATIK_PATH ." $typeString -d $outfile -q 0.999 $width temp/$tempName.svg";
+    $cmd = "java -jar /etc/batik/batik-1.7/". BATIK_PATH ." $typeString -d /var/www/vhosts/www.mashabledata.info/httpdocs/workbench/export/temp/$tempName.$ext $width /var/www/vhosts/www.mashabledata.info/httpdocs/workbench/export/temp/$tempName.svg";
     //echo $cmd;
     $output = shell_exec($cmd);
 	
@@ -96,16 +94,15 @@ if ($typeString) {
 
 // SVG can be streamed directly back
 } else if ($ext == 'svg') {
-	header("Content-Disposition: attachment; filename=$filename.$ext");
+    header("Content-Disposition: attachment; filename=$filename.$ext");
 	header("Content-Type: $type");
 	echo $svg;
-	
 } else {
     echo '<br>type:';
     echo $_POST['type'];
 	echo "Invalid type";
     echo '<br>svg:';
-  echo $svg;
+    echo $svg;
     var_dump($_POST);
     var_dump($_GET);
     var_dump($_COOKIE);

@@ -17,7 +17,7 @@ var templates = {
             + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
 };
 
-graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.3.0.2.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
+graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
 var iconsHMTL= {
     mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set"></span>',
     pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a set of markers (defined longitude and latitude)"></span>',

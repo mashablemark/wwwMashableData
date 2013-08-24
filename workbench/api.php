@@ -757,7 +757,7 @@ switch($command){
             break;
         }
         $gid =  (isset($_POST['gid']))?intval($_POST['gid']):0;
-        $user_id =  intval($_POST['uid']);
+        $user_id =  isset($_POST['uid']) ? intval($_POST['uid']) : 0;
         if($_POST['published']=='Y'){$published = "Y";} else  {$published = "N";}
         $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;
         $updatedt = isset($_POST['updatedt'])?intval($_POST['updatedt']/1000)*1000:null;
@@ -783,8 +783,8 @@ switch($command){
 
         //table structure = graphs <-> graphplots <-> plotcomponents
 
-        if(count($gid) == 0 || $gid==0){
-            $ghash = makeGhash($uid);  //ok to use uid instead of gid as ghash is really just a random number
+        if($gid==0){
+            $ghash = makeGhash($user_id);  //ok to use uid instead of gid as ghash is really just a random number
             $sql = "insert into graphs (userid, published, title, text, type, "
             . " intervalcount, fromdt, todt, annotations, serieslist, map, mapconfig, views, createdt, ghash) values ("
             . $user_id . ", '" . $published . "',". safeSQLFromPost("title") . "," . safeSQLFromPost("analysis")

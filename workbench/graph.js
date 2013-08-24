@@ -180,7 +180,7 @@ function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, A
     chart = new Highcharts.Chart(oChartOptions);
     console.timeEnd('highcharts');
     oHighCharts[panelId] = chart;
-    annotations.plotAllLinearRegressions();
+    annotations.plotAnnotationSeries();
     //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
     $chart
         .mouseover(function(e){
@@ -223,7 +223,7 @@ function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, A
         selector: '#' + panelId + ' div.chart',
         build: function($trigger, e) {  //menu is built or cancelled dynamically in build function startin on the following line
             var i, x, y, top, left;
-            var axisName, axisValue, isRegression;
+            var axisName, axisValue, isRegression, isAverage;
             var pointSelected = annotations.mouseoverPoint;  //grab reference (set by a HighCharts' event) before point's mouseout event can delete it
             var onPoint = (typeof(annotations.mouseoverPoint)!="undefined");
             if(annotations.banding){ // false if not actively x or y banding
@@ -248,13 +248,23 @@ function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, A
                         hline: {name: "add horizontal line", items:{} },
                         hband: {name: "start horizontal band", items:{} },
                         "sep2": "---------",
+                        avg: {name: "start average",
+                            disabled: !onPoint,
+                            callback: function(key, opt){
+                                if(!isAverage){
+                                    annotations.startAnalysisBanding(pointSelected, 'AV');
+                                } else {
+                                    annotations.deleteAnalysis(pointSelected);
+                                }
+                            }
+                        },
                         regression: {name: "start linear regression",
                             disabled: !onPoint,
                             callback: function(key, opt){
                                 if(!isRegression){
-                                    annotations.startLinearRegression(pointSelected);
+                                    annotations.startAnalysisBanding(pointSelected, 'LR');
                                 } else {
-                                    annotations.deleteRegression(pointSelected);
+                                    annotations.deleteAnalysis(pointSelected);
                                 }
                             }
                         },
@@ -262,9 +272,15 @@ function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, A
                         standard: {name: "add standard annotations", items: {}}
                     }
                 };
-                if(onPoint && pointSelected.series.options.regression) {
+                if(onPoint && pointSelected.series.options.calculatedFrom && pointSelected.series.options.id.substr(0,2)=='LR') {
                     mnu.items.regression.name = "delete linear regression";
-                    isRegression = true
+                    isRegression = true;
+                    delete mnu.items.avg;
+                }
+                if(onPoint && pointSelected.series.options.calculatedFrom && pointSelected.series.options.id.substr(0,2)=='AV') {
+                    mnu.items.avg.name = "delete average";
+                    isAverage = true;
+                    delete mnu.items.regression;
                 }
                 top = $(chart.container).offset().top;
                 left = $(chart.container).offset().left;
@@ -1920,10 +1936,14 @@ function downloadMap(panelID, format){
 }
 function cleanMapSVG(svg){
     //jvector map sanitize
-    svg = svg.replace(/<div.+<\/div>/gi, '');
+    svg = svg.replace(/<div[^<]+<\/div>/gi, '');
     //svg = svg.replace(/ class="[^"]+"/gi, '');
     //svg = svg.replace(/ id="[^"]+"/gi, '');
-    svg = svg.replace(/<svg /gi, '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" ');
+    //svg = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">' + svg;
+    svg = svg.replace(/<svg /gi, '<svg xmlns="http://www.w3.org/2000/svg"  version="1.1" ');
+
+
+    svg = svg.replace(/<g><\/g>/gi, '');
     //svg = svg.replace(/<g [^>]+>/gi, '<g>');
     svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+mapBackground+'"></rect><g');
     // standard sanitize
@@ -2083,10 +2103,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<a title="tooltip" class="md-csv rico">CSV</a>' +
             //'<a class="md-xls rico">Excel</a><br>' +
             ' Image: ' +
-            //'<a onclick="exportChart()" class="md-png rico" onclick="exportPNG(event)">PNG</a>' +
-            '<a class="md-jpg rico export-chart">JPG</a>' +
-            '<a class="md-svg rico export-chart">SVG</a>' +
-            '<a class="md-pdf rico export-chart">PDF</a>' +
+            '<a title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</a>' +
+            //'<a title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</a>' +
+            '<a title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</a>' +
+            '<a title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</a>' +
             '</fieldset>' +
             '</div>' +
             '<div class="sharing">' +
@@ -2121,7 +2141,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<button class="make-map" disabled="disabled">reset</button>' +
             '<button class="merge group hidden" disabled="disabled">group</button>' +
             '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
-            '<span class="right"><input type="checkbox" id="'+panelId+'-legend" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'><label for="'+panelId+'-legend">legend</label></span>' +
+            '<span class="right"><label><input type="checkbox" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
+            '<span class="right"><label><input type="checkbox" class="map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
             '</div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
@@ -2172,7 +2193,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //do the highcharts trick to download a file
             downloadMadeFile({
                 filename: oGraph.title,
-                data: grids,
+                data: JSON.stringify(grids),
                 url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
             });
         });
@@ -2182,6 +2203,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     $thisPanel.find('.export-chart').click(function(){
         var type, $this = $(this);
         if($this.hasClass('md-jpg')) type = 'image/jpeg';
+        if($this.hasClass('md-png')) type = 'image/png';
         if($this.hasClass('md-svg')) type = 'image/svg+xml';
         if($this.hasClass('md-pdf')) type = 'application/pdf';
         exportChart(type);
@@ -2212,7 +2234,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     var obj = {
                         method: 'feed',
                         link: 'http://www.mashabledata.com/workbench?t=g&graphcode='+ oPanelGraphs[panelId].ghash,
-                        picture: chartInfo.imageURL,
+                        picture: 'http://www.mashabledata.com/logo', // chartInfo.imageURL,
                         message: body,
                         name: 'Facebook Dialogs',
                         caption: caption,
@@ -2830,6 +2852,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
                     }
                     $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
+                    if(oGraph.mapconfig.showList) {
+                        makeList($map);
+                    }
                 }
             }).slider( "value", calculatedMapData.endDateIndex);
 
@@ -3113,13 +3138,88 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             var gLegend;
             $thisPanel.find('.legend').change(function(){
                 oGraph.mapconfig.showLegend = ($(this).prop('checked'));
+                makeDirty();
                 if(oGraph.mapconfig.showLegend) {
                     gLegend = makeLegend($map);
                 } else {
                     gLegend.remove();
                 }
             });
-            if(oGraph.mapconfig.showLegend) gLegend = makeLegend($map);
+            $thisPanel.find('input.map-list').change(function(){
+                oGraph.mapconfig.showList = ($(this).prop('checked'));
+                makeDirty();
+                if(oGraph.mapconfig.showList) {
+                    makeList($map);
+                } else {
+                    $thisPanel.find('div.map-list').remove();
+                }
+            });
+            if(oGraph.mapconfig.showList) gLegend = makeList($map);
+            $thisPanel.find('div.map-list .download-map-list').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
+                var table = $thisPanel.find('div.map-list table').get(0);
+                var grid = [];
+                for(var r=0;r<table.rows.length;r++){ //header row = plot name; plot units
+                    grid.push([table.rows[r].cells[0], table.rows[r].cells[1]]);
+                }
+                downloadMadeFile({   //does the highcharts trick to download a file
+                    filename: oGraph.title,
+                    data: JSON.stringify([{name: 'ranked list', grid: grid}]),
+                    url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
+                });
+            });
+        }
+
+        function makeList(map){
+            var list = [], id, units, attr;
+            if($thisPanel.find('div.map-list').length==0){
+                $thisPanel.find('div.jvmap')
+                    .prepend('<div class="map-list"><button class="download-map-list">download list to Excel</button></div>')
+                    .find('div.map-list .download-map-list').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
+                        var table = $thisPanel.find('div.map-list table').get(0);
+                        var grid = [];
+                        for(var r=0;r<table.rows.length;r++){ //header row = rank; plot name; plot units
+                            grid.push([table.rows[r].cells[0].innerHTML.replace('<br>',''), table.rows[r].cells[1].innerHTML, table.rows[r].cells[2].innerHTML]);
+                        }
+                        downloadMadeFile({   //does the highcharts trick to download a file
+                            filename: oGraph.title,
+                            data: JSON.stringify([{name: 'ranked list', grid: grid}]),
+                            url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
+                        });
+                    });
+            }
+            if(oGraph.mapsets){
+                units = calculatedMapData.mapUnits;
+                var regionData = getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
+                for(id in regionData){
+                    if(regionData[id] !== null){
+                        list.push({name: $map.getRegionName(id), value: regionData[id]});
+                    }
+                }
+            } else { //pointsets only if no map sets
+                if (calculatedMapData.fillUnits) { //fill over radius
+                    units = calculatedMapData.fillUnits;
+                    attr = 'f';
+                } else {
+                    units = calculatedMapData.radiusUnits;
+                    attr = 'r';
+                }
+                var markerData = getMapDataByContainingDate(calculatedMapData.markerData, calculatedMapData.dates[val].s);
+                for(id in markerData){
+                    if(markerData[id][attr] !== null){
+                        list.push({name: calculatedMapData.markers[id], value: markerData[id][attr]});
+                    }
+                }
+            }
+            list.sort(function(a,b){return b.value - a.value;});
+
+
+            var html='<table><thead><th>Rank <br>' + $thisPanel.find('div.map-date').html() + '</th><th>' + calculatedMapData.title + '</th><th>' + units + '</th></thead><tbody>';
+            for(var i=0;i<list.length;i++){
+                html += '<tr><td>'+ (i+1) +'</td><td>'+ list[i].name +'</td><td>'+ list[i].value +'</td></tr>';
+            }
+            html += '</tbody></table>';
+
+            $thisPanel.find('div.map-list').find('table').remove().end().append(html).show();
         }
         function makeLegend(map){
             var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;
@@ -3138,17 +3238,17 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
             } else regionLegendWidth=0;
 
-/*for markers, we need to know if how many pointset attribute are fill and how many are area:
-            area=1 & fill=0: show filled min and max circles only with unit label
-            area>1 & fill=0: show hollow min and max circles with units + colored fixed-radius circles with names
-            area=0 & fill>0: color scale with units
-            area>0 & fill>0: show hollow min and max circles with units + color scale with units
-legend components:
-    1. solid fix-radius circle with names iff area>1 & fill=0
-    2. min & max cicles iff area>0
-    2b. never fill the scale circles XXXfill min and max iif (area=1 & fill=0)
-    3. show color scale iff fill>0
-*/
+            /*for markers, we need to know if how many pointset attribute are fill and how many are area:
+             area=1 & fill=0: show filled min and max circles only with unit label
+             area>1 & fill=0: show hollow min and max circles with units + colored fixed-radius circles with names
+             area=0 & fill>0: color scale with units
+             area>0 & fill>0: show hollow min and max circles with units + color scale with units
+             legend components:
+             1. solid fix-radius circle with names iff area>1 & fill=0
+             2. min & max cicles iff area>0
+             2b. never fill the scale circles XXXfill min and max iif (area=1 & fill=0)
+             3. show color scale iff fill>0
+             */
             var areaCount = areaScalingCount(oGraph.pointsets), fillCount = fillScalingCount(oGraph.pointsets);
             if(oGraph.pointsets) {
                 markerLegendWidth=185;
@@ -3235,7 +3335,7 @@ legend components:
             }
             if(oGraph.pointsets){
                 if(areaCount>1 && fillCount==0){
-                //POINTSET LABELS
+                    //POINTSET LABELS
                     each(oGraph.pointsets, function(i){
                         if(this.options.attribute!='fill'){
                             y = (i+1)*(spacer+2*standardRadius)-standardRadius;
@@ -3252,7 +3352,7 @@ legend components:
                     });
                 }
                 if(areaCount>0){
-                //RADIUS SCALING
+                    //RADIUS SCALING
                     y += spacer+(smallRadius||5);
                     var MarkerSizeAttributes = {
                         'fill-opacity': 0,
@@ -3590,26 +3690,7 @@ function visiblePanelId(){  //uniform way of getting ID of active panel for user
         return null;
     }
 }
-function periodWidth(period){
-    switch(period){
-        case "N":
-            return 1;
-        case "D":
-            return 24*3600*1000;
-        case "W":
-            return 7*24*3600*1000;
-        case "M":
-            return 30*24*3600*1000;
-        case 'Q':
-            return 3*30*24*3600*1000;
-        case 'SA':
-            return 365*24*3600*1000/2;
-        case "A":
-            return 365*24*3600*1000;
-        default:
-            return null
-    }
-}
+
 function UTCFromReadableDate(dateString){
     var pat, dt = new Date(dateString + " UTC");  //this should work for year, month, day, and hours
     if(dt.toString()!="NaN")return dt;
