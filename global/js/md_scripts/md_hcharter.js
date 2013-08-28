@@ -69,13 +69,24 @@ window.MashableData = { //mashableData namespace
     bookmarks: [],
     recents: [],
     series: {},
+    seriesXferCount: 0,
+    seriesXfered: 0,
     regDQuotes: /"/g, //by including here, the regex is compiled only once
     iframe_load: function (){  //post any backlogged messages and indicate state
         var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow;
         this.iframe_loaded = true; //global variable to indicate state
+        if (window.addEventListener){  //standard compliant browsers (Chrome, FireFire, Safari...)
+            window.addEventListener('message', this.receiveReply, false);
+        } else if (window.attachEvent){  //Internet Explorer
+            window.attachEvent('message', this.receiveReply);
+        }
         for(var i=0;i<MashableData.aMsg.length;i++){
             mdFrame.postMessage(MashableData.aMsg[i], 'http://www.mashabledata.com/secure_xfer.php');
         }
+    },
+    receiveReply: function(event){
+        if(event.origin.toLowerCase().indexOf(".mashabledata.com")!=-1) MashableData.seriesXfered++;
+        if(MashableData.seriesXfered == MashableData.seriesXferCount && MashableData.OKToNavigate) MashableData.navigate();
     },
     calcSeriesInfo:  function(PointArray){
         var oSereiesInfo = {
@@ -214,13 +225,14 @@ window.MashableData = { //mashableData namespace
             jQuery('body').append('<div id="md_frame_holder" style="display:none"><iframe id="mashabledata_secure_xfer" onload="MashableData.iframe_load()" src="http://www.mashabledata.com/secure_xfer.php"></iframe></div>');
             this.iframeRequested = true;
         }
-        if(this.iframe_loaded){ // this handles slow iFrame loads.  If not loaded, than store message until md_iframe_load fires
+        if(this.iframe_loaded){ // this handles the delay in loading the iFrame.  If not loaded, than store message until md_iframe_load fires
             var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow;
             mdFrame.postMessage(JSON.stringify(serie), 'http://www.mashabledata.com/secure_xfer.php');
         } else {
             this.aMsg.push(JSON.stringify(serie))
         }
     },
+    navigate: function(){window.location.href="http://www.mashabledata.com/workbench"},
     loadAllSeries: function(){
         var i;
         if(this.recentsKey!=localStorage.md_recents){
@@ -338,8 +350,8 @@ window.MashableData = { //mashableData namespace
             .each(function(){
                 var $th = jQuery(this), thIndex = $th.index(), inverse = false;
                 $th.click(function(){
-                    var table = $th.closest('div').find('div.mashabledata_scroll table');
-                    table.find('td').filter(function(){
+                    var $table = $th.closest('div').find('div.mashabledata_scroll table');
+                    $table.find('td').filter(function(){
                         return jQuery(this).index() === thIndex;
                     }).sortElements(function(a, b){
                             if( jQuery.text([a]) == jQuery.text([b]) )
@@ -403,7 +415,7 @@ window.MashableData = { //mashableData namespace
                 //2A. first remove
                 for(var i=0;i<chart.series.length;i++){
                     if(chart.series[i].options.md_key && checkedKeys.indexOf(chart.series[i].options.md_key)==-1){
-                        chart.series[i--].remove();  //need to backup one to account for the change in the series array
+                        chart.series[i--].remove(false);  //need to backup one to account for the change in the series array
                     }
                 }
                 //2B. now add
@@ -418,7 +430,7 @@ window.MashableData = { //mashableData namespace
                                 title: {
                                     text: series.units || 'values'
                                 }
-                            });
+                            }, false, false);
                         }
                         chart.addSeries({
                             name: series.name,
@@ -426,23 +438,21 @@ window.MashableData = { //mashableData namespace
                             mash: true,
                             md_key: checkedKeys[i],
                             yAxis: y
-                        });
+                        }, false);
                     }
                 }
                 //3. remove any unused yAxis
                 for(y=chart.yAxis.length-1;y>=0;y--){ //check for and add y-axis not have not series
-                    if(chart.yAxis[y].series.length==0) chart.yAxis[y].remove();
+                    if(chart.yAxis[y].series.length==0) chart.yAxis[y].remove(false);
                 }
-
+                chart.redraw();
             } else {
                 //3. if MD, post checked series and open in new page
                 for(i=0;i<checkedKeys.length;i++){
+                    self.seriesXferCount++;
                     self.postSeries(self.series[checkedKeys[i]]);
                 }
-                window.location.href="http://www.mashabledata.com/workbench";
-                //$panel.find('#mashableddata_workbench').click();
-
-
+                if(self.seriesXferCount==self.seriesXfered) self.navigate(); else self.OKToNavigate = true;
             }
             closePanel();
         });

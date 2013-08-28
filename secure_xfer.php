@@ -10,10 +10,7 @@
     <h4 style="color:#CCCCCC">Sharing data and visualizations across the web</h4>
   </div>
   This page securely performs a one-way transfer of data series to the localStorage assigned to www.mashabledata.com by HTML5 compliant browsers at your request to the MashableData chart plugin.  No data is transmitted by this page across the internet or stored externally to this computer by ths script.
-<!--div id="ls"></div-->
 <script language="javascript" type="text/javascript">
-
-
 // Add ECMA262-5 Array methods if not supported natively
 //  indexOf not native to IE8
 if (!('indexOf' in Array.prototype)) {
@@ -66,11 +63,11 @@ function receiveMessage(event) {
         replyWithId(storageKey);  // notify calling window of success with the lId
         window.localStorage.setItem('newSeries', JSON.stringify(seriesIndex));
     }
+    function replyWithId(reply){
+        event.source.postMessage(reply, event.origin);
+    }
 }
 
-function replyWithId(reply){
-    event.source.postMessage(reply, event.origin);
-}
 
 </script>
 <?php
