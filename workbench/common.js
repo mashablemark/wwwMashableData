@@ -57,8 +57,8 @@ function dateConversionData(key, jsStart, jsEnd){
     var data = '', altStart;
     var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
     var today = new Date();
-    switch(key.toUpperCase()){
-        case "DAYSPERMONTH":
+    switch(key.toUpperCase()){ //time series: apiid = 7; root catid = 382243
+        case "DAYSPERMONTH": //seriesid = 5258277
             if(jsEnd){
                 jsEnd = new Date(jsEnd.getUTCFullYear() + '-' + (jsEnd.getUTCMonth()+1) + '-01 UTC');
             } else {
@@ -74,7 +74,7 @@ function dateConversionData(key, jsStart, jsEnd){
                 data += (data?'||':'') + mashableDate(jsStart.getTime(), 'M') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay);
             }
             break;
-        case "DAYSPERQUARTER":
+        case "DAYSPERQUARTER":  //seriesid = 5258276
             if(jsEnd){
                 jsEnd = new Date(jsEnd.getUTCFullYear() + '-' + (jsEnd.getUTCMonth()+3) + '-01 UTC');
             } else {
@@ -90,7 +90,7 @@ function dateConversionData(key, jsStart, jsEnd){
                 data += (data?'||':'') + mashableDate(jsStart.getTime(), 'Q') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay);
             }
             break;
-        case "DAYSPERYEAR":
+        case "DAYSPERYEAR":  //seriesid = 5258275
             jsEnd = jsEnd || new Date(today.getUTCFullYear() + '-01-01 UTC');
 
 

@@ -336,25 +336,13 @@ switch($command){
     case "GetPublicGraph":  //data and all: the complete protein!
         $ghash =  $_POST['ghash'];
         if(strlen($ghash)>0){
-            $output = getGraphs(0, $ghash); //gets everything except the mapsets and pointsets
+            $output = getGraphs(0, $ghash);
 
             if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
             } else {
                 $output['userid'] = null;  //cannot save graph; only save as a copy
             }
-            /*foreach($output['graphs'] as $ghandle => $oGraph){
-                if($oGraph["map"]!=null && $oGraph["map"]!=""){
-                    if($mapsets){
-                        $mapsets = getGraphMapSets($oGraph["gid"], $oGraph["map"]);
-                        $output['graphs'][$ghandle]['mapsets'] = $mapsets;
-                    }
-                    if($pointsets){
-                        $pointsets = getPointSets($oGraph["gid"], $oGraph["map"]);
-                        $output['graphs'][$ghandle]['pointsets'] = $pointsets;
-                    }
-                }
-            }*/
         } else {
             $output = array("status"=>"The graph requested not available.  The author may have unpublished or deleted it.");
         }

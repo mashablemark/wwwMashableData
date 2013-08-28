@@ -499,8 +499,14 @@ div.map-list {
     overflow-x: auto;
 }
 div.map-list button{
-    margin: 2px 10px 2px 200px;
+    margin: 2px 10px;
 }
+
+div.map-list div{
+    margin: 2px 10px;
+    display: inline-block;
+}
+
 div.map-list th{
     color: #ffffff;
     background-color: #000000;
@@ -1189,6 +1195,7 @@ table.dataTable td.title:hover{
     color:#888;
 }
 #series-tabs li, #local-series, #cloud-series, #myGraphs, #publicGraphs{
+    background-image: none;
 }
 
 #cloud-series-search {
@@ -1291,6 +1298,12 @@ div.annotations fieldset{
 
 table.annotations{
     border-spacing: 0;
+}
+.context-menu-item.disabled {
+    color: #888;
+}
+li.delete-item{
+    color: red;
 }
 div.searchability span.ui-button-text{
     overflow: hidden;

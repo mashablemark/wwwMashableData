@@ -96,7 +96,7 @@ defaultOptions.exporting = {
 	//enabled: true,
 	//filename: 'chart',
 	type: 'image/png',
-	url: 'http://export.highcharts.com/',
+	url: 'http://www.mashabledata.com/workbench/export/index.php',  //need index.php for some reason, perhaps becuase of WordPress
 	//width: undefined,
 	//scale: 2
 	buttons: {

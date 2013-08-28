@@ -274,11 +274,13 @@ function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, A
                 };
                 if(onPoint && pointSelected.series.options.calculatedFrom && pointSelected.series.options.id.substr(0,2)=='LR') {
                     mnu.items.regression.name = "delete linear regression";
+                    mnu.items.regression.className ="delete-item";
                     isRegression = true;
                     delete mnu.items.avg;
                 }
                 if(onPoint && pointSelected.series.options.calculatedFrom && pointSelected.series.options.id.substr(0,2)=='AV') {
                     mnu.items.avg.name = "delete average";
+                    mnu.items.avg.className ="delete-item";
                     isAverage = true;
                     delete mnu.items.regression;
                 }
@@ -562,8 +564,8 @@ function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a
             callApi({command: 'GetPublicGraph', ghash: id},
                 function(oReturn, textStatus, jqXH){
                     for(var ghandle in oReturn.graphs){
-                        mdGraph = oReturn.graphs[ghandle]
-                        delete mdGraph.gid;  //user must save a copy as their own
+                        mdGraph = oReturn.graphs[ghandle];
+                        //user must save a copy as their own if graph.userid <> this user (enforced in API)
                         inflateGraph(mdGraph);
                         createGraph();
                     }
@@ -649,7 +651,8 @@ function makeChartOptionsObject(oGraph){
         legend: { enabled : true},
         credits: {
             enabled: true,
-            text: ""
+            text: "created with MashableData.com",
+            url:  'https://www.mashabledata.com'
         },
         series: [],
         title: {
@@ -672,7 +675,11 @@ function makeChartOptionsObject(oGraph){
     }
     //loop through the data rows
     var lineIndex = 0;
-
+    eachComponent(oGraph, function(i){
+        if(oGraph.assets[this.handle].src == 'MashableData'){
+            oGraph.assets[this.handle].data = dateConversionData(oGraph.assets[this.handle].skey, oGraph.firstdt, oGraph.lastdt);
+        }
+    });
     for(i=0;i<oGraph.plots.length;i++){
         var oPlot = oGraph.plots[i];
         var oSerie = createSerieFromPlot(oGraph, i);
@@ -1053,6 +1060,7 @@ function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper woul
     return symbol;
 }
 function makeDataGrid(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
+    console.time("makeDataGrid");
     var hasMap, hasChart, m, r, i, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
     var oGraph = oPanelGraphs[panelId];
     var assets = oGraph.assets;
@@ -1242,7 +1250,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                         if(mapData.regionData[mapData.dates[i].s]) {
                             jsdt = mapData.dates[i].dt;
                             mdDate = mapData.dates[i].s;
-                            for(row=rowPosition.dataStart;row<grid.length;r++){  //find the row on which the dates line up
+                            for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
                                 if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
                                 if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row
                                     grid.splice(row,0,new Array(grid[0].length));
@@ -1326,6 +1334,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
             }
             break;
     }
+    console.timeEnd("makeDataGrid");
     for(row=rowPosition.dataStart;row<grid.length;row++){
         grid[row][0] = grid[row][0].s;  //replace the object with its MDdate string
     }
@@ -1371,12 +1380,14 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
 }
 
 function makeTableFromArray(grid){
+    console.time("makeTableFromArray");
     var r, c;
     if(grid[rowPosition.lat_lon].join('')=='lat, lon:') grid.splice(rowPosition.lat_lon,1);
     if(grid[rowPosition.region].join('')=='region code:') grid.splice(rowPosition.region,1);
     for(r=0;r<grid.length;r++){
         grid[r] = '<tr><td>' + grid[r].join('</td><td>') + '</td></tr>';
     }
+    console.timeEnd("makeTableFromArray");
     return '<table class="data-grid">' + grid.join('') + '</table>';
 }
 
@@ -2034,7 +2045,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         destroyChartObject(panelId);
     }
     var $thisPanel = $('#' + panelId);
-    var annotations = new AnnotationsController(panelId);
+    var annotations = new AnnotationsController(panelId, makeDirty);
     console.timeEnd('buildGraphPanel:header');
     console.time('buildGraphPanel:timeEnd');
     $thisPanel.html(
@@ -2103,10 +2114,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<a title="tooltip" class="md-csv rico">CSV</a>' +
             //'<a class="md-xls rico">Excel</a><br>' +
             ' Image: ' +
-            '<a title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</a>' +
-            //'<a title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</a>' +
-            '<a title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</a>' +
-            '<a title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</a>' +
+            '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
+            //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
+            '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
+            '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
             '</fieldset>' +
             '</div>' +
             '<div class="sharing">' +
@@ -2145,7 +2156,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<span class="right"><label><input type="checkbox" class="map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
             '</div>' +
             '</div>' +
-            '<div height="75px"><textarea style="width:100%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
+            '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
             '</div>' +
             '</div>');
     var chart;
@@ -2177,7 +2188,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     $thisPanel.find('.graph-data-inner')
         .tabs({
             beforeActivate: function( event, ui ) {
+
+                console.timeEnd("complete grid data into table");
                 ui.newPanel.html(makeTableFromArray(makeDataGrid(panelId, ui.newPanel.attr('data'), calculatedMapData)));
+                console.timeEnd("complete grid data into table");
             }
         })
         .tabs(oGraph.plots?"enable":"disable",0)
@@ -2233,10 +2247,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     // calling the API ...
                     var obj = {
                         method: 'feed',
-                        link: 'http://www.mashabledata.com/workbench?t=g&graphcode='+ oPanelGraphs[panelId].ghash,
-                        picture: 'http://www.mashabledata.com/logo', // chartInfo.imageURL,
+                        link: 'http://www.mashabledata.com/workbench#/t=g1&graphcode='+ oPanelGraphs[panelId].ghash,
+                        picture: chartInfo.imageURL,
                         message: body,
-                        name: 'Facebook Dialogs',
+                        name: 'MashableData visualization',
                         caption: caption,
                         description: body
                     };
@@ -3135,7 +3149,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
                     makeDirty();
                 });
+
             var gLegend;
+            if(oGraph.mapconfig.showLegend) gLegend = makeLegend($map);
             $thisPanel.find('.legend').change(function(){
                 oGraph.mapconfig.showLegend = ($(this).prop('checked'));
                 makeDirty();
@@ -3145,6 +3161,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     gLegend.remove();
                 }
             });
+
             $thisPanel.find('input.map-list').change(function(){
                 oGraph.mapconfig.showList = ($(this).prop('checked'));
                 makeDirty();
@@ -3154,26 +3171,20 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     $thisPanel.find('div.map-list').remove();
                 }
             });
-            if(oGraph.mapconfig.showList) gLegend = makeList($map);
-            $thisPanel.find('div.map-list .download-map-list').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
-                var table = $thisPanel.find('div.map-list table').get(0);
-                var grid = [];
-                for(var r=0;r<table.rows.length;r++){ //header row = plot name; plot units
-                    grid.push([table.rows[r].cells[0], table.rows[r].cells[1]]);
-                }
-                downloadMadeFile({   //does the highcharts trick to download a file
-                    filename: oGraph.title,
-                    data: JSON.stringify([{name: 'ranked list', grid: grid}]),
-                    url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
-                });
-            });
+            if(oGraph.mapconfig.showList) makeList($map);
         }
 
         function makeList(map){
             var list = [], id, units, attr;
             if($thisPanel.find('div.map-list').length==0){
                 $thisPanel.find('div.jvmap')
-                    .prepend('<div class="map-list"><button class="download-map-list">download list to Excel</button></div>')
+                    .prepend('<div class="map-list">'
+                        + '<div class="order">'
+                            + '<input type="radio" id="'+panelId+'-map-list-order-asc" name="'+panelId+'-map-list-order" value="asc" '+(oGraph.mapconfig.listOrder!='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-asc">ascending</label>'
+                            + '<input type="radio" id="'+panelId+'-map-list-order-desc" name="'+panelId+'-map-list-order" value="desc" '+(oGraph.mapconfig.listOrder=='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-desc">descending</label>'
+                        + '</div>'
+                        + '<button class="download-map-list">download list to Excel</button>'
+                    + '</div>')
                     .find('div.map-list .download-map-list').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
                         var table = $thisPanel.find('div.map-list table').get(0);
                         var grid = [];
@@ -3185,7 +3196,13 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             data: JSON.stringify([{name: 'ranked list', grid: grid}]),
                             url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
                         });
-                    });
+                    })
+                    .end().find('div.map-list div.order').buttonset()
+                    .find('input:radio').click(function(){
+                        oGraph.mapconfig.listOrder = $(this).val();
+                        makeList($map);
+                    }
+                );
             }
             if(oGraph.mapsets){
                 units = calculatedMapData.mapUnits;
@@ -3210,7 +3227,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                 }
             }
-            list.sort(function(a,b){return b.value - a.value;});
+            list.sort(function(a,b){return (oGraph.mapconfig.listOrder=='desc'?-1:1)*(b.value - a.value);});
 
 
             var html='<table><thead><th>Rank <br>' + $thisPanel.find('div.map-date').html() + '</th><th>' + calculatedMapData.title + '</th><th>' + units + '</th></thead><tbody>';
@@ -3231,9 +3248,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 } else {
                     regionLegendWidth=100;
                     if(oGraph.calculatedMapData.regionMin<0 && oGraph.calculatedMapData.regionMax>0) { //spans?
-                        regionHeight = 6*spacer+2*80+3*lineHeight; //yes = need two continuous scale segments
+                        regionHeight = 6*spacer+2*80+4*lineHeight; //yes = need two continuous scale segments
                     } else {
-                        regionHeight = 4*spacer+80+2*lineHeight;  //no = just one continuous scale segment
+                        regionHeight = 4*spacer+80+3*lineHeight;  //no = just one continuous scale segment
                     }
                 }
             } else regionLegendWidth=0;
@@ -3331,8 +3348,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         'z-index': 1000
                     }).add();
                 }
-
             }
+
             if(oGraph.pointsets){
                 if(areaCount>1 && fillCount==0){
                     //POINTSET LABELS
@@ -3370,7 +3387,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     hcr.text(oGraph.calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + spacer).css({fontSize: '12px'}).add();
                 }
             }
+
             if(oGraph.mapsets){
+                hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+
                 if(oGraph.mapsets.options.scale == 'discrete'){
                     for(i=0;i<oGraph.mapsets.options.discreteColors.length;i++){
                         y = spacer + (oGraph.mapsets.options.discreteColors.length-i)*(spacer+20);
@@ -3383,7 +3403,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         hcr.text((i==oGraph.mapsets.options.discreteColors.length-1?'&gt; ':' ')+oGraph.mapsets.options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     }
                 } else {
-                    y = spacer;
+                    //y = spacer;
+                    y += 2*lineHeight;
                     hcr.text(formatRationalize(oGraph.calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
 
@@ -3403,8 +3424,6 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     hcr.text(formatRationalize(oGraph.calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                     y += lineHeight + spacer;
                 }
-                hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
-
             }
             return gLegend;
         }
@@ -3754,7 +3773,7 @@ function nextDate(dt, period){ //return a Javascript date object
 }
 var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function formatDateByPeriod(val, period) { //helper function for the data tables
-    if(isNaN(val)==false) {
+    if(isNaN(val)==false && val !== null) {
         var dt = new Date(parseInt(val));
         switch(period){
             case 'A': return dt.getUTCFullYear();
@@ -3768,7 +3787,7 @@ function formatDateByPeriod(val, period) { //helper function for the data tables
     }
     else
     {
-        return null;
+        return '-';
     }
 }
 function calcGraphMinMaxZoomPeriod(oGraph){

@@ -10,7 +10,7 @@ var BAND_TRANSPARENCY = 0.5;
 var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
 var standardAnnotations = [];  //filled by API call on first use
 
-function AnnotationsController(panelId){
+function AnnotationsController(panelId, makeDirty){
     var controller  = {
         panelId: panelId,
         $panel: $('#'+panelId),
@@ -19,6 +19,7 @@ function AnnotationsController(panelId){
         banding: false,
         bandStartPoint: void(0),
         standards: standardAnnotations,
+        makeDirty: makeDirty,
         addStandard: function addStandardAnnotation(annoid){
             var self = this;
             callApi({command: "GetAnnotation", annoid: annoid}, function(data){
@@ -379,7 +380,7 @@ function AnnotationsController(panelId){
             })
         },
         deleteAnalysis: function(pointSelected){
-            var fromX, toX, i, analyses, plotId = pointSelected.series.options.regression;
+            var fromX, toX, i, analyses, plotId = pointSelected.series.options.calculatedFrom;
             var analysisType = pointSelected.series.options.id.substr(0,2);
             if(plotId){
                 fromX = pointSelected.series.data[0][0];
@@ -393,6 +394,7 @@ function AnnotationsController(panelId){
                         analyses = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.averages;
                         break;
                 }
+                this.makeDirty();
                 for(i=0;i<analyses.length;i++){
                     if(analyses[i][0]==toX && analyses[i][1]==fromX){
                         analyses.splice(i,1);
@@ -524,6 +526,7 @@ function AnnotationsController(panelId){
                             plotOptions.averages.push([fromX, toX]);
                             break;
                     }
+                    self.makeDirty();
                 } else {
                     dialogShow("Error","The starting point and ending points must be different." );
                 }
@@ -578,6 +581,7 @@ function AnnotationsController(panelId){
                                                     });
                                                     self.build('table-only');  //redraw the annotation table only
                                                     self.banding = false;
+                                                    self.makeDirty();
                                                     break;
                                                 }
                                             }
@@ -601,16 +605,17 @@ function AnnotationsController(panelId){
                 }
             }
         },
-        plotAnnotationSeries: function(){  //COPIED DIRECTLY FROM md_hcharter.js.  NEEDS ADAPTING
+        plotAnnotationSeries: function(){
             var p, i, LR, AV;
             var chart = oHighCharts[panelId];
             var oGraph = oPanelGraphs[panelId];
+            var start = oGraph.start||(oGraph.intervals?intervalStartDt(oGraph):oGraph.firstdt);
             if(oGraph.plots && oGraph.plots.length>0){
                 for(p=0;p<oGraph.plots.length;p++){
                     if(oGraph.plots[p].options.linRegressions){
                         for(i=0;i<oGraph.plots[p].options.linRegressions.length;i++){
                             LR = oGraph.plots[p].options.linRegressions[i];
-                            if((LR[0]>=parseInt(oGraph.start||oGraph.firstdt) && LR[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (LR[1]>=parseInt(oGraph.start||oGraph.firstdt) && LR[1]<=parseInt(oGraph.to||oGraph.lastdt))){
+                            if((LR[0]>=start && LR[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (LR[1]>=start && LR[1]<=parseInt(oGraph.to||oGraph.lastdt))){
                                 this.plotLinearRegression(chart.get("P"+p), LR[0], LR[1]);
                             }
                         }
@@ -618,7 +623,7 @@ function AnnotationsController(panelId){
                     if(oGraph.plots[p].options.averages){
                         for(i=0;i<oGraph.plots[p].options.averages.length;i++){
                             AV = oGraph.plots[p].options.averages[i];
-                            if((AV[0]>=parseInt(oGraph.start||oGraph.firstdt) && AV[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (AV[1]>=parseInt(oGraph.start||oGraph.firstdt) && AV[1]<=parseInt(oGraph.to||oGraph.lastdt))){
+                            if((AV[0]>=start && AV[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (AV[1]>=start && AV[1]<=parseInt(oGraph.to||oGraph.lastdt))){
                                 this.plotAverage(chart.get("P"+p), AV[0], AV[1]);
                             }
                         }
@@ -685,7 +690,7 @@ function AnnotationsController(panelId){
                 color: series.color,
                 data: [],
                 id: "LR"+this.bandNo++,
-                fromPlot: series.options.id,
+                calculatedFrom: series.options.id,
                 shadow: false,
                 marker: {enabled: false}
             };
@@ -725,7 +730,7 @@ function AnnotationsController(panelId){
                 color: series.color,
                 data: [],
                 id: "AV"+this.bandNo++,
-                fromPlot: series.options.id,
+                calculatedFrom: series.options.id,
                 shadow: false,
                 marker: {enabled: false}
             };
