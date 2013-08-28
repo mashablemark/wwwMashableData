@@ -57,6 +57,7 @@ function logEvent($command, $sql){
         $db->query($log_sql);
     }
 }
+
 function safeRequest($key){
     if(isset($_REQUEST[$key])){
         $val = $_REQUEST[$key];

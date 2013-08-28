@@ -998,10 +998,9 @@ switch($command){
             $local_handle = $series[$i]['handle'];
             $series_name = $series[$i]['name'];
             $graph_title =  $series[$i]['graph'];
-            $units = $series[$i]['units'];
-            $skey = $series[$i]['skey'];
+            $units = isset($series[$i]['units'])?$series[$i]['units']:'';
+            $skey = isset($series[$i]['skey'])?$series[$i]['skey']:'';
             $url = $series[$i]['url'];
-            $src = $series[$i]['src'];
             $periodicity = $series[$i]['period'];
             $capture_dt = $series[$i]['save_dt'];
             $data = $series[$i]['data'];
@@ -1016,6 +1015,7 @@ switch($command){
             $l2domain = substr($full_domain, 0, $period);
             $period = strrpos($l2domain,".");
             if($period){$l2domain = substr($l2domain, $period+1);}
+            $src = isset($series[$i]['src'])?$series[$i]['src']:$l2domain.".".$l1domain;
             //see if user has already uploaded this one:
             $sql = "SELECT seriesid, data FROM series WHERE name='" . $db->real_escape_string ($series_name) . "' and title = '" . $db->real_escape_string ($graph_title)
                 . "' and url = '" . $db->real_escape_string ($url) . "' and periodicity = '" . $db->real_escape_string ($periodicity)
