@@ -51,6 +51,7 @@
     <script type="text/javascript" src="js/highcharts.js"></script>
     <script type="text/javascript" src="js/exporting.src.js"></script>
     <script type="text/javascript" src="js/jquery.colorPicker.js"></script>
+    <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
     //Group for user series edit
     <script type="text/javascript" src="js/jquery.handsontable.js"></script>
     <script  type="text/javascript" src="js/jquery.contextMenu.js"></script>

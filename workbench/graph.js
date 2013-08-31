@@ -1,6 +1,6 @@
 //GLOBAL VARIABLES mce
 
-var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000', MID: '#CCCCCC'};
+var MAP_COLORS = {POS: '#0071A4', NEG: '#FF0000', MID: '#E5E5E5'};
 var DEFAULT_RADIUS_SCALE = 30; //(px) used for both bubble maps and marker maps
 var DEFAULT_RADIUS_FIXED = 10; //size of marker using full scaling and fixed radius
 var hcColors = [
@@ -1588,7 +1588,7 @@ function calcMap(graph){
                     geo = sortedGeoList[i].geo;
                     id = compSymbols[j]+'_'+i;
                     asset = graph.assets[components[j].handle];
-                    if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+(asset.maps?asset.data[geo].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+(asset.maps?asset.data[geo].notes:asset.notes)+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
+                    if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
                     if(components[j].handle[0]=='M'){
                         row[id] = oComponentData[dateKey][compSymbols[j]][geo];
                     } else {
@@ -1598,14 +1598,13 @@ function calcMap(graph){
                 }
                 if(hasCalc){
                     if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
-                    if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
                     row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
                 }
             }
             regionRows.push(row);
             firstDateKey = false;
         }
-        regionRows.sort(function(a,b){return b.order- a.order});
+        regionRows.sort(function(a,b){return b.order - a.order});
         console.timeEnd('makeRegionDataObject');
     }
     var fillUnits, radiusUnits;
@@ -1835,10 +1834,22 @@ function calcAttributes(graph){
             rgb = {
                 pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
                 neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
-                posMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
-                negMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
+                //posMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
+                //negMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
                 mid: makeRGB(MAP_COLORS.MID)
             };
+
+            var posRGB = new RGBColour(rgb.pos.r, rgb.pos.b, rgb.pos.g);
+            var posHSV = posRGB.getHSV();
+            var posMid = new HSVColour(posHSV.h, 10, 90);
+            var posMidRGB = posMid.getIntegerRGB();
+            rgb.posMid = {r: posMidRGB.r, g:posMidRGB.g, b: posMidRGB.b};
+
+            var negRGB = new RGBColour(rgb.neg.r, rgb.neg.b, rgb.neg.g);
+            var negHSV = negRGB.getHSV();
+            var negMid = new HSVColour(negHSV.h, 10, 90);
+            var negMidRGB = negMid.getIntegerRGB();
+            rgb.negMid = {r: negMidRGB.r, g:negMidRGB.g, b: negMidRGB.b};
         }
         for(i=calcData.startDateIndex;i<=calcData.endDateIndex;i++){
             dateKey = calcData.dates[i].s;
@@ -1852,11 +1863,11 @@ function calcAttributes(graph){
                             if(y==0 && spans) {
                                 calcData.regionColors[dateKey][geo] = MAP_COLORS.MID;
                             } else {
-                                if(spans){
+                                //if(spans){
                                     calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos);
-                                } else {
-                                    calcData.regionColors[dateKey][geo] = colorInRange(y, min, max, Math.min(min,max)<0?rgb.neg:rgb.mid, Math.min(min,max)<0?rgb.mid:rgb.pos);
-                                }
+                                //} else {
+                                //    calcData.regionColors[dateKey][geo] = colorInRange(y, min, max, Math.min(min,max)<0?rgb.neg:rgb.mid, Math.min(min,max)<0?rgb.mid:rgb.pos);
+                                //}
                             }
                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
                             for(j=0;j<mapOptions.discreteColors.length;j++){
@@ -1917,11 +1928,21 @@ function calcAttributes(graph){
                 rgb = {
                     pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
                     neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
-                    posMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
-                    negMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
+                    posMid: {}, //makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
+                    negMid: {}, //makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
                     mid: makeRGB(MAP_COLORS.MID)
                 };
-                //rgb =  makeRGB(graph.mapconfig.maxMarkerColor||MAP_COLORS.POS);
+                var posRGB = new RGBColour(rgb.pos.r, rgb.pos.b, rgb.pos.g);
+                var posHSV = posRGB.getHSV();
+                var posMid = new HSVColour(posHSV.h, 10, 90);
+                var posMidRGB = posMid.getIntegerRGB();
+                rgb.posMid = {r: posMidRGB.r, g:posMidRGB.g, b: posMidRGB.b};
+
+                var negRGB = new RGBColour(rgb.neg.r, rgb.neg.b, rgb.neg.g);
+                var negHSV = negRGB.getHSV();
+                var negMid = new HSVColour(negHSV.h, 10, 90);
+                var negMidRGB = negMid.getIntegerRGB();
+                rgb.negMid = {r: negMidRGB.r, g:negMidRGB.g, b: negMidRGB.b};
             }
         }
         //3B. create attributes
