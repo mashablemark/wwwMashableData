@@ -17,6 +17,7 @@
     <link  rel="stylesheet" href="md_workbench.css" />
     <link rel="stylesheet" href="js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css" type="text/css">
+    <link rel="stylesheet" href="/global/js/slickgrid/slick.grid.css" type="text/css">
 
     <!--Google API JavaScript files-->
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
@@ -41,6 +42,9 @@
     <script type="text/javascript" src="provenance.js"></script>
 
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
+    <script type="text/javascript" src="/global/js/slickgrid/jquery.event.drag-2.0.min.js"></script>
+    <script type="text/javascript" src="/global/js/slickgrid/slick.core.js"></script>
+    <script type="text/javascript" src="/global/js/slickgrid/slick.grid.js"></script>
 
     <!--immediate dynamic loading
     //Group for graph creation

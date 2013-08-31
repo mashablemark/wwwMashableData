@@ -956,10 +956,10 @@ div#public-mapset-radio{
     background-image: url(images/ui-icons_2e83ff_256x240.png);
     cursor:pointer;
 }
-.active {
+.active:not(.slick-cell) {
     background-image: url(images/ui-icons_222222_256x240.png) !important;
 }
-.active:hover {
+.active:not(.slick-cell):hover {
     border-color: #448dae;
     background-image: url(images/ui-icons_2e83ff_256x240.png) !important;
 }

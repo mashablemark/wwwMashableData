@@ -84,9 +84,9 @@ var rowPosition = {
     date: 6,
     dataStart: 7
 };
-var vectorPattern = /[SU]/;   //series or userseries handle test
+var vectorPattern = /[SU]/;   //series or user series handle test
 var handlePattern = /[MXSU]\d+/g;
-var patVariable = /(\b[A-Z]{1,2}\b)/g;  //used to search and replace formulaa to use a passed in values object
+var patVariable = /(\b[A-Z]{1,2}\b)/g;  //used to search and replace formula to use a passed in values object
 var SVGNS = "http://www.w3.org/2000/svg";
 var isIE = /msie/i.test(navigator.userAgent) && !window.opera;
 
@@ -1059,6 +1059,28 @@ function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper woul
     symbol += String.fromCharCode('A'.charCodeAt(0)+(compIndex%26));
     return symbol;
 }
+function makeSlickDataGrid(grids, panelId, $dataPanel){
+    var type = $dataPanel.attr('data');
+    if(grids[type]) grids[type].destroy();
+    var graph = oPanelGraphs[panelId];
+    var options = {
+        enableCellNavigation: true,
+        enableColumnReorder: false,
+        topPanelHeight: 180,
+        headerRowHeight: 100
+    };
+    switch(type){
+
+//CHART
+        case 'chart':
+            //adapt
+            break;
+        case 'regions':
+            grids[type] = new Slick.Grid($dataPanel, graph.calculatedMapData.regionGrid.data, graph.calculatedMapData.regionGrid.columns, options);
+            break;
+
+    }
+}
 function makeDataGrid(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
     console.time("makeDataGrid");
     var hasMap, hasChart, m, r, i, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
@@ -1429,14 +1451,21 @@ function calcMap(graph){
         compSymbols = [];
         geos={};
         components = mapset.components;
-        oComponentData = {};
+
+        //this is the christmas tree on which the all component values will be hung by symbol and whose branches will be feed to the evaluator
+        oComponentData = {};  //[mddate][symbol][geo]=value if mapset or [mddate][symbol]=value if time series
+        var sortedGeoList = [];
+
         for(i=0;i<components.length;i++ ){
             symbol = compSymbol(i);
             compSymbols.push(symbol); //calculate once and use as lookup below
-            //TODO: apply series transforms / down shifting here instead of just parroting series data
+            //TODO: apply any series down-shifting here instead of just parroting series data
             if(components[i].handle[0]=='M'){
                 for(geo in graph.assets[components[i].handle].data){
-                    geos[geo]=true;  //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
+                    if(!geos[geo]) { //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
+                        geos[geo]=true;
+                        sortedGeoList.push({geo: geo, name: graph.assets[components[i].handle].geoname});
+                    }
                     data = graph.assets[components[i].handle].data[geo].data.split("||");
                     for(j=0; j<data.length; j++){
                         point = data[j].split("|");
@@ -1460,7 +1489,7 @@ function calcMap(graph){
                 }
             }
         }
-
+        
         //2. calculate value for each date key (= grouped points)
         var required = !mapset.options.componentData || mapset.options.componentData=='required';  //default
         var missingAsZero =  mapset.options.componentData=='missingAsZero';
@@ -1542,6 +1571,42 @@ function calcMap(graph){
                 delete regionData[dateKey];
             }
         }
+
+        //3.create grid objects
+        //create a list of geographies sort by name
+        console.time('makeRegionDataObject');
+        var regionColumns = [{id: 'date', field: 'date', name:'name:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}];
+        var regionRows = [];
+        var hasCalc = (mapset.formula.formula != 'A')
+        sortedGeoList.sort(function(a,b){return (a.name> b.name);});
+        var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = plotName(graph, mapset), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
+        for(dateKey in regionData){
+            jsDateTime = dateFromMdDate(dateKey).getTime();
+            row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
+            for(i=0;i<sortedGeoList.length;i++){
+                for(j=0;j<compSymbols.length;j++ ){
+                    geo = sortedGeoList[i].geo;
+                    id = compSymbols[j]+'_'+i;
+                    asset = graph.assets[components[j].handle];
+                    if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+(asset.maps?asset.data[geo].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+(asset.maps?asset.data[geo].notes:asset.notes)+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
+                    if(components[j].handle[0]=='M'){
+                        row[id] = oComponentData[dateKey][compSymbols[j]][geo];
+                    } else {
+                        row[id] = oComponentData[dateKey][compSymbols[j]];
+                    }
+                    if(typeof row[id] == 'undefined') row[id] = '-';
+                }
+                if(hasCalc){
+                    if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                    if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                    row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
+                }
+            }
+            regionRows.push(row);
+            firstDateKey = false;
+        }
+        regionRows.sort(function(a,b){return b.order- a.order});
+        console.timeEnd('makeRegionDataObject');
     }
     var fillUnits, radiusUnits;
 
@@ -1562,7 +1627,7 @@ function calcMap(graph){
             for(j=0;j<components.length;j++ ){
                 symbol = compSymbol(j);
                 compSymbols.push(symbol); //calculate once and use as lookup below
-                //TODO: apply series transforms / down shifting here instead of just parroting series data
+                //TODO: apply any series down-shifting here instead of just parroting series data
                 if(components[j].handle[0]=='X'){
                     Xdata = graph.assets[components[j].handle].data; //shortcut
                     for(latlon in Xdata){
@@ -1728,6 +1793,7 @@ function calcMap(graph){
         markerData: markerData,  //
         dates: aMapDates,  // [{a: mdDate (string), dt: intval for js UTC date,  regionMin: (optional float), regionMax: (optional float), markerMin; (optional float), markerMax: (optional float)}]
         regionData: regionData,
+        regionGrid:{columns: regionColumns, data: regionRows},
         fillUnits: fillUnits,
         radiusUnits: radiusUnits
     };
@@ -2065,9 +2131,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
             '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
             '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">c-d</div>' +
-            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions">r-d</div>' +
-            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers">m-d</div>' +
+            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">chart-data</div>' +
+            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions">region-data</div>' +
+            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers">marker-data</div>' +
             '</div>' +
             '</div>' +
             '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
@@ -2159,7 +2225,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
             '</div>' +
             '</div>');
-    var chart;
+    var chart, grids = {};
     console.timeEnd('buildGraphPanel:thisPanel');
     console.time('buildGraphPanel:thisPanel events');
     //configure and bind the controls
@@ -2175,7 +2241,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     break;
                 case 'graph-data':
                     var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
-                    $dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
+                    //$dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
+                    makeSlickDataGrid(grids, panelId, $dataPanel);
                     break;
                 case 'graph-sources':
                     provenance.build();
@@ -2187,10 +2254,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
     $thisPanel.find('.graph-data-inner')
         .tabs({
-            beforeActivate: function( event, ui ) {
-
+            activate: function( event, ui ) {
                 console.timeEnd("complete grid data into table");
-                ui.newPanel.html(makeTableFromArray(makeDataGrid(panelId, ui.newPanel.attr('data'), calculatedMapData)));
+                makeSlickDataGrid(grids, panelId, ui.newPanel);
+                //ui.newPanel.html(makeTableFromArray(makeDataGrid(panelId, ui.newPanel.attr('data'), calculatedMapData)));
                 console.timeEnd("complete grid data into table");
             }
         })
@@ -3180,11 +3247,11 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 $thisPanel.find('div.jvmap')
                     .prepend('<div class="map-list">'
                         + '<div class="order">'
-                            + '<input type="radio" id="'+panelId+'-map-list-order-asc" name="'+panelId+'-map-list-order" value="asc" '+(oGraph.mapconfig.listOrder!='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-asc">ascending</label>'
-                            + '<input type="radio" id="'+panelId+'-map-list-order-desc" name="'+panelId+'-map-list-order" value="desc" '+(oGraph.mapconfig.listOrder=='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-desc">descending</label>'
+                        + '<input type="radio" id="'+panelId+'-map-list-order-asc" name="'+panelId+'-map-list-order" value="asc" '+(oGraph.mapconfig.listOrder!='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-asc">ascending</label>'
+                        + '<input type="radio" id="'+panelId+'-map-list-order-desc" name="'+panelId+'-map-list-order" value="desc" '+(oGraph.mapconfig.listOrder=='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-desc">descending</label>'
                         + '</div>'
                         + '<button class="download-map-list">download list to Excel</button>'
-                    + '</div>')
+                        + '</div>')
                     .find('div.map-list .download-map-list').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
                         var table = $thisPanel.find('div.map-list table').get(0);
                         var grid = [];
