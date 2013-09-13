@@ -84,7 +84,7 @@ var rowPosition = {
     date: 6,
     dataStart: 7
 };
-var vectorPattern = /[SU]/;   //series or user series handle test
+var vectorPattern = /[SUL]/;   //series or user series handle test
 var handlePattern = /[MXSU]\d+/g;
 var patVariable = /(\b[A-Z]{1,2}\b)/g;  //used to search and replace formula to use a passed in values object
 var SVGNS = "http://www.w3.org/2000/svg";
@@ -93,7 +93,7 @@ var isIE = /msie/i.test(navigator.userAgent) && !window.opera;
 if(typeof console == 'undefined') console = {info: function(m){}, log: function(m){}};  //allow console.log call without triggering errors in IE or FireFox w/o Firebug
 
 
-function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
+function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND MAP FUNCTION CODE
     console.time('chartPanel');
 //panel can either be a DOM node anywhere is the panel or a panelID
     var panelId = typeof panel == 'string'?panel:$(panel).closest('div.graph-panel').get(0).id;
@@ -357,7 +357,6 @@ function    chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, A
     });
     console.timeEnd('contextMenu');
     $('#' + panelId + ' .highcharts-title').click(function(){graphTitle.show(this)});
-
     console.timeEnd('chartPanel');
     return chart;
 
@@ -733,11 +732,11 @@ function makeChartOptionsObject(oGraph){
                 }
             }
             if(!bMatch){
-                newAxis.title.style.color = hcColors[lineIndex];
-                newAxis.labels.style.color = hcColors[lineIndex];
+                newAxis.title.style.color = oDataSeries.color;
+                newAxis.labels.style.color = oDataSeries.color;
 
-                jschart.yAxis[0].title.style.color = hcColors[0];
-                jschart.yAxis[0].labels.style.color = hcColors[0];
+                jschart.yAxis[0].title.style.color = jschart.series[0].color; //axis is black for single axis; color is added for two or more axes
+                jschart.yAxis[0].labels.style.color = jschart.series[0].color;
                 newAxis.opposite = true;
                 jschart.yAxis.push(newAxis);
 
@@ -1037,9 +1036,17 @@ function plotFormula(plot){//returns a formula object for display and eval
         numFormula = formula;
     }
     if((plot.options.k||1)==1){
-        formula = (numFormula==''?1:numFormula) + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
+        if(isDenom){
+            formula = (numFormula==''?1:(patMultiterm.test(numFormula)?'('+numFormula+')':numFormula)) + ' / ' + (patMultiterm.test(denomFormula)?'('+ denomFormula + ')':denomFormula);
+        } else {
+            formula = numFormula;
+        }
     } else {
-        formula = (numFormula==''?plot.options.k: plot.options.k+' * ('+numFormula+')') + (denomFormula==''?'':(patMultiterm.test(denomFormula)?' / ('+ denomFormula + ')':'/' + denomFormula));
+        if(isDenom){
+            formula = plot.options.k+' * ' + (numFormula=''?'':(patMultiterm.test(numFormula)?'('+numFormula+')':numFormula)) + ' / ' + (patMultiterm.test(denomFormula)?'('+ denomFormula + ')':denomFormula);
+        } else {
+            formula = plot.options.k + ' * ' + (patMultiterm.test(numFormula)?'('+numFormula+')':numFormula);
+        }
     }
     plot.options.calculatedFormula = {
         formula: formula,
@@ -1061,22 +1068,25 @@ function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper woul
 }
 function makeSlickDataGrid(grids, panelId, $dataPanel){
     var type = $dataPanel.attr('data');
+    var $container = $dataPanel.find('.slick-holder');
     if(grids[type]) grids[type].destroy();
     var graph = oPanelGraphs[panelId];
     var options = {
         enableCellNavigation: true,
         enableColumnReorder: false,
-        topPanelHeight: 180,
+        defaultColumnWidth: 200,
+        //topPanelHeight: 180
         headerRowHeight: 100
     };
     switch(type){
-
-//CHART
         case 'chart':
-            //adapt
+            //TODO: adapt makeDataGrid
             break;
         case 'regions':
-            grids[type] = new Slick.Grid($dataPanel, graph.calculatedMapData.regionGrid.data, graph.calculatedMapData.regionGrid.columns, options);
+            grids[type] = new Slick.Grid($container, graph.calculatedMapData.regionGrid.data, graph.calculatedMapData.regionGrid.columns, options);
+            break;
+        case 'markers':
+            grids[type] = new Slick.Grid($container, graph.calculatedMapData.markerGrid.data, graph.calculatedMapData.markerGrid.columns, options);
             break;
 
     }
@@ -1489,7 +1499,7 @@ function calcMap(graph){
                 }
             }
         }
-        
+
         //2. calculate value for each date key (= grouped points)
         var required = !mapset.options.componentData || mapset.options.componentData=='required';  //default
         var missingAsZero =  mapset.options.componentData=='missingAsZero';
@@ -1572,22 +1582,23 @@ function calcMap(graph){
             }
         }
 
-        //3.create grid objects
+        //3.create slickgrid objects for REGIONS
         //create a list of geographies sort by name
-        console.time('makeRegionDataObject');
-        var regionColumns = [{id: 'date', field: 'date', name:'name:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}];
-        var regionRows = [];
-        var hasCalc = (mapset.formula.formula != 'A')
-        sortedGeoList.sort(function(a,b){return (a.name> b.name);});
+        var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
+        var regionRows = []; //initialize empty grid
+        var hasCalc = (mapset.formula.formula != 'A'); //used to skip calculated column when plot = component
+        sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
         var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = plotName(graph, mapset), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
-        for(dateKey in regionData){
+        for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
+            //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
             jsDateTime = dateFromMdDate(dateKey).getTime();
             row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
-            for(i=0;i<sortedGeoList.length;i++){
-                for(j=0;j<compSymbols.length;j++ ){
+            for(i=0;i<sortedGeoList.length;i++){ //first each date row, loop through geos
+                for(j=0;j<compSymbols.length;j++){  //for each geo, loop through components
                     geo = sortedGeoList[i].geo;
                     id = compSymbols[j]+'_'+i;
                     asset = graph.assets[components[j].handle];
+                    //add columns on first date key loop through
                     if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
                     if(components[j].handle[0]=='M'){
                         row[id] = oComponentData[dateKey][compSymbols[j]][geo];
@@ -1596,30 +1607,35 @@ function calcMap(graph){
                     }
                     if(typeof row[id] == 'undefined') row[id] = '-';
                 }
-                if(hasCalc){
+                if(hasCalc){  //special
                     if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
                     row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
                 }
             }
             regionRows.push(row);
-            firstDateKey = false;
+            firstDateKey = false;  //used to detect first pass through = build the columns array
         }
-        regionRows.sort(function(a,b){return b.order - a.order});
-        console.timeEnd('makeRegionDataObject');
+        regionRows.sort(function(a,b){return b.order - a.order});  //guarentee order
     }
-    var fillUnits, radiusUnits;
 
+    var fillUnits, radiusUnits;
     if(graph.pointsets){
-        //3. create the date tree by date for pointsets
+        //4. create the date tree by date for pointsets
         var latlon, latlons={}, Xdata;
         var index = 0, pointset, cmp, k;
+
+        //all pointsets in single grid
+        var markerColumns = [{id: 'date', field: 'date', name:'name:<br>units:<br>source:<br>lat, lon:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
+        var markerRows = [];
+
         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
+            var sortedLatlonList = [];
             pointset = graph.pointsets[i];
             if(!pointset.options.color) pointset.options.color = nextColor(graph.pointsets);
             pointset.formula = plotFormula(pointset);
             expression = 'return ' + pointset.formula.formula.replace(patVariable,'values.$1') + ';';
             var pointsetCompute = new Function('values', expression);
-            //1. rearrange series data into single object by date keys
+            //A. rearrange series data into single object by date keys
             compSymbols = [];
             components = pointset.components;
             oComponentData = {};
@@ -1630,12 +1646,16 @@ function calcMap(graph){
                 if(components[j].handle[0]=='X'){
                     Xdata = graph.assets[components[j].handle].data; //shortcut
                     for(latlon in Xdata){
-                        latlons[latlon] = true;  //latlons will be used later to loop over the points and square up the final set (i.e. add nulls for missing values)
+                        //"markers" object and "latlons" array is common for all pointsets in graph, but "sortedLatlonList" is per pointset
+                        if(!latlons[latlon]){
+                            latlons[latlon] = true;  //latlons will be used later to loop over the points and square up the final set (i.e. add nulls for missing values)
+                            sortedLatlonList.push({latlon: latlon, name: Xdata[latlon].name}); //will be sorted and used to generate the slickgrid columns and rows
+                        }
                         if(markers[latlon]){
                             markers[latlon].name += '<br>' + Xdata[latlon].name;
                         } else {
                             markers[latlon] = {latLng: latlon.split(','), name: Xdata[latlon].name, style: {fill: pointset.options.color}};
-                            markers[latlon].latLng[0] = parseFloat(markers[latlon].latLng[0]);
+                            markers[latlon].latLng[0] = parseFloat(markers[latlon].latLng[0]); //TODO:  test if this is really necessary
                             markers[latlon].latLng[1] = parseFloat(markers[latlon].latLng[1]);
                         }
                         data = Xdata[latlon].data.split("||");
@@ -1662,7 +1682,7 @@ function calcMap(graph){
                 }
             }
 
-            //4. calculate value for each date key (= grouped points)
+            //B. calculate value for each date key ( = grouped points)
             var required = !pointset.options.componentData || pointset.options.componentData=='required';  //default
             var missingAsZero =  pointset.options.componentData=='missingAsZero';
             var nullsMissingAsZero =  pointset.options.componentData=='nullsMissingAsZero';
@@ -1758,9 +1778,49 @@ function calcMap(graph){
                         mapDates[dateKey].markerRadiusMax = Math.max(mapDates[dateKey].markerRadiusMax||dataMax, dataMax);
                     }
                 } else {
-                    delete regionData[dateKey];
+                    delete markerData[dateKey];
                 }
             }
+            //C.  markerColumns and markerRows to drive slick grids in data tab (inside the pointsets loop)
+            sortedLatlonList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
+            var pointsetHasCalc = (pointset.formula.formula != 'A'); //used to skip calculated column when plot = component
+
+            var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = plotName(graph, pointset), pointsetUnits = plotUnits(graph, pointset, false, pointset.formula);
+            for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
+                //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
+                jsDateTime = dateFromMdDate(dateKey).getTime();
+                row = {"id": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
+                for(var ll=0;ll<sortedLatlonList.length;ll++){ //first each date row, loop through geos
+                    for(j=0;j<compSymbols.length;j++){  //for each latlon, loop through components
+                        latlon = sortedLatlonList[ll].latlon;
+                        id = compSymbols[j]+'_'+ll;
+                        asset = graph.assets[components[j].handle];
+                        //add columns on first date key loop through
+                        if(firstDateKey) markerColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
+                        if(components[j].handle[0]=='X'){
+                            row[id] = oComponentData[dateKey][compSymbols[j]][latlon];
+                        } else {
+                            row[id] = oComponentData[dateKey][compSymbols[j]];
+                        }
+                        if(typeof row[id] == 'undefined') row[id] = '-';
+                    }
+                    if(pointsetHasCalc){  //special
+                        if(firstDateKey) markerColumns.push({id: latlon+'-'+i, field: latlon+'-'+i, name: '<b>' + pointsetName + ': '+ sortedLatlonList[ll].name + '</b><br>'+pointsetUnits+'<br><br>'+(hasCalc?'<br>value = '+pointset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                        row[latlon+'-'+i] = typeof markerData[dateKey][latlon] == 'undefined'?'-':markerData[dateKey][latlon];
+                    }
+                }
+                for(var found=false, r=0;r<markerRows.length;r++){ //since
+                    if(markerRows[r].id == row.id){
+                        $.extend(markerRows[r], row);
+                        found = true;
+                        break;
+                    }
+                }
+                if(!found) markerRows.push(row);
+                firstDateKey = false;  //used to detect first pass through = build the columns array
+            }
+            markerRows.sort(function(a,b){return b.id - a.id});  //guarentee order because id is the getTime() of the row date
+
         }
 
         //fill holes in the matrix with nulls, otherwise jVectorMap leaves the last valid value when changing date
@@ -1793,6 +1853,7 @@ function calcMap(graph){
         dates: aMapDates,  // [{a: mdDate (string), dt: intval for js UTC date,  regionMin: (optional float), regionMax: (optional float), markerMin; (optional float), markerMax: (optional float)}]
         regionData: regionData,
         regionGrid:{columns: regionColumns, data: regionRows},
+        markerGrid:{columns: markerColumns, data: markerRows},
         fillUnits: fillUnits,
         radiusUnits: radiusUnits
     };
@@ -1834,20 +1895,18 @@ function calcAttributes(graph){
             rgb = {
                 pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
                 neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
-                //posMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
-                //negMid: makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
                 mid: makeRGB(MAP_COLORS.MID)
             };
 
             var posRGB = new RGBColour(rgb.pos.r, rgb.pos.b, rgb.pos.g);
             var posHSV = posRGB.getHSV();
-            var posMid = new HSVColour(posHSV.h, 10, 90);
+            var posMid = new HSVColour(posHSV.h, (spans?10:20), (spans?90:100));
             var posMidRGB = posMid.getIntegerRGB();
             rgb.posMid = {r: posMidRGB.r, g:posMidRGB.g, b: posMidRGB.b};
 
             var negRGB = new RGBColour(rgb.neg.r, rgb.neg.b, rgb.neg.g);
             var negHSV = negRGB.getHSV();
-            var negMid = new HSVColour(negHSV.h, 10, 90);
+            var negMid = new HSVColour(negHSV.h, (spans?10:20), (spans?90:100));
             var negMidRGB = negMid.getIntegerRGB();
             rgb.negMid = {r: negMidRGB.r, g:negMidRGB.g, b: negMidRGB.b};
         }
@@ -1863,11 +1922,7 @@ function calcAttributes(graph){
                             if(y==0 && spans) {
                                 calcData.regionColors[dateKey][geo] = MAP_COLORS.MID;
                             } else {
-                                //if(spans){
-                                    calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos);
-                                //} else {
-                                //    calcData.regionColors[dateKey][geo] = colorInRange(y, min, max, Math.min(min,max)<0?rgb.neg:rgb.mid, Math.min(min,max)<0?rgb.mid:rgb.pos);
-                                //}
+                                calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos, mapOptions.scaling!='lin' && !spans && min!=0 && max!=0);
                             }
                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
                             for(j=0;j<mapOptions.discreteColors.length;j++){
@@ -1928,19 +1983,19 @@ function calcAttributes(graph){
                 rgb = {
                     pos: makeRGB(mapOptions.posColor||MAP_COLORS.POS),
                     neg: makeRGB(mapOptions.negColor||MAP_COLORS.NEG),
-                    posMid: {}, //makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.posColor||MAP_COLORS.POS))), //don't go all the way to grey
-                    negMid: {}, //makeRGB(colorInRange(1, 0, 5, makeRGB('C0C0C0'), makeRGB(mapOptions.negColor||MAP_COLORS.NEG))),
+                    posMid: {},
+                    negMid: {},
                     mid: makeRGB(MAP_COLORS.MID)
                 };
                 var posRGB = new RGBColour(rgb.pos.r, rgb.pos.b, rgb.pos.g);
                 var posHSV = posRGB.getHSV();
-                var posMid = new HSVColour(posHSV.h, 10, 90);
+                var posMid = new HSVColour(posHSV.h, (spans?10:20), (spans?90:100));  //if spans, low end will be 10% bright = same as mid = #e5e5e5
                 var posMidRGB = posMid.getIntegerRGB();
                 rgb.posMid = {r: posMidRGB.r, g:posMidRGB.g, b: posMidRGB.b};
 
                 var negRGB = new RGBColour(rgb.neg.r, rgb.neg.b, rgb.neg.g);
                 var negHSV = negRGB.getHSV();
-                var negMid = new HSVColour(negHSV.h, 10, 90);
+                var negMid = new HSVColour(negHSV.h, (spans?10:20), (spans?90:100));
                 var negMidRGB = negMid.getIntegerRGB();
                 rgb.negMid = {r: negMidRGB.r, g:negMidRGB.g, b: negMidRGB.b};
             }
@@ -2001,8 +2056,16 @@ function calcAttributes(graph){
         b = parseInt(color.substr(4,2), 16);
         return {r:r, g:g, b:b};
     }
-    function colorInRange(y, y1, y2, rgb1, rgb2){
-        var r, g, b, percent = (y-y1)/ (y2-y1);
+    function colorInRange(y, y1, y2, rgb1, rgb2, logScaling){  //y values must be all positive or all negative
+        var r, g, b, yl, yl1, yl2, percent;
+        if(logScaling){  //log = compressive
+            yl = Math.log(Math.abs(y));
+            yl1 = Math.log(Math.min(Math.abs(y1),Math.abs(y2)));
+            yl2 = Math.log(Math.max(Math.abs(y1),Math.abs(y2)));
+            percent = (yl-yl1)/ (yl2-yl1);
+        } else {
+            percent = (y-y1)/ (y2-y1);
+        }
         r = octet(Math.round(percent * (rgb2.r-rgb1.r) + rgb1.r));
         g = octet(Math.round(percent * (rgb2.g-rgb1.g) + rgb1.g));
         b = octet(Math.round(percent * (rgb2.b-rgb1.b) + rgb1.b));
@@ -2144,7 +2207,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
             '</ol>' +
             '</div>'+
-            '<div class="graph-talk graph-subpanel" style="display: none;">owner enables and reviews WordPress powered comments here</div>' +
+            '<div class="graph-talk graph-subpanel" style="display: none;"><fb:comments href="http://www.mashabledata.com/workbench" width="470"></fb:comments></div>' +
             '<div class="graph-data graph-subpanel" style="display: none;">' +
             '<div class="graph-data-inner">' +
             '<ul>' +
@@ -2152,9 +2215,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
             '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
             '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart">chart-data</div>' +
-            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions">region-data</div>' +
-            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers">marker-data</div>' +
+            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
             '</div>' +
             '</div>' +
             '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
@@ -2214,7 +2277,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' + //copy from http://www.eia.gov/global/images/icons/facebook.png
             '<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' + //copy from http://www.eia.gov/global/images/icons/twitter.png
             '<button class="email">email </button> ' +
-            '<button class="link">link </button>' +
+            '<button class="graph-link">link </button>' +
             //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
             //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
             '</div><div class="searchability">' +
@@ -2255,15 +2318,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             var $this = $(this);
             $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
             $thisPanel.find('.graph-subpanel').hide();
-            $thisPanel.find('.' + $this.attr('data')).show();
+            var $div = $thisPanel.find('.' + $this.attr('data')).show();
             $this.addClass('graph-nav-active');
             switch($this.attr('data')){
                 case 'graph-talk':
+                    FB.XFBML.parse($div.get(0));
                     break;
                 case 'graph-data':
-                    var $dataPanel = $($thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').attr('href'));
-                    //$dataPanel.html(makeTableFromArray(makeDataGrid(panelId, $dataPanel.attr('data'), calculatedMapData)));
-                    makeSlickDataGrid(grids, panelId, $dataPanel);
+                    $thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').click();
                     break;
                 case 'graph-sources':
                     provenance.build();
@@ -2277,6 +2339,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         .tabs({
             activate: function( event, ui ) {
                 console.timeEnd("complete grid data into table");
+                //ui.newPanel.find('.slick-holder').width(ui.newPanel.width()).height(ui.newPanel.height());
                 makeSlickDataGrid(grids, panelId, ui.newPanel);
                 //ui.newPanel.html(makeTableFromArray(makeDataGrid(panelId, ui.newPanel.attr('data'), calculatedMapData)));
                 console.timeEnd("complete grid data into table");
@@ -2300,6 +2363,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             });
         });
     $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.chart-map').width($thisPanel.width()-40-350); //
+    $thisPanel.find('.graph-data-subpanel').height($thisPanel.innerHeight()-60);  //account for chart/region/markers tabs
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
     $thisPanel.find('.export-chart').click(function(){
@@ -2362,7 +2426,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             window.location.href = link;
         }
     });
-    $thisPanel.find('.link').button({icons: {primary: "ui-icon-link"}})
+    $thisPanel.find('.graph-link').button({icons: {primary: "ui-icon-link"}})
         .click(function(){
             if(oGraph.isDirty) {
                 dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
@@ -2703,7 +2767,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             oHighCharts[panelId].exportChart({type: type});
         }
     }
-    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button(oGraph.gid?'disable':'enable')
+    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button((oGraph.userid == account.info.userid) && oGraph.gid?'disable':'enable')
         .click(function(){
             saveThisGraph();
         });
@@ -2950,8 +3014,6 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             width: 2,
                             id: 'timeLine'
                         })
-                    } else {
-                        $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
                     }
                     $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
                     if(oGraph.mapconfig.showList) {
@@ -3085,7 +3147,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             if(oGraph.plots)
                 $thisPanel.find('h3.map-title').hide();
             else
-                $thisPanel.find('div.map h3').html(calculatedMapData.title+" - "+formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));  //initialize here ratehr than set slider value which would trigger a map redraw
+                $thisPanel.find('h3.map-title').html(oGraph.title).click(function(){
+                    graphTitle.show(this);
+                });  //initialize here rather than set slider value which would trigger a map redraw
 
             $thisPanel.find('.make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
                 .click(function(){
@@ -3393,7 +3457,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             switch((oGraph.mapconfig.legendLocation || 'TR').substr(1,1)){
                 case 'L':
                     xOffset = spacer;
-                    if(options.legend&&options.legend[0]=='T')xOffset+30; //space for zoom buttons
+                    if((oGraph.mapconfig.legendLocation || 'TR').substr(0,1)=='T') xOffset+30; //space for zoom buttons
                     break;
                 case 'C':
                     xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer
@@ -3676,17 +3740,24 @@ var graphTitle = {
     callBack: false,
     changeOk: function(){
         var thisPanelID =  $('#titleEditor input').attr('data');
-        oPanelGraphs[thisPanelID].title = $('#titleEditor input').val();
-        if(oPanelGraphs[thisPanelID].title.length==0){
-            oHighCharts[thisPanelID].setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
-            var untitledTitle = "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1);
-            $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',untitledTitle).html(untitledTitle);
-        } else {
-            oHighCharts[thisPanelID].setTitle({text: oPanelGraphs[thisPanelID].title, style: {color: 'black', font: 'normal'}});
-            $('ul#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',oPanelGraphs[thisPanelID].title).html(oPanelGraphs[thisPanelID].title);
+        var newTitle = $('#titleEditor input').val().trim();
+        if(newTitle!=oPanelGraphs[thisPanelID].title){
+            oPanelGraphs[thisPanelID].title = newTitle || 'untitled';
+            if(oPanelGraphs[thisPanelID].plots){
+                if(oPanelGraphs[thisPanelID].title.length==0){
+                    oHighCharts[thisPanelID].setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
+                } else {
+                    oHighCharts[thisPanelID].setTitle({text: oPanelGraphs[thisPanelID].title, style: {color: 'black', font: 'normal'}});
+                }
+                $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
+            }
+            var tabLabel = newTitle || "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1)
+            $('#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',tabLabel).html(tabLabel);
+            $('#' + thisPanelID + ' h3.map-title').html(oPanelGraphs[thisPanelID].title);
+            if(oPanelGraphs[thisPanelID].title.length==0){
+                if(this.callback) this.callback();
+            }
         }
-        if(this.callback) this.callback();
-        $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
         this.changeCancel();
     },
     changeCancel: function(){

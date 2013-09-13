@@ -209,13 +209,13 @@ if (typeof Slick === "undefined") {
       $focusSink = $("<div tabIndex='0' hideFocus style='position:fixed;width:0;height:0;top:0;left:0;outline:0;'></div>").appendTo($container);
 
       $headerScroller = $("<div class='slick-header ui-state-default' style='overflow:hidden;position:relative;' />").appendTo($container);
-      $headers = $("<div class='slick-header-columns' style='width:10000px; left:-1000px' />").appendTo($headerScroller);
+      $headers = $("<div class='slick-header-columns' style='left:-1000px' />").appendTo($headerScroller);
 
       $headerRowScroller = $("<div class='slick-headerrow ui-state-default' style='overflow:hidden;position:relative;' />").appendTo($container);
       $headerRow = $("<div class='slick-headerrow-columns' />").appendTo($headerRowScroller);
 
       $topPanelScroller = $("<div class='slick-top-panel-scroller ui-state-default' style='overflow:hidden;position:relative;' />").appendTo($container);
-      $topPanel = $("<div class='slick-top-panel' style='width:10000px' />").appendTo($topPanelScroller);
+      $topPanel = $("<div class='slick-top-panel'  />").appendTo($topPanelScroller);
 
       if (!options.showTopPanel) {
         $topPanelScroller.hide();
@@ -831,9 +831,9 @@ if (typeof Slick === "undefined") {
       $style = $("<style type='text/css' rel='stylesheet' />").appendTo($("head"));
       var rowHeight = (options.rowHeight - cellHeightDiff);
       var rules = [
-        "." + uid + " .slick-header-column { left: 1000px; }",
+        "." + uid + " .slick-header-column { left: 1000px; height:" + options.headerRowHeight + "px; }",
         "." + uid + " .slick-top-panel { height:" + options.topPanelHeight + "px; }",
-        "." + uid + " .slick-headerrow-columns { height:" + options.headerRowHeight + "px; }",
+        "." + uid + " .slick-header-columns { height:" + options.headerRowHeight + "px; }",
         "." + uid + " .slick-cell { height:" + rowHeight + "px; }",
         "." + uid + " .slick-row { height:" + options.rowHeight + "px; }"
       ];

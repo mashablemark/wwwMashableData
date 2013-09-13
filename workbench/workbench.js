@@ -48,7 +48,9 @@ var colWidths = {
     linkIcon: 30,
     src: 150,
     drillIcon: 35,
-    count: 60
+    count: 60,
+    scrollbarWidth: 35,
+    padding: 11
 };
 var layoutDimensions= {
     heights: {
@@ -161,7 +163,7 @@ $(document).ready(function(){
     $('#quick-view-to-graph').button({icons: {secondary: "ui-icon-image"}});
     $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}});
 
-    $(".show-graph-link").fancybox({
+    $(".show-graph-link").fancybox({  //TODO: replace these two hard links with dynamic FancyBox invocations per account.js
         'width'             :  '100%',
         'height'            : '100%',
         'autoScale'         : true,
@@ -216,22 +218,24 @@ $(document).ready(function(){
     //TODO: remove this localhost workaround
     if(document.URL.indexOf('localhost')>=0){
         account.info.userId = 2;
-        account.info.accessToken = 'AAACZBVIRHioYBAKJp0bvvwdDKYmnUAwYcjRn4dCeCZCriYZAiDIU85IucIt0pDrEK7wvIqRAImAvbQdbltGhcvbGxZCUDusDFdw6BSt5wwZDZD';
+        account.info.accessToken = 'paste token here';
         syncMyAccount();
     } else {
         initFacebook();  //intialized the FB JS SDK.  (Does not make user login, but will automatically authenticate a FB user who is (1) logged into FB and (2) has authorized FB to grant MashableData basic permissions
     }
 
-    $(window).bind("resize load", resizeCanvas()).bind("focus", function(event){
-        if(mySeriesLoaded){
-            if(loadMySeriesByKey()>0){
-                dtMySeries.fnFilter('');
-                dtMySeries.fnSort([[MY_SERIES_DATE, 'asc']]);
+    $(window)
+        .bind("resize load", resizeCanvas())
+        .bind("focus", function(event){
+            if(mySeriesLoaded){
+                if(loadMySeriesByKey()>0){
+                    dtMySeries.fnFilter('');
+                    dtMySeries.fnSort([[MY_SERIES_DATE, 'asc']]);
+                }
             }
-        }
-        event.bubbles = true;
-        return true;
-    });
+            event.bubbles = true;
+            return true;
+        });
 
     setupPublicSeriesTable();
     setupPublicGraphsTable();
@@ -365,7 +369,7 @@ function resizeCanvas(){
 
 }
 function setupMySeriesTable(){
-    var tableWidth = $("#canvas").width()-160;
+    var tableWidth = $("#canvas").innerWidth()-8*colWidths.padding-colWidths.scrollbarWidth
     var remainingWidth =  tableWidth - (colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
     var unitsColWidth = parseInt(remainingWidth * 0.20);
     var seriesColWidth = parseInt(remainingWidth * 0.55);
@@ -473,7 +477,7 @@ function setupMySeriesTable(){
     $('#series-table_info').appendTo('#local-series-header');
 }
 function setupPublicSeriesTable(){
-    var tableWidth = $("#canvas").width()-8*11-40; //padding/borders/margins + scroll
+    var tableWidth = $("#canvas").innerWidth()-7*colWidths.padding-colWidths.scrollbarWidth
     var remainingWidth =  tableWidth - (colWidths.periodicity + colWidths.src + 2*colWidths.mmmyyyy);
     var seriesColWidth = remainingWidth * 0.4;
     var unitsColWidth = remainingWidth * 0.3;
@@ -578,8 +582,8 @@ function setupPublicSeriesTable(){
     $('#cloud-series-browse').button({icons: {secondary: "ui-icon-circle-triangle-e"}});
 }
 function setupMyGraphsTable(){
-    var tableWidth = $("#canvas").width()-7*11-40;
-    var remainingWidth =  tableWidth - (colWidths.quickView + colWidths.shortDate + colWidths.map);
+    var myGraphsTableWidth = $("#canvas").innerWidth()-6*colWidths.padding-colWidths.scrollbarWidth;
+    var remainingWidth =  myGraphsTableWidth - (colWidths.quickView + colWidths.shortDate + colWidths.map);
     var titleColWidth = parseInt(remainingWidth * 0.25);
     var analysisColWidth = parseInt(remainingWidth * 0.50);
     var seriesColWidth = parseInt(remainingWidth * 0.25);
@@ -596,7 +600,7 @@ function setupMyGraphsTable(){
         },
         "oColReorder": {"iFixedColumns": 2},
         "sScrollY": (layoutDimensions.heights.innerDataTable-120) + "px",
-        "sScrollX": tableWidth + "px",
+        "sScrollX": myGraphsTableWidth + "px",
         "aaSorting": [[9,'desc']],
         "aoColumns": [
             /*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
@@ -641,7 +645,7 @@ function setupMyGraphsTable(){
     $('#my_graphs_table_info').appendTo('#myGraphsHeader');
 }
 function setupPublicGraphsTable(){
-    var tableWidth = $("#canvas").width()-6*11-40;
+    var tableWidth = $("#canvas").innerWidth() - 6*colWidths.padding - colWidths.scrollbarWidth;
     var remainingWidth =  tableWidth - (colWidths.views + 1*colWidths.shortDate + colWidths.map);
     var titleColWidth = parseInt(remainingWidth * 0.40);
     var analysisColWidth = parseInt(remainingWidth * 0.35);
@@ -676,7 +680,7 @@ function setupPublicGraphsTable(){
             });
         },
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
-            return iTotal + " graph"+((iTotal==1)?'s':'')+((iTotal>0)?' <i>double-click on title to view</i>':'');
+            return iTotal + " graph"+((iTotal==1)?'s':'')+((iTotal>0)?' <b>click on title to view</b>':'');
         },
         "iDeferLoading": 0,
         "oColReorder": {"iFixedColumns": 2},
@@ -1669,7 +1673,7 @@ function showSeriesEditor(handle, map){
         function showPanel(){
             var $panel, mapsAsOptions='', i;
             for(i=0;i<mapsArray.length;i++){
-                mapsAsOptions += '<option value="'+mapsArray[i].map+'">'+mapsArray[i].name+'</option>';
+                mapsAsOptions += '<option value="'+mapsArray[i]+'">'+mapsArray[i]+'</option>';
             }
             var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
                 +   '<h4>Create a set of series that can be mapped:</h4>'

@@ -4,72 +4,6 @@
 img, a{
     border: none;
 }
-#md h3, #md div, #md span, #md p, #md a, #md img, #md strong, #md tt, #md b, #md u, #md i, #md center,
-#md ol, #md ul, #md li, #md label, #md table, #md tbody, #md tfoot, #md thead, #md tr, #md th, #md td,
-article, #md aside, #md canvas, #md details, #md embed, #md
-figure, #md figcaption, #md footer, #md menu, #md hgroup, #md
-menu, #md nav, #md output, #md ruby, #md section, #md summary,
-time, #md mark, #md audio, #md video {
-    margin: 0;
-    padding: 0;
-    /*border: 0;*/
-    font-size:13px;
-    vertical-align: baseline;
-    line-height: 1;
-    font-family:"Lucida Sans Unicode", "Lucida Grande", sans-serif;
-}
-/* HTML5 display-role reset for older browsers */
-#md article, #md aside, #md details, #md figcaption, #md figure, #md
-footer, #md menu, #md hgroup, #md menu, #md nav, #md section {
-    display: block;
-}
-#md ol, #md ul {
-    list-style: none;
-}
-#md blockquote, #md q {
-    quotes: none;
-}
-#md blockquote:before, #md blockquote:after,
-q:before, #md q:after {
-    content: '';
-    content: none;
-}
-#md table {
-    border-collapse: collapse;
-    border-spacing: 0;
-}
-#md .right {float:right;}
-#md .left {float:left;}
-#md .clear {clear:both;}
-#md a {color:#1ea5cf;text-decoration:none;}
-#md a:hover {text-decoration:underline;}
-/* Cpanel */
-#md {
-    width:722px;
-    background-color: #dbdbdb;
-    border: 1px solid #afafaf;
-    padding:9px;
-    margin:0px;
-    /*min-height:300px;
-    color:#F0C;*/
-}
-#md h3 {
-    padding: 5px 6px 7px 6px;
-    color:#fff;
-    font-size:15px;
-}
-div #md-inner {
-    background-color: #f7f7f7;
-    border: 1px solid #afafaf;
-    padding:9px;
-    margin:0px;
-}
-.md-top{
-    height:79px;
-    padding-bottom:10px !important;
-    /*	background-color:#9F3;*/
-}
-:root *> .md-top { margin-bottom:-10px !important  }
 .rico, .wlinks a {
     text-indent:-99999px;
     display:inline-block;
@@ -132,7 +66,7 @@ div #md-inner {
     position:relative;
     height:30px;
     top:0;
-    padding: 9px 9px 0 9px;
+    padding: 9px 9px 0 3px;
     margin:0;
 }
 
@@ -156,7 +90,6 @@ div #md-inner {
 .dataTables_scrollBody th{
     padding: 0 5px 0 5px !important;
     margin: 0;
-    border: 1px;
 }
 /*.md-table .` {
 	background-color:#f5f5f5;
@@ -186,24 +119,24 @@ td.dte{
 span.handle{
     display: none;
 }
-div#picker-divs{
+#picker-divs{
     position:relative;
     top:0;
     left:0;
     width:100%;
     z-index: 20;
 }
-span#main-graph-buttons-top {
+#main-graph-buttons-top {
     display:inline-block;
     margin-left: 50px;
 }
 
-span#main-graph-buttons-top fieldset, fieldset.tight-fieldset{
+#main-graph-buttons-top fieldset, fieldset.tight-fieldset{
     display:inline;
     padding: 0px 3px;
     margin: 1px 1px 1px 5px;
 }
-span#main-graph-buttons-top fieldset legend, fieldset.tight-fieldset legend{
+#main-graph-buttons-top fieldset legend, fieldset.tight-fieldset legend{
     color: #444;
     font-size: 12px;
 }
@@ -240,7 +173,8 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
 }
 
 .link{     /* make a link without href or a span (with an onclick event) look like a hyperlink*/
-    color:  #2e83ff;
+    color:  #2e83ff !important;
+    cursor: pointer;
 }
 .link:hover{text-decoration:underline;}
 /* Icons */
@@ -300,30 +234,6 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
     background-position: -64px -16px;
 }
 
-
-/*
- * Namespace DTCR - "DataTables ColReorder" plug-in
- */
-
-table.DTCR_clonedTable {
-    background-color: white;
-    z-index: 202;
-}
-
-div.DTCR_pointer {
-    width: 1px;
-    background-color: #0259C4;
-    z-index: 201;
-}
-
-body.alt div.DTCR_pointer {
-    margin-top: -15px;
-    margin-left: -9px;
-    width: 18px;
-    background: url('../images/insert.png') no-repeat top left;
-}
-
-
 body {
     height:100%;
     width:100%;
@@ -361,7 +271,7 @@ div.menu{
     margin:0px;
     background-color:#AAAAFF;
 }
-div#canvas {
+#canvas {
     /*border: solid thin;*/
     padding:0;
     margin: 0;
@@ -387,7 +297,7 @@ div.graph {
 #series-tabs li a{
     font-size: 14px;
 }
-div#pickers {
+#pickers {
     bottom: 0;
     padding:0;
     margin: 10px 0 0 0;
@@ -401,7 +311,7 @@ div#pickers {
 div.picker{
     background:DarkTurquoise;
 }
-div#pickers ul{background:none;}
+#pickers ul{background:none;}
 div.graph-chart{
     display: inline;
 }
@@ -477,6 +387,9 @@ div.map {
     z-index: 1;
     margin-right: 10px;
 }
+div.map-title{
+    cursor: pointer;
+}
 div.jvmap {
     position: relative;
     width: 100%;
@@ -519,6 +432,9 @@ div.map-list td{
 div.map-list table{
     border-collapse:collapse;
 }
+div.map-list table tr td:first-child, div.map-list table tr td:last-child{
+    text-align: right;
+}
 
 button.map-graph-selected{
     margin: 0 5px;
@@ -540,7 +456,7 @@ div.sharing div{
 div.graph-analysis{
     z-index: 1;
 }
-textarea#link-html{
+#link-html{
     width: 580px;
     height: 50px;
 }
@@ -807,6 +723,7 @@ ol.blank-plot{
 }
 .plot-units{
     font-size: 14px;
+    font-weight: bold;
 }
 .plot-freq{
     font-size: 12px;
@@ -824,6 +741,9 @@ ol.blank-plot{
 }
 .comp-k, .plot-k {
     margin-right: 7px;
+}
+.comp-view{
+    font-size: 8px;
 }
 input.plot-name{
     width: 600px;
@@ -940,7 +860,7 @@ div.jvectormap-container{
 .ui-icon-triangle-1-e{
     display: inline-block;
 }
-div#public-mapset-radio{
+#public-mapset-radio{
     display: inline-block;
     position: relative;
     top: -2px;
@@ -1031,34 +951,34 @@ td.expanded{
     margin-right: 5px;
     margin-left: 10px;
 }
-div#signin-fb, div#signin-or, div#signin-md{
+#signin-fb, div#signin-or, div#signin-md{
     display: inline-block;
     float: right;
     width: 250px;
     height: 160px;
     padding: 10px;
 }
-div#signin-or{
+#signin-or{
     width: 100px;
     text-align: center;
 }
-div#signedin-md{
+#signedin-md{
     width: 200px;
     height: 100px;
     padding: 10px;
 }
-div#account-screen{
+#account-screen{
     width: 800px;
     padding: 5px 10px;
 }
-div#account-screen button{
+#account-screen button{
     margin: 15px 5px 0 0;
 }
-div#account-screen h3{
+#account-screen h3{
     color: black;
     padding: 15px 0 0 2px;
 }
-div#account-screen h2{
+#account-screen h2{
     padding: 0;
     margin: 0;
 }
@@ -1095,7 +1015,7 @@ div.blue-inset{
     margin: 5px;
 }
 
-div#account-screen div.hidden, button.hidden{
+#account-screen div.hidden, button.hidden{
     display: none;
 }
 /* end ACCOUNT SCREENS */
@@ -1123,8 +1043,8 @@ span.sibling{
 }
 .dataTables_info{
     display:inline-block;
-    float: right;
     width: auto;
+    float: none;
     margin-left: 10px;
     margin-right: 5px;
     color: #444;
@@ -1159,7 +1079,7 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
 table.dataTable td.title:hover{
     color: blue;
     text-decoration: underline;
-    cursor: pointer;
+.map-titlecursor: pointer;
 }
 
 #series-tabs a:hover, #series-tabs li.ui-tabs-selected a{
@@ -1196,14 +1116,15 @@ table.dataTable td.title:hover{
 }
 #series-tabs li, #local-series, #cloud-series, #myGraphs, #publicGraphs{
     background-image: none;
+    top: 1px;
 }
 
 #cloud-series-search {
     display: inline-block;
-    padding: 4px 0 1px 6px;
+    padding: 4px 0 1px 4px;
     background-color: lightyellow;
     position: relative;
-    top: -3px;
+    top: -4px;
 }
 #cloud-series-browse{
     margin-left: 20px;
@@ -1270,7 +1191,6 @@ table.dataTable td.title:hover{
 /*picker class*/
 #cloud-series, #myGraphs, #publicGraphs{
     display:none;
-    position:relative;
 }
 
 #seriesTabs li.ui-state-default{ border: 1px solid #d3d3d3; background: green; font-weight: normal; color: #555555; }
@@ -1279,7 +1199,8 @@ table.dataTable td.title:hover{
 #seriesTabs li.ui-state-hover a, #seriesTabs li.ui-state-hover a:hover { color: #212121; text-decoration: none; }
 #seriesTabs li.ui-state-active { border: 1px solid #aaaaaa; background: #ffffff url(images/ui-bg_glass_65_ffffff_1x400.png) 50% 50% repeat-x; font-weight: normal; color: #212121; }
 #seriesTabs li.ui-state-active a, #seriesTabs li.ui-state-active a:link, #seriesTabs li.ui-state-active a:visited { color: #212121; text-decoration: none; }
-
+button.ui-state-hover:not(.ui-state-error) { color: #2e83ff; }
+button.ui-state-error.ui-state-hover {background: #ffc0cb;}
 fieldset.search-box{
     display: inline;
     margin: 1px 1px 1px 5px;

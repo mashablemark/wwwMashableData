@@ -1,10 +1,3 @@
-/**
- * Created with JetBrains PhpStorm.
- * User: mark__000
- * Date: 2/17/13
- * Time: 11:13 PM
- * To change this template use File | Settings | File Templates.
- */
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
 function ProvenanceController(panelId){
@@ -60,12 +53,12 @@ function ProvenanceController(panelId){
                     pointsetLegend = this.legendEditor(self.$prov.find('.pointsets-colors'), this.mapconfigEdits, 'X');
                     if(self.mapconfigEdits.markerScaling) self.$prov.find('div.pointsets div.color-scale').slideDown();
                     /* NO SIMPLE MARKERS = FINISH CURRENT FUNCTIONALITY !!!
-                    self.$prov.find('.marker-scaling input').change(function(){
-                        self.mapconfigEdits.markerScaling = (this.checked?'none':'yes');
-                        self.$prov.find('div.pointsets div.color-scale').slideToggle();
-                        self.$prov.find('.attribute').slideToggle();
-                        makeDirty();
-                    });*/
+                     self.$prov.find('.marker-scaling input').change(function(){
+                     self.mapconfigEdits.markerScaling = (this.checked?'none':'yes');
+                     self.$prov.find('div.pointsets div.color-scale').slideToggle();
+                     self.$prov.find('.attribute').slideToggle();
+                     makeDirty();
+                     });*/
                 }
 
                 self.$prov.find('.map-mode').buttonset()
@@ -89,7 +82,7 @@ function ProvenanceController(panelId){
                     .button({disabled: true, icons: {secondary: 'ui-icon-closethick'}}).addClass('ui-state-error')
                     .click(function(){
                         self.provClose();
-                });
+                    });
                 self.$prov.find("button.config-apply").button({icons: {secondary: 'ui-icon-check'}}).click(function(){
                     self.provOk();
                 });
@@ -144,17 +137,17 @@ function ProvenanceController(panelId){
             var self = this;
             var graph = self.graph;
             var plotColor, plotList = '', plot = self.plotsEdits[i];
-            plot.options.lineWidth = plot.options.lineWidth? parseInt(plot.options.lineWidth):2;
+            plot.options.lineWidth = plot.options.lineWidth||2;
             plot.options.lineStyle = plot.options.lineStyle || 'Solid';
             plotColor = plot.options.color || ((oHighCharts[panelId]&&oHighCharts[panelId].get('P'+i))?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
             plotList += '<li class="plot" data="P' + i + '">'
-            + '<button class="edit-plot">configure</button>'
-            + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
-            + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-            + plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plotUnits(graph, plot) + '</span></div>'
-            + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>'
-            + self.componentsHTML(plot)
-            + '</li>';
+                + '<button class="edit-plot">configure</button>'
+                + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
+                + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
+                + plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plotUnits(graph, plot) + '</span></div>'
+                + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>'
+                + self.componentsHTML(plot)
+                + '</li>';
             return plotList;
         },
         componentsHTML: function(plot){
@@ -172,6 +165,7 @@ function ProvenanceController(panelId){
                     + graph.assets[comp.handle].name
                     + ' ('+period.name[graph.assets[comp.handle].period]+') in '
                     + graph.assets[comp.handle].units
+                    + ' <a class="link comp-view">view</a>'
                     + '</li>';
                 if(plot.components[j].options.dn=='d'||isDenom){
                     isDenom= true; denomHTML += compHTML;
@@ -181,8 +175,8 @@ function ProvenanceController(panelId){
                 }
             }
             plotList = '<ol class="components '+type+'-comp numer">'+(numerHTML||this.HTML.nLanding) + '</ol>'
-            + '<hr>'
-            + '<ol class="components '+type+'-comp denom" start="'+numerCount+'">'+(denomHTML||this.HTML.dLanding) + '</ol>';
+                + '<hr>'
+                + '<ol class="components '+type+'-comp denom" start="'+numerCount+'">'+(denomHTML||this.HTML.dLanding) + '</ol>';
             return plotList;
         },
         plotPeriodicity:   function plotPeriodicity(plot){
@@ -280,7 +274,7 @@ function ProvenanceController(panelId){
                                 }
                             }
                         }
-
+                        makeDirty();
                     }
                 })
                 .disableSelection();
@@ -303,9 +297,48 @@ function ProvenanceController(panelId){
                         if(ui.sender==null) return;
                         var movedPointset = self.pointsetEdits.splice(self.dragging.plotIndex,1);
                         self.pointsetEdits.splice(ui.item.index(),0,movedPointset);
+                        makeDirty();
                     }
                 })
                 .disableSelection();
+            self.$prov.find('.comp-view').off().click(function(){
+                var handle = $(this).closest('li.component').attr('data');
+                if(vectorPattern.test(handle)){
+                    quickGraph(self.graph.assets[handle], false);
+                } else {
+                    var options = '<option value="null">select a location</option>';
+                    for(var key in self.graph.assets[handle].data){
+                        options += '<option value="'+key+'">'+self.graph.assets[handle].data[key].geoname+'</option>';
+                    }
+
+                    var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
+                        +   '<select id="setGeoSelector" style="width: 300px;">'
+                        +     options
+                        +   '</select><br><br>'
+                        +   '<button class="right" id="setGeoSelectorCancel">cancel</button>'
+                        + '</div>';
+                    $.fancybox(html,
+                        {
+                            showCloseButton: false,
+                            autoScale: true,  //($btn?false:true),
+                            overlayOpacity: 0.5,
+                            hideOnOverlayClick: false
+                        });
+                    $('#setGeoSelector').change(function(){
+                            var locationKey = $(this).val();
+                        self.graph.assets[handle].data[locationKey].src =self.graph.assets[handle].src;
+                        self.graph.assets[handle].data[locationKey].units = self.graph.assets[handle].units;
+                        self.graph.assets[handle].data[locationKey].period = self.graph.assets[handle].period;
+                        //$.fancybox.close();
+                        quickGraph(self.graph.assets[handle].data[locationKey], false);
+                    });
+                    $('#setGeoSelectorCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
+                        $.fancybox.close();
+                    });
+
+                }
+
+            })
         },
         componentMoved:  function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
             //first find out whether a sort or a move, and whether that move empty or created a new component.
@@ -456,6 +489,7 @@ function ProvenanceController(panelId){
             delete self.mapconfigEdits;
             self.$prov.find("ol.ui-sortable").sortable("destroy");
             self.$prov.closest('div.graph-panel').find('.graph-nav-graph').click();
+            self.isDirty = false;
         },
         compIndex: function(liComp){
             var $liComp = $(liComp);
@@ -501,11 +535,11 @@ function ProvenanceController(panelId){
 
             $editDiv.appendTo($liComp).slideDown();  //add the new comp editor and animate it open
             //add UI events
-/*            $editDiv.find("ul.comp-op li").click(function(){
-                $editDiv.find("li.selected").removeClass("selected");
-                component.options.op = $(this).closest("li").addClass("selected").attr('data');
-                $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + op.cssClass[component.options.op]);
-            });*/
+            /*            $editDiv.find("ul.comp-op li").click(function(){
+             $editDiv.find("li.selected").removeClass("selected");
+             component.options.op = $(this).closest("li").addClass("selected").attr('data');
+             $editDiv.closest("span.plot-op").attr("class","plot-op ui-icon " + op.cssClass[component.options.op]);
+             });*/
             $liComp.find('.comp-edit-k').show()
                 .find("input").change(function(){
                     if(!isNaN(parseFloat(this.value))){
@@ -517,7 +551,7 @@ function ProvenanceController(panelId){
                         dialogShow('Error','Scalors must be numerical');
                     }
                     $(this).val(component.options.k);
-            });
+                });
             $liComp.find(".comp-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 if(plot.components.length==1) {
                     $liComp.closest('li.plot').find('.plot-delete').click();
@@ -544,7 +578,7 @@ function ProvenanceController(panelId){
             $liPlot.find(".edit-plot, .plot-info").hide();
             //line thickness selector
             var selectThickness='<select class="plot-thickness" data="lineWidth">';
-            for(var t=1;t<=5;t++) selectThickness+='<option>'+t+'px</option>';
+            for(var t=1;t<=5;t++) selectThickness+='<option value="'+t+'">'+t+'px</option>';
             selectThickness += '</select>';
             //line style (solid, dots, dash...) selector
             var selectStyle = '<select class="plot-linestyle" data="lineStyle">';
@@ -597,11 +631,11 @@ function ProvenanceController(panelId){
                 buttonset().find('input:radio')
                 .change(function(){
                     self.set(oPlot.options, $(this));  //oPlot.options.breaks = $(this).val();
-            });
+                });
             //line color and style
             $editDiv.find(".edit-line legend").after($liPlot.find(".line-sample").hide().clone().css("display","inline-block").show());
             $editDiv.find("input.plot-color").colorPicker().change(function(){
-                self.set(oPlot.options, $(this));  
+                self.set(oPlot.options, $(this));
                 $liPlot.find("div.line-sample").css('background-color',oPlot.options.color);
             });
             $editDiv.find("select.plot-thickness").val(oPlot.options.lineWidth).change(function(){
@@ -789,9 +823,9 @@ function ProvenanceController(panelId){
                         + '<span class="plot-formula">= ' + plotFormula(mapset).formula + '</span><br>'
                         + '<button class="edit-mapset right ehide">configure</button>'
                         + '<span class="map-mode ehide">mode: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined regions') + '</span>'
-/*                        + '<span class="map-legend ehide">-'
-                        +    continuousColorScale(self.mapsetEdits.options)
-                        + '+</span>'*/
+                        /*                        + '<span class="map-legend ehide">-'
+                         +    continuousColorScale(self.mapsetEdits.options)
+                         + '+</span>'*/
                         + '<div class="editor"></div>' //where edit info is added
                         + '</div>' //close plotinfo
                         + self.componentsHTML(mapset)
@@ -844,14 +878,14 @@ function ProvenanceController(panelId){
                 +   '<span class="edit-label">Point calculations:</span>'
                 +   self.HTML.compMath + '<br>'
             //if(self.plotsEdits.length>0){
-                editDiv +=   '<div class="edit-block bunny-selector"><span class="bunny-selector" data="bunny">Color map relative to: <select class="bunny-selector">'
+            editDiv +=   '<div class="edit-block bunny-selector"><span class="bunny-selector" data="bunny">Color map relative to: <select class="bunny-selector">'
                 + '<option value="-1">none (simple heat map)</option>';
-                if(self.plotsEdits){
-                    for(i=0;i<self.plotsEdits.length;i++){
-                        editDiv += '<option ' + (options.bunny==i?'selected':'') +' value="'+i+'" >'+(i+1)+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
-                    }
+            if(self.plotsEdits){
+                for(i=0;i<self.plotsEdits.length;i++){
+                    editDiv += '<option ' + (options.bunny==i?'selected':'') +' value="'+i+'" >'+(i+1)+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
                 }
-                editDiv += '<option value="add"><b>create regional plot for me</b></option>'
+            }
+            editDiv += '<option value="add"><b>create regional plot for me</b></option>'
                 +  '</select></span></div> ';
             //}
             editDiv += '</div>';
@@ -999,26 +1033,26 @@ function ProvenanceController(panelId){
             if($container) $container.find('span.plot-formula').html('= '+ formula);
         },
         legendEditor: function($target, options, type){
-        //used by both mapsets and pointsets, depending on type = 'X' or 'M'
-        //appends the controls to $target = a fieldset labeled 'legend'
+            //used by both mapsets and pointsets, depending on type = 'X' or 'M'
+            //appends the controls to $target = a fieldset labeled 'legend'
             //controls blocks = 1) radius, 2) color scale: a) continuous b) discrete
             var i, self = this, $mapProv = self.$prov.find('.map-prov');
             var legendHTML = '<div class="edit-block">'
-            + '<div class="edit-block radius"  style="display: none;">'
-            +   '<span class="edit-label radius-label"></span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||DEFAULT_RADIUS_FIXED:options.maxRadius||DEFAULT_RADIUS_SCALE)+'" />'
-            + '</div>'
-            + '<div class="edit-block color-scale" style="display: none;">'
-            +   '<div class="legend-scale"><span class="edit-label">Color scale:</span>'
-            +       '<input type="radio" id="legend-continuous-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="continuous" /><label for="legend-continuous-'+panelId+'">continous</label>'
-            +       '<input type="radio" id="legend-discrete-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="discrete"/><label for="legend-discrete-'+panelId+'">discrete</label>'
-            +   '</div>'
-            +   '<div class="edit-block legend-continuous" style="display: none;">'
-            +       '-<div class="continuous-color"><input class="neg color-picker" type="text" data="negColor" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
-            +       continuousColorScale(options)
-            +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>+'
-            +   '</div>'
-            +   '<div class="edit-block legend-discrete" style="display: none;"></div>'
-            + '</div>';
+                + '<div class="edit-block radius"  style="display: none;">'
+                +   '<span class="edit-label radius-label"></span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||DEFAULT_RADIUS_FIXED:options.maxRadius||DEFAULT_RADIUS_SCALE)+'" />'
+                + '</div>'
+                + '<div class="edit-block color-scale" style="display: none;">'
+                +   '<div class="legend-scale"><span class="edit-label">Color scale:</span>'
+                +       '<input type="radio" id="legend-continuous-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="continuous" /><label for="legend-continuous-'+panelId+'">continous</label>'
+                +       '<input type="radio" id="legend-discrete-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="discrete"/><label for="legend-discrete-'+panelId+'">discrete</label>'
+                +   '</div>'
+                +   '<div class="edit-block legend-continuous" style="display: none;">'
+                +       '-<div class="continuous-color"><input class="neg color-picker" type="text" data="negColor" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
+                +       continuousColorScale(options)
+                +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>+'
+                +   '</div>'
+                +   '<div class="edit-block legend-discrete" style="display: none;"></div>'
+                + '</div>';
 
             var $legend = $(legendHTML);
             $legend.find('div.legend-scale')
@@ -1082,12 +1116,12 @@ function ProvenanceController(panelId){
             }
             function setRadLabel(){
                 /*if(options.attribute=='fill'){
-                    $legend.find('.radius-label').html('Marker radius: ');
-                    $legend.find('.color').hide();
-                } else {
-                    $legend.find('.radius-label').html('Maximum marker radius: ');
-                    $legend.find('.color').show();
-                }*/
+                 $legend.find('.radius-label').html('Marker radius: ');
+                 $legend.find('.color').hide();
+                 } else {
+                 $legend.find('.radius-label').html('Maximum marker radius: ');
+                 $legend.find('.color').show();
+                 }*/
             }
         },
         discreteLegend: function(type){

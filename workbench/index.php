@@ -45,6 +45,8 @@
     <script type="text/javascript" src="/global/js/slickgrid/jquery.event.drag-2.0.min.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/slick.core.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/slick.grid.js"></script>
+    <script type="text/javascript" src="/global/js/slickgrid/slick.dataview.js"></script>
+
 
     <!--immediate dynamic loading
     //Group for graph creation
@@ -192,6 +194,7 @@
         </div>
     </div>
 </div>
+<a class="hidden" id="license-link" href="http://www.mashabledata.com/workbench/license.html">MashableData Workbench License</a>
 <a class="show-link-options" href="#link-options-div"></a>
 <div id="dwrap" style="display:none;width:100%;height:90%;">
     <div id="link-options-div" style="background-color:white;">
