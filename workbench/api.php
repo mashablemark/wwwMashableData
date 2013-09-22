@@ -1268,11 +1268,11 @@ function getGraphs($userid, $ghash){
     }
     $sql = "SELECT g.graphid as gid, g.userid, g.title, text as analysis, "
         . " g.map, jvectormap, mapconfig, "
-        . " serieslist, s.name, s.units, skey, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
+        . " serieslist, s.name, s.units, skey, s.src, s.notes, s.lat, s.lon, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
         . " ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
         . " gp.plotid, gp.type as plottype, gp.options as plotoptions, legendorder, pc.objtype as comptype, objid, "
         . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
-        . " from graphs g left outer join maps m on g.map=m.map, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid  "
+        . " from graphs g left outer join maps m on g.map=m.map, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid   "
         . " where g.graphid=gp.graphid and gp.plotid=pc.plotid ";
     if(strlen($ghash)>0){
         $sql .=  " and ghash=".safeStringSQL($ghash);  //used by GetPublicGraph
@@ -1380,6 +1380,10 @@ function getGraphs($userid, $ghash){
                     "handle"=>$handle,
                     "name"=>$aRow["name"],
                     "units"=>$aRow["units"],
+                    "src"=>$aRow["src"],
+                    "lat"=>$aRow["lat"],
+                    "lon"=>$aRow["lon"],
+                    "notes"=>$aRow["notes"],
                     "firstdt"=> $aRow["firstdt"],
                     "lastdt"=> $aRow["lastdt"],
                     "period"=> $aRow["periodicity"],
