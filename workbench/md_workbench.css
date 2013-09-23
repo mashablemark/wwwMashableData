@@ -887,6 +887,9 @@ div.jvectormap-container{
     background-image: url(images/ui-icons_2e83ff_256x240.png) !important;
 }
 .grid-series-column{}
+.grid-date-column{
+    font-weight: bold;
+}
 .grid-calculated-column{
     font-style: italic;
 }

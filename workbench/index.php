@@ -184,13 +184,13 @@
             <fieldset class="tight-fieldset"><legend>graph</legend>
                 <select id="quick-view-to-graphs"></select>
                 <select class="quick-view-maps"></select>
-                <button class="quick-view-maps" onclick="quickViewToMap(this)">map set</button>
-                <button id="quick-view-to-graph" onclick="quickViewToChart(this)">chart series</button>
+                <button class="quick-view-maps">map set</button>
+                <button id="quick-view-to-graph">chart series</button>
             </fieldset>
             <button id="edit-my-series">edit</button>
-            <button id="quick-view-to-series" onclick="quickViewToSeries(this)">add to My Series</button>
-            <button id="quick-view-delete-series" onclick="deleteMySeries()">delete from My Series</button>
-            <button id="quick-view-close" class="right" onclick="quickViewClose()">Close</button>
+            <button id="quick-view-to-series"">add to My Series</button>
+            <button id="quick-view-delete-series">delete from My Series</button>
+            <button id="quick-view-close" class="right">Close</button>
         </div>
     </div>
 </div>

@@ -1122,7 +1122,8 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
             + 'notes:<br>'
             + 'region code:<br>' //row deleted if empty at func end
             + 'lat, lon:<br>'  //row deleted if empty at func end
-            + 'formula:'
+            + 'formula:',
+        cssClass: 'grid-date-column'
     }];
     for(p=0;p<oGraph.plots.length;p++){
         plot = oGraph.plots[p];

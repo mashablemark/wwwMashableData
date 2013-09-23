@@ -26,12 +26,13 @@ var iconsHMTL= {
     hasBubbleMap: '<span class="ui-icon ui-icon-bubble" title="bubble map of data aggregated into user-defined regions"></span>'
 };
 var dialogues = {
-    noMySeries: 'Your My Series folder is empty.  Please search for Public Series, whihc can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
+    noMySeries: 'Your My Series folder is empty.  Please search for Public Series, which can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
     noSeriesSelected: 'Click on one or more series below to select them before previewing.<br><br>Alternatively, you can double-click on a series to quickly preview it.',
     editLimit: "Only one series or set can be edited at a time.",
     noGraphSelected: 'Click on a row in the table below to select a graph first.<br><br>As a shortcut, you can double-click on a graph to select and open it.',
     noMyGraphs: 'You have no My Graphs.  Graphs are built by searching for public series or upload your own data and building a graph. Saving graphs you build adds to them to your My Graphs folder.<br><br>You can also view a public graph and make a personal copy.<br><br>See the help (upper right after you close this dialogue) to learn more.',
-    noPublicGraphs: 'First search for public graphs.  Note that a search with no keywords will return the most recent published graphs.'
+    noPublicGraphs: 'First search for public graphs.  Note that a search with no keywords will return the most recent published graphs.',
+    deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm'
 };
 //GLOBAL VARIABLES
 var colWidths = {
@@ -157,12 +158,28 @@ $(document).ready(function(){
     require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
     addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
-    $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}});
-    $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error');
-    $('button.quick-view-maps').button({icons: {secondary: "ui-icon-flag"}});
-    $('#quick-view-to-graph').button({icons: {secondary: "ui-icon-image"}});
-    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}});
 
+    //beautify the quickview controls
+    $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
+        var series = [], hasMySeries = false;
+        dtMySeries.find('tr.ui-selected').each(function(){
+            series.push(dtMySeries.fnGetData(this));
+        });
+        if(series.length==0){
+            for(var handle in oMySeries){
+                hasMySeries = true;
+                break;
+            }
+            if(hasMySeries) dialogShow('selection required', dialogues.noSeriesSelected); else dialogShow('selection required',dialogues.noMySeries);
+        } else {
+            if(series.lenght==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
+        }
+    });
+    $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}}).click(function(){quickViewToSeries(this)});
+    $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error').click(function(){deleteMySeries(this)});
+    $('button.quick-view-maps').button({icons: {secondary: "ui-icon-flag"}}).click(function(){quickViewToMap(this)});
+    $('#quick-view-to-graph').button({icons: {secondary: "ui-icon-image"}}).click(function(){quickViewToChart(this)});
+    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(function(){quickViewClose(this)});
     $(".show-graph-link").fancybox({  //TODO: replace these two hard links with dynamic FancyBox invocations per account.js
         'width'             :  '100%',
         'height'            : '100%',
@@ -172,6 +189,7 @@ $(document).ready(function(){
         'transitionIn'		: 'none',
         'transitionOut'		: 'none'
     });
+
     jQuery.fancybox.center = function() {};  //KILLS fancybox.center() !!!
     $(".showTitleEditor").fancybox({
         'height'            : '35px',
@@ -458,22 +476,6 @@ function setupMySeriesTable(){
         .on('keyup change', seriesFilterChange);
 
     $('.new-series').button().click(function(){showSeriesEditor()});
-    $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
-        var series = [], hasMySeries = false;
-        dtMySeries.find('tr.ui-selected').each(function(){
-            series.push(dtMySeries.fnGetData(this));
-        });
-        if(series.length==0){
-            for(var handle in oMySeries){
-                hasMySeries = true;
-                break;
-            }
-            if(hasMySeries) dialogShow('selection required', dialogues.noSeriesSelected); else dialogShow('selection required',dialogues.noMySeries);
-        } else {
-            if(series.lenght==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
-        }
-    });
-
     $('#series-table_info').appendTo('#local-series-header');
 }
 function setupPublicSeriesTable(){
@@ -909,7 +911,6 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
                 addMySeriesRow($.extend({}, mySerie));
             }
         }
-        if(seriesKeys.length>0) $('#edit-my-series').button('enable');
         if(account.loggedIn()){
             callApi(params, function(results, textStatus, jqXH){
                 var dbHandle;
@@ -1141,7 +1142,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     $('.show-graph-link').click();
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
-    $(btn).attr("disabled","disabled");
+    $(btn).button("disable");
     for(var i=0;i<oQuickViewSeries.length;i++){
         oQuickViewSeries[i].save_dt = new Date().getTime();
         var serieskey = addMySeriesRow(oQuickViewSeries[i]);  //table and oMySeries add/update
@@ -2130,7 +2131,6 @@ function getMySeries(){
             }
             dtMySeries.fnClearTable();
             dtMySeries.fnAddData(series);
-            if(series.length>0) $('#edit-my-series').button('enable');
         }
     );
 }
@@ -2309,18 +2309,30 @@ function md_calcSeriesInfo(PointArray){
 
 //GRAPHING FUNCTIONS (note:  most graphing routines are in graph.js)
 
-function deleteMySeries(){  //called from quickViewer
+function deleteMySeries(){  //remove all series in quickView from users MySeries
     //$quickViewRows array is only filled when previewing MySeries
-    var obj, trMySeries;
-    for(var i=0;i<$quickViewRows.length;i++){
-        obj = dtMySeries.fnGetData($quickViewRows.get(i));
-        if(account.loggedIn()){
-            obj.save = null;
-            updateMySeries(obj);  //delete from DB
-        }
-        delete oMySeries[obj.handle];
-        dtMySeries.fnDeleteRow($quickViewRows.get(i));
-    }
+    var obj;
+    dialogShow("confirm removal",
+        dialogues.deleteMySeries,
+        [
+            {text: 'delete',id:'btn-delete',
+                click:  function() {
+                    for(var i=0;i<$quickViewRows.length;i++){
+                        obj = dtMySeries.fnGetData($quickViewRows.get(i));
+                        if(account.loggedIn()){
+                            obj.save = null;
+                            updateMySeries(obj);  //delete from DB
+                        }
+                        delete oMySeries[obj.handle];
+                        dtMySeries.fnDeleteRow($quickViewRows.get(i));
+                    }
+                    $(this).dialog('close');
+                    quickViewClose()
+                }
+            },
+            {text: 'cancel',id:'btn-cancel',click:  function() {$(this).dialog('close');}}
+        ]
+    );
 }
 
 // actual addTab function: adds new tab using the title input from the form above.  Also checks and sets the edit graph button
