@@ -1,3 +1,10 @@
+/**
+ * Created with JetBrains PhpStorm.
+ * User: mark__000
+ * Date: 2/17/13
+ * Time: 11:13 PM
+ * To change this template use File | Settings | File Templates.
+ */
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
 function ProvenanceController(panelId){
@@ -301,44 +308,6 @@ function ProvenanceController(panelId){
                     }
                 })
                 .disableSelection();
-            self.$prov.find('.comp-view').off().click(function(){
-                var handle = $(this).closest('li.component').attr('data');
-                if(vectorPattern.test(handle)){
-                    quickGraph(self.graph.assets[handle], false);
-                } else {
-                    var options = '<option value="null">select a location</option>';
-                    for(var key in self.graph.assets[handle].data){
-                        options += '<option value="'+key+'">'+self.graph.assets[handle].data[key].geoname+'</option>';
-                    }
-
-                    var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
-                        +   '<select id="setGeoSelector" style="width: 300px;">'
-                        +     options
-                        +   '</select><br><br>'
-                        +   '<button class="right" id="setGeoSelectorCancel">cancel</button>'
-                        + '</div>';
-                    $.fancybox(html,
-                        {
-                            showCloseButton: false,
-                            autoScale: true,  //($btn?false:true),
-                            overlayOpacity: 0.5,
-                            hideOnOverlayClick: false
-                        });
-                    $('#setGeoSelector').change(function(){
-                            var locationKey = $(this).val();
-                        self.graph.assets[handle].data[locationKey].src =self.graph.assets[handle].src;
-                        self.graph.assets[handle].data[locationKey].units = self.graph.assets[handle].units;
-                        self.graph.assets[handle].data[locationKey].period = self.graph.assets[handle].period;
-                        //$.fancybox.close();
-                        quickGraph(self.graph.assets[handle].data[locationKey], false);
-                    });
-                    $('#setGeoSelectorCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
-                        $.fancybox.close();
-                    });
-
-                }
-
-            })
         },
         componentMoved:  function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
             //first find out whether a sort or a move, and whether that move empty or created a new component.
@@ -527,7 +496,7 @@ function ProvenanceController(panelId){
                 .end()
                 .buttonset()
                 .find('input:radio')
-                .click(function(){
+                .mousedown(function(){
                     self.set(plot.components[iComp].options, 'op', $(this).val());
                     self.setFormula(plot, $liComp.closest(".plot,.mapset"));
                     $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.cssClass[plot.components[iComp].options.op]);
@@ -1051,6 +1020,10 @@ function ProvenanceController(panelId){
                 +       continuousColorScale(options)
                 +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>+'
                 +   '</div>'
+                +   '<div class="lin-log-scaling"><span class="edit-label">Color mode:</span>'
+                +       '<input type="radio" id="lin-scaling-'+panelId+'" name="color-mode-'+panelId+'" data="logMode" value="off" /><label for="lin-scaling-'+panelId+'">linear</label>'
+                +       '<input type="radio" id="log-scaling-'+panelId+'" name="color-mode-'+panelId+'" data="logMode" value="on"/><label for="log-scaling-'+panelId+'">enhanced color</label>'
+                +   '</div>'
                 +   '<div class="edit-block legend-discrete" style="display: none;"></div>'
                 + '</div>';
 
@@ -1061,11 +1034,18 @@ function ProvenanceController(panelId){
                     self.set(options,  $(this));
                     if(options.scale=='continuous'){
                         $legend.find('.legend-discrete').hide();
+                        $legend.find('.lin-log-scaling').removeAttr('style');
                         $legend.find('.legend-continuous').removeAttr('style');  //show method that does not add style=display: block;
                     } else {
                         $legend.find('.legend-discrete').removeAttr('style');
+                        $legend.find('.lin-log-scaling').hide();
                         $legend.find('.legend-continuous').hide();
                     }
+                });
+            $legend.find('.lin-log-scaling')
+                .find("[value='"+(options.logMode||'off')+"']").attr('checked',true).end()
+                .buttonset().find('input').change(function(){
+                    self.set(options,  $(this));
                 });
             $legend.find('.radius-spinner')
                 .spinner({min: 2, max:200})

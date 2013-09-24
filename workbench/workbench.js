@@ -159,7 +159,7 @@ $(document).ready(function(){
 
     addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
 
-    //beautify the quickview controls
+    //setup the quickview controls
     $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
         var series = [], hasMySeries = false;
         dtMySeries.find('tr.ui-selected').each(function(){
@@ -172,14 +172,24 @@ $(document).ready(function(){
             }
             if(hasMySeries) dialogShow('selection required', dialogues.noSeriesSelected); else dialogShow('selection required',dialogues.noMySeries);
         } else {
-            if(series.lenght==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
+            if(series.length==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
         }
     });
     $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}}).click(function(){quickViewToSeries(this)});
     $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error').click(function(){deleteMySeries(this)});
-    $('button.quick-view-maps').button({icons: {secondary: "ui-icon-flag"}}).click(function(){quickViewToMap(this)});
-    $('#quick-view-to-graph').button({icons: {secondary: "ui-icon-image"}}).click(function(){quickViewToChart(this)});
-    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(function(){quickViewClose(this)});
+    $('#quick-view-chart-or-map').buttonset();
+    $('#quick-view-map').button({icons: {secondary: "ui-icon-flag"}});
+    $('#quick-view-chart').button({icons: {secondary: "ui-icon-image"}});
+
+    $('#quick-view-add-to-graph').button().addClass('ui-state-active')
+        .click(function(){
+           if($('#quick-view-map:visible').length==1 &&  $('#quick-view-map:checked').length==1){
+               quickViewToMap(this);
+           } else {
+               quickViewToChart(this);
+           }
+        });
+    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(function(){quickViewClose()});
     $(".show-graph-link").fancybox({  //TODO: replace these two hard links with dynamic FancyBox invocations per account.js
         'width'             :  '100%',
         'height'            : '100%',
@@ -458,7 +468,7 @@ function setupMySeriesTable(){
         })
         .click(function(e){
             var $td = $(e.target).closest('td');
-            if($td.hasClass('title')){
+            if($td.hasClass('title') || $td.hasClass('units') || $td.hasClass('dt-freq') || $td.hasClass('dte')){
                 dtMySeries.find('tr.ui-selected').removeClass('ui-selected');
                 $td.closest('tr').addClass('ui-selected');
                 previewMySeries();
@@ -547,7 +557,7 @@ function setupPublicSeriesTable(){
                         + spanWithTitle(value)
                         + '<span class="handle">' + (obj.userid?'U':'S') + obj.seriesid + '</span>';
                 }},
-            { "mData":"units", "sTitle": "Units<span></span>", "sWidth": unitsColWidth+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
+            { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": unitsColWidth+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
@@ -565,7 +575,7 @@ function setupPublicSeriesTable(){
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
-            if($td.hasClass('title')){
+            if($td.hasClass('title') || $td.hasClass('units') || $td.hasClass('dt-freq') || $td.hasClass('dte')){
                 dtPublicSeries.find('tr.ui-selected').removeClass('ui-selected');
                 $td.closest('tr').addClass('ui-selected');
                 previewPublicSeries();
@@ -1058,7 +1068,7 @@ function preview(series, showAddSeries){
 function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
     var quickGraph, aoSeries, i;
     var hasMaps = false, seriesMaps = [], otherMaps = [], sets = [];
-    var $mapSelect =  $('select.quick-view-maps');
+    var $mapSelect =  $('#quick-view-maps');
 
     if(obj.plots){ // a graphs object was passed in
         quickGraph = obj; // everything including title should be set by caller
@@ -1073,12 +1083,19 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             quickGraph.assets[aoSeries[i].handle] = aoSeries[i];
             quickGraph.plots.push({components:[{handle:aoSeries[i].handle, options:{k:1, op:'+'}}],  options:{}});
             handles.push(aoSeries[i].handle);
-            $('#quick-view-controls').attr('data', handles.join(","));
         }
     }
 
     var quickChartOptions = makeChartOptionsObject(quickGraph);
     delete quickChartOptions.chart.height;
+    if(aoSeries instanceof Array){
+        if(aoSeries.length==1){
+            quickChartOptions.title = {text: aoSeries[0].name};
+            quickChartOptions.legend = {enabled: false};
+        } else {
+            delete quickChartOptions.title;
+        }
+    }
     quickChartOptions.chart.borderWidth = 2;
     quickChartOptions.chart.renderTo = 'highcharts-div';
     quickChart = new Highcharts.Chart(quickChartOptions);
@@ -1114,18 +1131,18 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     if(hasMaps){ //make sure we have maps to show
         seriesMaps.sort();
         otherMaps.sort();
+        //$('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
+        $('#quick-view-chart-or-map').show().find('input').off().click(function(){mapOrChartChange()});
         $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):'')).show();
-        $('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
+        mapOrChartChange();
     } else {
         $mapSelect.hide();
-        $('button.quick-view-maps').hide();
+        $('#quick-view-chart-or-map').hide();
     }
     $('#qv-info').html(qvNotes);
 
-
-
     if(showAddSeries){
-        $('#quick-view-to-series').show();
+        $('#quick-view-to-series').button("disable").show();
         $('#quick-view-delete-series').hide();
     } else {
         $('#quick-view-to-series').hide();
@@ -1138,8 +1155,16 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
     });
     $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId());
-    $('#quick-view-to-graph').removeAttr("disabled");
+    //$('#quick-view-add-to-graph').button("enable");
     $('.show-graph-link').click();
+
+    function mapOrChartChange(){
+        if($('#quick-view-chart-or-map input:checked').val()=='chart'){
+            $('#quick-view-maps').attr('disabled','disabled');
+        } else {
+            $('#quick-view-maps').removeAttr('disabled');
+        }
+    }
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
     $(btn).button("disable");
@@ -1148,6 +1173,8 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
         var serieskey = addMySeriesRow(oQuickViewSeries[i]);  //table and oMySeries add/update
         updateMySeries(oQuickViewSeries[i]); //cloud update
     }
+    dialogShow('My Series', 'series added.',[]);
+    $('#dialog').closest('.ui-dialog').fadeOut(1000, function(){ $('#dialog').dialog('close')})
     //quickView not closed automatically, user can subsequently chart or close
 }
 function quickViewToChart(btn){
@@ -1197,7 +1224,7 @@ function quickViewToChart(btn){
 function quickViewToMap(){
     var panelId =  $('#quick-view-to-graphs').val();
     var addedHandle;
-    var map = $("select.quick-view-maps").val();
+    var map = $("#quick-view-maps").val();
     if(
         oPanelGraphs[panelId]
             && oPanelGraphs[panelId].map
@@ -1351,6 +1378,7 @@ function browseFromSeries(seriesId){
     });
 }
 function editSeries(sHandle){//edit the first visible
+    if($('#outer-show-graph-div:visible').length==1)quickViewClose();
     if(sHandle){
         var $select, serie = oMySeries[sHandle];
         if(serie.mapsetid||serie.pointsetid){
@@ -1464,7 +1492,7 @@ function showSeriesEditor(handle, map){
     function initializeSeriesEditor(){
         editorCols = 2;
         var lastRow= 0,lastCol=0;
-        var $panel = $('div#edit-user-series').show().height($('div#local-series').height());
+        var $panel = $('div#edit-user-series').height($('div#local-series').height()).fadeIn();
         var $editor = $("#data-editor").height($('div#local-series').height()-50).html('');
         $panel.find('button.series-edit-save').button({icons:{secondary:'ui-icon-disk'}}).off().click(function(){
             saveSeriesEditor(false);
@@ -1476,7 +1504,7 @@ function showSeriesEditor(handle, map){
             var arySeries = userSeriesFromEditor();
             quickGraph(arySeries, false);
         });
-        $panel.find('button.series-edit-geoset').button({icons:{secondary:'ui-icon-flag'}}).off().click(function(){
+        $panel.find('button.series-edit-geoset').button({icons:{secondary:'ui-icon-flag'}}).show().off().click(function(){
             showUserSetWizard();
         });
         $panel.find('button.series-edit-save-as').button({icons:{secondary:'ui-icon-copy'}});
@@ -1864,7 +1892,7 @@ function showSeriesEditor(handle, map){
         var $de = $("#data-editor");
         $de.handsontable('destroy');  //handsontable does not support chaining
         $de.attr('style','overflow:scroll;');
-        $('div#edit-user-series').slideUp();
+        $('div#edit-user-series').fadeOut();
     }
 }
 

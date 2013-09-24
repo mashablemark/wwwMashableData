@@ -1,3 +1,4 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html>
 <head>
@@ -150,7 +151,7 @@
         <!--BEGIN COMMUNITY GRAPHS DATATABLE-->
         <div id="publicGraphs" class="picker">
             <div id="publicGraphsHeader" class="md-DS_title">
-                <div id="public_graphs_search" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;">
+                <div id="public_graphs_search" style="display:inline; margin-left:5px; padding:7px; background-color: lightyellow;">
                     <input maxlength="200" id="graphs_search_text" class="long grey-italics"/>
                     <button id="graphs-search-button" style="background-color: orange;background: orange;" onclick="graphsCloudSearch(event)">search</button>
                 </div>
@@ -181,12 +182,22 @@
         <div id="qv-info"></div>
         <br />
         <div id="quick-view-controls" class="no_print">
-            <fieldset class="tight-fieldset"><legend>graph</legend>
+            <div id="quick-view-controls-add" style="margin:5px;padding:9px 5px;background-color: lightblue; display: inline;">
+                <select id="quick-view-to-graphs"></select>
+                <div id="quick-view-chart-or-map" style="display: inline-block">
+                    <input type="radio" class="chart-or-map" name="chart-or-map" id="quick-view-chart" value="chart"><label for="quick-view-chart">chart series</label>
+                    <input type="radio" class="chart-or-map" name="chart-or-map" id="quick-view-map" checked value="map"><label for="quick-view-map">map set</label>
+                </div>
+                <select id="quick-view-maps"></select>
+                <button id="quick-view-add-to-graph"  style="background-color: orange;background: orange;">add to graph</button>
+            </div>
+
+            <!--fieldset class="tight-fieldset"><legend>graph</legend>
                 <select id="quick-view-to-graphs"></select>
                 <select class="quick-view-maps"></select>
                 <button class="quick-view-maps">map set</button>
                 <button id="quick-view-to-graph">chart series</button>
-            </fieldset>
+            </fieldset-->
             <button id="edit-my-series">edit</button>
             <button id="quick-view-to-series"">add to My Series</button>
             <button id="quick-view-delete-series">delete from My Series</button>

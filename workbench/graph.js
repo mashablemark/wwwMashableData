@@ -1721,7 +1721,7 @@ function calcAttributes(graph){
                             if(y==0 && spans) {
                                 calcData.regionColors[dateKey][geo] = MAP_COLORS.MID;
                             } else {
-                                calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos, mapOptions.scaling!='lin' && !spans && min!=0 && max!=0);
+                                calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos, mapOptions.logMode=='on' && !spans && min!=0 && max!=0);
                             }
                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
                             for(j=0;j<mapOptions.discreteColors.length;j++){
@@ -3175,7 +3175,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 var markerData = getMapDataByContainingDate(calculatedMapData.markerData, calculatedMapData.dates[val].s);
                 for(id in markerData){
                     if(markerData[id][attr] !== null){
-                        list.push({name: calculatedMapData.markers[id], value: markerData[id][attr]});
+                        list.push({name: calculatedMapData.markers[id].name, value: markerData[id][attr]});
                     }
                 }
             }
@@ -3342,6 +3342,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
             if(oGraph.mapsets){
                 hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+                if(oGraph.mapsets.options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
 
                 if(oGraph.mapsets.options.scale == 'discrete'){
                     for(i=0;i<oGraph.mapsets.options.discreteColors.length;i++){
@@ -3586,7 +3587,7 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
     var c, i, terms, numUnits = '', denomUnits = '';
     //short cut for single component plots
     if(plot.components.length==1){
-        return plot.options.units || (plot.components[0].op=='/'?'per ':'') + graph.assets[plot.components[0].handle].units;
+        return plot.options.units || (plot.components[0].op=='/'?'per ':'') + (graph.assets[plot.components[0].handle].units||'');
     }
     if(!plot.options.units || forceCalculated){
         //calculate from component series
