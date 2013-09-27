@@ -199,7 +199,7 @@ switch($command){
        );
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
        while ($aRow = $result->fetch_assoc()) {
-            $output['aaData'][] = $aRow;  
+            $output['aaData'][] = $aRow;
        }
        break;
     case "SearchGraphs":
@@ -662,7 +662,7 @@ switch($command){
         logEvent("GetCatChains: get series cats", $sql);
         $catrs = runQuery($sql);
         $chains = array();
-        while($catinfo = $catrs->fetch_array()){
+        while($catinfo = $catrs->fetch_assoc()){
             $chains["C".$catinfo["catid"]] = array(array("catid"=>$catinfo["catid"], "name"=>$catinfo["name"], "scount"=>$catinfo["scount"], "children"=>$catinfo["children"]));
         }
         while(BuildChainLinks($chains)){}  //work occurs in BuildChains (note: $chains passed by ref)
@@ -688,7 +688,7 @@ switch($command){
         logEvent("GetCatSiblings", $sql);
         $catrs = runQuery($sql);
         $output = array("status" => "ok", "siblings"=>array());
-        while($sibling = $catrs->fetch_array()){
+        while($sibling = $catrs->fetch_assoc()){
             array_push($output["siblings"], $sibling);
         }
         break;
@@ -706,7 +706,7 @@ switch($command){
         logEvent("GetCatChildren", $sql);
         $catrs = runQuery($sql);
         $output = array("status" => "ok", "children"=>array());
-        while($child = $catrs->fetch_array()){
+        while($child = $catrs->fetch_assoc()){
             array_push($output["children"], $child);
         }
         break;

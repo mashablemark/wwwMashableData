@@ -879,6 +879,9 @@ div.jvectormap-container{
     background-image: url(images/ui-icons_2e83ff_256x240.png);
     cursor:pointer;
 }
+.ui-icon-stop{
+    display: inline-block;
+}
 .active:not(.slick-cell) {
     background-image: url(images/ui-icons_222222_256x240.png) !important;
 }
@@ -1039,6 +1042,7 @@ div.blue-inset{
 #cat-chains td{
     vertical-align: top;
     padding:5px;
+    background-color: #add8e6;
 }
 #cat-chains a{
     color: #2e83ff;

@@ -2053,16 +2053,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '</table>' +
             '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
             '</div>' +
-            '<div class="annotations"><fieldset><legend>Annotations</legend>' +
+            '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
             '<table class="annotations"></table>' +
             '</fieldset></div>' +
             '<div class="downloads">' +
             '<fieldset>' +
-            '<legend>&nbsp;Downloads&nbsp;</legend>' +
-            'Data: ' +
-            '<a title="tooltip" class="md-csv rico">CSV</a>' +
-            //'<a class="md-xls rico">Excel</a><br>' +
-            ' Image: ' +
+            '<legend>&nbsp;Download image&nbsp;</legend>' +
+            '<select class="download-selector"><option '+(!(oGraph.mapsets||oGraph.pointsets)?'selected':'')+'>chart</option><option '+(oGraph.mapsets||oGraph.pointsets?'selected':'')+'>map</option></select> ' +
+            'format: ' +
             '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
             //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
             '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
@@ -2073,8 +2071,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<fieldset>' +
             '<legend>&nbsp;Sharing&nbsp;</legend>' +
             '<div class="share-links">' +
-            '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' + //copy from http://www.eia.gov/global/images/icons/facebook.png
-            '<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' + //copy from http://www.eia.gov/global/images/icons/twitter.png
+            '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
+            //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
             '<button class="email">email </button> ' +
             '<button class="graph-link">link </button>' +
             //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
@@ -2359,7 +2357,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             if(oGraph.intervals != parseInt($(this).val())){
                 oGraph.intervals = parseInt($(this).val());
                 chartPanel(panelId, annotations);
-                annotations.build();
+                if(oGraph.plots) annotations.build();
             }
         }
     });
@@ -2524,10 +2522,11 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             destroyChartMap(panelId); //destroy the Highchart, the map and the contectMenu if they exist.
             if(oGraph.plots){
                 chartPanel(panelId, annotations);
-                annotations.build();
+                annotations.build();  //build and shows teh annotations table
                 $thisPanel.find('div.chart').show();
             } else {
                 $thisPanel.find('div.chart').hide();
+                $thisPanel.find('div.annotations').hide();
             }
             if(oGraph.mapsets||oGraph.pointsets){
                 drawMap(); //shows the map div
@@ -2624,6 +2623,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         });
     } else {
         $thisPanel.find('div.chart').hide();
+        $thisPanel.find('div.annotations').hide();
     }
     ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
     var $map = null, vectorMapSettings, val, mergablity;

@@ -115,7 +115,7 @@ function AnnotationsController(panelId, makeDirty){
             pointSelected.select(true);
         },
         build: function buildAnnotations( redrawAnnoTypes){
-            var y, yOffset, self = this, $annotations = $('div#' + panelId + ' table.annotations');
+            var y, yOffset, self = this, $annotations = $('#' + panelId + ' div.annotations').show().find('table');
             if($annotations.html().length!=0) { //enable on all calls except initial build
                 $('div#' + panelId + ' .graph-save').button("enable");
                 oPanelGraphs[panelId].isDirty = true;
