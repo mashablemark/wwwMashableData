@@ -2164,6 +2164,19 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     $thisPanel.find('.graph-data-subpanel').height($thisPanel.innerHeight()-60);  //account for chart/region/markers tabs
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
+    $thisPanel.find('select.download-selector').change(function(){
+        if($(this).val()=='map'){
+            if(!oGraph.mapsets&&!oGraph.pointsets) {
+                dialogShow("no map","This graph does not have a map to download.  Map are adding to graphs by finding a series that belongs to a map set or a marker set and mapping the set.");
+                $(this).val('chart');
+            }
+        } else {
+            if(!oGraph.plots){
+                dialogShow("no chart","This graph does not have a chart to download.");
+                $(this).val('map');
+            }
+        }
+    });
     $thisPanel.find('.export-chart').click(function(){
         var type, $this = $(this);
         if($this.hasClass('md-jpg')) type = 'image/jpeg';
@@ -2559,7 +2572,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         makeClean();
     }
     function exportChart(type){
-        if(oPanelGraphs[panelId].map){
+        if(oPanelGraphs[panelId].map&&($thisPanel.find('select.download-selector').val()=='map'||!oGraph.plots)){
             downloadMap(panelId, type);
         } else {
             annotations.sync();
