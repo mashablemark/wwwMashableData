@@ -679,6 +679,9 @@ div.mapset{
     position: relative;
     margin: 5px;
 }
+#menu-help{
+    margin-right: 15px;
+}
 li.component, li.mapset {
     margin: 5px;
     padding: 5px;
@@ -913,6 +916,14 @@ div.edit-math {
 .op-addition {background-position: -32px -128px;}   /*ui-icon-plusthick*/
 .op-subtraction {background-position: -64px -128px;}  /*ui-icon-minusthick*/
 
+label.ui-state-default:not(.ui-state-active){
+    color: #808080;
+}
+
+label.ui-state-default:not(.ui-state-active) span.ui-icon{
+    background-image: url(images/ui-icons_888888_256x240.png);
+}
+
 span.ui-button-text{
     padding: 2px 5px;
     font-size: 10px;
@@ -1142,6 +1153,10 @@ table.dataTable tr:hover td.title, table.dataTable tr:hover td.units, table.data
 }
 #cloud-series-browse{
     margin-left: 20px;
+}
+#browse-api{
+    position: absolute;
+    z-index: 1000;
 }
 
 /*very light + border theme*/

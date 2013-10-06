@@ -181,7 +181,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
                 $mdDate = substr($aryLine[$COL_DATE], 3) . $MONTHS[substr($aryLine[$COL_DATE], 0, 3)];
                 $aryLine[$COL_DATE] = $mdDate;
                 if($aryLine[$COL_COUNTRY]!=$series_header[$COL_COUNTRY] || $aryLine[$COL_PRODUCT]!=$series_header[$COL_PRODUCT] || $aryLine[$COL_FLOW]!=$series_header[$COL_FLOW] || $aryLine[$COL_UNIT]!=$series_header[$COL_UNIT]){ //series
-                    set_time_limit(60);
+                    set_time_limit(600);
                     if(!$initial){
                         updateTempJodi($jobInfo["filenum"], $series_header, $data);
                         runQuery($timestamp_run_sql);
@@ -207,6 +207,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
 
         $jodi_records = runQuery("select * from temp_jodi where file=" . $jobInfo["filenum"]);
         while ($aRow = $jodi_records->fetch_assoc()){
+            set_time_limit(10);
             $line = $aRow["keypart"]; //double quotes not used
             $aryLine = explode(",", $line);
 
@@ -233,7 +234,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
             $aryFirstPoint= explode("|", $arydata[0]);
             $aryLastPoint= explode("|", $arydata[count($arydata)-1]);
             $firstDate = strtotime(substr($aryFirstPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")*1000;
-            $lastDate = strtotime(substr($aryLastPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")*1000;
+            $lastDate = strtotime(substr($aryLastPoint[0],0,4) . "-" . (substr($aryLastPoint[0],4,2)+1) . "-1 UTC")*1000;
 
             $seriesid = updateSeries($status, $skey, $setName.": ".$countryRow["name"],"Joint Oil Data Initiative","http://www.jodidata.org/database/data-downloads.aspx","M",
                 $jodi_codes["unit"][$aryLine[$COL_UNIT]], $jodi_codes["unit"][$aryLine[$COL_UNIT]],
@@ -248,7 +249,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
         $updatedJobJson = json_encode(array_merge($status, $jobInfo));
         runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$apirunjob["jobid"]);
         runQuery($timestamp_run_sql);
-
+        set_time_limit(600);
         setMapsetCounts($apirunjob["apiid"]);
     } else { //unknown file format
         print("Header Format mismatch:<br>");

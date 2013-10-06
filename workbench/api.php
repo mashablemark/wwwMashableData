@@ -651,14 +651,24 @@ switch($command){
         break;
     case "GetCatChains":
         $seriesid = intval($_POST["sid"]);
-        $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount "
-        . ", COUNT(DISTINCT childid ) AS children   "
-        . " FROM categories c "
-        . " INNER JOIN categoryseries cs ON  c.catid = cs.catid "
-        . " INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid "
-        . " LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid "
-        . " WHERE cs.seriesid = " . $seriesid . " and c.catid<>5506 " //don't select root category
-        . " GROUP BY c.catid, c.apicatid, c.name";
+        if($seriesid == 0){ //get list of APIs to browse
+            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount "
+                . ", COUNT(DISTINCT childid ) AS children   "
+                . " FROM categories c "
+                . " INNER JOIN catcat cc ON c.catid = cc.childid "
+                . " LEFT OUTER JOIN categoryseries cs2 ON  c.catid = cs2.catid "
+                . " WHERE cc.parentid = 5506 " //select children of root category
+                . " GROUP BY c.catid, c.apicatid, c.name";
+        } else {
+            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount "
+            . ", COUNT(DISTINCT childid ) AS children   "
+            . " FROM categories c "
+            . " INNER JOIN categoryseries cs ON  c.catid = cs.catid "
+            . " INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid "
+            . " LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid "
+            . " WHERE cs.seriesid = " . $seriesid . " and c.catid<>5506 " //don't select root category
+            . " GROUP BY c.catid, c.apicatid, c.name";
+        }
         logEvent("GetCatChains: get series cats", $sql);
         $catrs = runQuery($sql);
         $chains = array();
@@ -1006,6 +1016,28 @@ switch($command){
             $data = $series[$i]['data'];
             $firstdt = intval( $series[$i]['firstdt']);
             $lastdt = intval($series[$i]['lastdt']);
+            if(isset($series[$i]["geoid"])){
+                $geoid = intval($series[$i]["geoid"]);
+            } else {
+                $geoid = null;
+            }
+            if(isset($series[$i]["mapsetid"])){
+                $mapsetid = intval($series[$i]["mapsetid"]);
+            } else {
+                $mapsetid = null;
+            }
+            if(isset($series[$i]["pointsetid"])){
+                $pointsetid = intval($series[$i]["pointsetid"]);
+            } else {
+                $pointsetid = null;
+            }
+            if(isset($series[$i]["lat"])){
+                $lat = intval($series[$i]["lat"]);
+                $lon = intval($series[$i]["lin"]);
+            } else {
+                $lat = null;
+                $lon = null;
+            }
             //strip out certain acts of the URL
             $working_url = preg_replace('/http[s]*:\/\//','',$url);
             $first_slash = strpos($working_url,'/');
@@ -1465,7 +1497,7 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
     global $db, $orgid;
     $mapout = array();
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, "
-        . " s.seriesid, s.userid, s.orgid, s.geoid, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
+        . " s.seriesid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
         . " from pointsets ps, series s, mapgeographies mg, maps m "
         . " where ps.pointsetid = s.pointsetid and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
         . " and m.map  = " . safeStringSQL($map)
@@ -1485,6 +1517,7 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
                 "name"=>$row["name"],
                 "units"=>$row["units"],
                 "period"=>$row["period"],
+                "src"=>$row["src"],
                 "data"=>array()
             );
         }

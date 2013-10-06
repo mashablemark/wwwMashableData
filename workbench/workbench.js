@@ -219,7 +219,11 @@ $(document).ready(function(){
         });
     $("#menu-help").button({icons: {secondary: "ui-icon-help"}})
         .click(function(){
-
+            $helpMenu  = account.showPanel('<div style="width:100px;height:100px;">'
+                + '<a href="/md-plugin-2/" target="_blank">plugin</a><br>'
+                + '<a href="/md-plugin-2/" target="_blank">plugin</a><br>'
+                + '<a href="/md-plugin-2/" target="_blank">plugin</a><br>'
+            + '</div>', $('#menu-help'))
         });
     lastTabAnchorClicked = $("#series-tabs li a").click(function (){pickerPanel(this)}).filter("[data='#local-series']").get(0);
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
@@ -464,7 +468,7 @@ function setupMySeriesTable(){
                         if(obj.handle[0]=='S') {
                             return formatAsUrl(obj.url) + obj.src;
                         } else {
-                            return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.username;
+                            return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.username||'';
                         }
                     }
                 },
@@ -530,7 +534,7 @@ function setupPublicSeriesTable(){
                 "data": aoData,
                 "success": function(data, textStatus, jqXHR){
                     console.log(data.command+" ("+data.search+"): "+data.exec_time);
-                    fnCallback(data, textStatus, jqXHR);
+                    if(data.status=='ok') fnCallback(data, textStatus, jqXHR); else dialogShow('server error', data.status);
                 },
                 "error": function(results){
                     console.log(results);
@@ -598,7 +602,7 @@ function setupPublicSeriesTable(){
         .on('click keydown',function(e){
             $(this).removeClass('grey-italics').val('').off('click keydown');
         });
-    $('#cloud-series-browse').button({icons: {secondary: "ui-icon-circle-triangle-e"}});
+    $('#cloud-series-browse').button({icons: {secondary: "ui-icon-circle-triangle-e"}}).click(function(){browseFromSeries()});
 }
 function setupMyGraphsTable(){
     var myGraphsTableWidth = $("#canvas").innerWidth()-6*colWidths.padding-colWidths.scrollbarWidth;
@@ -691,7 +695,7 @@ function setupPublicGraphsTable(){
                 url: "api.php",
                 data: aoData,
                 "success": function(data, textStatus, jqXHR){
-                    fnCallback(data, textStatus, jqXHR);
+                    if(data.status=='ok') fnCallback(data, textStatus, jqXHR); else dialogShow('server error', data.status);  //make sure completed command did not return an error code
                 },
                 "complete": function(results){
                     console.log(results);
@@ -1836,7 +1840,7 @@ function addMySeriesToCurrentGraph(){
 
 //API SERIES BROWSE FUNCTIONS
 function browseFromSeries(seriesId){
-    callApi({command:'GetCatChains', sid: seriesId},function(jsoData, textStatus, jqXH){
+    callApi({command:'GetCatChains', sid: seriesId||0},function(jsoData, textStatus, jqXH){
         var chainCount = 0, i, maxHeight=0;
         var $chainTable = $('<table id="cat-chains">');
         //need to construct object tree structure from the rectangular recordset to effectively combine and sort chains
@@ -1889,30 +1893,29 @@ function browseFromSeries(seriesId){
                     if(childless) nextLevel.push(null);
                     props = levelBranches[i].catProps;
                     $cell = $('<td class="cat-branch" rowspan="'+props.count+'">'
-                        + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1)?'<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)" title="show sibling categories"></span>':'')
+                        + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1 && seriesId)?'<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)" title="show sibling categories"></span>':'')
                         + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat('+props.catid+')">'+ props.name+ '(' + props.scount + ')</a>': props.name)+'</span>'
-                        + ((props.children>0 && childless)?'<span class="ui-icon browse-right" data="'+ props.catid +'" onclick="showChildCats(this)">show child categories</span>':'')
+                        + ((props.children>0 && childless)?'<span class="ui-icon browse-right" data="'+ props.catid +'" onclick="showChildCats(this,'+ props.catid +')">show child categories</span>':'')
                         + '</td>');
                     $chainTable.find("tr:eq("+i+")").append($cell);
                 }
             }
             levelBranches = nextLevel;
         }
-        if($('div#tblPublicSeries_wrapper:visible').length==1){
-            $('div#browse-api').height($('div#tblPublicSeries_wrapper').height()).width($('div#tblPublicSeries_wrapper').width());
+        if($('#cloud-series:visible').length==1){
+            $('div#browse-api').height($('#cloud-series').height()).width($('#cloud-series').width());
         }
-        $('div#browse-api').html('').append($chainTable).show();
+        $('div#browse-api').html('').append($chainTable).fadeIn();
         $('div#browse-api').prepend('Below are category heirarchy for the series selected. Note that a series can be in more than one category.<br><br>'
-            + '<button id="browse-reset" disabled="disabled">reset</button> <button id="browse-close">close</button><br><br>');
+            + '<button id="browse-reset">reset</button> <button id="browse-close">close</button><br><br>');
         $('#browse-reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}, disabled: true}).click(function(){browseFromSeries(seriesId);});
         $('#browse-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){browseClose();});
-        $('div#cloudSeriesTableDiv').fadeOut();
     });
 }
 
 function browseClose(){
-    //$('div#browse-api').fadeOut();
-    $('div#cloudSeriesTableDiv').fadeIn();
+    $('div#browse-api').fadeOut();
+    //$('div#cloudSeriesTableDiv').fadeIn();
 }
 function showSiblingCats(spn){
     var catId, props, isOpened;
@@ -1925,8 +1928,8 @@ function showSiblingCats(spn){
     $tcat.find('span.sibling').closest('div').remove();  //remove siblings anywhere in table
     $tcat.find('td').children('br').remove();
     $tcat.find('.ui-icon.ui-icon-stop').removeClass("ui-icon-stop").addClass("browse-rolldown"); //revert the original cat's bullet with a roll-down
-    $tcat.find('td.expanded').removeClass('expanded').find('span.browse-right').remove();
-
+    var $tdOld = $tcat.find('td.expanded').removeClass('expanded').find('span.browse-right').remove().end();
+    if($tdOld.length==1 && $tdOld.html()=="") $tdOld.remove();
     if(isOpened)return; //don't fetch.  above code already removed the siblings
 
     catId = $td.addClass("expanded").find('.browse-rolldown').removeClass('browse-rolldown').addClass('ui-icon-stop').end().children('span').attr('data');
@@ -1955,11 +1958,11 @@ function showSiblingCats(spn){
             sibling = browsedCats[siblings[i]];
             if(sibling.catid==catId){
                 if(sibling.children>0){
-                    $td.find("span.chain").append('<span class="ui-icon browse-right" onclick="showChildCats(this)" title="show child categories"></span>');
+                    $td.find("span.chain").append('<span class="ui-icon browse-right" onclick="showChildCats(this, '+sibling.catid+')" title="show child categories"></span>');
                 }
             } else {
                 $td.append('<div>'
-                    + ((sibling.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)" data="'+sibling.catid+'" title="show child categories"></span>':'' )
+                    + ((sibling.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this, '+sibling.catid+')" data="'+sibling.catid+'" title="show child categories">asdf</span>':'' )
                     + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
                     + (parseInt(sibling.scount)>0?'<a title="Click to view the '+sibling.scount+' series in this category" onclick="publicCat('+sibling.catid+')">' + sibling.name +' (' + sibling.scount + ')</a>':sibling.name) + '</span>'
                     + '</div>');
@@ -1968,10 +1971,11 @@ function showSiblingCats(spn){
     }
 }
 
-function showChildCats(spn){
+function showChildCats(spn, parentId){
     var child, $currentTd;
-    //var $catSpan = $(spn).closest('div').find("span.sibling, span.chain");
-    var parentId = $(spn).attr("data");
+    if(!parentId){
+        parentId = $(spn).attr("data");
+    }
     if(browsedCats[parentId].childrenCats){
         buildChildren(browsedCats[parentId].childrenCats);
     } else {
@@ -2006,7 +2010,7 @@ function showChildCats(spn){
             child = browsedCats[childrenCats[i]];
 
             $currentTd.append('<div>'
-                + ((child.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)" data="'+child.catid+'" title="show child categories></span>':'' )
+                + ((child.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)" data="'+child.catid+'" title="show child categories"></span>':'' )
                 + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
                 + (parseInt(child.scount)>0?'<a title="Click to view the '+child.scount+' series in this category" onclick="publicCat('+child.catid+')">' + child.name +' (' + child.scount + ')</a>':child.name) + '</span>'
                 + '</div>');
@@ -2092,7 +2096,10 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                     updateHandles(oMyGraphs[graph], oldHandle, serie);
                 }
             }
+            getMySeries();  //if uploading series, ensure this happens after they are registered on My Series (note: modal is persisted)
         });
+    } else {
+        getMySeries();
     }
 
     function updateHandles(graph, oldHandle, serie){
@@ -2131,8 +2138,6 @@ function syncMyAccount(){ //called only after loggin and after initial report of
 
 // note: series cleared from localStorage when they were read
 
-//  download my account objects
-    getMySeries();  //modal is persisted
 
 //  B. My Graphs
     console.info("syncMyAccount run");

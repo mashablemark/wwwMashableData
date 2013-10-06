@@ -119,8 +119,8 @@ account = {
         if($btn){
             var offset = $btn.offset();  //button offset relative to document
             $fancy.css({
-                'top': parseInt(offset.top + $btn.height() -20) + 'px',
-                'left': parseInt(offset.left - $fancy.width() - 10 + $btn.width()) + 'px'
+                'top': parseInt(offset.top + $btn.height() -15) + 'px',
+                'left': parseInt(offset.left - $fancy.width() - 18 + $btn.width()) + 'px'
             });
         }
         return $fancy;

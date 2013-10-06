@@ -32,14 +32,36 @@ $i = 0;
 $objPHPExcel->removeSheetByIndex(0);
 for($sheet=0;$sheet<count($data);$sheet++){
     $objWorksheet = $objPHPExcel->createSheet();
-    //$objPHPExcel->setActiveSheetIndex($i);
-    //loop through rows and columns and set spreadsheet values (no styling)
+    $styleBold = array(
+            'font' => array('bold' => true)
+        );
+    if(isset($data[$sheet]['grid']['columns'])){ //data grid objects
+        $spreadsheetRow = 0;
+        //loop through data rows and columns and set spreadsheet values (no styling)
+        for($col=0; $col<count($data[$sheet]['grid']['columns']); $col++){ //loop through columns
+            $headerCells = explode("<br>", $data[$sheet]['grid']['columns'][$col]['name']);
+            for($i=0;$i<count($headerCells);$i++){
+                $objWorksheet->setCellValueByColumnAndRow($col, $i+1, preg_replace('#</?b>#', '', $headerCells[$i]));
+            }
+            $spreadsheetRow = max($spreadsheetRow, $i+1);  //ensure no data overwriting of column (note: row is a ones-based index)
+        }
+        //$objWorksheet->getStyle('A1:' & chr(ord('A')+$spreadsheetRow-2) & $col)->getFont()->setBold(true);
 
-    //echo('<br>sheet:'.$sheet);
-    for($row=0;$row<count($data[$sheet]['grid']);$row++){
-        for($col=0;$col<count($data[$sheet]['grid'][$row]);$col++){
-            //echo('<br>'.$row.':'.$col." = ". $data[$sheet]['grid'][$row][$col]);
-            $objWorksheet->setCellValueByColumnAndRow($col+1, $row+1, $data[$sheet]['grid'][$row][$col]);
+        //loop through data rows and columns and set spreadsheet values (no styling)
+        for($row=0;$row<count($data[$sheet]['grid']['data']);$row++){
+            for($col=0;$col<count($data[$sheet]['grid']['columns']);$col++){
+                $colName = $data[$sheet]['grid']['columns'][$col]['id'];
+                //echo('<br>'.$row.':'.$col." = ". $data[$sheet]['grid'][$row][$col]);
+                $objWorksheet->setCellValueByColumnAndRow($col+1, $spreadsheetRow + $row, $data[$sheet]['grid']['data'][$row][$colName]);
+            }
+        }
+    } else { //array of arrays
+        //loop through rows and columns and set spreadsheet values (no styling)
+        for($row=0;$row<count($data[$sheet]['grid']);$row++){
+            for($col=0;$col<count($data[$sheet]['grid'][$row]);$col++){
+                //echo('<br>'.$row.':'.$col." = ". $data[$sheet]['grid'][$row][$col]);
+                $objWorksheet->setCellValueByColumnAndRow($col, $row+1, $data[$sheet]['grid'][$row][$col]);
+            }
         }
     }
     // Rename sheet

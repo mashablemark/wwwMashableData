@@ -107,12 +107,14 @@ function md_nullhandler($val){
     }
 }
 
-function httpGet($target){
+function httpGet($target, $timeout = 15){
     $fp = false;
+    $tryLimit = 3;
     $tries = 0;
-    while($tries<3 && $fp===false){  //try up to 3 times to open resource
+    while($tries<$tryLimit && $fp===false){  //try up to 3 times to open resource
         $tries++;
-        $fp = fopen( $target, 'r' );
+        $fp = @fsockopen($target, 80, $errNo, $errString, $timeout);
+        //$fp = @fopen( $target, 'r' );  //the @ suppresses a warning on failure
     }
     if($fp===false){  //failed (after 3 tries)
         $content = false;
@@ -215,8 +217,6 @@ function getMapSet($name, $apiid, $periodicity, $units){ //get a mapset id, crea
         return false;
     }
 }
-
-
 function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, creating a record if necessary
     global $db;
     $sql = "select pointsetid  from pointsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
@@ -237,7 +237,6 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
         return false;
     }
 }
-
 function setMapsetCounts($mapsetid="all"){
     runQuery("truncate temp;");
     runQuery("SET SESSION group_concat_max_len = 4000;");

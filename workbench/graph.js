@@ -1381,7 +1381,7 @@ function calcMap(graph){
 
         //3.create slickgrid objects for REGIONS
         //create a list of geographies sort by name
-        var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
+        var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
         var regionRows = []; //initialize empty grid
         var hasCalc = (mapset.formula.formula != 'A'); //used to skip calculated column when plot = component
         sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
@@ -1396,7 +1396,7 @@ function calcMap(graph){
                     id = compSymbols[j]+'_'+i;
                     asset = graph.assets[components[j].handle];
                     //add columns on first date key loop through
-                    if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
+                    if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+((asset.maps&&asset.data[geo])?asset.data[geo].geoname:asset.geoname||'')+'<br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
                     if(components[j].handle[0]=='M'){
                         row[id] = oComponentData[dateKey][compSymbols[j]][geo];
                     } else {
@@ -1422,7 +1422,7 @@ function calcMap(graph){
         var index = 0, pointset, cmp, k;
 
         //all pointsets in single grid
-        var markerColumns = [{id: 'date', field: 'date', name:'name:<br>units:<br>source:<br>lat, lon:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
+        var markerColumns = [{id: 'date', field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
         var markerRows = [];
 
         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
@@ -1594,7 +1594,17 @@ function calcMap(graph){
                         asset = graph.assets[components[j].handle];
 
                         //add columns on first date key loop through
-                        if(firstDateKey) markerColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].name:asset.name)+'</b><br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
+                        if(firstDateKey) markerColumns.push({
+                            id: id,
+                            field: id,
+                            name:        //  name | location | units | source | notes | formula
+                                '<b>'+((asset.coordinates&&asset.data[latlon])?asset.data[latlon].name:asset.name) + '</b>'
+                                + '<br>'+ ((asset.coordinates&&asset.data[latlon])? latlon : asset.geoname||'')
+                                + '<br>' + asset.units
+                                + '<br>'+ asset.src
+                                + '<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'')
+                                + (hasCalc?'<br>component '+compSymbols[j]:''),
+                            cssClass: 'grid-series-column'});
 
                         if(components[j].handle[0]=='X'){
                             row[id] = oComponentData[dateKey][compSymbols[j]][latlon];
@@ -2075,7 +2085,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
             '<button class="email">email </button> ' +
             '<button class="graph-link">link </button>' +
-            //'<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
+            '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
             //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
             '</div><div class="searchability">' +
             '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
@@ -2150,9 +2160,12 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
         .click(function(){
             var grids = [];
-            if(oGraph.plots) grids.push({name: 'chart', grid: makeDataGrid(panelId, 'chart', calculatedMapData)});
-            if(oGraph.mapsets) grids.push({name: 'regions', grid: makeDataGrid(panelId, 'regions', calculatedMapData)});
-            if(oGraph.pointsets) grids.push({name: 'markers', grid: makeDataGrid(panelId, 'markers', calculatedMapData)});
+            if(oGraph.plots) {
+                var chartDataObject = gridDataForChart(panelId);
+                grids.push({name: 'chart', grid: {columns: chartDataObject.columns,  data: chartDataObject.rows}});
+            }
+            if(oGraph.mapsets) grids.push({name: 'regions', grid: {columns: calculatedMapData.regionGrid.columns, data: calculatedMapData.regionGrid.data}});
+            if(oGraph.pointsets) grids.push({name: 'markers', grid: {columns: calculatedMapData.markerGrid.columns, data: calculatedMapData.markerGrid.data}});
             //do the highcharts trick to download a file
             downloadMadeFile({
                 filename: oGraph.title,
@@ -2229,14 +2242,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
             });
         });
-    $thisPanel.find('.email').button({icons: {primary: "ui-icon-mail-closed"},
-        click: function(){
-            var link = "mailto:"
-                + "?subject=" + escape(oGraph.title||"link to my MashableData visualization")
-                + "&body=" + escape((oGraph.analysis||'Link to my interactive visualization on MashableData.com:')+'<br><br>http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash);
-            window.location.href = link;
-        }
-    });
+    $thisPanel.find('.email').button({icons: {primary: "ui-icon-mail-closed"}})
+        .click(function(){
+
+        });
+    var link = "mailto:"
+        + "?subject=" + escape(oGraph.title||"link to my MashableData visualization")
+        + "&body=" + escape((oGraph.analysis||'Link to my interactive visualization on MashableData.com:')+'<br><br>http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash);
+    $thisPanel.find('.email-link').attr('href',link);
     $thisPanel.find('.graph-link').button({icons: {primary: "ui-icon-link"}})
         .click(function(){
             if(oGraph.isDirty) {
@@ -2894,7 +2907,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             }
                         }
                     }
-                    //regions (mapsets) are simply than markers (pointsets) because there is only one
+                    //regions (mapsets) are simpler than markers (pointsets) because there is only one
                     if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
                         for(i=0;i<selectedRegions.length;i++){
                             for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence

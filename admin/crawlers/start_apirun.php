@@ -137,21 +137,23 @@ switch($command){
         break;
     case "ExecuteJobs":
         if(isset($_REQUEST["runid"])){
+            //to execute a particular job:  http://www.mashabledata.com/admin/crawlers/start_apirun.php?uid=1&command=ExecuteJobs&jobid=XXX
             $jobid = (isset($_REQUEST["jobid"]))?intVal($_REQUEST["jobid"]):$jobid="ALL";   //"ALL": execute all queued jobs for the given run until none left
             $output =ApiExecuteJobs(intVal($_REQUEST["runid"]), $jobid);
         } else {
-            $sql = "select count(*) as count from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())>10)";
+            $sql = "select count(*) as count from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())>10 and TIMESTAMPDIFF(MINUTE , enddt, NOW())>10)";
+            //updating series print($sql);
             $result = $db->query($sql);
             $counts = $result->fetch_assoc();
             if($counts["count"] > 0){ //there are jobs to be run
-                $sql = "select jobid, runid from apirunjobs where status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10";
+                $sql = "select jobid, runid from apirunjobs where status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW()<10 and TIMESTAMPDIFF(MINUTE , enddt, NOW()<10";
                 $result = runQuery($sql);
                 if($result->num_rows < 4){  // max threadCount = 4!!!!
                     //so there are jobs to be run and the thread count is < 4
                     $sql="select * from apirunjobs where status = 'Q' and tries<3 limit 0,1";
                     $result = runQuery($sql);
                     if($result->num_rows==0){ //only try to rerun the failures after exhausting the queue
-                        $sql="select * from apirunjobs where tries<3 and (status = 'F' or status = 'R') limit 0,1";
+                        $sql="select * from apirunjobs where tries<3 and (status = 'F' or (status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10 and TIMESTAMPDIFF(MINUTE , enddt, NOW())<10)) limit 0,1";
                         $result = runQuery($sql);
                     }
                     $job_row = $result->fetch_assoc();
@@ -243,8 +245,11 @@ switch($command){
         }
         $output = array("updated"=> $updated, "lastcaptureid"=> $captureid);
         break;
+    case "Prune":
+        $output = prune($api_id);
+        break;
     default:
-        $output = array("status" => "insuffient permissions");
+        $output = array("status" => "bad command");
 }
 /* need to either incorporate this into each catseries insert or periodically run:
 update series s2, (select s.seriesid, GROUP_CONCAT(c.name SEPARATOR '; ') as newtitle from series s, categoryseries cs, categories c
@@ -258,6 +263,27 @@ echo json_encode($output);
 $db->close();
 
 //API functions
+function prune($api_id = 0){
+    $pruned = 0;
+    $iterations = 0;
+    $sql = "select c.catid "
+        . " from categories c left outer join categoryseries cs on c.catid=cs.catid left outer join catcat cc on c.catid = cc.parentid "
+        . " where cs.catid is null and cc.parentid is null ";
+    if($api_id!=0) $sql .= " and c.apiid=".$api_id;
+    do{
+        $iterations++;
+        $deadEnds = runQuery($sql);
+        if(!$deadEnds) break;
+
+        $deadEndCount = $deadEnds->num_rows;
+        $pruned += $deadEndCount;
+        if($deadEndCount>0){
+            runQuery("delete c.* from categories c inner join (" . $sql . ") j on c.catid=j.catid "); //prune the deadend cat
+        }
+    } while($deadEndCount>0 && $iterations <10); //continue until no more dead end categories
+
+    return array("status" => "ok", "pruned"=>$pruned, "iterations"=>$iterations);
+}
 function catInChain($parentcatids, $childcatid){
     $sql = "select * from catcat where childid in (".$parentcatids.")";
     $result = runQuery($sql, "API catInChain");
