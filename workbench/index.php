@@ -203,9 +203,9 @@
             <button id="quick-view-delete-series">delete from My Series</button>
             <button id="quick-view-close" class="right">Close</button>
         </div>
-    </div>
+    </div> 
 </div>
-<a class="hidden" id="license-link" href="http://www.mashabledata.com/workbench/license.html">MashableData Workbench License</a>
+<a class="hidden" id="license-link" href="license.html">MashableData Workbench License</a>
 <a class="show-link-options" href="#link-options-div"></a>
 <div id="dwrap" style="display:none;width:100%;height:90%;">
     <div id="link-options-div" style="background-color:white;">

@@ -219,10 +219,25 @@ $(document).ready(function(){
         });
     $("#menu-help").button({icons: {secondary: "ui-icon-help"}})
         .click(function(){
-            $helpMenu  = account.showPanel('<div style="width:100px;height:100px;">'
-                + '<a href="/md-plugin-2/" target="_blank">plugin</a><br>'
-                + '<a href="/md-plugin-2/" target="_blank">plugin</a><br>'
-                + '<a href="/md-plugin-2/" target="_blank">plugin</a><br>'
+            $helpMenu  = account.showPanel('<div style="width:400px;height:300px;">'
+                + '<ul>'
+                + '<li><a target="_blank" title="Features" href="http://www.mashabledata.com/features/">Features and tour</a></li>'
+                + '<li><a target="_blank" title="Searching and browsing for data" href="http://www.mashabledata.com/searching-and-browsing-for-data/">Searching and browsing for data</a></li>'
+                + '<li><a target="_blank" title="Using series math to answer complex questions" href="http://www.mashabledata.com/using-series-math-to-answer-complex-questions/">Using series math to answer complex questions</a> (corn v. wheat)</li>'
+                + '<li><a target="_blank" title="My Series &amp; Graphs" href="http://www.mashabledata.com/my-series-graphs/">My Series &amp; Graphs</a></li>'
+                + '<li><a target="_blank" title="What are map sets and point sets?" href="http://www.mashabledata.com/what-are-map-sets-and-point-sets/">What are map sets and point sets?</a></li>'
+                + '<li><a target="_blank" title="Creating maps" href="http://www.mashabledata.com/creating-maps/">Creating maps</a>'
+                + '<ul>'
+                + '<li><a target="_blank" title="Maps: Comparing against a regional average" href="http://www.mashabledata.com/creating-maps/maps-comparing-against-a-regional-average/">Comparing against a regional average</a> (Unemployment by state)</li>'
+                + '<li><a target="_blank" title="Changing base maps" href="http://www.mashabledata.com/creating-maps/changing-base-maps/">Changing base maps</a></li>'
+                + '<li><a target="_blank" title="Map colors (continuous, discrete and logarithmic)" href="http://www.mashabledata.com/workbench-help/creating-maps/map-colors-continuous-discrete-and-logarithmic/">Map colors (continuous, discrete and logarithmic)</a></li>'
+                + '<li><a target="_blank" title="Bubble maps and user defined regions" href="http://www.mashabledata.com/workbench-help/creating-maps/bubble-maps-and-user-defined-regions/">Bubble maps and user defined regions</a></li>'
+                + '</ul>'
+                + '</li>'
+                + '<li><a target="_blank" title="User series and the Highcharts plugin" href="http://www.mashabledata.com/workbench-help/user-series-and-the-highcharts-plugin/">User series and the Highcharts plugin</a></li>'
+                + '<li><a target="_blank" title="Accounts: free, individual and corporate" href="http://www.mashabledata.com/workbench-help/accounts-free-individual-and-corporate/">Accounts: free, individual and corporate</a></li>'
+                + '<li><a target="_blank" title="Publishing graphs and fair use" href="http://www.mashabledata.com/workbench-help/publishing-graphs-and-fair-use/">Publishing graphs and fair use</a></li>'
+                + '</ul>'
             + '</div>', $('#menu-help'))
         });
     lastTabAnchorClicked = $("#series-tabs li a").click(function (){pickerPanel(this)}).filter("[data='#local-series']").get(0);
