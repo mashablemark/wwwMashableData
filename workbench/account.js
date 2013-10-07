@@ -101,7 +101,8 @@ account = {
         signIn:
             '<div id="signin-md">Email:<br><input id="signin-email"><br>Password:<br><input id="signin-pwd"><br><button id="signin-signin">Sign in</button> <input id="signin-stay" type="checkbox" /> stay signed in<br><br>New to MashableData? Create an <a id="create-account" href="javascript:void(0)">account</a></div> ' +
                 '<div id="signin-or">~ OR ~</div>' +
-                '<div id="signin-fb"> <fb:login-button></fb:login-button><br /><br />Use your FaceBook account to log in.<br /><br />(No spam or posting without your consent.  We promise and Facebook enforces our promise.)</div>',
+                '<div id="signin-fb"> <fb:login-button></fb:login-button><br /><br />Use your FaceBook account to log in.<br /><br />(No spam or posting without your consent.  We promise and Facebook enforces our promise.)</div>' +
+                '<div style="text-align: center;"><a id="license-link" href="license.html">MashableData Workbench Term of Service</a></div>',
         signedIn:
             '<div id="signedin-md"><button id="signedin-signout">Sign out</button><br><br><a id="signedin-subscribe" href="javascript:void(0);">Account &amp; Subscription</a><span id="signedin-admin" style="display:none;"><br><br><a href="admin_users.php" target="_blank">User Management & Billing</a> (Administrator only)</span></div>',
         verify: '<div id="verify-email">The following email needs verification.  Please enter the verification code emailed to the following email account:  <span class="email"></span><br />' +
@@ -133,6 +134,7 @@ account = {
             $('#signedin-signout').button().addClass('ui-state-error').click(function(){account.signOut()});
         } else {
             account.showPanel(account.htmls.signIn, $btn);
+            $('#license-link').fancybox();
             FB.XFBML.parse(document.getElementById('signin-fb'));
         }
         $('#create-account,#signedin-subscribe').click(function(){
