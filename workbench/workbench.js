@@ -221,22 +221,22 @@ $(document).ready(function(){
         .click(function(){
             $helpMenu  = account.showPanel('<div style="width:400px;height:300px;">'
                 + '<ul>'
-                + '<li><a target="_blank" title="Features" href="http://www.mashabledata.com/features/">Features and tour</a></li>'
-                + '<li><a target="_blank" title="Searching and browsing for data" href="http://www.mashabledata.com/searching-and-browsing-for-data/">Searching and browsing for data</a></li>'
-                + '<li><a target="_blank" title="Using series math to answer complex questions" href="http://www.mashabledata.com/using-series-math-to-answer-complex-questions/">Using series math to answer complex questions</a> (corn v. wheat)</li>'
-                + '<li><a target="_blank" title="My Series &amp; Graphs" href="http://www.mashabledata.com/my-series-graphs/">My Series &amp; Graphs</a></li>'
-                + '<li><a target="_blank" title="What are map sets and point sets?" href="http://www.mashabledata.com/what-are-map-sets-and-point-sets/">What are map sets and point sets?</a></li>'
-                + '<li><a target="_blank" title="Creating maps" href="http://www.mashabledata.com/creating-maps/">Creating maps</a>'
+                + '<li><a target="help" title="Features" href="http://www.mashabledata.com/features/">Features and tour</a></li>'
+                + '<li><a target="help" title="Searching and browsing for data" href="http://www.mashabledata.com/searching-and-browsing-for-data/">Searching and browsing for data</a></li>'
+                + '<li><a target="help" title="Using series math to answer complex questions" href="http://www.mashabledata.com/using-series-math-to-answer-complex-questions/">Using series math to answer complex questions</a> (corn v. wheat)</li>'
+                + '<li><a target="help" title="My Series &amp; Graphs" href="http://www.mashabledata.com/my-series-graphs/">My Series &amp; Graphs</a></li>'
+                + '<li><a target="help" title="What are map sets and point sets?" href="http://www.mashabledata.com/what-are-map-sets-and-point-sets/">What are map sets and point sets?</a></li>'
+                + '<li><a target="help" title="Creating maps" href="http://www.mashabledata.com/creating-maps/">Creating maps</a>'
                 + '<ul>'
-                + '<li><a target="_blank" title="Maps: Comparing against a regional average" href="http://www.mashabledata.com/creating-maps/maps-comparing-against-a-regional-average/">Comparing against a regional average</a> (Unemployment by state)</li>'
-                + '<li><a target="_blank" title="Changing base maps" href="http://www.mashabledata.com/creating-maps/changing-base-maps/">Changing base maps</a></li>'
-                + '<li><a target="_blank" title="Map colors (continuous, discrete and logarithmic)" href="http://www.mashabledata.com/workbench-help/creating-maps/map-colors-continuous-discrete-and-logarithmic/">Map colors (continuous, discrete and logarithmic)</a></li>'
-                + '<li><a target="_blank" title="Bubble maps and user defined regions" href="http://www.mashabledata.com/workbench-help/creating-maps/bubble-maps-and-user-defined-regions/">Bubble maps and user defined regions</a></li>'
+                + '<li><a target="help" title="Maps: Comparing against a regional average" href="http://www.mashabledata.com/creating-maps/maps-comparing-against-a-regional-average/">Comparing against a regional average</a> (Unemployment by state)</li>'
+                + '<li><a target="help" title="Changing base maps" href="http://www.mashabledata.com/creating-maps/changing-base-maps/">Changing base maps</a></li>'
+                + '<li><a target="help" title="Map colors (continuous, discrete and logarithmic)" href="http://www.mashabledata.com/workbench-help/creating-maps/map-colors-continuous-discrete-and-logarithmic/">Map colors (continuous, discrete and logarithmic)</a></li>'
+                + '<li><a target="help" title="Bubble maps and user defined regions" href="http://www.mashabledata.com/workbench-help/creating-maps/bubble-maps-and-user-defined-regions/">Bubble maps and user defined regions</a></li>'
                 + '</ul>'
                 + '</li>'
-                + '<li><a target="_blank" title="User series and the Highcharts plugin" href="http://www.mashabledata.com/workbench-help/user-series-and-the-highcharts-plugin/">User series and the Highcharts plugin</a></li>'
-                + '<li><a target="_blank" title="Accounts: free, individual and corporate" href="http://www.mashabledata.com/workbench-help/accounts-free-individual-and-corporate/">Accounts: free, individual and corporate</a></li>'
-                + '<li><a target="_blank" title="Publishing graphs and fair use" href="http://www.mashabledata.com/workbench-help/publishing-graphs-and-fair-use/">Publishing graphs and fair use</a></li>'
+                + '<li><a target="help" title="User series and the Highcharts plugin" href="http://www.mashabledata.com/workbench-help/user-series-and-the-highcharts-plugin/">User series and the Highcharts plugin</a></li>'
+                + '<li><a target="help" title="Accounts: free, individual and corporate" href="http://www.mashabledata.com/workbench-help/accounts-free-individual-and-corporate/">Accounts: free, individual and corporate</a></li>'
+                + '<li><a target="help" title="Publishing graphs and fair use" href="http://www.mashabledata.com/workbench-help/publishing-graphs-and-fair-use/">Publishing graphs and fair use</a></li>'
                 + '</ul>'
             + '</div>', $('#menu-help'))
         });
@@ -803,7 +803,11 @@ function timeOrDate(dateValue){
 }
 function seriesCloudSearchKey(event){
     var keyCode = ('which' in event) ? event.which : event.keyCode;
-    searchCatId=0; //exit category browse mode
+    if(searchCatId){
+        var $series_search_text = $('#series_search_text');
+        $series_search_text.val($series_search_text.val().replace('category: ',''));
+        searchCatId=0; //exit category browse mode
+    }
     if((keyCode == 13 &&  event.target.id == 'series_search_text') || event.target.id != 'series_search_text') {
         seriesCloudSearch();
         event.preventDefault();
@@ -811,7 +815,12 @@ function seriesCloudSearchKey(event){
 }
 function seriesCloudSearch(noHashChange){
     browseClose();
-    var searchText = $("#series_search_text").hasClass('grey-italics')?'':$("#series_search_text").val();
+    var $series_search_text = $('#series_search_text');
+    if(searchCatId  && $('#series_search_source').val()!='ALL'){
+        $series_search_text.val($series_search_text.val().replace('category: ',''));
+        searchCatId=0; //exit category browse mode
+    }
+    var searchText = $series_search_text.hasClass('grey-italics')?'':$series_search_text.val();
     if(searchText.match(/(title|name|skey):"[^"]+"/i)==null){
         searchText = (' ' + searchText + ' ').replace(/[\s]+/g,' ');
         //if(searchText==' ')return false; //no search on empty strings
@@ -872,7 +881,7 @@ var $dialog;
 function showAuthorizeDialogue(){
     dialogShow('User Agreement',
         '<span id="dialog-top">MashableData is a free workbench to analyze and graph data series.  Data series viewed using our plugin have been securely cached in your browser\'s local storage.  To power the workbench, the data series must be shared with our servers.  Once sharing is enabled, you will be able to search and view series and public graphs on MashableData.com\'s servers.<br /><br />'
-            + '<span id="dialog-learn"><i>To learn more, please read <a href="/" target="_blank">how MashableData works</a> and our <a href="/" target="_blank">privacy policy</a>.</i></span>'
+            + '<span id="dialog-learn"><i>To learn more, please read <a href="/" target="help">how MashableData works</a> and our <a href="/" target="help">privacy policy</a>.</i></span>'
             + '<br /><br />Ok to anonymously share the datasets you have browsed?</span>',
         [
             {
@@ -2587,7 +2596,7 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
                 if(jsoData.msg) dialogShow('', jsoData.msg);
             } else {
                 unmask();
-                dialogShow('Connected to server, but the command failed.', jsoData.status+'<br><br>If this occurs again, please email <a href="mailto:support@mashabledata.com">support@mashabledata.com</a>.');
+                dialogShow('Connected to server, but the command failed.', jsoData.status+'<br><br>If this is a system error and continues to occur, please email <a href="mailto:support@mashabledata.com">support@mashabledata.com</a>.');
             }
         },
         error: function(jqXHR, textStatus, errorThrown){

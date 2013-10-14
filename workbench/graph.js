@@ -590,6 +590,7 @@ function emptyGraph(){
         annotations: [],
         title: '',
         type: 'auto',
+        map: '',
         assets: {},
         analysis: null,
         mapconfig: {},
@@ -651,7 +652,7 @@ function makeChartOptionsObject(oGraph){
         credits: {
             enabled: true,
             text: "created with MashableData.com",
-            url:  'https://www.mashabledata.com'
+            href:  'http://www.mashabledata.com'
         },
         series: [],
         title: {
@@ -674,11 +675,40 @@ function makeChartOptionsObject(oGraph){
     }
     //loop through the data rows
     var lineIndex = 0;
-    eachComponent(oGraph, function(i){
-        if(oGraph.assets[this.handle].src == 'MashableData'){
-            oGraph.assets[this.handle].data = dateConversionData(oGraph.assets[this.handle].skey, oGraph.firstdt, oGraph.lastdt);
+
+
+    //MashableData's time conversion series are mathematical creations. Make data as needed
+    function firstLast(main, asset){
+        if(typeof asset.firstdt != 'undefined'){
+            main.firstdt = typeof main.firstdt == 'undefined' ? parseInt(asset.firstdt) : Math.min(parseInt(asset.firstdt), parseInt(main.firstdt));
+            main.lastdt = typeof main.lastdt  == 'undefined' ? parseInt(asset.lastdt ) : Math.max(parseInt(asset.lastdt ), parseInt(main.lastdt));
+        } else {
+            if(asset.mapsetid || asset.pointsetid){
+                for(location in asset.data){
+                    main.firstdt = typeof main.firstdt == 'undefined' ? parseInt(asset.data[location].firstdt) : Math.min(parseInt(asset.data[location].firstdt), parseInt(main.firstdt));
+                    main.lastdt = typeof main.lastdt  == 'undefined' ? parseInt(asset.data[location].lastdt ) : Math.max(parseInt(asset.data[location].lastdt ), parseInt(main.lastdt));
+                }
+            }
+        }
+    }
+    eachComponent(oGraph, function(i, plot){
+        var asset = oGraph.assets[this.handle];
+        if(asset.src == 'MashableData'){
+            //if single component, use start and end of graph else use start and end of plot components
+            if(plot.components.length==1){
+                if(!oGraph.firstdt&&!oGraph.lastdt) eachComponent(oGraph, function(){ firstLast(oGraph, oGraph.assets[this.handle]) });
+                asset.firstdt = oGraph.firstdt;
+                asset.lastdt = oGraph.lastdt;
+            } else {
+                delete asset.firstdt;
+                delete asset.lastdt;
+                each(plot.components, function(){ firstLast(asset, oGraph.assets[this.handle]) });
+            }
+            asset.data = dateConversionData(asset.skey, asset.firstdt, asset.lastdt);
         }
     });
+
+
     for(i=0;i<oGraph.plots.length;i++){
         var oPlot = oGraph.plots[i];
         var oSerie = createSerieFromPlot(oGraph, i);
@@ -3630,8 +3660,8 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
         formulaObj.numFormula = formulaObj.numFormula.replace(patRemoveOps, ' ');
         formulaObj.denomFormula = formulaObj.denomFormula.replace(patRemoveOps, ' ');
         var patPer = /\//g;
-        formulaObj.numFormula = formulaObj.numFormula.replace(patPer, 'per');
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(patPer, 'per');
+        formulaObj.numFormula = formulaObj.numFormula.replace(patPer, ' per ');
+        formulaObj.denomFormula = formulaObj.denomFormula.replace(patPer, ' per ');
         var patMinus = /-/g;
         formulaObj.numFormula = formulaObj.numFormula.replace(patMinus, '+');
         formulaObj.denomFormula = formulaObj.denomFormula.replace(patMinus, '+');
@@ -3821,9 +3851,13 @@ function each(ary, callback){
     }
 }
 function eachComponent(graph, callback){
-    if(graph.mapsets) each(graph.mapsets.components, callback);
-    if(graph.pointsets) each(graph.pointsets, function(){each(this.components, callback)});
-    if(graph.plots) each(graph.plots, function(){each(this.components, callback)});
+    if(graph.mapsets) each(graph.mapsets.components, function(c){ callback.call(this, c, graph.mapsets)});
+    if(graph.pointsets) each(graph.pointsets, function(p){each(this.components, function(c){callback.call(this, c, graph.pointsets[p])})});
+    if(graph.plots) each(graph.plots, function(p){
+        each(this.components, function(c){
+            callback.call(this, c, graph.plots[p])
+        })
+    });
 }
 
 function fillScalingCount(pointsets){

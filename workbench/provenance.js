@@ -168,11 +168,11 @@ function ProvenanceController(panelId){
                 compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">' +
                     '<span class="plot-op ui-icon ' + op.cssClass[plot.components[j].options.op] + '">operation</span> ' +
                     (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:'')) +
-                    '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> *</span>'
+                    '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> * </span>'
                     + graph.assets[comp.handle].name
                     + ' ('+period.name[graph.assets[comp.handle].period]+') in '
                     + graph.assets[comp.handle].units
-                    + ' <a class="link comp-view">view</a>'
+                    + (type=='plot'?' <a class="link comp-view">view series</a>':'')
                     + '</li>';
                 if(plot.components[j].options.dn=='d'||isDenom){
                     isDenom= true; denomHTML += compHTML;
@@ -308,6 +308,12 @@ function ProvenanceController(panelId){
                     }
                 })
                 .disableSelection();
+            this.$prov.find('a.comp-view').off().click(function(){
+                var compHandle = $(this).closest('li').attr('data');
+                if(compHandle){
+                    preview(self.graph.assets[compHandle]);
+                }
+            });
         },
         componentMoved:  function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
             //first find out whether a sort or a move, and whether that move empty or created a new component.
@@ -480,10 +486,10 @@ function ProvenanceController(panelId){
             var component = plot.components[iComp];
             var editDiv = (vectorPattern.test(compHandle)?'<button class="comp-copy prov-float-btn">make copy</button>':'')
                 + '<button class="comp-delete prov-float-btn">remove series</button>'
-                + '<div class="comp-editor" style="display: none;">'
+               /* + '<div class="comp-editor" style="display: none;">'
                 +   '<span class="edit-label">units:</span> '
                 +   '<span class="edit-label">frequency:</span>'
-                + '</div>';
+                + '</div>'*/;
             var $editDiv = $(editDiv);
             $liComp.find(".plot-op").hide().after(
                 '<div class="op">'
@@ -496,7 +502,7 @@ function ProvenanceController(panelId){
                 .end()
                 .buttonset()
                 .find('input:radio')
-                .mousedown(function(){
+                .change(function(){
                     self.set(plot.components[iComp].options, 'op', $(this).val());
                     self.setFormula(plot, $liComp.closest(".plot,.mapset"));
                     $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.cssClass[plot.components[iComp].options.op]);
@@ -996,10 +1002,12 @@ function ProvenanceController(panelId){
         setFormula: function(plot, $container){
             plot.formula = plotFormula(plot);
             var formula = plot.formula.formula;
-            if(plot.options.bunny && (this.plotsEdits.length>plot.options.bunny)){
-                formula += ' - [' +  plotName(this.graph, this.plotsEdits[plot.options.bunny]) + ']';
+            if($container) {
+                $container.find('span.plot-formula').html('= '+ formula);
+                //if plot units are calculated, change those
+                if(!plot.options.units) $container.find('input.plot-units').val(plotUnits(this.graph, plot));
+                if(!plot.options.name) $container.find('input.plot-name').val(plotName(this.graph, plot));
             }
-            if($container) $container.find('span.plot-formula').html('= '+ formula);
         },
         legendEditor: function($target, options, type){
             //used by both mapsets and pointsets, depending on type = 'X' or 'M'

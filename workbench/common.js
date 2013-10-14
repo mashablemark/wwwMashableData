@@ -53,7 +53,9 @@ function mashableDate(jsDate, period){
 
 function dateConversionData(key, jsStart, jsEnd){
 //if end is not specified, this year is used.
-//if start is not specified, a 5 year interval  is used
+//if start is not specified, a 10 year interval  is used
+    if(jsStart && typeof jsStart != "object") jsStart = new Date(parseInt(jsStart));
+    if(jsEnd && typeof jsEnd != "object") jsEnd = new Date(parseInt(jsEnd));
     var data = '', altStart;
     var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
     var today = new Date();
@@ -68,7 +70,7 @@ function dateConversionData(key, jsStart, jsEnd){
                 jsStart = new Date(jsStart.getUTCFullYear() + '-' + (jsStart.getUTCMonth()+1) + '-01 UTC');
             } else {
                 jsStart = new Date(jsEnd.getTime());
-                jsStart.setUTCMonth(jsStart.getUTCMonth() - 59);
+                jsStart.setUTCMonth(jsStart.getUTCMonth() - 119);
             }
             while(jsStart <= jsEnd){
                 data += (data?'||':'') + mashableDate(jsStart.getTime(), 'M') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay);
@@ -84,7 +86,7 @@ function dateConversionData(key, jsStart, jsEnd){
                 jsStart = new Date(jsStart.getUTCFullYear() + '-' + (jsStart.getUTCMonth()+3) + '-01 UTC');
             } else {
                 jsStart = new Date(jsEnd.getTime());
-                jsStart.setUTCMonth(jsStart.getUTCMonth() - 59);
+                jsStart.setUTCMonth(jsStart.getUTCMonth() - 119);
             }
             while(jsStart <= jsEnd){
                 data += (data?'||':'') + mashableDate(jsStart.getTime(), 'Q') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay);
@@ -102,14 +104,57 @@ function dateConversionData(key, jsStart, jsEnd){
             if(jsStart && jsStart < jsEnd){
                 jsStart = new Date(jsStart.getUTCFullYear() + '-01-01 UTC');
             } else {
-                jsStart = new Date((jsEnd.getUTCFullYear() - 10)  + '-01-01 UTC');
+                jsStart = new Date((jsEnd.getUTCFullYear() - 20)  + '-01-01 UTC');
             }
             while(jsStart <= jsEnd){
-                data += (data?'||':'') + mashableDate(jsStart.getTime(), 'A') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCFullYear(jsStart.getUTCFullYear()+1))/oneDay);
+                data += (data?'||':'') + mashableDate(jsStart.getTime(), 'A') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCFullYear(jsStart.getUTCFullYear()+1))/period.value.D);
             }
             break;
     }
     return data;
+}
+
+function downShiftData(asset, fdown, algorithm){
+    //not programmed for require|missing as zero|impute
+    if(period.value[fdown]==period.value[asset.period]) return asset.data;
+    if(period.value[fdown]<period.value[asset.period] || (fdown!='A'&&fdown!='Q') || period.value[asset.period]<period.value['M']) throw('unable to change data frequency from '+period.name[asset.period]+' to '+period.name[fdown]);
+    //real down-shift work begins...
+
+    //1.  chunk input into output period sized arrays
+    var newData=[], aData = asset.data.split('||'), bin=[], point, pointDate, lengthInMonths = (fdown=='Q'?3:12), newY, periodStartDate=false, mdDate, sumDays, days;
+
+    for(var i=0;i<aData.length;i++){
+        point = aData.split('|');
+        pointDate = dateFromMdDate(point[0]);
+        if(pointDate.getUTCMonth()%lengthInMonths==0){
+            bin = [point[1]];
+            periodStartDate = pointDate;
+        } else {
+            if(periodStartDate!==false) bin.push(point[1]);
+        }
+        //process bin if full
+        if(bin.length==lengthInMonths && (pointDate.getUTCMonth()-periodStartDate.getUTCMonth()==lengthInMonths) && (pointDate.getUTCFullYear()==periodStartDate.getUTCFullYear())){
+            //full bin = new point!
+            newY = 0; sumDays = 0;
+            mdDate = mashableDate(periodStartDate.getTime());
+            for(var j=0;j<lengthInMonths;j++){
+                switch(algorithm){
+                    case 'wavg':
+                        days = Math.round(Math.abs(periodStartDate.getTime() - periodStartDate.setUTCMonth(periodStartDate.getUTCMonth()+(asset.period=='M'?1:3)))/period.value.D);
+                        newY += bin[j]*days;
+                        sumDays += days;
+                        break;
+                    case 'sum':
+                        newY += bin[j];
+                        break;
+                    default:
+                        throw('unrecognized down frequency conversion algorithm')
+                }
+            }
+            newData.push(mdDate + '|' + (algorithm=='wavg'?newY/sumDays:newY));
+        }
+    }
+    return newData.join('||');
 }
 
 function equivalentRGBA(hexColor, alpha){
