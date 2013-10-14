@@ -637,6 +637,10 @@ div.map-prov{
     border: thin black solid;
     margin-bottom: 20px;
 }
+div.graph-subpanel.graph-talk{
+    overflow-y: scroll;
+}
+.fb-comments, .fb-comments iframe[style] {width: 95% !important;}
 input.cutoff{
     width: 100px;
     margin: 4px;
@@ -1235,6 +1239,11 @@ table.dataTable tr:hover td.title, table.dataTable tr:hover td.units, table.data
 #seriesTabs li.ui-state-active a, #seriesTabs li.ui-state-active a:link, #seriesTabs li.ui-state-active a:visited { color: #212121; text-decoration: none; }
 .ui-state-hover:not(.ui-state-error):not(.ui-state-active) { color: #2e83ff; }
 button.ui-state-error.ui-state-hover {background: #ffc0cb;}
+.warning-box{
+    margin: 10px;
+    display: block;
+    padding: 5px;
+}
 fieldset.search-box{
     display: inline;
     margin: 1px 1px 1px 5px;

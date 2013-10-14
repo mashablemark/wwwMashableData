@@ -980,6 +980,7 @@ function createSerieFromPlot(oGraph, plotIndex){
             }
         }
         if(y!==null || !breakNever){
+            if(y!==null) y = rationalize(y);  //fix floating point math rounding errors
             plotData.push([Date.parse(dateFromMdDate(dateKey)), y]);
         }
     }
@@ -1122,7 +1123,7 @@ function makeSlickDataGrid(grid, panelId, $dataPanel){
 }
 function gridDataForChart(panelId){  //create tables in data tab of data behind the chart, the map regions, and the map markers
     console.time("gridDataForChart");
-    var p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, readableDate, mdDate, found, r;
+    var p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, readableDate, mdDate, found, r, pnt;
     var oGraph = oPanelGraphs[panelId];
     var assets = oGraph.assets;
     var region;
@@ -1159,7 +1160,7 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
         plot = oGraph.plots[p];
         plotId = 'P'+p;
         serie = chart.get(plotId);
-        var showComponentsAndPlot = !plot.options.formula || plot.options.formula.formula.length>1 || plot.options.units || plot.options.name;
+        var showComponentsAndPlot = (plot.options.formula && plot.options.formula.formula.length>1) || (plot.formula && plot.formula.formula.length>1) || plot.options.units || plot.options.name;
         for(c=0;c<plot.components.length;c++){
             colId = 'P'+p+'-C'+c;
             component = assets[plot.components[c].handle];
@@ -1209,11 +1210,12 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
                         + '<br>'+plot.formula.formula,
                     cssClass: 'grid-calculated-column'}
             );
-            for(d=0;d<serie.data.length;d++){
-                readableDate = formatDateByPeriod(serie.data[d].x, serie.options.period);
-                mdDate = mashableDate(serie.data[d].x, serie.options.period);
+            for(d=0;d<serie.options.data.length;d++){
+                pnt = serie.options.data[d]
+                readableDate = formatDateByPeriod(pnt[0], serie.options.period);
+                mdDate = mashableDate(pnt[0], serie.options.period);
                 //search to see if this date is in gridArray
-                if((!oGraph.start || oGraph.start<=serie.data[d].x) && (!oGraph.end || oGraph.end>=serie.data[d].x)){
+                if((!oGraph.start || oGraph.start<=pnt[0]) && (!oGraph.end || oGraph.end>=pnt[0])){
                     //search to see if this date is in rows
                     for(found=false, r=0;r<rows.length;r++){ //see if date row exists, else add
                         if(rows[r].id == mdDate){
@@ -1221,8 +1223,8 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
                             break;
                         }
                     }
-                    if(!found) rows.push({id: mdDate, date: readableDate, order: serie.data[d].x});
-                    rows[r][plotId] = serie.data[d].y===null?'-':serie.data[d].y;
+                    if(!found) rows.push({id: mdDate, date: readableDate, order: pnt[0]});
+                    rows[r][plotId] = pnt[1]===null?'-':pnt[1];
                 }
             }
         }
@@ -1394,6 +1396,7 @@ function calcMap(graph){
                         }
                     }
                     if(y!==null) {
+                        y = rationalize(y); //fix floating point rounding error
                         if(!regionData[dateKey]) regionData[dateKey] = {};
                         regionData[dateKey][geo] = y;
                         dateHasData = true;
@@ -1580,6 +1583,7 @@ function calcMap(graph){
                             }
                         }
                         if(y!==null) {
+                            y = rationalize(y);  //fix floating point math rounding errors
                             dateHasData = true;
                             if(!markerData[dateKey]) markerData[dateKey] = {};
                             if(!markerData[dateKey][latlon]) markerData[dateKey][latlon] = {};
@@ -2113,10 +2117,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<div class="share-links">' +
             '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
             //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
-            '<button class="email">email </button> ' +
+            '<a class="graph-email">email </a> ' +
             '<button class="graph-link">link </button>' +
-            '<a href="#" class="email-link"><img src="http://www.eia.gov/global/images/icons/email.png" />email</a> ' +
-            //'<a href="#" class="graph-link"><img src="http://www.eia.gov/global/images/icons/email.png" />link</a> ' +
+            //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
             '</div><div class="searchability">' +
             '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
             '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
@@ -2159,17 +2162,27 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             $this.addClass('graph-nav-active');
             switch($this.attr('data')){
                 case 'graph-talk':
-                    FB.XFBML.parse($div.get(0));
+                    FB.XFBML.parse($div.get(0),
+                        function(){
+                            $thisPanel.find('iframe')
+                                .width($thisPanel.find('.graph-talk.graph-subpanel').width()*0.9+'px')
+                                .css('margin','15px');
+                        });
                     break;
                 case 'graph-data':
-                    var dataTabLink = $thisPanel.find('.graph-data-inner li:not(.ui-state-disabled) a').click();
+                    provenance.provOk();  //applies any pending changes.  will only run once.
+                    $thisPanel.find('.graph-data-inner')
+                        .tabs(oGraph.plots?"enable":"disable",0)
+                        .tabs(oGraph.mapsets?"enable":"disable",1)
+                        .tabs(oGraph.pointsets?"enable":"disable",2);
+                    var dataTabLink = $thisPanel.find('.graph-data-inner li:not(.ui-state-disabled)').first().find('a').click();
                     if(dataTabLink.html()=='chart data') makeSlickDataGrid(grid, panelId, $(dataTabLink.attr('href')));
                     break;
                 case 'graph-sources':
                     provenance.build();
                     break;
                 case 'graph-chart':
-                    provenance.provOk();  //applies change if changes are waiting and have not been canceled
+                    provenance.provOk();  //applies change if changes are waiting and have not been canceled.  only runs once.
             }
         });
 
@@ -2182,10 +2195,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 //ui.newPanel.html(makeTableFromArray(makeDataGrid(panelId, ui.newPanel.attr('data'), calculatedMapData)));
                 console.timeEnd("complete grid data into table");
             }
-        })
-        .tabs(oGraph.plots?"enable":"disable",0)
-        .tabs(oGraph.mapsets?"enable":"disable",1)
-        .tabs(oGraph.pointsets?"enable":"disable",2);
+        });
 
     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
         .click(function(){
@@ -2272,15 +2282,13 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
             });
         });
-    $thisPanel.find('.email').button({icons: {primary: "ui-icon-mail-closed"}})
-        .click(function(){
-
-        });
-    var link = "mailto:"
+    var link = "mailto: "
         + "?subject=" + escape(oGraph.title||"link to my MashableData visualization")
         + "&body=" + escape((oGraph.analysis||'Link to my interactive visualization on MashableData.com:')+'<br><br>http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash);
+
+    $thisPanel.find('.graph-email').button({icons: {secondary: "ui-icon-mail-closed"}}).attr('href',link);
     $thisPanel.find('.email-link').attr('href',link);
-    $thisPanel.find('.graph-link').button({icons: {primary: "ui-icon-link"}})
+    $thisPanel.find('.graph-link').button({icons: {secondary: "ui-icon-link"}})
         .click(function(){
             if(oGraph.isDirty) {
                 dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
@@ -3877,15 +3885,8 @@ function areaScalingCount(pointsets){
     return area;
 }
 
-function rationalize(value){ //value will always be non-negative
-    var sign = (value<0?-1:1);
-    var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
-    return sign * Math.round(value / Math.pow(10,order-1)) * Math.pow(10,order-1);
-}
-
-
 function formatRationalize(value){
-    var y = rationalize(value);
-    var order = Math.floor(Math.log(y)/Math.LN10);
+    var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
+    var y  = Math.round(value / Math.pow(10,order-2)) * Math.pow(10,order-2);
     return Highcharts.numberFormat(y, (order>1?0:2-order))
 }
