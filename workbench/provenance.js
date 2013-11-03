@@ -792,11 +792,11 @@ function ProvenanceController(panelId){
                         + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
                         + '<div class="mapset-colors" style="margin-bottom:5px;"></div>'
                         + '<div class="plot-info">'
+                        + '<button class="edit-mapset right ehide">configure</button>'
                         + '<div class="edit-block ehide">'
                         +   '<span class="plot-title">' + plotName(self.graph, mapset)+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + plotUnits(self.graph, mapset) +'</span>'
                         + '</div>'
                         + '<span class="plot-formula">= ' + plotFormula(mapset).formula + '</span><br>'
-                        + '<button class="edit-mapset right ehide">configure</button>'
                         + '<span class="map-mode ehide">mode: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined regions') + '</span>'
                         /*                        + '<span class="map-legend ehide">-'
                          +    continuousColorScale(self.mapsetEdits.options)
@@ -1040,16 +1040,20 @@ function ProvenanceController(panelId){
                 .find("[value='"+(options.scale||'continuous')+"']").attr('checked',true).end()
                 .buttonset().find('input:radio').change(function(){
                     self.set(options,  $(this));
-                    if(options.scale=='continuous'){
-                        $legend.find('.legend-discrete').hide();
-                        $legend.find('.lin-log-scaling').removeAttr('style');
-                        $legend.find('.legend-continuous').removeAttr('style');  //show method that does not add style=display: block;
-                    } else {
-                        $legend.find('.legend-discrete').removeAttr('style');
-                        $legend.find('.lin-log-scaling').hide();
-                        $legend.find('.legend-continuous').hide();
-                    }
+                    showHideLinLog();
                 });
+            function showHideLinLog(){
+                if(options.scale=='discrete'){
+                    $legend.find('.legend-discrete').removeAttr('style');
+                    $legend.find('.lin-log-scaling').hide();
+                    $legend.find('.legend-continuous').hide();
+                } else {
+                    $legend.find('.legend-discrete').hide();
+                    $legend.find('.lin-log-scaling').removeAttr('style');
+                    $legend.find('.legend-continuous').removeAttr('style');  //show method that does not add style=display: block;
+                }
+            }
+            showHideLinLog(); //inital set
             $legend.find('.lin-log-scaling')
                 .find("[value='"+(options.logMode||'off')+"']").attr('checked',true).end()
                 .buttonset().find('input').change(function(){

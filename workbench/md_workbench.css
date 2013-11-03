@@ -57,6 +57,12 @@ img, a{
 }
 */
 
+.ui-button-text {   /*prevents slection of text, but does not solve the mouse sensitivity issue */
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
 
 .ui-selected{
     background-color: orange !important;
@@ -359,6 +365,9 @@ div.graph_control_panel{
     margin:5px 5px 0 0;
     position: relative;
     z-index: 1;
+}
+div.chart-plots h4{
+    margin: 10px;
 }
 ol.plots li.plot, ol.pointsets li.pointset{
     /*list-style-type: none;*/
@@ -693,6 +702,9 @@ li.component, li.mapset {
 }
 button.edit-mapset, button.edit-plot{
     margin-right: 5px;
+}
+button.edit-pointset{
+    margin-right: 7px;
 }
 ol.components{
     list-style-type: upper-alpha;
@@ -1110,7 +1122,7 @@ span.sibling{
 td.dte{text-align: right;}
 td.dt-url, td.dt-views, td.dt-delete, td.dt-freq,  td.dt-count, td.dt-vw, td.dt-sv{text-align: center;}
 td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline-block;}
-table.dataTable tr:hover td.title, table.dataTable tr:hover td.units, table.dataTable tr:hover td.dt-freq, table.dataTable tr:hover td.dte{
+table.dataTable tr:hover td.title, table.dataTable tr:hover td.units, table.dataTable tr:hover td.dt-freq, table.dataTable tr:hover td.dte, #my_graphs_table tr:hover td, #tblPublicGraphs tr:hover td{
     color: blue;
     text-decoration: underline;
     cursor: pointer;

@@ -1098,6 +1098,7 @@ function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper woul
     return symbol;
 }
 function makeSlickDataGrid(grid, panelId, $dataPanel){
+    mask('creating grid');
     var type = $dataPanel.attr('data');
     var $container = $dataPanel.find('.slick-holder');
     if(grid) grid.destroy();  //allow show one SG at a time = too much for browsers to handle
@@ -1120,6 +1121,7 @@ function makeSlickDataGrid(grid, panelId, $dataPanel){
             grid = new Slick.Grid($container, graph.calculatedMapData.markerGrid.data, graph.calculatedMapData.markerGrid.columns, options);
             break;
     }
+    unmask();
 }
 function gridDataForChart(panelId){  //create tables in data tab of data behind the chart, the map regions, and the map markers
     console.time("gridDataForChart");
@@ -2050,7 +2052,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
             '</ol>' +
             '</div>'+
-            '<div class="graph-talk graph-subpanel" style="display: none;"><fb:comments href="http://www.mashabledata.com/workbench" width="470"></fb:comments></div>' +
+            '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to turn on Facebook comments.</p>' +
+            '</div>' +
             '<div class="graph-data graph-subpanel" style="display: none;">' +
             '<div class="graph-data-inner">' +
             '<ul>' +
@@ -2153,6 +2156,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     console.timeEnd('buildGraphPanel:thisPanel');
     console.time('buildGraphPanel:thisPanel events');
     //configure and bind the controls
+    function enableComments(){
+        if(oGraph.ghash) $thisPanel.find('.graph-talk.graph-subpanel').html('<fb:comments href="https://www.mashabledata.com/workbench/#/t=g&graphcode='+oGraph.ghash+'"></fb:comments>');
+    }
+    enableComments();
     $thisPanel.find('ol.graph-nav').children('li')
         .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
             var $this = $(this);
@@ -2163,7 +2170,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             switch($this.attr('data')){
                 case 'graph-talk':
                     FB.XFBML.parse($div.get(0),
-                        function(){
+                        function(){  //set size and margin in callback
                             $thisPanel.find('iframe')
                                 .width($thisPanel.find('.graph-talk.graph-subpanel').width()*0.9+'px')
                                 .css('margin','15px');
@@ -2190,9 +2197,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         .tabs({
             activate: function( event, ui ) {
                 console.timeEnd("complete grid data into table");
-                //ui.newPanel.find('.slick-holder').width(ui.newPanel.width()).height(ui.newPanel.height());
                 makeSlickDataGrid(grid, panelId, ui.newPanel);
-                //ui.newPanel.html(makeTableFromArray(makeDataGrid(panelId, ui.newPanel.attr('data'), calculatedMapData)));
                 console.timeEnd("complete grid data into table");
             }
         });
@@ -2618,7 +2623,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         $thisPanel.find('.graph-save').button("disable");
     }
     function saveThisGraph(){
-        saveGraph(oGraph);
+        saveGraph(oGraph, enableComments);
         $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
         makeClean();
     }
@@ -2631,16 +2636,12 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         }
     }
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button((oGraph.userid == account.info.userid) && oGraph.gid?'disable':'enable')
-        .click(function(){
-            saveThisGraph();
-        });
+        .click(saveThisGraph);
 
     $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)})
         .click(function(){
             delete oGraph.gid;
-            graphTitle.show(this, function(){
-                saveThisGraph();
-            });
+            graphTitle.show(this, saveThisGraph);
         });
     $thisPanel.find('button.graph-close').button({icons: {secondary: "ui-icon-closethick"}})
         .click(function(){
@@ -3406,7 +3407,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
             if(oGraph.mapsets){
                 hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
-                if(oGraph.mapsets.options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
+                if(oGraph.mapsets.options.scale!='discrete' && oGraph.mapsets.options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
 
                 if(oGraph.mapsets.options.scale == 'discrete'){
                     for(i=0;i<oGraph.mapsets.options.discreteColors.length;i++){

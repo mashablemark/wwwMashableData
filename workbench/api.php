@@ -1089,64 +1089,75 @@ switch($command){
             break;
         }
         $user_id =  intval($_POST['uid']);
-        $series_name = $_POST['name'];
-        $graph_title =  '';
-        $units = $_POST['units'];
-        $skey = '';
-        $url = '';
-        $description = $_POST['notes'];
-        $periodicity = $_POST['period'];
-        $data = $_POST['data'];
-        //$orgid = intval($_POST['orgid']);
-        $usid = (isset($_POST['usid']))?intval($_POST['usid']):0;
-        $src =  (isset($_POST['src']))?$_POST['src']:null;
+        $arySeries = $_POST['series'];
 
-        if(count($data)==0){ //need to insert records, but we do not have the data > issue data request
-            $output = array("status" => "Error:  no data provided");
-            break;
-        }
-        if($usid>0){
-            $sql = "update series set name=".safeSQLFromPost("name")
-                . ", namelen=". strlen($_POST["name"])
-                . ", units=".safeSQLFromPost("units")
-                . ", notes=".safeSQLFromPost("notes")
-                . ", period=".safeSQLFromPost("periodicity")
-                . ", data='" . $db->real_escape_string($data) . "'"
-                . ", hash='" . sha1($data)  . "'"
-                . ", firstdt=" . intval( $_POST['firstdt']/1000)*1000
-                . ", lastdt=" . intval($_POST['lastdt']/1000)*1000
-                . " WHERE userid=".$user_id." and seriesid=".$usid;
-            runQuery($sql);
-            $sql = "UPDATE myseries SET adddt=".intval($_POST["save_dt"]/1000)*1000 . " WHERE userid=".$user_id." and seriesid=".$usid;
-        } else {
-            $sql = "select COALESCE(u.name, u.email, o.orgname) as owner "
-            . " FROM users u left outer join organizations o on u.orgid=o.orgid "
-            . " WHERE u.userid=".$user_id;
-            $result = runQuery($sql);
-            $aUser = $result->fetch_assoc();
-            $src = $aUser["owner"];
-            $sql = "insert into series (name, namelen, units, notes, periodicity, data, hash, firstdt, lastdt, userid, orgid, src) values ("
-                . safeSQLFromPost("name") . ","
-                . strlen($_POST["name"]) . ","
-                . safeSQLFromPost("units") . ","
-                . safeSQLFromPost("notes") . ","
-                . safeSQLFromPost("period") . ","
-                . "'" . $db->real_escape_string($data) . "',"
-                . safeStringSQL(sha1($data)) . ","
-                . intval( $_POST['firstdt']/1000)*1000 . ","
-                . intval($_POST['lastdt']/1000)*1000 . ","
-                . $user_id . ","
-                . (($orgid==0)?"null":$orgid). ","
-                . safeStringSQL($src) .")";
-            runQuery($sql, "userseries insert");
-            $usid = $db->insert_id;
-            $sql="insert into myseries (userid, seriesid, adddt) values (".$user_id.",".$usid.",".intval($_POST["save_dt"]/1000)*1000 .")";
-            runQuery($sql, "myseries insert for new user series");
-        }
-        $output = array("status" => "ok",
-            "usid" => $usid,
-            "src"=> $src
+        $output = array(
+            "status" => "ok",
+            "series" => array()
         );
+        for($i=0;$i<count($arySeries);$i++){
+
+            $series_name = $arySeries[$i]['name'];
+            $graph_title =  '';
+            $units = $arySeries[$i]['units'];
+            $skey = '';
+            $url = '';
+            $description = $arySeries[$i]['notes'];
+            $periodicity = $arySeries[$i]['period'];
+            $data = isset($arySeries[$i]["data"])?$arySeries[$i]["data"]:"";
+            //$orgid = intval($_POST['orgid']);
+            $usid = isset($arySeries[$i]['handle'])&&substr($arySeries[$i]['handle'],0,1)=="U"?intval(substr($arySeries[$i]['handle'],1)):0;
+            $src =  isset($arySeries[$i]['src'])?$arySeries[$i]['src']:null;
+
+            if(count($data)==0){ //need to insert records, but we do not have the data > issue data request
+                $output = array("status" => "Error:  no data provided");
+                break;
+            }
+            if($usid>0){
+                $sql = "update series set name=".safeStringSQL(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"")
+                    . ", namelen=". strlen(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"")
+                    . ", units=".safeStringSQL(isset($arySeries[$i]["units"])?$arySeries[$i]["units"]:"")
+                    . ", notes=".safeStringSQL(isset($arySeries[$i]["notes"])?$arySeries[$i]["notes"]:"")
+                    . ", period=".safeStringSQL(isset($arySeries[$i]["periodicity"])?$arySeries[$i]["periodicity"]:"")
+                    . ", data='" . $db->real_escape_string($data) . "'"
+                    . ", hash='" . sha1($data)  . "'"
+                    . ", firstdt=" . intval($arySeries[$i]['firstdt']/1000)*1000
+                    . ", lastdt=" . intval($arySeries[$i]['lastdt']/1000)*1000
+                    . " WHERE userid=".$user_id." and seriesid=".$usid;
+                runQuery($sql);
+                $sql = "UPDATE myseries SET adddt=".intval($arySeries[$i]["save_dt"]/1000)*1000 . " WHERE userid=".$user_id." and seriesid=".$usid;
+            } else {
+                $sql = "select COALESCE(u.name, u.email, o.orgname) as owner "
+                    . " FROM users u left outer join organizations o on u.orgid=o.orgid "
+                    . " WHERE u.userid=".$user_id;
+                $result = runQuery($sql);
+                $aUser = $result->fetch_assoc();
+                $src = $aUser["owner"];
+                $sql = "insert into series (name, namelen, units, notes, periodicity, data, hash, firstdt, lastdt, userid, orgid, src) values ("
+                    . safeStringSQL(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"") . ","
+                    . strlen(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"") . ","
+                    . safeSQLFromPost(isset($arySeries[$i]["units"])?$arySeries[$i]["units"]:"") . ","
+                    . safeSQLFromPost(isset($arySeries[$i]["notes"])?$arySeries[$i]["notes"]:"") . ","
+                    . safeSQLFromPost(isset($arySeries[$i]["periodicity"])?$arySeries[$i]["periodicity"]:"") . ","
+                    . "'" . $db->real_escape_string($data) . "',"
+                    . safeStringSQL(sha1($data)) . ","
+                    . intval( $arySeries[$i]['firstdt']/1000)*1000 . ","  //because WAMP's intval is only 32 bit, even on a Windows 8 64bit machine!
+                    . intval($arySeries[$i]['lastdt']/1000)*1000 . ","
+                    . $user_id . ","
+                    . (($orgid==0)?"null":$orgid). ","
+                    . safeStringSQL($src) .")";
+                runQuery($sql, "userseries insert");
+                $usid = $db->insert_id;
+                $sql="insert into myseries (userid, seriesid, adddt) values (".$user_id.",".$usid.",".intval($arySeries[$i]["save_dt"]/1000)*1000 .")";
+                runQuery($sql, "myseries insert for new user series");
+            }
+            array_push($output["series"],
+                array(
+                    "usid" => $usid,
+                    "src"=> $src
+                )
+            );
+        }
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         break;
 

@@ -34,6 +34,7 @@
     <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.2.min.js"></script>
     <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
+    <!--script type="text/javascript" src="/global/js/ultbuttons/ultbuttons.min.js"></script-->
     <script type="text/javascript" src="workbench.js"></script>
     <script type="text/javascript" src="graph.js"></script>
     <script type="text/javascript" src="common.js"></script>

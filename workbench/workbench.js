@@ -665,11 +665,11 @@ function setupMyGraphsTable(){
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
-            if($td.hasClass('title')){
+             /*if($td.hasClass('title')){*/
                 dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
                 var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
                 viewGraph(rowObject.gid);
-            }
+            /*}*/
         });
     $('#my_graphs_table_filter')
         .prependTo('#myGraphsHeader')
@@ -749,23 +749,24 @@ function setupPublicGraphsTable(){
                 "mRender": function(value, type, obj){return timeOrDate(value);}
             }
         ]
-    }).click(function(e){
+    })
+        .click(function(e){
             var $td = $(e.target).closest('td');
-            if($td.hasClass('title')){
-                dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
-                var rowObject = dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
-                var $graphRow = dtPublicGraphs.find('tr.ui-selected');
-                if($graphRow.length==1){
-                    var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
-                    hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
+            /*if($td.hasClass('title')){*/
+            dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
+            var rowObject = dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+            var $graphRow = dtPublicGraphs.find('tr.ui-selected');
+            if($graphRow.length==1){
+                var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
+                hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
+            } else {
+                if(dtPublicGraphs.fnGetData().length==0){
+                    dialogShow('no graph selected', dialogues.noPublicGraphs);
                 } else {
-                    if(dtPublicGraphs.fnGetData().length==0){
-                        dialogShow('no graph selected', dialogues.noPublicGraphs);
-                    } else {
-                        dialogShow('search for public graphs', dialogues.noGraphSelected);
-                    }
+                    dialogShow('search for public graphs', dialogues.noGraphSelected);
                 }
             }
+            /* }*/
         });
     $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
     $('#tblPublicGraphs_filter').hide();
@@ -1139,11 +1140,11 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     if(!obj.plots){ //only if single series
         if(aoSeries.length==1 && aoSeries[0].notes){
             //this are the series info added to the quickView panel.  Could be more complete & styled
-            qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph + '</td></tr>'
-                + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes + '</td></tr>'
-                + '<tr><td>My Series count:</td><td>' + aoSeries[0].myseriescount + '</td></tr>'
-                + '<tr><td>Graphs (including unpublished) count:</td><td>' + aoSeries[0].graphcount + '</td></tr>'
-                + '<tr><td>Series key:</td><td>' + aoSeries[0].skey + '</td></tr>'
+            qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph||'' + '</td></tr>'
+                + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes||'' + '</td></tr>'
+                + '<tr><td>My Series count:</td><td>' + aoSeries[0].myseriescount||'' + '</td></tr>'
+                + '<tr><td>Graphs (including unpublished) count:</td><td>' + aoSeries[0].graphcount||'' + '</td></tr>'
+                + '<tr><td>Series key:</td><td>' + aoSeries[0].skey||'' + '</td></tr>'
                 + '</table>';
         }
         //determine whether and which maps to show in the selector
@@ -1579,11 +1580,11 @@ function showSeriesEditor(handle, map){
         switch(set){
             case 'U':
                 Handsontable.TextCell.renderer.apply(this, arguments);
-                if(row < 3 && col == 0){
+                if(row < rows.S.header && col == 0){
                     td.style.background = '#E0FFFF';
                     td.style.fontWeight = 'bold';
                 }
-                if(row == 3){
+                if(row == rows.S.header){
                     td.style.background = '#808080';
                     td.style.fontWeight = 'bold';
                 }
@@ -1632,8 +1633,9 @@ function showSeriesEditor(handle, map){
                     data[i] = data[i].split("|");
                     data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
                 }
-                data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
+                data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
                 $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
+                $("#data-editor").find('table.htCore tr').show().filter(':eq('+rows.S.handle+')').hide();
             } else {
                 var sids = [], usids=[];
                 if(series_handle.charAt(0)=="U")usids.push(parseInt(series_handle.substr(1))); else sids.push(parseInt(series_handle.substr(1)));
@@ -1647,8 +1649,9 @@ function showSeriesEditor(handle, map){
                             data[i] = data[i].split("|");
                             data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
                         }
-                        data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["date","value"]);
+                        data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
                         $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
+                        $("#data-editor").find('table.htCore tr').show().filter(':eq('+rows.S.handle+')').hide();
                     }
                 );
             }
@@ -1739,6 +1742,7 @@ function showSeriesEditor(handle, map){
                 if(r!=3)totalChanges+=gridData[r][c];
                 if(nonWhitePattern.test(totalChanges)) break; //exit on first non-empty cell = fast
             }
+            var headerRow;
             if(nonWhitePattern.test(totalChanges)) {   //don't try to save empty column
                 switch(set){
                     case 'M':
@@ -1750,6 +1754,7 @@ function showSeriesEditor(handle, map){
                             geoid: gridData[rows.M.geoid][c],
                             save_dt: new Date().getTime()
                         };
+                        headerRow = rows.M.header;
                         break;
                     case 'X':
                         uSerie = {
@@ -1762,15 +1767,17 @@ function showSeriesEditor(handle, map){
                             lon:gridData[rows.X.lat][c],
                             save_dt: new Date().getTime()
                         };
+                        headerRow = rows.X.header;
                         break;
                     default:
                         uSerie = {
                             handle: gridData[rows.S.handle][c],
-                            name:gridData[rows.S.header][c],
-                            units:gridData[rows.S.header][c],
-                            notes:gridData[rows.S.header][c],
+                            name:gridData[rows.S.name][c],
+                            units:gridData[rows.S.units][c],
+                            notes:gridData[rows.S.notes][c],
                             save_dt: new Date().getTime()
                         };
+                        headerRow = rows.S.header;
                         break;
                 }
                 if(!uSerie.handle){
@@ -1782,7 +1789,7 @@ function showSeriesEditor(handle, map){
                 }
                 pointArray=[];
                 mdata = "";
-                for(r=4;r<gridData.length;r++){
+                for(r=headerRow+1;r<gridData.length;r++){
                     if(gridData[r][c]!==null&&gridData[r][c].length>0){//if empty value, skip
                         if(isNaN(gridData[r][c]) && gridData[r][c].toLowerCase()!='null'){
                             dialogShow("Unreadable Values","Value cells must be numbers, 'NULL', or blank.");
@@ -1826,28 +1833,29 @@ function showSeriesEditor(handle, map){
         return userSeries;
     }
     function saveSeriesEditor(){
-        var arySeries = userSeriesFromEditor();
+        var arySeries = userSeriesFromEditor();  //returns false if missing name or untis or data
         if(arySeries){
-            for(var i=0;i<arySeries.length;i++){
-                $.extend(arySeries[i], {command: "SaveUserSeries", modal:"persist"});
-                callApi(arySeries[i],
-                    function(jsoData, textStatus, jqXH){
-                        //add update MySeriesGrid on success
+            callApi({command: "SaveUserSeries", modal:"persist", series: arySeries},
+                function(jsoData, textStatus, jqXH){
+                    //add update MySeriesGrid on success
+                    for(i=0;i<arySeries.length;i++){
                         if(arySeries[i].handle.substr(0,1)=='U' && arySeries[i].handle.substr(0,1)=='U'){  //update operation
-                            var trSerie = dtMySeries.find("button[data='"+arySeries[i].handle+"']").closest("tr").get(0);
-                            dtMySeries.fnDeleteRow(trSerie); //problems with the update on the manipulated cells.  Easier to delete and add.
-                        } else { //insert new operation
-                            arySeries[i].handle = "U"+jsoData.usid;
-                            arySeries[i].usid = jsoData.usid;
+                            //problems with the update on the manipulated cells.  Easier to delete and add.
+                            dtMySeries.find('span.handle:contains('+arySeries[i].handle+')').each(function(){
+                                if($(this).html()==arySeries[i].handle) dtMySeries.fnDeleteRow($(this).closest("tr").get(0));
+                            });
                         }
+                        //add to dataable and mySeries object
+                        arySeries[i].handle = "U"+jsoData.series[i].usid;
+                        arySeries[i].usid = jsoData.series[i].usid;
                         dtMySeries.fnAddData(arySeries[i]);
-                        oMySeries[arySeries[i].handle]=arySeries[i];  //over-write
+                        oMySeries[arySeries[i].handle]=arySeries[i];  //over-write as needed
                     }
-                );
-            }
-            unmask();
-            closeSeriesEditor();
+                    unmask();
+                }
+            );
         }
+        closeSeriesEditor();
     }
     function closeSeriesEditor(){
         var $de = $("#data-editor");
@@ -2232,7 +2240,7 @@ function getMySeries(){
         }
     );
 }
-function saveGraph(oGraph) {
+function saveGraph(oGraph, callback) {
 //first save to db and than to dtMyGraphs and oMyGraphs once we have a gid
     if(oGraph.gid){
         oGraph.updatedt = (new Date()).getTime();
@@ -2292,6 +2300,7 @@ function saveGraph(oGraph) {
 
             oMyGraphs['G'+oGraph.gid]=$.extend(true,{}, oGraph);
             oPanelGraphs[visiblePanelId()] =  oGraph;
+            if(callback) callback();
         }
     );
 }

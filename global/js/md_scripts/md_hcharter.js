@@ -81,7 +81,7 @@ window.MashableData = { //mashableData namespace
             window.attachEvent('message', this.receiveReply);
         }
         for(var i=0;i<MashableData.aMsg.length;i++){
-            mdFrame.postMessage(MashableData.aMsg[i], 'http://www.mashabledata.com/secure_xfer.php');
+            mdFrame.postMessage(MashableData.aMsg[i], 'https://www.mashabledata.com/secure_xfer.php');
         }
     },
     receiveReply: function(event){
@@ -222,17 +222,17 @@ window.MashableData = { //mashableData namespace
     },
     postSeries: function(serie){
         if(!this.iframeRequested) {  //add the iFrame is not already added
-            jQuery('body').append('<div id="md_frame_holder" style="display:none"><iframe id="mashabledata_secure_xfer" onload="MashableData.iframe_load()" src="http://www.mashabledata.com/secure_xfer.php"></iframe></div>');
+            jQuery('body').append('<div id="md_frame_holder" style="display:none"><iframe id="mashabledata_secure_xfer" onload="MashableData.iframe_load()" src="https://www.mashabledata.com/secure_xfer.php"></iframe></div>');
             this.iframeRequested = true;
         }
         if(this.iframe_loaded){ // this handles the delay in loading the iFrame.  If not loaded, than store message until md_iframe_load fires
             var mdFrame = document.getElementById("mashabledata_secure_xfer").contentWindow;
-            mdFrame.postMessage(JSON.stringify(serie), 'http://www.mashabledata.com/secure_xfer.php');
+            mdFrame.postMessage(JSON.stringify(serie), 'https://www.mashabledata.com/secure_xfer.php');
         } else {
             this.aMsg.push(JSON.stringify(serie))
         }
     },
-    navigate: function(){window.location.href="http://www.mashabledata.com/workbench"},
+    navigate: function(){window.location.href="https://www.mashabledata.com/workbench"},
     loadAllSeries: function(){
         var i;
         if(this.recentsKey!=localStorage.md_recents){
