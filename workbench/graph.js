@@ -67,8 +67,6 @@ var period = {
         'A': "year"
     }
 };
-var oPanelGraphs = {}; //MyGraph objects by panelID allows easy access to oMyCharts
-var oHighCharts = {}; //highchart objects by panelID
 var op = {
     "value": {"+":1,"-":2,"*":3,"/":4},
     "cssClass": {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
@@ -97,11 +95,11 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
     console.time('chartPanel');
 //panel can either be a DOM node anywhere is the panel or a panelID
     var panelId = typeof panel == 'string'?panel:$(panel).closest('div.graph-panel').get(0).id;
-    if(oHighCharts[panelId]) {
-        oHighCharts[panelId].destroy();
+    var oGraph = oPanelGraphs[panelId];
+    if(oGraph.controls && oGraph.controls.chart) {
+        oGraph.controls.chart.destroy();
         $.contextMenu('destroy', '#' + panelId + ' div.chart');
     }
-    var oGraph = oPanelGraphs[panelId];
     var chart;
     console.time('makeChartOptionsObject');
     var oChartOptions = makeChartOptionsObject(oPanelGraphs[panelId]);
@@ -148,7 +146,6 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
                 oGraph.minZoom = (oGraph.start===null)?oGraph.firstdt:oGraph.start;
                 oGraph.maxZoom = (oGraph.end===null)?oGraph.lastdt:oGraph.end;
             } else {
-                //var chart = oHighCharts[panelId];
                 var btnOptions = $.extend(true, {}, chart.options.chart.resetZoomButton);
                 btnOptions.position.y += 30;
                 var box = {
@@ -178,8 +175,8 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
     };
     console.time('highcharts');
     chart = new Highcharts.Chart(oChartOptions);
+    if(oGraph.controls) oGraph.controls.chart = chart;
     console.timeEnd('highcharts');
-    oHighCharts[panelId] = chart;
     annotations.plotAnnotationSeries();
     //for a highcharts div mouseover event that translates to X and Y axis coordinates:  http://highslide.com/forum/viewtopic.php?f=9&t=10204
     $chart
@@ -210,7 +207,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
         })
         .keydown(function(e){
             if(annotations.banding && e){
-                for(var a=0;a<oHighCharts[panelId].axes.length;a++){
+                for(var a=0;a<chart.axes.length;a++){
                     chart.axes[a].removePlotLine(annotations.banding);  //does not error if not found
                     chart.axes[a].removePlotBand(annotations.banding);
                 }
@@ -392,7 +389,7 @@ function intervalStartDt(graph){
 function setCropSlider(panelId){  //get closest point to recorded js dt
     var leftIndex, rightIndex, i, bestDelta, thisDelta;
     var oGraph = oPanelGraphs[panelId];
-    var chartOptions = oHighCharts[panelId].options.chart;
+    var chartOptions = oGraph.controls.chart.options.chart;
     if(oGraph.start===null){
         leftIndex = 0;
     } else {
@@ -1130,7 +1127,7 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
     var assets = oGraph.assets;
     var region;
     if(oGraph.plots){
-        var chart = oHighCharts[panelId];
+        var chart = oGraph.controls.chart;
     } else {
         throw "Chart does not exist; cannot make grid objects";
     }
@@ -2041,6 +2038,12 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     }
     var $thisPanel = $('#' + panelId);
     var annotations = new AnnotationsController(panelId, makeDirty);
+    oGraph.controls = {
+        annotations: annotations,
+        $thisPanel: $thisPanel,
+        provenance: {},
+        redraw: redraw
+    };
     console.timeEnd('buildGraphPanel:header');
     console.time('buildGraphPanel:timeEnd');
     $thisPanel.html(
@@ -2250,7 +2253,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 svg = cleanMapSVG($map.container.html());
             } else {
                 annotations.sync();
-                svg = oHighCharts[panelId].getSVG();
+                svg = oGraph.controls.chart.getSVG();
             }
             $.ajax({
                 type: 'POST',
@@ -2363,13 +2366,13 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         var values = $thisPanel.find('.crop-slider').slider('values');
         $thisPanel.find('.rad-hard-crop').attr('checked',true);
         oGraph.intervals = null;
-        oGraph.start = oHighCharts[panelId].options.chart.x[values[0]];
-        oGraph.end = oHighCharts[panelId].options.chart.x[values[1]];
+        oGraph.start = oGraph.controls.chart.options.chart.x[values[0]];
+        oGraph.end = oGraph.controls.chart.options.chart.x[values[1]];
         redraw();  //should be signals or a call to a local var  = function
     };
     var cropDates = function(slider){
         var values = $(slider).slider("values");
-        return formatDateByPeriod(oHighCharts[panelId].options.chart.x[values[0]],oGraph.smallestPeriod)+' - '+formatDateByPeriod(oHighCharts[panelId].options.chart.x[values[1]],oGraph.smallestPeriod);
+        return formatDateByPeriod(oGraph.controls.chart.options.chart.x[values[0]],oGraph.smallestPeriod)+' - '+formatDateByPeriod(chart.options.chart.x[values[1]],oGraph.smallestPeriod);
     };
 
     $thisPanel.find('div.crop-slider').slider(
@@ -2379,7 +2382,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 hardCropFromSlider()
             },
             change: function(){
-                if(oHighCharts[panelId]){
+                if(oGraph.controls.chart){
                     $thisPanel.find('.crop-dates').html(cropDates(this));
                 }
             },
@@ -2425,7 +2428,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             oGraph.end = null;
             if(oGraph.intervals != parseInt($(this).val())){
                 oGraph.intervals = parseInt($(this).val());
-                chartPanel(panelId, annotations);
+                chart = chartPanel(panelId, annotations);
                 if(oGraph.plots) annotations.build();
             }
         }
@@ -2450,8 +2453,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         .val(oGraph.type)
         .change(function(){
             if($(this).val()=='logarithmic'){
-                for(var y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                    if(oHighCharts[panelId].yAxis[y].getExtremes().dataMin<=0){
+                for(var y=0;y<chart.yAxis.length;y++){
+                    if(chart.yAxis[y].getExtremes().dataMin<=0){
                         $thisPanel.find('select.graph-type').val(oGraph.type);
                         dialogShow("Logarithmic scaling not available", "Logarithmic Y-axis scaling is not allowed if negative values are present");
                         return false;
@@ -2590,7 +2593,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //destroy
             destroyChartMap(panelId); //destroy the Highchart, the map and the contectMenu if they exist.
             if(oGraph.plots){
-                chartPanel(panelId, annotations);
+                chart = chartPanel(panelId, annotations);
                 annotations.build();  //build and shows teh annotations table
                 $thisPanel.find('div.chart').show();
             } else {
@@ -2632,7 +2635,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             downloadMap(panelId, type);
         } else {
             annotations.sync();
-            oHighCharts[panelId].exportChart({type: type});
+            chart.exportChart({type: type});
         }
     }
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button((oGraph.userid == account.info.userid) && oGraph.gid?'disable':'enable')
@@ -2674,11 +2677,12 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     calcGraphMinMaxZoomPeriod(oGraph);
     oPanelGraphs[panelId]=oGraph;  //oPanelGraphs will be synced will oMyGraphs on save
     var provenance = new ProvenanceController(panelId);  //needs to be set after oPanelGraphs is updated
+    oGraph.controls.provenance = provenance;
     console.timeEnd('buildGraphPanel:provController');
     //DRAW THE CHART
     if(oGraph.plots){
         console.time('buildGraphPanel:build annoatations');
-        chartPanel(panelId, annotations);
+        chart = chartPanel(panelId, annotations);
         annotations.build();
         setCropSlider(panelId);
 
@@ -2832,7 +2836,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             $thisPanel.find('div.jvmap').show().height(($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
-            oJVectorMaps[panelId] = $map;
+            oGraph.controls.map = $map;
             var $mapDateDiv = $('<div class="map-date"></div>').prependTo($thisPanel.find('div.jvectormap-container'));
 
             //BBBUUUUBBBBBLLEESS!!!!!
@@ -2871,7 +2875,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
                     }
                     if(oGraph.plots){
-                        var timeAxis = oHighCharts[panelId].xAxis[0];
+                        var timeAxis = chart.xAxis[0];
                         timeAxis.removePlotLine('timeLine');
                         timeAxis.addPlotLine({
                             value: calculatedMapData.dates[val].dt,
@@ -3607,20 +3611,21 @@ var graphTitle = {
     changeOk: function(){
         var thisPanelID =  $('#titleEditor input').attr('data');
         var newTitle = $('#titleEditor input').val().trim();
-        if(newTitle!=oPanelGraphs[thisPanelID].title){
-            oPanelGraphs[thisPanelID].title = newTitle || 'untitled';
-            if(oPanelGraphs[thisPanelID].plots){
-                if(oPanelGraphs[thisPanelID].title.length==0){
-                    oHighCharts[thisPanelID].setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
+        var graph = oPanelGraphs[thisPanelID];
+        if(newTitle!=graph.title){
+            graph.title = newTitle || 'untitled';
+            if(graph.plots){
+                if(graph.title.length==0){
+                    graph.controls.chart.setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
                 } else {
-                    oHighCharts[thisPanelID].setTitle({text: oPanelGraphs[thisPanelID].title, style: {color: 'black', font: 'normal'}});
+                    oGraph.controls.chart.setTitle({text: graph.title, style: {color: 'black', font: 'normal'}});
                 }
                 $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
             }
             var tabLabel = newTitle || "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1)
             $('#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',tabLabel).html(tabLabel);
-            $('#' + thisPanelID + ' h3.map-title').html(oPanelGraphs[thisPanelID].title);
-            if(oPanelGraphs[thisPanelID].title.length==0){
+            $('#' + thisPanelID + ' h3.map-title').html(graph.title);
+            if(graph.title.length==0){
                 if(this.callback) this.callback();
             }
         }

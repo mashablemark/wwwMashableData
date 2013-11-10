@@ -35,6 +35,7 @@ var dialogues = {
     deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm'
 };
 //GLOBAL VARIABLES
+var mashableVersion = 0.5;
 var colWidths = {
     quickView: 50,
     views: 55,
@@ -63,7 +64,12 @@ var layoutDimensions= {
         windowMinimum: 580
     },
     widths: {
-        windowMinimum: 750
+        windowMinimum: 750,
+        mySeriesTable: {columns:{}},
+        publicSeriesTable: {columns: {}},
+        myGraphsTable: {columns: {}},
+        publicGraphTable: {columns: {}}
+
     }
 };
 var MY_SERIES_DATE = 9;  //important column indexes used for ordering
@@ -85,8 +91,6 @@ var oMyGraphs = {};  //complete fetch from API.GetMyGraphs.  Kept in sync with c
 //var oPublicGraphs = {};  //NOT USED.  DataTables fetches directly from API.SearchGraphs = endless scroll style fetch TODO: show button not programmed
 
 var oPanelGraphs = {}; //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. oPanelGraphs['graphTab1']).  Kept in sync by UI events.  Used by save/publish operations.
-var oHighCharts = {}; //contained objects return by Highcharts.chart call referenced by panelID as per oPanelGraphs
-var oJVectorMaps = {}; //contained objects return by jVectorMaps referenced by panelID as per oPanelGraphs
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
 var $quickViewRows = null; //used to remember jQuery set of rows being previewed in case user chooses to delete them
@@ -238,7 +242,7 @@ $(document).ready(function(){
                 + '<li><a target="help" title="Accounts: free, individual and corporate" href="http://www.mashabledata.com/workbench-help/accounts-free-individual-and-corporate/">Accounts: free, individual and corporate</a></li>'
                 + '<li><a target="help" title="Publishing graphs and fair use" href="http://www.mashabledata.com/workbench-help/publishing-graphs-and-fair-use/">Publishing graphs and fair use</a></li>'
                 + '</ul>'
-            + '</div>', $('#menu-help'))
+                + '</div>', $('#menu-help'))
         });
     lastTabAnchorClicked = $("#series-tabs li a").click(function (){pickerPanel(this)}).filter("[data='#local-series']").get(0);
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
@@ -419,15 +423,47 @@ function resizeCanvas(){
     $('div.picker').height(layoutDimensions.heights.pickers);
     layoutDimensions.heights.innerDataTable = layoutDimensions.heights.pickers  - layoutDimensions.heights.tableControls -  layoutDimensions.heights.scrollHeads -40;
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable);
-    //dtPublicSeries.height((layoutDimensions.heights.canvas-layoutDimensions.heights.graphTabsGap)-layoutDimensions.heights.tableControls-$("div#cloud-series div.dataTables_scrollHead").height());
 
+    //datatable
+    layoutDimensions.widths.canvas = $("#canvas").innerWidth();
+    //mySeries
+    layoutDimensions.widths.mySeriesTable.table = layoutDimensions.widths.canvas-8*colWidths.padding-colWidths.scrollbarWidth;
+    var remainingInnerWidths =  layoutDimensions.widths.mySeriesTable.table - (colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
+    layoutDimensions.widths.mySeriesTable.columns.units = parseInt(remainingInnerWidths * 0.20);
+    layoutDimensions.widths.mySeriesTable.columns.series = parseInt(remainingInnerWidths * 0.55);
+    layoutDimensions.widths.mySeriesTable.columns.category = parseInt(remainingInnerWidths * 0.25);
+    $('#series-table_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.mySeriesTable.columns.series+'px')
+        .end().find('th.units').width(layoutDimensions.widths.mySeriesTable.columns.units+'px')
+        .end().find('th.cat').width(layoutDimensions.widths.mySeriesTable.columns.category+'px');
+    //publicSeries
+    layoutDimensions.widths.publicSeriesTable.table = layoutDimensions.widths.canvas-7*colWidths.padding-colWidths.scrollbarWidth;
+    remainingInnerWidths =  layoutDimensions.widths.publicSeriesTable.table - (colWidths.periodicity + colWidths.src + 2*colWidths.mmmyyyy);
+    layoutDimensions.widths.publicSeriesTable.columns.series = remainingInnerWidths * 0.4;
+    layoutDimensions.widths.publicSeriesTable.columns.units = remainingInnerWidths * 0.3;
+    layoutDimensions.widths.publicSeriesTable.columns.category = remainingInnerWidths * 0.3;
+    $('#tblPublicSeries_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.publicSeriesTable.columns.series+'px')
+        .end().find('th.units').width(layoutDimensions.widths.publicSeriesTable.columns.units+'px')
+        .end().find('th.cat').width(layoutDimensions.widths.publicSeriesTable.columns.category+'px');
+    //myGraphs
+    layoutDimensions.widths.myGraphsTable.table = layoutDimensions.widths.canvas - 6*colWidths.padding - colWidths.scrollbarWidth;
+    remainingInnerWidths =  layoutDimensions.widths.myGraphsTable.table - (colWidths.quickView + colWidths.shortDate + colWidths.map);
+    layoutDimensions.widths.myGraphsTable.columns.title = remainingInnerWidths * 0.25;
+    layoutDimensions.widths.myGraphsTable.columns.analysis = remainingInnerWidths * 0.5;
+    layoutDimensions.widths.myGraphsTable.columns.series = remainingInnerWidths * 0.25;
+    $('#my_graphs_table_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.myGraphsTable.columns.title+'px')
+        .end().find('th.analysis').width(layoutDimensions.widths.myGraphsTable.columns.analysis+'px')
+        .end().find('th.series').width(layoutDimensions.widths.myGraphsTable.columns.series+'px');
+    //publicGraphs
+    layoutDimensions.widths.publicGraphTable.table = layoutDimensions.widths.canvas - 6*colWidths.padding - colWidths.scrollbarWidth;
+    remainingInnerWidths =  layoutDimensions.widths.publicGraphTable.table - (colWidths.quickView + colWidths.shortDate + colWidths.map);
+    layoutDimensions.widths.publicGraphTable.columns.title = remainingInnerWidths * 0.40;
+    layoutDimensions.widths.publicGraphTable.columns.analysis = remainingInnerWidths * 0.35;
+    layoutDimensions.widths.publicGraphTable.columns.series = remainingInnerWidths * 0.25;
+    $('#tblPublicGraphs_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.publicGraphTable.columns.title+'px')
+        .end().find('th.analysis').width(layoutDimensions.widths.publicGraphTable.columns.analysis+'px')
+        .end().find('th.series').width(layoutDimensions.widths.publicGraphTable.columns.series+'px');
 }
 function setupMySeriesTable(){
-    var tableWidth = $("#canvas").innerWidth()-8*colWidths.padding-colWidths.scrollbarWidth
-    var remainingWidth =  tableWidth - (colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
-    var unitsColWidth = parseInt(remainingWidth * 0.20);
-    var seriesColWidth = parseInt(remainingWidth * 0.55);
-    var graphColWidth = parseInt(remainingWidth * 0.25);
 
     dtMySeries = $('#series-table').html('')
         .dataTable({
@@ -444,26 +480,7 @@ function setupMySeriesTable(){
             //     "sScrollX": tableWidth + "px",
             "aaSorting": [[MY_SERIES_DATE,'desc']],
             "aoColumns": [
-                /*            {   "mData":null,
-                 "sTitle": "View",
-                 "sClass": "quick-view",
-                 "bSortable": true,
-                 "sWidth": colWidths.quickView + "px",
-                 "resize": false,
-                 "mRender": function(value, type, obj) {
-                 return '<button data="' + obj.handle + '" onclick="getQuickViewData(this)">View</button>'
-                 }
-                 },
-                 {"mData": "selected", "sTitle": "<span></span>", "sClass": 'dt-vw', "bSortable": true, "sWidth": colWidths.checkbox + "px", "resize": false,
-                 "mRender": function(value, type, obj){
-                 if(value) {
-                 return '<a class="select_cell md-checked rico" onclick="clickMySeriesCheck(this)" title="select series to graph"> Series selected (order ' + obj.selected + '</a>';
-                 } else {
-                 return '<a class="select_cell md-check rico" onclick="clickMySeriesCheck(this)"  title="select series to graph">Not selected</a>';
-                 }
-                 }
-                 },*/
-                { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'title', "bSortable": true, "sWidth": seriesColWidth + "px",
+                { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'title', "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.series + "px",
                     "mRender": function(value, type, obj){
                         return ((obj.mapsetid)?iconsHMTL.mapset:'')
                             + ((obj.pointsetid)?iconsHMTL.pointset:'')
@@ -471,13 +488,13 @@ function setupMySeriesTable(){
                             + '<span class="handle">' + obj.handle + '</span>';
                     }
                 },
-                { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": unitsColWidth + "px",  "mRender": function(value, type, obj){return value}},
+                { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.units + "px",  "mRender": function(value, type, obj){return value}},
                 { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}},
                 { "mData":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
                     "mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)}
                 },
                 { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)} },
-                { "mData": "graph",  "sTitle": "Category<span></span>",  "bSortable": true, "sWidth": graphColWidth + "px", "mRender": function(value, type, obj){return value}},
+                { "mData": "graph",  "sTitle": "Category<span></span>", "sClass": "cat", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.category + "px", "mRender": function(value, type, obj){return value}},
                 { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                     "mRender": function(value, type, obj){
                         if(obj.handle[0]=='S') {
@@ -515,14 +532,7 @@ function setupMySeriesTable(){
     $('#series-table_info').appendTo('#local-series-header');
 }
 function setupPublicSeriesTable(){
-    var tableWidth = $("#canvas").innerWidth()-7*colWidths.padding-colWidths.scrollbarWidth
-    var remainingWidth =  tableWidth - (colWidths.periodicity + colWidths.src + 2*colWidths.mmmyyyy);
-    var seriesColWidth = remainingWidth * 0.4;
-    var unitsColWidth = remainingWidth * 0.3;
-    var graphColWidth = remainingWidth * 0.3;
-
-    $('#tblPublicSeries').html('');
-    dtPublicSeries =  $('#tblPublicSeries').dataTable({
+    dtPublicSeries =  $('#tblPublicSeries').html('').dataTable({
         "sDom": "frti", //TODO: style the components (http://datatables.net/blog/Twitter_Bootstrap) and avoid jQuery calls to append/move elements
         "bServerSide": true,
         "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public series"},
@@ -571,23 +581,18 @@ function setupPublicSeriesTable(){
         "aaSorting": [],  //[[8,'desc']],  using namelen to show shortest first by default
         "iDeferLoading": 0,
         "aoColumns": [
-            /* { "mData":null, "sTitle": "View", "bSortable": false, "sWidth": colWidths.quickView + "px", "resize": false,
-             "mRender": function(value, type, obj) {
-             return '<button class="view" data="S' + obj.seriesid + '" onclick="getQuickViewData(this)">View</button>'
-             }
-             },*/
-            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": seriesColWidth + "px", "sClass": "title",
+            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": layoutDimensions.widths.publicSeriesTable.columns.series + "px", "sClass": "title",
                 "mRender": function(value, type, obj){
                     return ((obj.mapsetid)?iconsHMTL.mapset:'')
                         + ((obj.pointsetid)?iconsHMTL.pointset:'')
                         + spanWithTitle(value)
                         + '<span class="handle">' + (obj.userid?'U':'S') + obj.seriesid + '</span>';
                 }},
-            { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": unitsColWidth+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
+            { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
-            { "mData":"title", "sTitle": "Category<span></span>", "sWidth": graphColWidth+"px", "bSortable": true,
+            { "mData":"title", "sTitle": "Category<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
                         return '<span class="ui-icon browse-right" onclick="browseFromSeries('+ obj.seriesid +')">browse similar series</span> ' + spanWithTitle(value);
@@ -597,7 +602,6 @@ function setupPublicSeriesTable(){
                 }
             },
             { "mData":null, "sTitle": "Source<span></span>","bSortable": false, "sClass": 'url',  "sWidth": colWidths.src+"px", "resize": false, "mRender": function(value, type, obj){return formatAsUrl(obj.url) + obj.src}}
-            //{ "mData":"capturedt", "sTitle": "Date Captured<span></span>",  "sWidth": colWidths.longDate+"px", "asSorting":  [ 'desc','asc'],  "sType": 'date'}
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
@@ -620,11 +624,6 @@ function setupPublicSeriesTable(){
     $('#cloud-series-browse').button({icons: {secondary: "ui-icon-circle-triangle-e"}}).click(function(){browseFromSeries()});
 }
 function setupMyGraphsTable(){
-    var myGraphsTableWidth = $("#canvas").innerWidth()-6*colWidths.padding-colWidths.scrollbarWidth;
-    var remainingWidth =  myGraphsTableWidth - (colWidths.quickView + colWidths.shortDate + colWidths.map);
-    var titleColWidth = parseInt(remainingWidth * 0.25);
-    var analysisColWidth = parseInt(remainingWidth * 0.50);
-    var seriesColWidth = parseInt(remainingWidth * 0.25);
     dtMyGraphs = $('#my_graphs_table').html(' ').dataTable({
         "sDom": 'frti',
         "bFilter": true,
@@ -638,11 +637,10 @@ function setupMyGraphsTable(){
         },
         "oColReorder": {"iFixedColumns": 2},
         "sScrollY": (layoutDimensions.heights.innerDataTable-120) + "px",
-        "sScrollX": myGraphsTableWidth + "px",
+        "sScrollX": layoutDimensions.widths.myGraphsTable.table + "px",
         "aaSorting": [[9,'desc']],
         "aoColumns": [
-            /*            {"mData":null, "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false, "mRender": function(value, type, obj) { return '<button data="G' + obj.gid + '" onclick="viewGraph(' + obj.gid + ')">open</button>'}},*/
-            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap title", "sWidth": titleColWidth+"px",
+            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap title", "sWidth": layoutDimensions.widths.myGraphsTable.columns.title+"px",
                 "mRender": function(value, type, obj){return value + '<span class="handle" data="G' + obj.gid + '">G' + obj.gid + '</span> '}
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
@@ -650,8 +648,8 @@ function setupMyGraphsTable(){
                     return (obj.mapsets?(obj.mapsets.options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'') + (obj.pointsets?iconsHMTL.hasMarkerMap:'') + spanWithTitle(value)
                 }
             },
-            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sWidth": analysisColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sWidth": seriesColWidth+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.series+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
                 "mRender": function(value, type, obj){
                     if(obj.published == 'N'){
@@ -665,10 +663,10 @@ function setupMyGraphsTable(){
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
-             /*if($td.hasClass('title')){*/
-                dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
-                var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
-                viewGraph(rowObject.gid);
+            /*if($td.hasClass('title')){*/
+            dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
+            var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+            viewGraph(rowObject.gid);
             /*}*/
         });
     $('#my_graphs_table_filter')
@@ -683,11 +681,6 @@ function setupMyGraphsTable(){
     $('#my_graphs_table_info').appendTo('#myGraphsHeader');
 }
 function setupPublicGraphsTable(){
-    var tableWidth = $("#canvas").innerWidth() - 6*colWidths.padding - colWidths.scrollbarWidth;
-    var remainingWidth =  tableWidth - (colWidths.views + 1*colWidths.shortDate + colWidths.map);
-    var titleColWidth = parseInt(remainingWidth * 0.40);
-    var analysisColWidth = parseInt(remainingWidth * 0.35);
-    var seriesColWidth = parseInt(remainingWidth * 0.25);
     dtPublicGraphs = $('#tblPublicGraphs').dataTable({
         //"aaData": md_search_results.aaData,
         "sDom": 'frti',
@@ -723,27 +716,15 @@ function setupPublicGraphsTable(){
         "iDeferLoading": 0,
         "oColReorder": {"iFixedColumns": 2},
         //"sScrollY": (layoutDimensions.heights.innerDataTable-220) + "px",
-        "sScrollX": tableWidth + "px",
+        "sScrollX": layoutDimensions.widths.publicGraphTable.table + "px",
         "aaSorting": [[6,'desc']],
         "aoColumns": [
-            /*            {"mData": null, "sTitle": "Show", "bSortable": false, "sClass": 'show', "sWidth": colWidths.quickView + "px", "resize": false,
-             "mRender": function(value, type, obj) {
-             var gId = obj.gid;
-             return '<button data="G' + gId + '" onclick="createGraph(' + gId + ')">View</button>'
-             }
-             },*/
-            {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'title',  "sWidth":  titleColWidth + 'px',
+            {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'title',  "sWidth":  layoutDimensions.widths.publicGraphTable.columns.title + 'px',
                 "mRender": function(value, type, obj){return value + '<span class="handle">G'+obj.graphid+'</span>';}
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  analysisColWidth + 'px'},
-            {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": seriesColWidth + 'px'},
-            /*            {"mData":"fromdt", "sTitle": "from<span></span>", "bSortable": true, "sType": 'date', "asSorting":  [ 'desc','asc'], "sWidth": colWidths.shortDate + 'px',
-             "mRender": function(value, type, obj){return formatDateByPeriod(value,'M');}
-             },
-             {"mData":"todt", "sTitle": "to<span></span>",  "bSortable": true,  "sType": 'date', "asSorting":  [ 'desc','asc'], "sClass": 'dte', "resize": false, "sWidth": colWidths.shortDate + 'px',
-             "mRender": function(value, type, obj){return formatDateByPeriod(value,'M')}
-             },*/
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  layoutDimensions.widths.publicGraphTable.columns.analysis + 'px'},
+            {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": layoutDimensions.widths.publicGraphTable.columns.series + 'px'},
             {"mData":"views", "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'count', "sWidth": colWidths.views + 'px'},
             {"mData":"modified", "sTitle": "Modified<span></span>", "bSortable": true,  "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
                 "mRender": function(value, type, obj){return timeOrDate(value);}
@@ -1020,13 +1001,12 @@ function showGraphEditor(){
 }
 function hideGraphEditor(){
     if($("div.picker:visible").length==1) showHideGraphEditor();
-
 }
 
 //EVENT FUNCTIONS
 function titleChange(titleControl){
     var panelId = $(titleControl).closest("div.graph-panel").get(0).id;
-    oHighCharts[panelId].setTitle({text:titleControl.value});
+    oPanelGraphs[panelId].controls.chart.setTitle({text:titleControl.value});
     oPanelGraphs[panelId].title = titleControl.value;
     if(titleControl.value.length==0){
         var noTitle= 'Graph'+panelId.substring(panelId.indexOf('-')+1);
@@ -1034,7 +1014,7 @@ function titleChange(titleControl){
     } else {
         $('a[href=#'+panelId+']').html(titleControl.value).attr("title",titleControl.value);
     }
-    oHighCharts[panelId].redraw();
+    oPanelGraphs[panelId].controls.chart.redraw();
     //oMyGraphs & table synced only when user clicks save
 }
 
@@ -1217,16 +1197,17 @@ function quickViewToChart(btn){
     var graph, panelId =  $('#quick-view-to-graphs').val();
     if(oQuickViewSeries.plots){  //we have a complete graph object!
         if(panelId!='new') {
-            var plots = oQuickViewSeries.plots;
-            if(!oPanelGraphs[panelId].plots)oPanelGraphs[panelId].plots=[];
+            var plots = oQuickViewSeries.plots, oGraph = oPanelGraphs[panelId];
+            if(!oGraph.plots) oGraph.plots=[];
             for(var p=0;p<plots.length;p++){
-                oPanelGraphs[panelId].plots.push(plots[p]);
+                oGraph.plots.push(plots[p]);
             }
             for(var asset in oQuickViewSeries.assets){
                 oPanelGraphs[panelId].assets[asset] = oPanelGraphs[panelId].assets[asset] || oQuickViewSeries.assets[asset];
             }
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-            $('#' + panelId + ' .graph-type').change();
+            oGraph.controls.provenance.changeOk(false); //commit any prov panel changes, but do not redraw graph
+            oGraph.controls.redraw();
         } else {
             buildGraphPanel(oQuickViewSeries);
         }
@@ -1247,7 +1228,8 @@ function quickViewToChart(btn){
         }
         if(panelId!='new'){
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-            $('#' + panelId + ' .graph-type').change();
+            graph.controls.provenance.changeOk(false);
+            graph.controls.redraw();
         } else {
             buildGraphPanel(graph);
         }
@@ -1306,7 +1288,8 @@ function quickViewToMap(){
                 buildGraphPanel(oGraph);
             } else {
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                $('#' + panelId + ' .graph-type').change();
+                oGraph.controls.provenance.changeOk(false);
+                oGraph.controls.redraw();
             }
             unmask();
             setPanelHash();
@@ -1865,11 +1848,6 @@ function showSeriesEditor(handle, map){
     }
 }
 
-function addMySeriesToCurrentGraph(){
-    alert("not implemented yet");
-}
-
-
 //API SERIES BROWSE FUNCTIONS
 function browseFromSeries(seriesId){
     callApi({command:'GetCatChains', sid: seriesId||0},function(jsoData, textStatus, jqXH){
@@ -2252,41 +2230,44 @@ function saveGraph(oGraph, callback) {
     eachComponent(oGraph, function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
     oGraph.serieslist = oGraph.serieslist.join('; ');
 
+
+    var assets = oGraph.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
+    var calculatedMapData = oGraph.calculatedMapData; //ditto
+    var controls = oGraph.controls; //ditto
+    delete oGraph.assets; //temporarily remove after making local reference
+    delete oGraph.calculatedMapData; //ditto
+    delete oGraph.controls; //ditto
+
     var params = {command: 'ManageMyGraphs'};
+    var o = {}, nonTransmit = ['assts'];
     $.extend(true, params, oGraph);
     params.annotations = serializeAnnotations(oGraph);  // over write array of object with a single serialized field
     params.mapconfig = $.stringify(oGraph.mapconfig);
     var plot, comp;
-    for(plot in oGraph.plots){
-        params.plots[plot].options = $.stringify(params.plots[plot].options);
-        for(comp in  params.plots[plot].components){
-            params.plots[plot].components[comp].options = $.stringify(params.plots[plot].components[comp].options);
-        }
-    }
-    if(oGraph.mapsets){
-        params.mapsets.options = $.stringify(params.mapsets.options);
-        for(comp in oGraph.mapsets.components){
-            params.mapsets.components[comp].options = $.stringify(params.mapsets.components[comp].options);
-        }
-    }
-    for(plot in oGraph.pointsets){
-        params.pointsets[plot].options = $.stringify(params.pointsets[plot].options);
-        for(comp in  params.pointsets[plot].components){
-            params.pointsets[plot].components[comp].options = $.stringify(params.pointsets[plot].components[comp].options);
-        }
-    }
-    delete params.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
-    delete params.calculatedMapData; //ditto
+    eachPlot(params, function(){
+        this.options = $.stringify(this.options);
+        each(this.components, function(){
+            this.options = $.stringify(this.options);
+        });
+    });
+
+    oGraph.assets = assets; //restore objects temporarily removed from oGraph
+    oGraph.calculatedMapData = calculatedMapData;
+    oGraph.controls = controls;
+
     callApi(params,
         function(jsoData, textStatus, jqXH){
             //first find to whether this is a new row or an update
             oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
             oGraph.ghash = jsoData.ghash;
             oGraph.isDirty = false;
-            var assets = oGraph.assets;  //but don't copy the potentially very large assets.   unattach and reattech instead
-            delete oGraph.assets;
+            delete oGraph.assets; //but don't copy the potentially very large assets.   unattach and reattech instead
+            delete oGraph.calculatedMapData; //ditto
+            delete oGraph.controls; //ditto
             var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
-            oGraph.assets = assets;
+            oGraph.assets = assets; //restore objects temporarily removed from oGraph
+            oGraph.calculatedMapData = calculatedMapData;
+            oGraph.controls = controls;
             objForDataTable.updatedt = new Date().getTime();
             if(('G' + oGraph.gid) in oMyGraphs){
                 var trMyGraph;
@@ -2332,21 +2313,6 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
     );
 }
 
-function deleteMyGraph(panelID){
-    //TODO: rewire this function to be executed from the graph editor
-    var gid = oPanelGraphs[panelID].gid;
-    var tabAnchor = $('a[href=#' + panelID + ']');
-    var trGraph = dtMyGraphs.find('span.handle[data=G' + gid + ']').closest('tr').get(0);
-    callApi({command: 'DeleteMyGraphs',
-            gids: [gid]
-        },
-        function(jsoData, textStatus, jqXH){
-            removeTab(tabAnchor);  //destroy Highchart, panel, tab and cleans oPanelGraphs
-            delete oMyGraphs['G' + gid];
-            dtMyGraphs.fnDeleteRow(trGraph);
-        }
-    );
-}
 function addMySeriesRow(oMD){  //add to table and to oMySeries
     //TODO:  need to update existing oPanelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySeries.');
     if(oMD.handle){
@@ -2484,14 +2450,16 @@ function removeTab(span){
 }
 
 function destroyChartMap(panelId){
-    if(oHighCharts[panelId]){
-        oHighCharts[panelId].destroy();
-        $.contextMenu('destroy', '#' + panelId + ' div.chart');
-        delete oHighCharts[panelId];
-    }
-    if(oJVectorMaps[panelId]){
-        oJVectorMaps[panelId].remove();
-        delete oJVectorMaps[panelId];
+    if(oPanelGraphs[panelId] && oPanelGraphs[panelId].controls){
+        if(oPanelGraphs[panelId].controls.chart){
+            oPanelGraphs[panelId].controls.chart.destroy();
+            delete oPanelGraphs[panelId].controls.chart;
+            $.contextMenu('destroy', '#' + panelId + ' div.chart');
+        }
+        if(oPanelGraphs[panelId].controls.map){
+            oPanelGraphs[panelId].controls.map.remove();
+            oPanelGraphs[panelId].controls.map;
+        }
     }
 }
 
@@ -2595,7 +2563,7 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
     if(params.modal!='none')mask();
     $.ajax({type: 'POST',
         url: "api.php",
-        data:$.extend({uid: getUserId(),accessToken: account.info.accessToken}, params),
+        data:$.extend({uid: getUserId(), version: mashableVersion, accessToken: account.info.accessToken}, params),
         dataType: 'json',
         success: function(jsoData, textStatus, jqXHR){
             if(jsoData.status=="ok"){

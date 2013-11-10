@@ -113,6 +113,7 @@ function dateConversionData(key, jsStart, jsEnd){
     }
     return data;
 }
+
 function selectDownshift(graph, plot, minPeriod, callback){
     var i, asset;
     var html = '<div id="downshiftWizard" style="width:600px;">'  //TODO: CSS entries

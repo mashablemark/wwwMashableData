@@ -441,7 +441,7 @@ function ProvenanceController(panelId){
             makeDirty();
 
         },
-        provOk: function provOk(){//save change to graph object and rechart
+        provOk: function provOk(noRedraw){//save change to graph object and rechart
             //TODO: save and rechart
             var self = this;
             if(self.isDirty && (self.plotsEdits||self.mapsetEdits||self.pointsetsEdits)){
@@ -452,7 +452,7 @@ function ProvenanceController(panelId){
                 self.graph.mapconfig = self.mapconfigEdits;
 
                 this.provClose();
-                $('#'+panelId).find(".graph-type").change();  //trigger redaw
+                if(!noRedraw) $('#'+panelId).find(".graph-type").change();  //trigger redaw
             }
         },
         provClose:  function provClose(){ //called directly from cancel btn = close without saving

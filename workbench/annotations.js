@@ -42,7 +42,7 @@ function AnnotationsController(panelId, makeDirty){
             }
         },
         sync: function annoSync(){  //sync plot lines and bands to options.  must be done prior to printing or exporting
-            var thisChart = oHighCharts[visiblePanelId()];
+            var thisChart = oPanelGraphs[this.panelId].controls.chart;
             var axis = thisChart.options.xAxis,
                 plotLines = (axis.plotLines = []),
                 plotBands = (axis.plotBands = []);
@@ -63,7 +63,7 @@ function AnnotationsController(panelId, makeDirty){
                 var point;
                 for(var i=0;i<oGraph.annotations.length;i++){
                     if(oGraph.annotations[i].type=='point'){
-                        point = oHighCharts[panelId].get(oGraph.annotations[i].id);
+                        point = oGraph.controls.chart.get(oGraph.annotations[i].id);
                         if(point){point.update([point.x, point.y], false)}
                         delete oGraph.annotations[i].id
                     }
@@ -83,7 +83,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         addXLine:  function annotateXLine(selectedPoint){
             var oGraph = oPanelGraphs[panelId];
-            oHighCharts[panelId].xAxis[0].addPlotLine({
+            oGraph.controls.chart.xAxis[0].addPlotLine({
                 value:  selectedPoint.x,
                 color:  '#'+colorsPlotBands[0],
                 id: 'xl' + this.lineNo,
@@ -104,7 +104,7 @@ function AnnotationsController(panelId, makeDirty){
             var oGraph = oPanelGraphs[panelId];
             this.bandStartPoint = pointSelected;
             this.bandColor = equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY);
-            oHighCharts[panelId].xAxis[0].addPlotBand({
+            oGraph.controls.chart.xAxis[0].addPlotBand({
                 from:  this.bandStartPoint.x,
                 to: this.bandStartPoint.x,
                 color: this.bandColor,
@@ -127,7 +127,7 @@ function AnnotationsController(panelId, makeDirty){
             var annoLetter = 'A';
             var i, anno, point, annoSeries, annoScatter, fromJS, toJS;
             var scatterData = {};
-            for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
+            for(i=0;i<oGraph.controls.chart.yAxis.length;i++){
                 scatterData['labelsY-'+i] = [];
             }
             //make a sorted list of annotations by start date
@@ -144,13 +144,13 @@ function AnnotationsController(panelId, makeDirty){
                 switch(anno.type){
                     case 'point':
                         if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-                            annoSeries = oHighCharts[panelId].get(anno.series);
+                            annoSeries = oGraph.controls.chart.get(anno.series);
                             if(annoSeries==null){//cut anno out if we can't find it's reference series
                                 oGraph.annotations.splice(i,1);
                                 i--;
                                 break;
                             }
-                            annoScatter =  oHighCharts[panelId].get('labelsY-' + annoSeries.options.yAxis);
+                            annoScatter =  oGraph.controls.chart.get('labelsY-' + annoSeries.options.yAxis);
                             for(var j=0;j<annoSeries.data.length;j++){
                                 if(annoSeries.data[j] ){  //prevent errors on cropped graphs
                                     if(annoSeries.data[j].x == this.parseDate(anno.from)){
@@ -192,8 +192,8 @@ function AnnotationsController(panelId, makeDirty){
                             if(redrawAnnoTypes=='line'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
                                 anno.id ='xl' + this.lineNo;
                                 this.lineNo++;
-                                yOffset = this.labelOffset(oHighCharts[panelId], anno);
-                                oHighCharts[panelId].xAxis[0].addPlotLine({
+                                yOffset = this.labelOffset(oGraph.controls.chart, anno);
+                                oGraph.controls.chart.xAxis[0].addPlotLine({
                                     color: anno.color,
                                     value: this.parseDate(anno.from),
                                     id: anno.id,
@@ -208,10 +208,9 @@ function AnnotationsController(panelId, makeDirty){
                         if(redrawAnnoTypes=='hline'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
                             anno.id ='hl' + this.lineNo;
                             this.lineNo++;
-                            //var yOffset = this.labelOffset(oHighCharts[panelId], anno);
-                            for(y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                                if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
-                                    oHighCharts[panelId].yAxis[y].addPlotLine({
+                            for(y=0;y<oGraph.controls.chart.yAxis.length;y++){
+                                if(oGraph.controls.chart.yAxis[y].userOptions.title.text==anno.yAxis){
+                                    oGraph.controls.chart.yAxis[y].addPlotLine({
                                         color: anno.color,
                                         value: anno.from,
                                         id: anno.id,
@@ -229,8 +228,8 @@ function AnnotationsController(panelId, makeDirty){
                         if((fromJS>=parseInt(oGraph.start||oGraph.firstdt) && fromJS<=parseInt(oGraph.end||oGraph.lastdt)) || (toJS>=parseInt(oGraph.start||oGraph.firstdt) && toJS<=parseInt(oGraph.to||oGraph.lastdt))){
                             if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
                             anno.id ='xb' + this.bandNo++;
-                            yOffset = this.labelOffset(oHighCharts[panelId], anno);
-                            oHighCharts[panelId].xAxis[0].addPlotBand({
+                            yOffset = this.labelOffset(oGraph.controls.chart, anno);
+                                oGraph.controls.chart.xAxis[0].addPlotBand({
                                 color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
                                 from: fromJS,
                                 to: toJS,
@@ -244,9 +243,9 @@ function AnnotationsController(panelId, makeDirty){
                     case 'hband':
                         if(redrawAnnoTypes=='hband'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
                             anno.id ='hb' + this.bandNo++;
-                            for(y=0;y<oHighCharts[panelId].yAxis.length;y++){
-                                if(oHighCharts[panelId].yAxis[y].userOptions.title.text==anno.yAxis){
-                                    oHighCharts[panelId].yAxis[y].addPlotBand({
+                            for(y=0;y<oGraph.controls.chart.yAxis.length;y++){
+                                if(oGraph.controls.chart.yAxis[y].userOptions.title.text==anno.yAxis){
+                                    oGraph.controls.chart.yAxis[y].addPlotBand({
                                         color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
                                         from: anno.from,
                                         to: anno.to,
@@ -265,9 +264,9 @@ function AnnotationsController(panelId, makeDirty){
             console.time('annotation redraw');
             if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
                 for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
-                    oHighCharts[panelId].get(key).setData(scatterData[key], false);
+                    oGraph.controls.chart.get(key).setData(scatterData[key], false);
                 }
-                oHighCharts[panelId].redraw(); //redraw after all have been updated
+                oGraph.controls.chart.redraw(); //redraw after all have been updated
             }
             console.timeEnd('annotation redraw');
             console.time('annotation rest');
@@ -294,9 +293,9 @@ function AnnotationsController(panelId, makeDirty){
             anno.color = $(obj).closest('tr').find('.annotation-color-picker').val();
             switch(id.substr(0,2)){
                 case 'xb':
-                    yOffset = this.labelOffset(oHighCharts[panelId], anno);
-                    oHighCharts[panelId].xAxis[0].removePlotBand(id);
-                    oHighCharts[panelId].xAxis[0].addPlotBand({
+                    yOffset = this.labelOffset(oGraph.controls.chart, anno);
+                    oGraph.controls.chart.xAxis[0].removePlotBand(id);
+                    oGraph.controls.chart.xAxis[0].addPlotBand({
                         color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
                         from: this.parseDate(anno.from),
                         to: this.parseDate(anno.to),
@@ -305,10 +304,10 @@ function AnnotationsController(panelId, makeDirty){
                     });
                     break;
                 case 'hb':
-                    for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
-                        if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
-                            oHighCharts[panelId].yAxis[i].removePlotBand(id);
-                            oHighCharts[panelId].yAxis[i].addPlotBand({
+                    for(i=0;i<oGraph.controls.chart.yAxis.length;i++){
+                        if(oGraph.controls.chart.yAxis[i].userOptions.title.text = anno.yAxis){
+                            oGraph.controls.chart.yAxis[i].removePlotBand(id);
+                            oGraph.controls.chart.yAxis[i].addPlotBand({
                                 color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
                                 from: parseFloat(anno.from),
                                 to: parseFloat(anno.to),
@@ -319,10 +318,10 @@ function AnnotationsController(panelId, makeDirty){
                     }
                     break;
                 case 'hl':
-                    for(i=0;i<oHighCharts[panelId].yAxis.length;i++){
-                        if(oHighCharts[panelId].yAxis[i].userOptions.title.text = anno.yAxis){
-                            oHighCharts[panelId].yAxis[i].removePlotLine(id);
-                            oHighCharts[panelId].yAxis[i].addPlotLine({
+                    for(i=0;i<oGraph.controls.chart.yAxis.length;i++){
+                        if(oGraph.controls.chart.yAxis[i].userOptions.title.text = anno.yAxis){
+                            oGraph.controls.chart.yAxis[i].removePlotLine(id);
+                            oGraph.controls.chart.yAxis[i].addPlotLine({
                                 color: anno.color,
                                 value: parseFloat(anno.from),
                                 id: anno.id,
@@ -333,9 +332,9 @@ function AnnotationsController(panelId, makeDirty){
                     }
                     break;
                 case 'xl':
-                    yOffset = this.labelOffset(oHighCharts[panelId], anno);
-                    oHighCharts[panelId].xAxis[0].removePlotLine(id);
-                    oHighCharts[panelId].xAxis[0].addPlotLine({
+                    yOffset = this.labelOffset(oGraph.controls.chart, anno);
+                    oGraph.controls.chart.xAxis[0].removePlotLine(id);
+                    oGraph.controls.chart.xAxis[0].addPlotLine({
                         color: anno.color,
                         value: this.parseDate(anno.from),
                         id: anno.id,
@@ -354,9 +353,9 @@ function AnnotationsController(panelId, makeDirty){
                 }
             }
             if(idToDelete[1]=='b' || idToDelete[1]=='l'){ //band or line:  simply try to delete for all axis until found
-                for(a=0;a<oHighCharts[panelId].axes.length;a++){
-                    oHighCharts[panelId].axes[a].removePlotLine(idToDelete);  //does not error if not found
-                    oHighCharts[panelId].axes[a].removePlotBand(idToDelete);
+                for(a=0;a<oGraph.controls.chart.axes.length;a++){
+                    oGraph.controls.chart.axes[a].removePlotLine(idToDelete);  //does not error if not found
+                    oGraph.controls.chart.axes[a].removePlotBand(idToDelete);
                 }
                 this.build( "none");
             } else {
@@ -365,13 +364,15 @@ function AnnotationsController(panelId, makeDirty){
         },
         startAnalysisBanding: function(point, analysisType){
             var seriesColor = point.series.color;
+            var chart = oPanelGraphs[panelId].controls.chart;
             r = parseInt(seriesColor.substr(1,2),16);
             g = parseInt(seriesColor.substr(3,2),16);
             b = parseInt(seriesColor.substr(5,2),16);
             this.bandColor = 'rgba(' + r +','+  g +','+  b +',0.5)';
             this.banding = analysisType + '-' + point.series.index;
             this.bandStartPoint = point;
-            oHighCharts[panelId].xAxis[0].addPlotBand({
+
+            chart.xAxis[0].addPlotBand({
                 from:  this.bandStartPoint.x,
                 to: point.x,
                 color:  this.bandColor,
@@ -449,7 +450,7 @@ function AnnotationsController(panelId, makeDirty){
             return y;
         },
         mouseOverHCPoint: function mouseOverHCPoint(e, point){
-            var chart = oHighCharts[panelId];
+            var chart = oPanelGraphs[panelId].controls.chart;
             if(!this.banding) return;
             if(this.banding=='x-Time'){
                 try{
@@ -508,7 +509,7 @@ function AnnotationsController(panelId, makeDirty){
             if(this.banding && (this.banding.substr(0,3)=='LR-' || this.banding.substr(0,3)=='AV-')){
                 //ending linear regression
                 var analysisType = this.banding.substr(0,2);
-                oHighCharts[panelId].xAxis[0].removePlotBand(analysisType + this.bandNo);
+                oGraph.controls.chart.xAxis[0].removePlotBand(analysisType + this.bandNo);
                 var fromX = Math.min(this.bandStartPoint.x, this.endingX);
                 var toX = Math.max(this.bandStartPoint.x, this.endingX);
                 if(fromX<toX){
@@ -533,7 +534,7 @@ function AnnotationsController(panelId, makeDirty){
                 this.banding = false;
                 return;
             } else {
-                var top, left, x, y, i, chart = oHighCharts[panelId];
+                var top, left, x, y, i, chart = oGraph.controls.chart;
                 for(i=0;i<chart.yAxis.length;i++){ //find the yAxis that we are banding
                     axisName = chart.yAxis[i].userOptions.title.text;
                     if(this.banding=='y-'+axisName){
@@ -607,8 +608,8 @@ function AnnotationsController(panelId, makeDirty){
         },
         plotAnnotationSeries: function(){
             var p, i, LR, AV;
-            var chart = oHighCharts[panelId];
             var oGraph = oPanelGraphs[panelId];
+            var chart = oGraph.controls.chart;
             var start = oGraph.start||(oGraph.intervals?intervalStartDt(oGraph):oGraph.firstdt);
             if(oGraph.plots && oGraph.plots.length>0){
                 for(p=0;p<oGraph.plots.length;p++){
@@ -634,7 +635,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         plotLinearRegression: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
             if(!redraw) redraw = false;
-            var hChart = oHighCharts[panelId];
+            var hChart = oPanelGraphs[panelId].controls.chart;
             var sumX = 0, minX = null, maxX = null;
             var sumY = 0, minY = null, maxY = null;
             var j, data=[], points = 0;
@@ -704,7 +705,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         plotAverage: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
             if(!redraw) redraw = false;
-            var hChart = oHighCharts[panelId];
+            var hChart = oPanelGraphs[panelId].controls.chart;
             var sumY = 0, pointCount = 0;
             var j, data=[], points = 0;
             if(typeof start == "undefined" || typeof end == "undefined"){
