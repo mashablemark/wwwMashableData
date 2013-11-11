@@ -342,6 +342,7 @@ function parseHash(newHash, oldHash){
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
                     $search.click().val(decodeURI(oH.s)).keyup();  //the click event will remove the grey-ghost class and click and focus events on first call
                 }
+                if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();
                 break;
             case 'cs': //cloud series
                 $('#series-tabs').find('li.cloud-series a').click();
@@ -359,6 +360,7 @@ function parseHash(newHash, oldHash){
                 $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
                 $('#series_search_source').val(oH.api||'all'); //search executes on API change
                 $('#public-mapset-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
+                if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();
                 break;
             case 'mg': //my graphs
                 $('#series-tabs').find('li.my-graphs a').click();
@@ -366,6 +368,7 @@ function parseHash(newHash, oldHash){
                 if(oH.s && decodeURI(oH.s)!=$search.val()){
                     $search.click().val(decodeURI(oH.s)).keyup();  //the click event will remove the grey-ghost class and click and focus events on first call
                 }
+                if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();
                 break;
             case 'cg': //cloud graphs
                 $('#series-tabs').find('li.public-graphs a').click();
@@ -374,6 +377,7 @@ function parseHash(newHash, oldHash){
                     $search.click().val(decodeURI(oH.s));  //the click event will remove the grey-ghost class and click and focus events on first call
                     seriesCloudSearch(true);
                 }
+                if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();
                 break;
             default: //graphTab
                 var $graphTab = $('#graph-tabs').find('a[href=#graphTab'+oH.t.substr(1)+']');
@@ -395,6 +399,7 @@ function parseHash(newHash, oldHash){
                         }
                     }
                 }
+                $("#show-hide-pickers").hide();
         }
     }
     parsingHash = false;
@@ -1170,7 +1175,11 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
     });
-    $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId());
+    $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId())
+        .off().click(function(){
+            $('#quick-view-add-to-graph').find('.ui-button-text').html(($(this).val()=='new')?'create graph':'add to graph');
+        })
+        .click();
     //$('#quick-view-add-to-graph').button("enable");
     $('.show-graph-link').click();
 
@@ -1198,6 +1207,7 @@ function quickViewToChart(btn){
     if(oQuickViewSeries.plots){  //we have a complete graph object!
         if(panelId!='new') {
             var plots = oQuickViewSeries.plots, oGraph = oPanelGraphs[panelId];
+            oGraph.controls.provenance.provOk(false); //commit any prov panel changes, but do not redraw graph
             if(!oGraph.plots) oGraph.plots=[];
             for(var p=0;p<plots.length;p++){
                 oGraph.plots.push(plots[p]);
@@ -1206,14 +1216,18 @@ function quickViewToChart(btn){
                 oPanelGraphs[panelId].assets[asset] = oPanelGraphs[panelId].assets[asset] || oQuickViewSeries.assets[asset];
             }
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-            oGraph.controls.provenance.changeOk(false); //commit any prov panel changes, but do not redraw graph
             oGraph.controls.redraw();
         } else {
             buildGraphPanel(oQuickViewSeries);
         }
     } else {
         if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
-        graph = (panelId!='new')?oPanelGraphs[panelId]:emptyGraph();
+        if(panelId!='new'){
+            graph = oPanelGraphs[panelId];
+            graph.controls.provenance.provOk(false); //commit any prov changes but do not redraw
+        } else {
+            graph = emptyGraph();
+        }
         if(!graph.plots)graph.plots=[];
         for(var i=0;i<oQuickViewSeries.length;i++){
             graph.assets[oQuickViewSeries[i].handle] = $.extend({save_dt: new Date().getTime()}, oQuickViewSeries[i]); //make copy
@@ -1228,7 +1242,7 @@ function quickViewToChart(btn){
         }
         if(panelId!='new'){
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-            graph.controls.provenance.changeOk(false);
+
             graph.controls.redraw();
         } else {
             buildGraphPanel(graph);
@@ -1255,7 +1269,13 @@ function quickViewToMap(){
         return null;
     }
 
-    var oGraph = (panelId=="new")?emptyGraph():oPanelGraphs[panelId];
+    var oGraph;
+    if(panelId=="new"){
+        oGraph = emptyGraph()
+    } else {
+        oGraph = oPanelGraphs[panelId];
+        oGraph.controls.provenance.provOk(false);
+    }
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapFile = mapsList[map].jvectormap;
@@ -1288,7 +1308,6 @@ function quickViewToMap(){
                 buildGraphPanel(oGraph);
             } else {
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                oGraph.controls.provenance.changeOk(false);
                 oGraph.controls.redraw();
             }
             unmask();

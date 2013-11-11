@@ -250,7 +250,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
         runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$apirunjob["jobid"]);
         runQuery($timestamp_run_sql);
         set_time_limit(600);
-        setMapsetCounts($apirunjob["apiid"]);
+        setMapsetCounts("all", $apirunjob["apiid"]);
     } else { //unknown file format
         print("Header Format mismatch:<br>");
         print("actual header:".$header."<br>");

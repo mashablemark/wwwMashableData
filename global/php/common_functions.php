@@ -237,15 +237,19 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
         return false;
     }
 }
-function setMapsetCounts($mapsetid="all"){
+function setMapsetCounts($mapsetid="all", $apiid = "all"){
     runQuery("truncate temp;");
     runQuery("SET SESSION group_concat_max_len = 4000;");
-    runQuery("insert into temp (id1, text1) select mapsetid, concat(group_concat(mapcount)) from (select mapsetid, concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid where "
-    .($mapsetid=="all" ?"mapsetid is not null":"mapsetid=".$mapsetid)." and map <>'worldx' group by mapsetid, map) mc group by mapsetid;");
+    runQuery(
+        "insert into temp (id1, text1) select mapsetid, concat(group_concat(mapcount)) ".
+        " from (select mapsetid, concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
+        " where ".($mapsetid=="all" ?"mapsetid is not null":"mapsetid=".$mapsetid).
+        ($apiid=="all"?"":" and s.apiid=".$apiid).
+        " and map <>'worldx' group by mapsetid, map) mc group by mapsetid;");
     runQuery("update mapsets ms join temp t on ms.mapsetid=t.id1 set ms.counts=t.text1;");
     runQuery("truncate temp;");
 }
-function setPointsetCounts($pointsetid="all"){
+function setPointsetCounts($pointsetid="all", $apiid = "all"){
     runQuery("truncate temp;","setPointsetCounts");
     runQuery("SET SESSION group_concat_max_len = 4000;");
     runQuery("insert into temp (id1, text1) "
@@ -254,6 +258,7 @@ function setPointsetCounts($pointsetid="all"){
         " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
         " FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
         " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        ($apiid=="all"?"":" and s.apiid=".$apiid).
         " and map <>'worldx' ".
         " group by pointsetid, map".
         " UNION ".

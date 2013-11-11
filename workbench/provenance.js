@@ -165,10 +165,10 @@ function ProvenanceController(panelId){
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
                 if(comp.handle[0]=='M')type='map';  //overides default = 'plot'
                 if(comp.handle[0]=='X')type='point';
-                compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">' +
-                    '<span class="plot-op ui-icon ' + op.cssClass[plot.components[j].options.op] + '">operation</span> ' +
-                    (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:'')) +
-                    '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> * </span>'
+                compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">'
+                    + '<span class="plot-op ui-icon ' + op.cssClass[plot.components[j].options.op] + '">operation</span> '
+                    + '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> * </span>'
+                    + (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:''))
                     + graph.assets[comp.handle].name
                     + ' ('+period.name[graph.assets[comp.handle].period]+') in '
                     + graph.assets[comp.handle].units

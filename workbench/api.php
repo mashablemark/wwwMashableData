@@ -1457,7 +1457,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
     global $db, $orgid;
     $mapout = array();
     $sql = "SELECT ms.mapsetid, ms.name, ms.counts, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
-    . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt "
+    . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt, g.lat, g.lon "
     . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
     . " WHERE ms.mapsetid = s.mapsetid and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
     . " and m.map  = " . safeStringSQL($map)
@@ -1498,6 +1498,8 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
             "firstdt"=>$row["firstdt"],
             "lastdt"=>$row["lastdt"]
         );
+        if($row["lat"]!=null && $row["lon"]!=null) $mapout["M".$currentMapSetId]["data"][$row["map_code"]]["latLon"] = $row["lat"].",".$row["lon"];
+
     }
     for($i=0;$i<count($aryMapsetIds);$i++){$mapout["M".$aryMapsetIds[$i]]["order"]=$i+1;}
     return $mapout;

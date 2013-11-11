@@ -1348,7 +1348,7 @@ function calcMap(graph){
             for(geo in geos){
                 valuesObject = {};
                 y = true;
-                dateHasData = false;
+                pointHasData = false;
                 for(i=0;i<compSymbols.length;i++ ){
                     if(!isNaN(oComponentData[dateKey][compSymbols[i]])){ //test whether this component is a simple time series
                         valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
@@ -1362,7 +1362,7 @@ function calcMap(graph){
                             }
                         } else {
                             //mapset
-                            if(oComponentData[dateKey][compSymbols[i]] && oComponentData[dateKey][compSymbols[i]][geo]){
+                            if(oComponentData[dateKey][compSymbols[i]] && !isNaN(oComponentData[dateKey][compSymbols[i]][geo])){
                                 if(oComponentData[dateKey][compSymbols[i]][geo]=='null'){
                                     if(nullsMissingAsZero){
                                         valuesObject[compSymbols[i]] = 0;
@@ -1549,7 +1549,7 @@ function calcMap(graph){
                                     break;
                                 }
                             } else {  //not a simple series = a pointset
-                                if(oComponentData[dateKey][compSymbols[j]] && oComponentData[dateKey][compSymbols[j]][latlon]){
+                                if(oComponentData[dateKey][compSymbols[j]] && !isNaN(oComponentData[dateKey][compSymbols[j]][latlon])){
                                     if(oComponentData[dateKey][compSymbols[j]][latlon]=='null'){
                                         if(nullsMissingAsZero){
                                             valuesObject[compSymbols[j]] = 0;
@@ -2770,7 +2770,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
                     if(containingDateData && typeof containingDateData[code] != 'undefined'){
                         for(i=0;i<calculatedMapData.dates.length;i++){
-                            if(calculatedMapData.regionData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
+                            if(typeof calculatedMapData.regionData[calculatedMapData.dates[i].s]!='undefined') vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
                         }
                         var y = containingDateData[code];
                         label.html(
@@ -2790,12 +2790,20 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[val].s);
                     for(i=0;i<calculatedMapData.dates.length;i++){
                         //show sparkline of radius data if exists; else fill data
-                        if(calculatedMapData.markerData[calculatedMapData.dates[i].s]) vals.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f);
+                        if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') vals.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f);
                     }
                     if(containingDateData && containingDateData[code]){
 
-                        var y = containingDateData[code].r;
-                        var html = '<div><b>'+label.html()+':</b> ';
+                        var html, y = containingDateData[code].r;
+                        if(isBubble()){
+                            var regionNames = [], regionCodes = code.split('+');
+                            for(i=0;i<regionCodes.length;i++){
+                                regionNames.push($map.getRegionName(regionCodes[i]));
+                            }
+                            html = '<div><b>'+calculatedMapData.title+': '+regionNames.join(' + ') + '</b> ';
+                        } else {
+                            html = '<div><b>'+label.html()+':</b> ';
+                        }
                         if(containingDateData[code].r) html += Highcharts.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
                         if(containingDateData[code].f) html += Highcharts.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
                         html += '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
@@ -2814,7 +2822,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                     var selectedRegions = $map.getSelectedRegions();
                     for(var i=0;i<selectedRegions.length;i++){
-                        if(calculatedMapData.regionData[calculatedMapData.dates[0].s]&&calculatedMapData.regionData[calculatedMapData.dates[0].s][selectedRegions[i]]){
+                        if(calculatedMapData.regionData[calculatedMapData.dates[0].s]&&typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][selectedRegions[i]]!='undefined'){
                             $thisPanel.find('.map-graph-selected, .make-map').button('enable');
                             return;
                         }
@@ -2954,7 +2962,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
                         for(i=0;i<selectedRegions.length;i++){
                             for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
-                                if(calculatedMapData.regionData[dateSet][selectedRegions[i]]){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
+                                if(typeof calculatedMapData.regionData[dateSet][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
                                     plt = $.extend(true, {}, oGraph.mapsets);
                                     for(j=0;j<plt.components.length;j++){
                                         if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
@@ -3482,7 +3490,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         merge = oGraph.mapsets.options.merges[i];
                         mergeCode = merge.join('+');
                         markerTitle = calculatedMapData.title + ' for ' + mergeCode ;
-                        calculatedMapData.markers[merge.join('+')] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
+                        calculatedMapData.markers[mergeCode] = {name: mergeCode, point: pnt, style: {fill: 'pink'}};
                         for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                             mergedSum = 0;  //merging regions only adds.  There is no complex math
                             for(j=0;j<merge.length;j++){
@@ -3503,14 +3511,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
                 //1B: calculate the unmerged values (also within the graph date range as determined by calculatedMapData.startDateIndex and .endDateIndex)
                 for(region in calculatedMapData.regionData[calculatedMapData.dates[0].s]){
-                    if(allMergedRegions.indexOf(region) == -1 && calculatedMapData.regionData[calculatedMapData.dates[0].s][region]){  //this region is not part of a amerge and also has data
-                        markerTitle = calculatedMapData.title + ' - ' + region;
-                        calculatedMapData.markers[region] = {name: markerTitle, point: pnt, style: {fill: 'pink'}};
+                    if(allMergedRegions.indexOf(region) == -1 && typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][region]!='undefined'){  //this region is not part of a amerge and also has data
+                        //markerTitle = calculatedMapData.title + ' ' + region;
+                        calculatedMapData.markers[region] = {name: region, point: pnt, style: {fill: 'pink'}};
                         calculatedMapData.regionsColorsForBubbles[region] = regionColors[i++%regionColors.length];
                         for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                             dateKey = calculatedMapData.dates[d].s;
                             markerData[dateKey][region] = {r: calculatedMapData.regionData[dateKey][region]};
-                            if(markerData[dateKey][region].r!==null){ //Math object methods treat nulls as zero
+                            if(markerData[dateKey][region].r!==null && !isNaN(markerData[dateKey][region].r)){ //Math object methods treat nulls as zero
                                 calculatedMapData.markerDataMin = Math.min(calculatedMapData.markerDataMin, markerData[dateKey][region].r);
                                 calculatedMapData.markerDataMax = Math.max(calculatedMapData.markerDataMax, markerData[dateKey][region].r);
                             }
@@ -3529,15 +3537,28 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
                 calculatedMapData.markerData = markerData;  //set (or replace if user is adding and removing merges)
                 calculatedMapData.markerAttr = markerAttr;
+                calculatedMapData.radiusUnits = calculatedMapData.mapUnits; //for marker label routine
             }
         }
 
         function geometricCenter(regions){
-            var bBox, totalArea=0, xArm=0, yArm=0, center;
+            var bBox, totalArea=0, xArm=0, yArm=0, center, regCenter, latLon;
             for(var i=0;i<regions.length;i++){  //iterate through the list
+                latLon=null;
+                $.each(oGraph.mapsets.components, function(c, comp){
+                    if(oGraph.assets[comp.handle].data[regions[i]]&&comp.handle[0]=='M'&&oGraph.assets[comp.handle].data[regions[i]].latLon){
+                        latLon = oGraph.assets[comp.handle].data[regions[i]].latLon.split(',');
+                    }
+                });
                 bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
-                xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
-                yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;
+                if(latLon){
+                    regCenter = $map.latLngToPoint(latLon[0],latLon[1]);
+                    xArm += (regCenter.x-$map.transX) * bBox.width * bBox.height;
+                    yArm += (regCenter.y-$map.transY) * bBox.width * bBox.height;
+                } else {
+                    xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
+                    yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;
+                }
                 totalArea +=  bBox.width * bBox.height;
             }
             center = {
@@ -3561,7 +3582,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
                 $g.find('path[data-code]').each(function(){
                     region  = $(this).attr('data-code');
-                    if(allMergedRegions.indexOf(region) == -1 && calculatedMapData.regionData[calculatedMapData.dates[0].s][region]){  //this region is not part of a amerge and also has data
+                    if(allMergedRegions.indexOf(region) == -1 && typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][region]!='undefined'){  //this region is not part of a merge and also has data
                         center = geometricCenter([region]);
                         latLng = $map.pointToLatLng(center.x, center.y);
                         calculatedMapData.markers[region].latLng = [latLng.lat, latLng.lng]; //TODO: calc value and set color

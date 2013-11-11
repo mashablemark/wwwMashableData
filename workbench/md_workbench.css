@@ -149,6 +149,11 @@ span.handle{
 div.legend-scale, div.legend-continuous, div.legend-discrete, div.lin-log-scaling{
     display: inline-block;
 }
+div.legend-continuous{
+    margin-left: 10px;
+    position: relative;
+    top: 4px;
+}
 input.radius-spinner{
     width: 50px;
 }
