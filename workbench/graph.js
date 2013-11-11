@@ -1703,7 +1703,7 @@ function calcMap(graph){
 }
 
 function calcAttributes(graph){
-    var i, y, firstDateKey, dateKey, geo, min, max, calcData = graph.calculatedMapData;
+    var i, y, firstDateKey, dateKey, geo, geos = {}, min, max, calcData = graph.calculatedMapData;
 
     //1.  find start and end indexes
     calcData.regionMin = Number.MAX_VALUE;
@@ -1757,11 +1757,12 @@ function calcAttributes(graph){
             calcData.regionColors[dateKey] = {};
             if(calcData.regionData[dateKey]){
                 for(geo in calcData.regionData[dateKey]){
+                    geos[geo] = true; //used to fill in holes (square up) below
                     y = calcData.regionData[dateKey][geo];
                     if(!isNaN(y)&&y!==null){
                         y=parseFloat(y);
                         if(continuous){ //CONTINUOUS = relative to min and max data
-                            if(y==0 && spans) {
+                            if(y==0) {
                                 calcData.regionColors[dateKey][geo] = MAP_COLORS.MID;
                             } else {
                                 calcData.regionColors[dateKey][geo] = colorInRange(y, y<0?min:(spans?0:min), y>0?max:(spans?0:max), y<0?rgb.neg:rgb.posMid, y<0?rgb.negMid:rgb.pos, mapOptions.logMode=='on' && !spans && min!=0 && max!=0);
@@ -1784,6 +1785,13 @@ function calcAttributes(graph){
                         calcData.regionColors[dateKey][geo] = '#ffffff'
                     }
                     break;
+                }
+            }
+        }
+        for(dateKey in calcData.regionColors){
+            for(geo in geos){
+                if(typeof calcData.regionColors[dateKey][geo] == 'undefined') {
+                    calcData.regionColors[dateKey][geo] = '#ffffff';
                 }
             }
         }
@@ -2780,7 +2788,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                                 + '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
                         ).css("z-Index",400);
                         var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: "400px"};
-                        sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                        if(y!==null) sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
                         $('.inlinesparkline').sparkline(vals, sparkOptions);
                     }
                 },
@@ -3553,8 +3561,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
                 if(latLon){
                     regCenter = $map.latLngToPoint(latLon[0],latLon[1]);
-                    xArm += (regCenter.x-$map.transX) * bBox.width * bBox.height;
-                    yArm += (regCenter.y-$map.transY) * bBox.width * bBox.height;
+                    xArm += (regCenter.x - $map.transX) * bBox.width * bBox.height / $map.scale;
+                    yArm += (regCenter.y - $map.transY) * bBox.width * bBox.height / $map.scale;
                 } else {
                     xArm += (bBox.x + bBox.width/2) * bBox.width * bBox.height;
                     yArm += (bBox.y + bBox.height/2) * bBox.width * bBox.height;

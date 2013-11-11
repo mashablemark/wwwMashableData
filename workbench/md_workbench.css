@@ -154,8 +154,15 @@ div.legend-continuous{
     position: relative;
     top: 4px;
 }
+.radius{
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
 input.radius-spinner{
     width: 50px;
+}
+div.color-scale{
+    margin-bottom: 8px;
 }
 option.other-maps{
     font-weight: bold;

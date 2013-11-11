@@ -32,7 +32,7 @@ var dialogues = {
     noGraphSelected: 'Click on a row in the table below to select a graph first.<br><br>As a shortcut, you can double-click on a graph to select and open it.',
     noMyGraphs: 'You have no My Graphs.  Graphs are built by searching for public series or upload your own data and building a graph. Saving graphs you build adds to them to your My Graphs folder.<br><br>You can also view a public graph and make a personal copy.<br><br>See the help (upper right after you close this dialogue) to learn more.',
     noPublicGraphs: 'First search for public graphs.  Note that a search with no keywords will return the most recent published graphs.',
-    deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm'
+    deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm to delete.'
 };
 //GLOBAL VARIABLES
 var mashableVersion = 0.5;
@@ -1090,6 +1090,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     var quickGraph, aoSeries, i;
     var hasMaps = false, seriesMaps = [], otherMaps = [], sets = [];
     var $mapSelect =  $('#quick-view-maps');
+    if($quickViewRows) $('#quick-view-delete-series').show(); else $('#quick-view-delete-series').hide();
 
     if(obj.plots){ // a graphs object was passed in
         quickGraph = obj; // everything including title should be set by caller
@@ -1310,7 +1311,7 @@ function quickViewToMap(){
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
                 oGraph.controls.redraw();
             }
-            unmask();
+            mask('drawing');
             setPanelHash();
         });
         hideGraphEditor();
@@ -2404,7 +2405,7 @@ function md_calcSeriesInfo(PointArray){
 function deleteMySeries(){  //remove all series in quickView from users MySeries
     //$quickViewRows array is only filled when previewing MySeries
     var obj;
-    dialogShow("confirm removal",
+    dialogShow("confirm deletion",
         dialogues.deleteMySeries,
         [
             {text: 'delete',id:'btn-delete',

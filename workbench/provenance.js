@@ -447,10 +447,10 @@ function ProvenanceController(panelId){
             if(self.isDirty && (self.plotsEdits||self.mapsetEdits||self.pointsetsEdits)){
                 if(self.plotsEdits && self.plotsEdits.length>0) self.graph.plots = self.plotsEdits; else delete self.graph.plots;
                 self.graph.annotations = self.annoEdits;
-                if(self.mapsetEdits && self.mapsetEdits.components.length>0) self.graph.mapsets = self.mapsetEdits; else delete self.graph.mapsets;
+                if(self.mapsetEdits && self.mapsetEdits.components && self.mapsetEdits.components.length>0) self.graph.mapsets = self.mapsetEdits; else delete self.graph.mapsets;
                 if(self.pointsetsEdits && self.pointsetsEdits.length>0) self.graph.pointsets = self.pointsetsEdits; else delete self.graph.pointsets;
                 self.graph.mapconfig = self.mapconfigEdits;
-
+                if(!self.graph.mapsets && !self.graph.pointsets) self.graph.map='';  //remove map
                 this.provClose();
                 if(!noRedraw) $('#'+panelId).find(".graph-type").change();  //trigger redaw
             }
@@ -529,7 +529,7 @@ function ProvenanceController(panelId){
                 });
             $liComp.find(".comp-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 if(plot.components.length==1) {
-                    $liComp.closest('li.plot').find('.plot-delete').click();
+                    $liComp.closest('li.plot, div.mapset').find('.plot-delete').click();
                 } else {
                     plot.components.splice(iComp,1);
                     $liComp.remove();
@@ -679,7 +679,7 @@ function ProvenanceController(panelId){
             var editDiv =     '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
                 + '<button class="plot-copy prov-float-btn">make copy</button>'
-                + '<button class="plot-delete prov-float-btn">delete plot</button>'
+                + '<button class="plot-delete prov-float-btn">delete marker set</button>'
                 + '<div class="edit-block"><input class="marker-color" type="text" data="color" value="' + (options.color) + '" /></div>'
                 + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, oPointset) + '" /></div>'
                 + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + (options.units||'') + '" /></div><br>'
@@ -842,14 +842,10 @@ function ProvenanceController(panelId){
                 editDiv += '<span class="merge-formula">merge formula = &#931; numerator / &#931; denominator</span>';  //&#931; = Sigma in HTML code;
             }
             editDiv += '<button class="plot-close prov-float-btn">close</button>'
-                +   '<button class="plot-delete prov-float-btn">delete plot</button>'
+                +   '<button class="plot-delete prov-float-btn">delete heat map</button>'
                 +   ''
-                +   '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" data="name" value="' + plotName(self.graph, mapset) + '" /></div><br>'
-                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text" value="' + plotUnits(self.graph, mapset) + '" /></div><br>'
-                +   '<div class="map-mode edit-block">'
-                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="fill" data="mode" '+ ((!options.mode || options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">fill (heat map)</label>'
-                +       '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" data="mode" '+ ((options.mode && options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
-                +   '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
+                +   '<div class="edit-block">name: </span><input class="plot-name" type="text" data="name" value="' + plotName(self.graph, mapset) + '" /></div><br>'
+                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text" value="' + plotUnits(self.graph, mapset) + '" /><span class="plot-edit-k"> scalor: <input class="short" value="'+(options.k||1)+'"></div><br>'
                 +   '<span class="edit-label">Point calculations:</span>'
                 +   self.HTML.compMath + '<br>'
             //if(self.plotsEdits.length>0){
@@ -952,18 +948,6 @@ function ProvenanceController(panelId){
                 .buttonset().find('input:radio').change(function(){
                     self.set(options, $(this));  //options.compMath = this.value;
                 });
-            $editDiv.find('div.map-mode')
-                .find("[value='"+(options.mode||"fill")+"']").attr('checked',true).end()//default mode is fill (i.e. not bubble)
-                .buttonset().find('input:radio').change(function(){
-                    self.set(options, $(this));  //options.mode= this.value;
-                    mapsetLegend.legendOptionsShowHide();
-                    showHideMergeFormula();
-                });
-            showHideMergeFormula();
-            function showHideMergeFormula(){
-                if(options.mode=='bubble') $editDiv.find('.merge-formula').show(); else $editDiv.find('.merge-formula').hide();
-            }
-
             //buttons
             $editDiv.find("button.plot-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
                 self.mapsetEdits = {};
@@ -1015,27 +999,44 @@ function ProvenanceController(panelId){
             //controls blocks = 1) radius, 2) color scale: a) continuous b) discrete
             var i, self = this, $mapProv = self.$prov.find('.map-prov');
             var legendHTML = '<div class="edit-block">'
-                + '<div class="edit-block radius"  style="display: none;">'
-                +   '<span class="edit-label radius-label"></span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||DEFAULT_RADIUS_FIXED:options.maxRadius||DEFAULT_RADIUS_SCALE)+'" />'
+                + '<div class="map-mode edit-block">'
+                +    '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-C" value="fill" data="mode" '+ ((!options.mode || options.mode!='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-C">fill (heat map)</label>'
+                +    '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" data="mode" '+ ((options.mode && options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
+                + '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
+                + '<div class="radius"  style="display: none;">'
+                +    '<span class="edit-label radius-label">maximum '+(type=='X'?'marker':'bubble')+' radius (pixels): </span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||DEFAULT_RADIUS_FIXED:options.maxRadius||DEFAULT_RADIUS_SCALE)+'" />'
                 + '</div>'
                 + '<div class="edit-block color-scale" style="display: none;">'
                 +   '<div class="legend-scale"><span class="edit-label">Color scale:</span>'
                 +       '<input type="radio" id="legend-continuous-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="continuous" /><label for="legend-continuous-'+panelId+'">continous</label>'
                 +       '<input type="radio" id="legend-discrete-'+panelId+'" name="legend-type-'+panelId+'" data="scale" value="discrete"/><label for="legend-discrete-'+panelId+'">discrete</label>'
                 +   '</div>'
+                +   '<div class="lin-log-scaling"><span class="edit-label">Color mode:</span>'
+                +       '<input type="radio" id="lin-scaling-'+panelId+'" name="color-mode-'+panelId+'" data="logMode" value="off" /><label for="lin-scaling-'+panelId+'">linear</label>'
+                +       '<input type="radio" id="log-scaling-'+panelId+'" name="color-mode-'+panelId+'" data="logMode" value="on"/><label for="log-scaling-'+panelId+'">enhanced color</label>'
+                +   '</div>'
                 +   '<div class="edit-block legend-continuous" style="display: none;">'
                 +       '-<div class="continuous-color"><input class="neg color-picker" type="text" data="negColor" value="' + (options.negColor||MAP_COLORS.NEG) + '" /></div>'
                 +       continuousColorScale(options)
                 +       '<div class="continuous-color"><input class="pos color-picker" type="text" data="posColor" value="' + (options.posColor||MAP_COLORS.POS) + '" /></div>+'
                 +   '</div>'
-                +   '<div class="lin-log-scaling"><span class="edit-label">Color mode:</span>'
-                +       '<input type="radio" id="lin-scaling-'+panelId+'" name="color-mode-'+panelId+'" data="logMode" value="off" /><label for="lin-scaling-'+panelId+'">linear</label>'
-                +       '<input type="radio" id="log-scaling-'+panelId+'" name="color-mode-'+panelId+'" data="logMode" value="on"/><label for="log-scaling-'+panelId+'">enhanced color</label>'
-                +   '</div>'
                 +   '<div class="edit-block legend-discrete" style="display: none;"></div>'
                 + '</div>';
 
             var $legend = $(legendHTML);
+
+            $legend.find('div.map-mode')
+                .find("[value='"+(options.mode||"fill")+"']").attr('checked',true).end()//default mode is fill (i.e. not bubble)
+                .buttonset().find('input:radio').change(function(){
+                    self.set(options, $(this));  //options.mode= this.value;
+                    mapsetLegend.legendOptionsShowHide();
+                    showHideMergeFormula();
+                });
+            showHideMergeFormula();
+            function showHideMergeFormula(){
+                if(options.mode=='bubble') $legend.find('.merge-formula').show(); else $legend.find('.merge-formula').hide();
+            }
+
             $legend.find('div.legend-scale')
                 .find("[value='"+(options.scale||'continuous')+"']").attr('checked',true).end()
                 .buttonset().find('input:radio').change(function(){
@@ -1216,9 +1217,14 @@ function ProvenanceController(panelId){
                     g = parseInt(fullG + (255-fullG)*(negTranchCount-i-1)/negTranchCount);
                     b = parseInt(fullB + (255-fullB)*(negTranchCount-i-1)/negTranchCount);
                     discreteColor = '#' + r.toString(16) + g.toString(16) + b.toString(16);
-                    discreteColors.push({color: discreteColor, cutoff: (i+1==negTranchCount && crossesZero)?0:nums[Math.round((nums.length-1)*(i+1)/count)]});
+                    discreteColors.push(
+                        {
+                            color: discreteColor,
+                            cutoff: (i+1==negTranchCount && crossesZero)?0:nums[Math.round((nums.length-1)*(i+1)/count)]
+                        }
+                    );
                 }
-                var fullPosColor = options.posColor||MAP_COLORS.POS;
+                var index, skipped = 0, fullPosColor = options.posColor||MAP_COLORS.POS;
                 if(fullPosColor.substr(0,1)=='#')fullPosColor=fullPosColor.substr(1);
                 fullR = parseInt(fullPosColor.substr(0,2), 16);
                 fullG = parseInt(fullPosColor.substr(2,2), 16);
@@ -1228,7 +1234,17 @@ function ProvenanceController(panelId){
                     g = parseInt(fullG + (255-fullG)*(posTranchCount-i-1)/posTranchCount);
                     b = parseInt(fullB + (255-fullB)*(posTranchCount-i-1)/posTranchCount);
                     discreteColor = '#' + octet(r) + octet(g) + octet(b);
-                    discreteColors.push({color: discreteColor, cutoff: nums[Math.round((nums.length-1)*(i+1)/count)]})
+                    index = Math.round((nums.length-1-skipped)*i/count + skipped);
+                    while(index<nums.length-1 && nums[index]==nums[index+1]){
+                        index++;
+                        skipped++;
+                    }
+                    discreteColors.push(
+                        {
+                            color: discreteColor,
+                            cutoff: nums[index]
+                        }
+                    );
                 }
                 return discreteColors;
 
