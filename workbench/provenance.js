@@ -1004,7 +1004,7 @@ function ProvenanceController(panelId){
                 +    '<input type="radio" name="'+ panelId +'-map-mode" id="'+ panelId +'-map-mode-B" value="bubble" data="mode" '+ ((options.mode && options.mode=='bubble')?'checked':'') +' /><label for="'+ panelId +'-map-mode-B">bubbles (mergable into regional sums)</label>'
                 + '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
                 + '<div class="radius"  style="display: none;">'
-                +    '<span class="edit-label radius-label">maximum '+(type=='X'?'marker':'bubble')+' radius (pixels): </span><input class="radius-spinner" value="'+(options.attribute=='fill'?options.fixedRadius||DEFAULT_RADIUS_FIXED:options.maxRadius||DEFAULT_RADIUS_SCALE)+'" />'
+                +    '<span class="edit-label radius-label">maximum '+(type=='X'?'marker':'bubble')+' radius (pixels): </span><input class="radius-spinner" value="'+(options.attribute=='fill'?self.mapconfigEdits.fixedRadius||DEFAULT_RADIUS_FIXED:self.mapconfigEdits.maxRadius||DEFAULT_RADIUS_SCALE)+'" />'
                 + '</div>'
                 + '<div class="edit-block color-scale" style="display: none;">'
                 +   '<div class="legend-scale"><span class="edit-label">Color scale:</span>'
@@ -1061,14 +1061,17 @@ function ProvenanceController(panelId){
                     self.set(options,  $(this));
                 });
             $legend.find('.radius-spinner')
-                .spinner({min: 2, max:200})
-                .change(function(){
-                    if(type=='M' || options.attribute=='fill'){
-                        self.mapconfigEdits.maxRadius = $(this).val();
-                    } else {
-                        self.mapconfigEdits.fixedRadius = $(this).val();
+                .spinner({
+                    min: 2,
+                    max:200,
+                    change: function(event, ui){
+                        if(type=='M' || options.attribute=='fill'){
+                            self.mapconfigEdits.maxRadius = $(this).val();
+                        } else {
+                            self.mapconfigEdits.fixedRadius = $(this).val();
+                        }
+                        makeDirty();
                     }
-                    makeDirty();
                 });
             $legend.find('.color-picker.pos').colorPicker().change(function(){
                 self.set(options, $(this));  //options.posColor = this.value;  // this is a universal val for pointsets

@@ -113,8 +113,8 @@ function httpGet($target, $timeout = 15){
     $tries = 0;
     while($tries<$tryLimit && $fp===false){  //try up to 3 times to open resource
         $tries++;
-        $fp = @fsockopen($target, 80, $errNo, $errString, $timeout);
-        //$fp = @fopen( $target, 'r' );  //the @ suppresses a warning on failure
+        //$fp = @fsockopen($target, 80, $errNo, $errString, $timeout);
+        $fp = @fopen( $target, 'r' );  //the @ suppresses a warning on failure
     }
     if($fp===false){  //failed (after 3 tries)
         $content = false;

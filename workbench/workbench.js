@@ -2296,10 +2296,8 @@ function saveGraph(oGraph, callback) {
             } else {
                 dtMyGraphs.fnAddData(objForDataTable);
             }
-            //update the graph and the Highchart objects
-            if(jsoData.updatedAnnotations)oGraph.annotations= jQuery.parseJSON(jsoData.updatedAnnotations);
 
-            oMyGraphs['G'+oGraph.gid]=$.extend(true,{}, oGraph);
+            oMyGraphs['G'+oGraph.gid]=objForDataTable;
             oPanelGraphs[visiblePanelId()] =  oGraph;
             if(callback) callback();
         }

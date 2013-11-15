@@ -2431,7 +2431,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         min:1,
         incrementalType: false,
         stop: function(event, ui) {
-            //triggered by <label> wrapping around this elecment $thisPanel.find('input#'+panelId+'-rad-interval-crop').attr('checked',true);
+            //triggered by <label> wrapping around this element $thisPanel.find('input#'+panelId+'-rad-interval-crop').attr('checked',true);
             oGraph.start = null;
             oGraph.end = null;
             if(oGraph.intervals != parseInt($(this).val())){
@@ -2782,9 +2782,9 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         }
                         var y = containingDateData[code];
                         label.html(
-                            '<div><b>'+label.html()+': </b>'
+                            '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+'</b> '
                                 + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
-                                + " " + (calculatedMapData.mapUnits||'')
+                                + ' ' + (calculatedMapData.mapUnits||'')
                                 + '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
                         ).css("z-Index",400);
                         var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: "400px"};
@@ -3534,7 +3534,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                 }
                 //2.  go back and create attribute (.r and .stroke) objects
-                var rScale = (oGraph.mapconfig.radius || DEFAULT_RADIUS_SCALE) / Math.sqrt(Math.max(Math.abs(calculatedMapData.markerDataMax), Math.abs(calculatedMapData.markerDataMin)));
+                var rScale = (oGraph.mapconfig.maxRadius || DEFAULT_RADIUS_SCALE) / Math.sqrt(Math.max(Math.abs(calculatedMapData.markerDataMax), Math.abs(calculatedMapData.markerDataMin)));
                 for(dateKey in markerData){
                     for(markerId in markerData[dateKey]){
                         rData = markerData[dateKey][markerId].r || null;
@@ -3894,15 +3894,16 @@ function each(ary, callback){
     }
 }
 function eachComponent(graph, callback){
-    if(graph.mapsets) each(graph.mapsets.components, function(c){ callback.call(this, c, graph.mapsets)});
-    if(graph.pointsets) each(graph.pointsets, function(p){each(this.components, function(c){callback.call(this, c, graph.pointsets[p])})});
-    if(graph.plots) each(graph.plots, function(p){
-        each(this.components, function(c){
-            callback.call(this, c, graph.plots[p])
-        })
+    eachPlot(graph, function(){
+        var plot = this;
+        each(plot.components, function(c){callback.call(this, c, plot)});
     });
 }
-
+function eachPlot(graph, callback){
+    if(graph.mapsets) callback.call(graph.mapsets);
+    if(graph.pointsets) each(graph.pointsets, function(p){callback.call(this, p, graph.pointsets[p])});
+    if(graph.plots) each(graph.plots, function(p){callback.call(this, p, graph.plots[p])});
+}
 function fillScalingCount(pointsets){
     var fill = 0;
     if(pointsets instanceof Array) {   //returns if not an array

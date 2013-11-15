@@ -861,28 +861,7 @@ switch($command){
             }
         }
 
-    //annotation should use P0, P1, P2, P3... to refer to the relevant ordered plot rather than a hard DB id
-/*        if(count($output["newplotids"])>0){
-            $annotations = $_POST["annotations"];
-            foreach ($output["newplotids"] as $oldPlotId => $newPlotId){
-                $annotations = str_replace($oldPlotId,$newPlotId, $annotations);
-            }
-            if($annotations!=$_POST["annotations"]){
-                $sql="update graphs set annotations = " . safeStringSQL($annotations) . " where graphid = " . intval($gid);
-                runQuery($sql);
-                $output["updatedAnnotations"] = $annotations;
-            }
-        }*/
 
-/* serieslist created by client = more thorough = gets all the assets
-        $sql = "update graphs g  inner join "
-        . " (select graphid, group_concat(s.name SEPARATOR  '; ') as serieslist "
-        . " from series s  inner join plotcomponents pc on s.seriesid=pc.objid inner join graphplots gp on pc.plotid=gp.plotid where gp.graphid=" . $gid  . " and (objtype='S' or objtype='U') order by pc.comporder)  sl "
-        . " on g.graphid = sl.graphid "
-        . " set g.serieslist = sl.serieslist "
-        . " WHERE g.graphid=" . $gid;
-        if(!runQuery($sql, "ManageMyGraphs: update graphs.serieslist")){$output = array("status" => "fail on graph update");break;}
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];*/
 
         break;
 	case "ManageMySeries":
