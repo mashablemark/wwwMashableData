@@ -699,7 +699,7 @@ function makeChartOptionsObject(oGraph){
             } else {
                 delete asset.firstdt;
                 delete asset.lastdt;
-                each(plot.components, function(){ firstLast(asset, oGraph.assets[this.handle]) });
+                $.each(plot.components, function(){ firstLast(asset, oGraph.assets[this.handle]) });
             }
             asset.data = dateConversionData(asset.skey, asset.firstdt, asset.lastdt);
         }
@@ -3390,7 +3390,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             if(oGraph.pointsets){
                 if(areaCount>1 && fillCount==0){
                     //POINTSET LABELS
-                    each(oGraph.pointsets, function(i){
+                    $.each(oGraph.pointsets, function(i){
                         if(this.options.attribute!='fill'){
                             y = (i+1)*(spacer+2*standardRadius)-standardRadius;
                             hcr.circle(xOffset + spacer + standardRadius, yOffset + y, Math.min(maxRadius, standardRadius)).attr({
@@ -3878,7 +3878,7 @@ function calcGraphMinMaxZoomPeriod(oGraph){
 
 function nextColor(aryOptionedObjects){ //either graph.plots or graph.pointsets
     var usedColors = [];
-    each(aryOptionedObjects, function(){
+    $.each(aryOptionedObjects, function(){
         if(this.options && this.options.color) usedColors.push(this.options.color);
     });
     var allColors = hcColors.concat(primeColors);
@@ -3888,21 +3888,16 @@ function nextColor(aryOptionedObjects){ //either graph.plots or graph.pointsets
     return allColors[aryOptionedObjects.length % allColors.length];
 }
 
-function each(ary, callback){
-    for(var i=0;i<ary.length;i++){
-        callback.call(ary[i], i);
-    }
-}
 function eachComponent(graph, callback){
     eachPlot(graph, function(){
         var plot = this;
-        each(plot.components, function(c){callback.call(this, c, plot)});
+        $.each(plot.components, function(c){callback.call(this, c, plot)});
     });
 }
 function eachPlot(graph, callback){
     if(graph.mapsets) callback.call(graph.mapsets);
-    if(graph.pointsets) each(graph.pointsets, function(p){callback.call(this, p, graph.pointsets[p])});
-    if(graph.plots) each(graph.plots, function(p){callback.call(this, p, graph.plots[p])});
+    if(graph.pointsets) $.each(graph.pointsets, function(p){callback.call(this, p, graph.pointsets[p])});
+    if(graph.plots) $.each(graph.plots, function(p){callback.call(this, p, graph.plots[p])});
 }
 function fillScalingCount(pointsets){
     var fill = 0;
@@ -3914,7 +3909,7 @@ function fillScalingCount(pointsets){
 function areaScalingCount(pointsets){
     var area = 0;
     if(pointsets instanceof Array) {  //returns if not an array
-        each(pointsets, function(){
+        $.each(pointsets, function(){
             if(this.options.attribute!='fill') area++; // defaults to r if not fill
         });
     }

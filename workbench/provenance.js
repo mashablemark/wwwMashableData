@@ -115,7 +115,7 @@ function ProvenanceController(panelId){
                     $liPlot.find("li.component").each(function(){
                         self.showComponentEditor(this, 'plot');
                     });
-                });
+                }); 
 
             self.$prov.find(".edit-mapset")
                 .button({icons: {secondary: 'ui-icon-pencil'}})

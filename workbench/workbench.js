@@ -2266,7 +2266,7 @@ function saveGraph(oGraph, callback) {
     var plot, comp;
     eachPlot(params, function(){
         this.options = $.stringify(this.options);
-        each(this.components, function(){
+        $.each(this.components, function(){
             this.options = $.stringify(this.options);
         });
     });
@@ -2284,7 +2284,7 @@ function saveGraph(oGraph, callback) {
             delete oGraph.assets; //but don't copy the potentially very large assets.   unattach and reattech instead
             delete oGraph.calculatedMapData; //ditto
             delete oGraph.controls; //ditto
-            var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
+            var objForDataTableobjForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
             oGraph.assets = assets; //restore objects temporarily removed from oGraph
             oGraph.calculatedMapData = calculatedMapData;
             oGraph.controls = controls;
