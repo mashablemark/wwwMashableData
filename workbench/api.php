@@ -73,6 +73,18 @@ $time_start = microtime(true);
 $command =  $_REQUEST['command'];
 $con = getConnection();
 switch($command){
+    case "LogError":
+        logEvent("javascript error", safeStringSQL(json_encode($_POST)));
+/*                        browser: browser,
+                        url: window.location.href,
+                        message: err.message,
+                        stack: err.stack,
+                        uid: account.info.userId,
+                        lang: navigator.language,
+                        platform: navigator.platform,
+                        version: mashableVersion*/
+        $output = array("status"=>"logged");
+        break;
     case "SearchSeries":
         if(isset($_POST["uid"])  && intval($_POST["uid"])>0 && $_POST["uid"]!=null){
             $usageTracking = trackUsage("count_seriessearch");

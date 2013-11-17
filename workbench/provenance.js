@@ -115,7 +115,7 @@ function ProvenanceController(panelId){
                     $liPlot.find("li.component").each(function(){
                         self.showComponentEditor(this, 'plot');
                     });
-                }); 
+                });
 
             self.$prov.find(".edit-mapset")
                 .button({icons: {secondary: 'ui-icon-pencil'}})
@@ -159,6 +159,10 @@ function ProvenanceController(panelId){
         },
         componentsHTML: function(plot){
             var plotList, comp, type='plot', numerCount=1, numerHTML='', denomHTML='', compHTML, isDenom=false, graph = this.graph;
+            var algorithm = {
+                sum: 'summing',
+                wavg: 'day-weighted averaging of'
+            };
             for(var j=0;j< plot.components.length;j++){
                 //inner COMPONENT loop
                 comp = plot.components[j];
@@ -170,9 +174,11 @@ function ProvenanceController(panelId){
                     + '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> * </span>'
                     + (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:''))
                     + graph.assets[comp.handle].name
-                    + ' ('+period.name[graph.assets[comp.handle].period]+') in '
+                    + ' ('
+                    + (plot.options.fdown!=graph.assets[comp.handle].period&&plot.options.algorithm?period.name[graph.assets[comp.handle].period]+' created by <a href="/workbench-help/changing-frequency/" traget="_blank">'+algorithm[plot.options.algorithm] +'</a> '+period.name[graph.assets[comp.handle].period]+' data':period.name[graph.assets[comp.handle].period])
+                    + ') in '
                     + graph.assets[comp.handle].units
-                    + (type=='plot'?' <a class="link comp-view">view series</a>':'')
+                    + (type=='plot'?' <a class="link comp-view">view source data</a>':'')
                     + '</li>';
                 if(plot.components[j].options.dn=='d'||isDenom){
                     isDenom= true; denomHTML += compHTML;
@@ -189,15 +195,15 @@ function ProvenanceController(panelId){
         plotPeriodicity:   function plotPeriodicity(plot){
             var self = this;
             var sHandle, comp, fromPeriodicity;
-            if(plot.components[0].options.downshiftPeriod){
-                fromPeriodicity = plot.components[0].options.downshiftPeriod;
-            } else {
+            if(plot.options.fdown){
+                fromPeriodicity = plot.options.fdown;
+            } else {  //if no frequency downshift is specified, all components must be the same
                 fromPeriodicity = self.graph.assets[plot.components[0].handle].period;
             }
-            if(typeof(plot.options.downshiftPeriod) == "undefined"){
-                return '<span class="plot-freq">'+period.name[fromPeriodicity]+'</span>';
+            if(plot.options.fdown){
+                return '<span class="plot-freq">'+period.name[plot.options.fdown]+' synthesized</span>';
             } else {
-                return '<span class="plot-freq">'+period.name[plot.options.downshiftPeriod]+'</span> <span class="plot-from-freq">'+plot.options.downshiftMethod+' down from '+period.name[fromPeriodicity]+'</span>';
+                return '<span class="plot-freq">'+period.name[fromPeriodicity]+'</span>';
             }
         },
         sortableOff: function(){
@@ -485,11 +491,7 @@ function ProvenanceController(panelId){
             var compHandle = $(liComp).attr('data');
             var component = plot.components[iComp];
             var editDiv = (vectorPattern.test(compHandle)?'<button class="comp-copy prov-float-btn">make copy</button>':'')
-                + '<button class="comp-delete prov-float-btn">remove series</button>'
-               /* + '<div class="comp-editor" style="display: none;">'
-                +   '<span class="edit-label">units:</span> '
-                +   '<span class="edit-label">frequency:</span>'
-                + '</div>'*/;
+                    + '<button class="comp-delete prov-float-btn">remove series</button>'
             var $editDiv = $(editDiv);
             $liComp.find(".plot-op").hide().after(
                 '<div class="op">'
@@ -549,6 +551,7 @@ function ProvenanceController(panelId){
             var $liPlot = $(liPlot);
             var plotIndex = $liPlot.index();
             var oPlot = self.plotsEdits[plotIndex];
+            var options = oPlot.options;
             var plotColor = oPlot.options.color||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
             $liPlot.find(".edit-plot, .plot-info").hide();
             //line thickness selector
@@ -559,6 +562,13 @@ function ProvenanceController(panelId){
             var selectStyle = '<select class="plot-linestyle" data="lineStyle">';
             for(var ds=0;ds<dashStyles.length;ds++) selectStyle += '<option value="' +dashStyles[ds].replace(/ /g,'')+ '">' +dashStyles[ds].toLowerCase()+ '</option>';
             selectStyle += '</select>';
+            var downButton='';
+            var f = self.graph.assets[oPlot.components[0].handle].period;
+            if(options.fdown){
+                downButton = '<button class="dshift">'+(options.algorithm=='sum'?'summed':'averaged')+' to '+period.name[options.fdown]+(options.missing=='impute'?' with possible estimations':'')+'</button>';
+            } else {
+                if(f=='M'||f=='Q') downButton = '<button class="dshift">change frequency</button>';
+            }
 
             var editDiv = '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
@@ -567,9 +577,9 @@ function ProvenanceController(panelId){
                 + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
                 +   '<div class="edit-block"><input class="plot-color" type="text" data="color" value="' + (oPlot.options.color|| plotColor) + '" /></div>' + selectThickness + selectStyle
                 + '</fieldset>'
-                + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(oPlot.options.k||1)+'"> * </span><input class="plot-name" type="text" data="name" value="' + plotName(self.graph, oPlot) + '" /></div>'
+                + '<div class="edit-block">Name: <input class="plot-name" type="text" data="name" /></div>'
                 + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type" data="type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
-                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text" value="' + plotUnits(self.graph, oPlot) + '" /></div><br>'
+                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text"  /> <span class="plot-edit-k">scalor: <input class="short" value="'+(oPlot.options.k||1)+'"></span> '+ downButton +' </div><br>'
                 + '<span class="edit-label">Point calculations:</span>'
                 + self.HTML.compMath
                 + '<div class="edit-block"><span class="edit-label">Break line</span><div class="edit-breaks">'
@@ -581,11 +591,11 @@ function ProvenanceController(panelId){
             var $editDiv = $(editDiv);    //instantiate the editor
             self.$prov.find("button.plot-close").click();  //close any open editors
             //text boxes
-            $editDiv.find("input.plot-name").change(function(){
+            $editDiv.find("input.plot-name").val(plotName(self.graph, oPlot)).change(function(){
                 if(plotName(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.name = $(this).val(); else delete oPlot.options.name;
                 makeDirty();
             });
-            $editDiv.find("input.plot-units").change(function(){
+            $editDiv.find("input.plot-units").val(plotUnits(self.graph, oPlot)).change(function(){
                 if(plotUnits(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') {
                     oPlot.options.units = $(this).val();
                 } else {
@@ -595,6 +605,18 @@ function ProvenanceController(panelId){
                 makeDirty();
             });
             //buttonsets
+            $editDiv.find('button.dshift').click(function(){
+                var maxF;
+                $.each(oPlot.components, function(){
+                    if(!maxF||period.value[maxF]<period.value[self.graph.assets[this.handle].period]) maxF = self.graph.assets[this.handle].period
+                });
+                selectDownshift(self.graph, oPlot, maxF=='M'?'Q':'A', function(oDown){
+                    options.fdown = oDown.fdown;
+                    options.algorithm = oDown.algorithm;
+                    options.missing = oDown.missing;
+                    makeDirty();
+                })
+            });
             if(!oPlot.options.componentData)oPlot.options.componentData='required'
             $editDiv.find("div.edit-math").find("input[id='"+oPlot.options.componentData+"-"+panelId+"']").click().end().buttonset()
                 .find('input:radio').change(function(){
@@ -681,8 +703,8 @@ function ProvenanceController(panelId){
                 + '<button class="plot-copy prov-float-btn">make copy</button>'
                 + '<button class="plot-delete prov-float-btn">delete marker set</button>'
                 + '<div class="edit-block"><input class="marker-color" type="text" data="color" value="' + (options.color) + '" /></div>'
-                + '<div class="edit-block"><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> * </span><input class="plot-name" type="text" value="' + plotName(self.graph, oPointset) + '" /></div>'
-                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" value="' + (options.units||'') + '" /></div><br>'
+                + '<div class="edit-block">name: </span><input class="plot-name" type="text"  /></div>'
+                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" /><span class="plot-edit-k"><input class="short" value="'+(options.k||1)+'"> </div><br>'
                 + '<span class="edit-label attribute">Values will change marker  </span>'
                 + '<div class="attribute">'
                 +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-r-'+panelId+'" data="attribute" value="r"/><label for="attribute-r-'+panelId+'">area</label>'
@@ -698,11 +720,11 @@ function ProvenanceController(panelId){
 
             var $editDiv = $(editDiv);
             //text boxes
-            $editDiv.find("input.plot-name").change(function(){
+            $editDiv.find("input.plot-name").val(plotName(self.graph, oPointset)).change(function(){
                 if(plotName(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.name = $(this).val(); else delete options.name;
                 makeDirty();
             });
-            $editDiv.find("input.plot-units").change(function(){
+            $editDiv.find("input.plot-units").val(plotUnits(self.graph, oPointset)).change(function(){
                 if(plotUnits(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
                 makeDirty();
             });
@@ -844,8 +866,8 @@ function ProvenanceController(panelId){
             editDiv += '<button class="plot-close prov-float-btn">close</button>'
                 +   '<button class="plot-delete prov-float-btn">delete heat map</button>'
                 +   ''
-                +   '<div class="edit-block">name: </span><input class="plot-name" type="text" data="name" value="' + plotName(self.graph, mapset) + '" /></div><br>'
-                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text" value="' + plotUnits(self.graph, mapset) + '" /><span class="plot-edit-k"> scalor: <input class="short" value="'+(options.k||1)+'"></div><br>'
+                +   '<div class="edit-block">name: </span><input class="plot-name" type="text" data="name"/></div><br>'
+                +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text"/><span class="plot-edit-k"> scalor: <input class="short" value="'+(options.k||1)+'"></div><br>'
                 +   '<span class="edit-label">Point calculations:</span>'
                 +   self.HTML.compMath + '<br>'
             //if(self.plotsEdits.length>0){
@@ -971,11 +993,11 @@ function ProvenanceController(panelId){
             });
 
             //sync
-            $editDiv.find("input.plot-name").change(function(){
+            $editDiv.find("input.plot-name").val(plotName(self.graph, mapset)).change(function(){
                 self.set(options, $(this));  //mapset.options.name = $(this).val();
                 $mapset.find('span.plot-title').html(mapset.options.name);
             });
-            $editDiv.find("input.plot-units").change(function(){
+            $editDiv.find("input.plot-units").val(plotUnits(self.graph, mapset)).change(function(){
                 self.set(options, $(this));  //mapset.options.units = $(this).val();
                 $mapset.find('span.plot-units').html(mapset.options.units);
             });

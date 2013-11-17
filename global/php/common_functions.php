@@ -25,7 +25,6 @@ function runQuery($sql, $log_name = 'sql logging'){
     $result = $db->query($sql);
     if($result===false){
         logEvent('bad query', $sql);
-        //die('bad query: '.$sql);
     }
     return $result;
 }
@@ -66,6 +65,7 @@ function safeRequest($key){
     }
     return $val;
 }
+
 function safeSQLFromPost($key){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
     return safeStringSQL(safePostVar($key));
 }
@@ -201,15 +201,13 @@ function getMapSet($name, $apiid, $periodicity, $units){ //get a mapset id, crea
     global $db;
     $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
         ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
-    //logEvent("getMapSet select",$sql);
-    $result = runQuery($sql);
+    $result = runQuery($sql, "getMapSet select");
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
         return $row["mapsetid"];
     } else {
         $sql = "insert into mapsets set name='".$db->escape_string($name)."', periodicity='".$db->escape_string($periodicity)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
-        //logEvent("getMapSet insert",$sql);
-        $result = runQuery($sql);
+        $result = runQuery($sql, "getMapSet insert");
         if($result!==false){
             $mapSetId = $db->insert_id;
             return $mapSetId;
@@ -221,15 +219,13 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
     global $db;
     $sql = "select pointsetid  from pointsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
         ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
-    logEvent("getPointSet select",$sql);
-    $result = runQuery($sql);
+    $result = runQuery($sql, "getPointSet select");
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
         return $row["pointsetid"];
     } else {
         $sql = "insert into pointsets set name='".$db->escape_string($name)."', periodicity='".$db->escape_string($periodicity)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
-        logEvent("getPointSet insert",$sql);
-        $result = runQuery($sql);
+        $result = runQuery($sql, "getPointSet insert");
         if($result!==false){
             $pointSetId = $db->insert_id;
             return $pointSetId;

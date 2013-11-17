@@ -35,7 +35,6 @@ var dialogues = {
     deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm to delete.'
 };
 //GLOBAL VARIABLES
-var mashableVersion = 0.5;
 var colWidths = {
     quickView: 50,
     views: 55,
@@ -325,6 +324,34 @@ $(document).ready(function(){
             }
         });
     });
+    (function () {
+        if(window.location.href.indexOf('nolog')<0){
+            var temp = jQuery.event.dispatch;
+            jQuery.event.dispatch = function () {
+                try {
+                    temp.apply(this, arguments);
+                } catch (err) {
+                    var browser = window.nagivator?navigator.appName+' - '+ navigator.appCodeName+' - '+ navigator.appVersion:'undefined';
+                    $.ajax({type: 'POST',
+                        url: "api.php",
+                        data: {
+                            command: 'LogError',
+                            browser: browser,
+                            url: window.location.href,
+                            message: err.message,
+                            stack: err.stack,
+                            uid: account.info.userId,
+                            lang: navigator.language,
+                            platform: navigator.platform,
+                            version: workbenchVersion
+                        },
+                        dataType: 'json'
+                    });
+                    dialogShow('error','A error has occurred.  MashableData servers have logged the error and our technician have been alerted.');
+                }
+            }
+        }
+    }());
 });
 
 function parseHash(newHash, oldHash){
@@ -2284,7 +2311,7 @@ function saveGraph(oGraph, callback) {
             delete oGraph.assets; //but don't copy the potentially very large assets.   unattach and reattech instead
             delete oGraph.calculatedMapData; //ditto
             delete oGraph.controls; //ditto
-            var objForDataTableobjForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
+            var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
             oGraph.assets = assets; //restore objects temporarily removed from oGraph
             oGraph.calculatedMapData = calculatedMapData;
             oGraph.controls = controls;
@@ -2581,7 +2608,7 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
     if(params.modal!='none')mask();
     $.ajax({type: 'POST',
         url: "api.php",
-        data:$.extend({uid: getUserId(), version: mashableVersion, accessToken: account.info.accessToken}, params),
+        data:$.extend({uid: getUserId(), version: workbenchVersion, accessToken: account.info.accessToken}, params),
         dataType: 'json',
         success: function(jsoData, textStatus, jqXHR){
             if(jsoData.status=="ok"){

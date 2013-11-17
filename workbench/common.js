@@ -117,27 +117,27 @@ function dateConversionData(key, jsStart, jsEnd){
 function selectDownshift(graph, plot, minPeriod, callback){
     var i, asset;
     var html = '<div id="downshiftWizard" style="width:600px;">'  //TODO: CSS entries
-    +   '<h4>Frequency Shifting:</h4>';
+        +   '<h4>Frequency Shifting:</h4>';
     if(minPeriod) html += 'You have selected to have series data recalculated to a larger period.  Please confirm the new fequency and select the method and treatment of missing and null values.<br>';
     else html += 'You have requested to perform math of series of different frequencies.  This will require first recalculating the series data having a shorter reporting period to a common longer period.  Please confirm by selecting the algorithm and the treatment of missing and null values.<br>';
     html += 'Component series:'
-    + '<ol>';
+        + '<ol>';
     for(i=0;i<plot.components.length;i++){
         asset = graph.assets[plot.components[i].handle];
         html += '<li><b>'+asset.name+'</b> ('+asset.units+') '+period.name[asset.period]+'</li>';
     }
     html += '</ol>'
-    + 'Recalculate individual compnent series data to be <select id="dsw_period"><option value="A">annual</option>'+ (minPeriod=='Q'?'<option value="Q">quarterly</option>':'')+'</select> if different<br>'
-    + '<br>Each component series will be individual recalculated as needed to the new frequency by:<br>'
-    + '<label><input type="radio" name="dsw_algor" value="sum"> simple summation</label><br>'
-    + '<label><input type="radio" name="dsw_algor" value="wavg"> day-weighted average</label><br>'
-    + '<br>If some of the values are null or missing:<br>'
-    + '<label><input type="radio" name="dsw_missing" value="zero"> the computed value for the datum will be null (i.e. all sub-values are required)</label><br>'
-    + '<label><input type="radio" name="dsw_missing" value="zero"> treat as if the value were zero</label><br>'
-    + '<label><input type="radio" name="dsw_missing" value="impute"> use day-weighted average when at least three-quarters exist</label><br>'
-    + '<span class="ui-state-error warning-box"><span><span class="ui-icon ui-icon-alert"></span> WARNING</span>Change frequencies and use imputations with care.  Summing may produce valid results for monthly production quantities. Weighted averages are statistically correct for rate where the implied demonator is constant.  Change frequency with caution, especially for plots composed of multiple series for when nether algorithm products will produce meaningful results.</span>'
-    + '<button id="dsw_ok" class="right">OK</button> <button id="dsw_cancel" class="right">cancel</button>'
-    + '</div>';
+        + 'Recalculate individual compnent series data to be <select id="dsw_period"><option value="A">annual</option>'+ (minPeriod=='Q'?'<option value="Q">quarterly</option>':'')+'</select> if different<br>'
+        + '<br>Each component series will be individual recalculated as needed to the new frequency by:<br>'
+        + '<label><input type="radio" name="dsw_algor" value="sum"> simple summation</label><br>'
+        + '<label><input type="radio" name="dsw_algor" value="wavg"> day-weighted average</label><br>'
+        + '<br>If some of the values used to calculate a new datum point are are null or missing (e.g. a month is missing when calulating an annual value):<br>'
+        + '<label><input type="radio" name="dsw_missing" value="null"> the computed value for the datum will be null (i.e. all sub-values are required)</label><br>'
+        + '<label><input type="radio" name="dsw_missing" value="zero"> treat as if the value were zero</label><br>'
+        + '<label><input type="radio" name="dsw_missing" value="impute"> estimate value to be the day-weighted average of new period\'s existing component values if at least three-quarters of the component values exist</label><br>'
+        + '<span class="ui-state-error warning-box"><span class="ui-icon ui-icon-alert" style="display:inline-block;"></span>WARNING: Change frequencies and use estimates for missing values with care.  Summations produce valid results for monthly production quantities, whereas day-weighted averages are statistically correct for rates where the implied denominator is constant.<br><br>For more information, see <a href="/workbench-help/changing-frequency/" traget="_blank" class="link">changing frequencies help</a>.</span>'
+        + '<button id="dsw_ok" class="right">OK</button> <button id="dsw_cancel" class="right">cancel</button>'
+        + '</div>';
 
     $.fancybox(html,
         {
@@ -166,6 +166,7 @@ function selectDownshift(graph, plot, minPeriod, callback){
     });
 }
 function downShiftData(asset, fdown, algorithm, missing){
+    //algorithm = [sum|wavg] *required
     //not programmed for require all points|missing/null as zero|impute null/missing
     if(period.value[fdown]==period.value[asset.period]) return asset.data;
     if(period.value[fdown]<period.value[asset.period] || (fdown!='A'&&fdown!='Q') || period.value[asset.period]<period.value['M']) throw('unable to change data frequency from '+period.name[asset.period]+' to '+period.name[fdown]);
@@ -176,10 +177,10 @@ function downShiftData(asset, fdown, algorithm, missing){
         lengthInMonths = (fdown=='Q'?3:12),  //can downshift to only annual or quarterly
         lengthAssetPeriod = asset.period=='M'?1:3, //can downshift from only monthly or quarterly
         periodsStartDate=false,
-        periodEndDate, mdDate, days, point, pointDate;
+        mdDate, point, pointDate;
 
     for(var i=0;i<aData.length;i++){
-        point = aData.split('|');
+        point = aData[i].split('|');
         pointDate = dateFromMdDate(point[0]);
         //old new interval check: if(pointDate.getUTCMonth()%lengthInMonths==0){
         if(periodsStartDate===false || pointDate.getUTCMonth()-periodsStartDate.getUTCMonth()>lengthInMonths-1 || pointDate.getUTCFullYear()!=periodsStartDate.getUTCFullYear()){
@@ -192,17 +193,17 @@ function downShiftData(asset, fdown, algorithm, missing){
         bin[pointDate.getUTCMonth()] = point[1];
     }
     if(bin.length!=0) newData.push(downShiftDatum()); //final datum if needed
-    return newData.join('||');
+    return newData;
 
     function downShiftDatum(){ //process bin, including imputations if requested
-        var subPeriodDays, valueDays=0, missingDays=0, missingPeriods= 0, newY;
+        var subPeriodDays, valueDays=0, missingDays=0, missingPeriods=0, newY=0;
+        mdDate = mashableDate(periodsStartDate.getTime(), fdown);
         //if(bin.length==lengthInMonths && (pointDate.getUTCMonth()-periodStartDate.getUTCMonth()==lengthInMonths) && (pointDate.getUTCFullYear()==periodStartDate.getUTCFullYear())){
         for(var j=0;j<lengthInMonths;j=j+lengthAssetPeriod){
-            subPeriodDays = -Math.round(periodsStartDate.getTime()-(periodsStartDate.setUTCMonth(periodsStartDate.getUTCMonth()+lengthAssetPeriod))/period.value.D);
+            subPeriodDays = -Math.round(periodsStartDate.getTime()-periodsStartDate.setUTCMonth(periodsStartDate.getUTCMonth()+lengthAssetPeriod)/period.value.D);
             if(typeof bin[j]=='undefined' || bin[j]===null){
-                if(missing=='required'){
-                    newY = 'null';
-                    break;
+                if(missing=='null'){
+                    return mdDate + '|null';
                 }
                 bin[j] = 0;
                 if(missing=='impute'){
@@ -215,8 +216,8 @@ function downShiftData(asset, fdown, algorithm, missing){
 
             switch(algorithm){
                 case 'wavg':
-                    newY += bin[j]*days;
-                    valueDays += days;
+                    newY += bin[j]*subPeriodDays;
+                    valueDays += subPeriodDays;
                     break;
                 case 'sum':
                     newY += bin[j];
@@ -226,7 +227,6 @@ function downShiftData(asset, fdown, algorithm, missing){
             }
         }
         if(missingDays!=0 && newY != 'null') newY = newY*(valueDays+missingDays)/valueDays; //IMPUTATION
-        mdDate = mashableDate(periodsStartDate.getTime(), fdown);
         return mdDate + '|' + (algorithm=='wavg'?newY/valueDays:newY);
     }
 }

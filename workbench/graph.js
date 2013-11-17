@@ -904,13 +904,12 @@ function makeChartOptionsObject(oGraph){
 function createSerieFromPlot(oGraph, plotIndex){
     console.time('createSerieFromPlot');
     var valuesObject, y, components, i, j, sHandle, plot, calculatedSeries, data, point, plotData=[], dateKey, oComponentData = {};
-    //TODO: this is stub code for a single series plot.  Vector math and transform code to be added
     plot = oGraph.plots[plotIndex];
     calculatedSeries = {name: plotName(oGraph,plot), units: plotUnits(oGraph, plot)};
     components = plot.components;
 
     //note freq in a plot must be the same, either natively or through transformations
-    calculatedSeries.period = components[0].options.transformedPeriod || oGraph.assets[components[0].handle].period;
+    calculatedSeries.period = plot.options.fdown || oGraph.assets[components[0].handle].period;
     plot.formula = plotFormula(plot);
 
     /*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
@@ -925,8 +924,12 @@ function createSerieFromPlot(oGraph, plotIndex){
     for(i=0;i<components.length;i++ ){
         symbol = compSymbol(i);
         compSymbols.push(symbol); //calculate once and use as lookup below
-        //TODO: apply series transforms / down shifting here instead of just parroting series data
-        data = oGraph.assets[components[i].handle].data.split("||");
+        //DOWNSHIFT DETECTION
+        if(plot.options.fdown && plot.options.fdown!=oGraph.assets[components[i].handle].period){
+            data = downShiftData(oGraph.assets[components[i].handle], plot.options.fdown, plot.options.algorithm, plot.options.missing);
+        } else {
+            data = oGraph.assets[components[i].handle].data.split("||");
+        }
         for(j=0; j<data.length; j++){
             point = data[j].split("|");
             if(!oComponentData[point[0].toString()]){
@@ -1164,16 +1167,16 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
             colId = 'P'+p+'-C'+c;
             component = assets[plot.components[c].handle];
             columns.push({
-                id: colId,
-                field: colId,
-                name:'<b>' + component.name + '</b><br>'
-                    + (component.units||'') + '<br>'
-                    + (component.src||'') + '<br>'
-                    + (component.notes||'') + '<br>'
-                    + (component.iso3166||'') + '<br>'
-                    + (component.lat ? component.lat + ', ' + component.lon : '') + '<br>'
-                    + '<br>component '+compSymbol(c),
-                cssClass: 'grid-series-column'}
+                    id: colId,
+                    field: colId,
+                    name:'<b>' + component.name + '</b><br>'
+                        + (component.units||'') + '<br>'
+                        + (component.src||'') + '<br>'
+                        + (component.notes||'') + '<br>'
+                        + (component.iso3166||'') + '<br>'
+                        + (component.lat ? component.lat + ', ' + component.lon : '') + '<br>'
+                        + '<br>component '+compSymbol(c),
+                    cssClass: 'grid-series-column'}
             );
 
 
@@ -1632,11 +1635,11 @@ function calcMap(graph){
                             field: id,
                             name:        //  name | location | units | source | notes | formula
                                 '<b>'+((asset.coordinates&&asset.data[latlon])?asset.data[latlon].name:asset.name) + '</b>'
-                                + '<br>'+ ((asset.coordinates&&asset.data[latlon])? latlon : asset.geoname||'')
-                                + '<br>' + asset.units
-                                + '<br>'+ asset.src
-                                + '<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'')
-                                + (hasCalc?'<br>component '+compSymbols[j]:''),
+                                    + '<br>'+ ((asset.coordinates&&asset.data[latlon])? latlon : asset.geoname||'')
+                                    + '<br>' + asset.units
+                                    + '<br>'+ asset.src
+                                    + '<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'')
+                                    + (hasCalc?'<br>component '+compSymbols[j]:''),
                             cssClass: 'grid-series-column'});
 
                         if(components[j].handle[0]=='X'){
@@ -2601,6 +2604,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //destroy
             destroyChartMap(panelId); //destroy the Highchart, the map and the contectMenu if they exist.
             if(oGraph.plots){
+                calcGraphMinMaxZoomPeriod(oGraph);
                 chart = chartPanel(panelId, annotations);
                 annotations.build();  //build and shows teh annotations table
                 $thisPanel.find('div.chart').show();
@@ -3862,13 +3866,18 @@ function calcGraphMinMaxZoomPeriod(oGraph){
                 oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
             }
         }
-        if(period.value[oGraph.smallestPeriod]>period.value[oGraph.assets[key].period]) oGraph.smallestPeriod = oGraph.assets[key].period;
-        if(period.value[oGraph.largestPeriod]<period.value[oGraph.assets[key].period]) oGraph.largestPeriod = oGraph.assets[key].period;
 
         jsdt = oGraph.assets[key].firstdt;
         min = Math.min(jsdt, min)  || jsdt;
         jsdt = oGraph.assets[key].lastdt;
         max = Math.max(jsdt, max)  || jsdt;
+    }
+    if(oGraph.plots){
+        $.each(oGraph.plots, function(){
+            var thisPeriod = this.options.fdown || oGraph.assets[this.components[0].handle].period;
+            if(period.value[oGraph.smallestPeriod]>period.value[thisPeriod]) oGraph.smallestPeriod = thisPeriod;
+            if(period.value[oGraph.largestPeriod]<period.value[thisPeriod]) oGraph.largestPeriod = thisPeriod;
+        });
     }
     oGraph.firstdt = min;
     oGraph.lastdt = max;
