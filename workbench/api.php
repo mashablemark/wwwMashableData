@@ -17,9 +17,6 @@ date_default_timezone_set('UTC');
  *   periodicity
  * command: SearchGraphs  (anonymous permitted)
  *   search
- * command: GetSeriesData > data, sid, & cid in an array "seriesData"   (anonymous permitted)
- *   sids:
- *   cids:
  *
  * command: GetPublicGraph     (anonymous permitted)
  *   g: hash of public graph requested, returning graph object with complete series objects
@@ -179,18 +176,12 @@ switch($command){
         }
         $sql = $sql . $sOrder . $sLimit;
 
-/*        $log="";
-        foreach($_POST as $key => $value){$log = $log . $key.": ".$value.';'; };
-        logEvent("SearchSeries POST", $log);*/
-
-        logEvent("SearchSeries", $sql);
-        $result = runQuery($sql);
+        $result = runQuery($sql, "SearchSeries");
 
         /* Data set length after filtering */
         $sQuery = "
             SELECT FOUND_ROWS()
         ";
-         //echo($sQuery . "<br>");
         $rResultFilterTotal = runQuery( $sQuery) or die($db->error());
         $aResultFilterTotal = $rResultFilterTotal->fetch_array();
         $iFilteredTotal = $aResultFilterTotal[0];
@@ -308,43 +299,6 @@ switch($command){
         $user_id =  intval($_POST['uid']);
         $output = getGraphs($user_id, '');
         break;
-
-       /* requiresLogin();
-    	$user_id =  intval($_POST['uid']);
-        $sql = "SELECT g.graphid as gid, g.userid, g.title, text as analysis, "
-            . " serieslist, ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
-            . " intervaldt, intervalspan, intervalcount, type, annotations "
-            . " from graphs g "
-            . " where g.userid=" . $user_id;
-
-        $result = runQuery($sql);
-        $output = array("status"=>"ok","graphs" => array());
-        while ($aRow = $result->fetch_assoc()){
-            $gid = $aRow['gid'];
-            $output['graphs']['G' . $gid] = array(
-                "gid" =>  $gid,
-                "userid" =>  $aRow["userid"],
-                "title" =>  $aRow["title"],
-                "analysis" =>  $aRow["analysis"],
-                "serieslist" =>  $aRow["serieslist"],
-                "ghash" =>  $aRow["ghash"],
-                "start" =>  $aRow["fromdt"],
-                "end" =>  $aRow["todt"],
-                "type" =>  $aRow["type"],
-                "published" =>  $aRow["published"],
-                "views" =>  $aRow["views"],
-                "updatedt" =>  $aRow["updatedt"],
-                "annotations" =>  $aRow["annotations"],
-                "interval" =>  array(
-                    "selecteddt" => $aRow["intervaldt"],
-                    "span" => $aRow["intervalspan"],
-                    "count" => $aRow["intervalcount"]
-                ),
-                "map"=>  $aRow["map"],
-                "mapconfig"=>  $aRow["mapconfig"]
-            );
-        }
-        break;*/
     case "GetPublicGraph":  //data and all: the complete protein!
         $ghash =  $_POST['ghash'];
         if(strlen($ghash)>0){
@@ -1180,7 +1134,7 @@ switch($command){
         }
         $output = array("status" => "ok", "series" => array());
         if(count($clean_seriesids)>0){
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
             . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
             . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
             . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
@@ -1205,6 +1159,12 @@ switch($command){
                             }
                         }
                     }
+                }
+
+                if($aRow["freqset"]!==null){
+                    $freqset = '{"a":{'.$aRow["freqset"].'}}';
+                    $ary = json_decode($freqset, true);
+                    $aRow["freqset"] = $ary["a"];
                 }
                 if($aRow["userid"]==null){
                     $aRow["handle"] =  "S".$aRow["id"];
@@ -1302,7 +1262,7 @@ function getGraphs($userid, $ghash){
     }
     $sql = "SELECT g.graphid as gid, g.userid, g.title, text as analysis, "
         . " g.map, jvectormap, mapconfig, "
-        . " serieslist, s.name, s.units, skey, s.src, s.notes, s.lat, s.lon, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
+        . " serieslist, s.name, s.units, skey, s.src, s.freqset, s.notes, s.lat, s.lon, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
         . " ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
         . " gp.plotid, gp.type as plottype, gp.options as plotoptions, legendorder, pc.objtype as comptype, objid, "
         . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
@@ -1425,6 +1385,11 @@ function getGraphs($userid, $ghash){
                     "geoid" => $aRow["geoid"],
                     "mapsetid" => $aRow["mapsetid"]
                 );
+                if($aRow["freqset"]!==null){
+                    $freqset = '{"a":{'.$aRow["freqset"].'}}';
+                    $ary = json_decode($freqset, true);
+                    $output['graphs']['G' . $gid]["assets"][$handle]["freqset"] = $ary["a"];
+                }
                 if($aRow["comptype"]=='S'){
                     $output['graphs']['G' . $gid]["assets"][$handle]["sid"] = $aRow["objid"];
                 }  else {
@@ -1447,7 +1412,7 @@ function getGraphs($userid, $ghash){
 function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
     global $db, $orgid;
     $mapout = array();
-    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
+    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
     . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt, g.lat, g.lon "
     . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
     . " WHERE ms.mapsetid = s.mapsetid and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
@@ -1473,6 +1438,11 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
                 "src"=>$row["src"],
                 "data"=>array()
             );
+            if($row["freqset"]!==null){
+                $freqset = '{"a":{'.$row["freqset"].'}}';
+                $ary = json_decode($freqset, true);
+                $mapout["M".$currentMapSetId]["freqset"] = $ary["a"];
+            }
             if($row["counts"]!==null) {
                 $sCounts = '{"a":{'.$row["counts"].'}}';
                 $ary = json_decode($sCounts, true);
@@ -1500,7 +1470,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
 function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
     global $db, $orgid;
     $mapout = array();
-    $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, "
+    $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, ps.freqset,"
         . " s.seriesid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
         . " from pointsets ps, series s, mapgeographies mg, maps m "
         . " where ps.pointsetid = s.pointsetid and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
@@ -1514,7 +1484,7 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
     $result = runQuery($sql);
     $currentPointSetId = 0;
     while($row = $result->fetch_assoc()){
-        if($currentPointSetId!=$row["pointsetid"]){ //new mapset = need header
+        if($currentPointSetId!=$row["pointsetid"]){ //new pointset = need header
             $currentPointSetId=$row["pointsetid"];
             $mapout["X".$currentPointSetId] = array(
                 "handle"=>"X".$currentPointSetId,
@@ -1524,6 +1494,11 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
                 "src"=>$row["src"],
                 "data"=>array()
             );
+        }
+        if($row["freqset"]!==null){
+            $freqset = '{"a":{'.$row["freqset"].'}}';
+            $ary = json_decode($freqset, true);
+            $mapout["X".$currentPointSetId]["freqset"] = $ary["a"];
         }
         $latlon = $row["lat"].",".$row["lon"];
         $mapout["X".$currentPointSetId]["coordinates"][$latlon] = array("latLng"=>array($row["lat"], $row["lon"]));

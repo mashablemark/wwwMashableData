@@ -562,13 +562,11 @@ function ProvenanceController(panelId){
             var selectStyle = '<select class="plot-linestyle" data="lineStyle">';
             for(var ds=0;ds<dashStyles.length;ds++) selectStyle += '<option value="' +dashStyles[ds].replace(/ /g,'')+ '">' +dashStyles[ds].toLowerCase()+ '</option>';
             selectStyle += '</select>';
-            var downButton='';
-            var f = self.graph.assets[oPlot.components[0].handle].period;
-            if(options.fdown){
-                downButton = '<button class="dshift">'+(options.algorithm=='sum'?'summed':'averaged')+' to '+period.name[options.fdown]+(options.missing=='impute'?' with possible estimations':'')+'</button>';
-            } else {
-                if(f=='M'||f=='Q') downButton = '<button class="dshift">change frequency</button>';
-            }
+
+            //plotFrequency
+            var f = options.fdown || self.graph.assets[oPlot.components[0].handle].period;
+            var fOptions = this.freqOptions(oPlot);
+
 
             var editDiv = '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
@@ -579,7 +577,8 @@ function ProvenanceController(panelId){
                 + '</fieldset>'
                 + '<div class="edit-block">Name: <input class="plot-name" type="text" data="name" /></div>'
                 + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type" data="type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
-                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text"  /> <span class="plot-edit-k">scalor: <input class="short" value="'+(oPlot.options.k||1)+'"></span> '+ downButton +' </div><br>'
+                + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text"  /><span class="plot-edit-k edit-label">scalor:<input class="short" value="'+(oPlot.options.k||1)+'"></span> '
+                + '<span class="edit-label">frequency:</span><select class="dshift">'+ fOptions +'</select></div><br>'
                 + '<span class="edit-label">Point calculations:</span>'
                 + self.HTML.compMath
                 + '<div class="edit-block"><span class="edit-label">Break line</span><div class="edit-breaks">'
@@ -604,19 +603,60 @@ function ProvenanceController(panelId){
                 $liPlot.find('span.plot-units').html(plotUnits(self.graph, oPlot));
                 makeDirty();
             });
-            //buttonsets
-            $editDiv.find('button.dshift').click(function(){
-                var maxF;
-                $.each(oPlot.components, function(){
-                    if(!maxF||period.value[maxF]<period.value[self.graph.assets[this.handle].period]) maxF = self.graph.assets[this.handle].period
-                });
-                selectDownshift(self.graph, oPlot, maxF=='M'?'Q':'A', function(oDown){
-                    options.fdown = oDown.fdown;
-                    options.algorithm = oDown.algorithm;
-                    options.missing = oDown.missing;
+            $editDiv.find('select.dshift').val(f).change(function(){
+                var newF = $(this).val();
+                var synF = $editDiv.find('select.dshift option:selected').attr('data');
+
+                if(newF != synF){
+                   /* $.each(oPlot.components, function(){
+                        if(!maxF||period.value[maxF]<period.value[self.graph.assets[this.handle].period]) maxF = self.graph.assets[this.handle].period
+                    });*/
+                    selectDownshift(self.graph, newF, oPlot, function(oDown){
+                        if(oDown){
+                            options.fdown = newF;
+                            options.algorithm = oDown.algorithm;
+                            options.missing = oDown.missing;
+                            $.each(oPlot.components, function(){ //swap in new series where possible
+                                var asset = self.graph.assets[this.handle];
+                                if(asset.freqset[newF]){
+                                    this.handle = asset.freqset[newF];
+                                } else {
+                                    this.handle = asset.freqset[newF=='A'&&asset.freqset.Q?'Q':'M'];
+                                }
+                            });
+                            f = newF;
+                            fetchNewSeries();
+                            makeDirty();
+                        } else {
+                            $editDiv.find('select.dshift').val(f);  //reset to former value
+                        }
+                    })
+                } else {
+                    //able plot at new frequency using only API series...
+                    delete options.fdown;  //..therefore remove the downshift params
+                    delete options.algorithm;
+                    delete options.missing;
+                    $.each(oPlot.components, function(){ //and swap in new series
+                       this.handle = self.graph.assets[this.handle].freqset[newF];
+                    });
+                    f = newF;
+                    fetchNewSeries();
                     makeDirty();
-                })
+                }
+                function fetchNewSeries(){
+                    var assetsToFetch = {S:[],U:[], X:[], M:[]};
+                    $.each(oPlot.components, function(){ assetNeeded(this.handle, self.graph, assetsToFetch)});
+                    if(assetsToFetch.S.length>0 || assetsToFetch.U.length>0){
+                        callApi(
+                            {command:"GetMashableData", sids: assetsToFetch.S, usids: assetsToFetch.U},
+                            function(jsoData, textStatus, jqXHR){
+                                for(var handle in jsoData.series) self.graph.assets[handle] = jsoData.series[handle];
+                            }
+                        );
+                    }
+                }
             });
+            //buttonsets
             if(!oPlot.options.componentData)oPlot.options.componentData='required'
             $editDiv.find("div.edit-math").find("input[id='"+oPlot.options.componentData+"-"+panelId+"']").click().end().buttonset()
                 .find('input:radio').change(function(){
@@ -688,6 +728,28 @@ function ProvenanceController(panelId){
             });
             $editDiv.prependTo($liPlot).slideDown();
             self.$prov.find('.landing').slideUp();
+        },
+        freqOptions: function(plot){
+            var i, c, allComps, asset, options = '', freqs={}, thisPeriod;
+            //1. see what alternative periodicities exist is the APIs datasets
+            for(i=0;i<period.order.length;i++){
+                allComps = true;
+                thisPeriod = period.order[i];
+                for(c=0;c<plot.components.length;c++){
+                    asset = this.graph.assets[plot.components[c].handle];
+                    if(!asset.freqset) asset.freqset[asset.period] = asset.handle;
+                    if(!asset.freqset[thisPeriod]) allComps = false;
+                }
+                if(allComps){
+                    options += '<option value="'+thisPeriod+'" data="'+thisPeriod+'">'+period.name[thisPeriod]+' using official data</option>';
+                    freqs[thisPeriod] = true;
+                }
+            }
+            //2. add options to calculate Quarterly and Annual periodicities if (A) they don't exist and (B) the right precursor periodicities exist
+            if(!freqs['Q'] && freqs['M']) options += '<option value="Q" data="M">'+period.name.Q +' calculated from monthly data</option>';
+            if(!freqs['A'] && (freqs['M'] || freqs['Q'])) options += '<option value="A" data="'+(freqs['Q']?'Q':'M')+'">'+period.name.A +' calculated from '+(freqs['Q']?period.name.Q:period.name.M)+' data</option>';
+
+            return options;
         },
         showPointSetEditor: function($liPointSet){
             var self = this;

@@ -248,6 +248,11 @@ switch($command){
     case "Prune":
         $output = prune($api_id);
         break;
+
+    case "FreqSets":
+        $output = freqSets($api_id);
+        break;
+
     default:
         $output = array("status" => "bad command");
 }
@@ -262,7 +267,7 @@ $output["command"] = $command;
 echo json_encode($output);
 $db->close();
 
-//API functions
+//API HOUSE KEEPING functions
 function prune($api_id = 0){
     $pruned = 0;
     $iterations = 0;
@@ -284,6 +289,116 @@ function prune($api_id = 0){
 
     return array("status" => "ok", "pruned"=>$pruned, "iterations"=>$iterations);
 }
+
+function setMapsetCounts($mapsetid="all", $apiid = "all"){
+    runQuery("truncate temp;");
+    runQuery("SET SESSION group_concat_max_len = 4000;");
+    runQuery(
+        "insert into temp (id1, text1) select mapsetid, concat(group_concat(mapcount)) ".
+            " from (select mapsetid, concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
+            " where ".($mapsetid=="all" ?"mapsetid is not null":"mapsetid=".$mapsetid).
+            ($apiid=="all"?"":" and s.apiid=".$apiid).
+            " and map <>'worldx' group by mapsetid, map) mc group by mapsetid;");
+    runQuery("update mapsets ms join temp t on ms.mapsetid=t.id1 set ms.counts=t.text1;");
+    runQuery("truncate temp;");
+}
+function setPointsetCounts($pointsetid="all", $apiid = "all"){
+    runQuery("truncate temp;","setPointsetCounts");
+    runQuery("SET SESSION group_concat_max_len = 4000;");
+    runQuery("insert into temp (id1, text1) "
+        . " select pointsetid , concat(group_concat(mapcount)) "
+        . " from (".
+        " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
+        " FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
+        " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        ($apiid=="all"?"":" and s.apiid=".$apiid).
+        " and map <>'worldx' ".
+        " group by pointsetid, map".
+        " UNION ".
+        " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
+        " FROM series s join maps m on s.geoid=m.bunny ".
+        " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        " and map <>'worldx' ".
+        " group by pointsetid, map"
+        ." ) mc group by pointsetid;","setPointsetCounts");
+    runQuery("update pointsets ps join temp t on ps.pointsetid=t.id1 set ps.counts=t.text1;","setPointsetCounts");
+    //runQuery("truncate temp;");
+}
+function freqSets($apiid = "all"){
+    /*
+     * The looping is more complex then you would think necessary.  Unfortunately, mySql only matches the first is in the WHERE IN
+     *   clause.  This is actually reasonably efficient, running in under 2 minutes
+    */
+    if($apiid == "all"){
+        $apiFilter = "apiid is not null";
+    } else {
+        $apiFilter = "apiid = ".intval($apiid);
+    }
+    //updates the freqset field in series, mapsets, pointsets table after a crawl.  takes about 3 minutes of heavy mysql time
+    $truncate = "truncate temp";
+    $shift = "update temp set text1= mid(text1, instr(text1, ',') +1) ";
+    $reduce = "delete from temp where text1 not like '%,%'";
+
+    runQuery($truncate, "freqSets");
+//TODO:  this structure craps out for series = too intensive
+    //series
+    $makeSeriesFreqSets = "
+        insert into temp (id1, text1, text2) (SELECT min(seriesid), group_concat(seriesid SEPARATOR ',') as ids, group_concat(concat('\"', periodicity,'\":\"S', seriesid, '\"') SEPARATOR ',') as freqset
+        FROM series
+        WHERE $apiFilter
+        group by apiid, units, name
+        having count(*)>1)
+";
+    $updateSeries = "update series s, temp set s.freqset = temp.text2 where s.seriesid in (temp.text1)";
+    runQuery($makeSeriesFreqSets, "freqSets");
+    runQuery($updateSeries, "freqSets");
+    for($i=0;$i<5;$i++){
+        runQuery($shift, "freqSets");
+        runQuery($updateSeries, "freqSets");
+        runQuery($reduce, "freqSets");
+    }
+    runQuery($truncate, "freqSets");
+
+    //mapsets
+    $makeSeriesFreqSets = "
+        insert into temp (id1, text1, text2) (SELECT min(mapsetid), group_concat(mapsetid SEPARATOR ',') as ids, group_concat(concat('\"', periodicity,'\":\"M', mapsetid, '\"') SEPARATOR ',') as freqset
+        FROM mapsets
+        WHERE $apiFilter
+        group by apiid, units, name
+        having count(*)>1);
+";
+    $updateMapSets = "update mapsets m, temp set m.freqset = temp.text2 where m.mapsetid in ()temp.text1)";
+    runQuery($makeSeriesFreqSets, "freqSets");
+    runQuery($updateMapSets, "freqSets");
+    for($i=0;$i<5;$i++){
+        runQuery($shift, "freqSets");
+        runQuery($updateMapSets, "freqSets");
+        runQuery($reduce, "freqSets");
+    }
+    runQuery($truncate, "freqSets");
+
+    //pointsets
+    $makeSeriesFreqSets = "
+        insert into temp (id1, text1, text2) (SELECT min(pointsetid), group_concat(pointsetid SEPARATOR ',') as ids, group_concat(concat('\"', periodicity,'\":\"X', pointsetid, '\"') SEPARATOR ',') as freqset
+        FROM pointsets
+        WHERE $apiFilter
+        group by apiid, units, name
+        having count(*)>1);
+";
+    $updatePointSets = "update pointsets x, temp set x.freqset = temp.text2 where x.pointsetid in (temp.text1)";
+    runQuery($makeSeriesFreqSets, "freqSets");
+    runQuery($updatePointSets, "freqSets");
+    for($i=0;$i<5;$i++){
+        runQuery($shift, "freqSets");
+        runQuery($updatePointSets, "freqSets");
+        runQuery($reduce, "freqSets");
+    }
+    runQuery($truncate, "freqSets");
+    return array("status" => "ok");
+}
+
+
+
 function catInChain($parentcatids, $childcatid){
     $sql = "select * from catcat where childid in (".$parentcatids.")";
     $result = runQuery($sql, "API catInChain");
@@ -432,7 +547,6 @@ function jobThreadEnded($runid){
 }
 
 function findSets($apiid){
-
     /*reset SQL
         delete from mapsets where apiid=1;
         update series set mapsetid=null where apiid=1;

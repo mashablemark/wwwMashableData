@@ -114,20 +114,20 @@ function dateConversionData(key, jsStart, jsEnd){
     return data;
 }
 
-function selectDownshift(graph, plot, minPeriod, callback){
+function selectDownshift(graph, fdown, plot, callback){
     var i, asset;
     var html = '<div id="downshiftWizard" style="width:600px;">'  //TODO: CSS entries
         +   '<h4>Frequency Shifting:</h4>';
-    if(minPeriod) html += 'You have selected to have series data recalculated to a larger period.  Please confirm the new fequency and select the method and treatment of missing and null values.<br>';
-    else html += 'You have requested to perform math of series of different frequencies.  This will require first recalculating the series data having a shorter reporting period to a common longer period.  Please confirm by selecting the algorithm and the treatment of missing and null values.<br>';
-    html += 'Component series:'
+    if(fdown) html += 'You have selected to have the plot recalculated as <b></b>'+period.name[fdown]+'</b>.  Please select the method and treatment of missing and null values.<br>';
+    else html += 'You have requested to mash series with different frequencies.  This will require first recalculating the series data having a shorter reporting period to a common longer period.  Please confirm by selecting the algorithm and the treatment of missing and null values.<br>';
+    html += '<br>Component series that must be recalculated:'
         + '<ol>';
     for(i=0;i<plot.components.length;i++){
         asset = graph.assets[plot.components[i].handle];
-        html += '<li><b>'+asset.name+'</b> ('+asset.units+') '+period.name[asset.period]+'</li>';
+        html += '<li><b>'+asset.name+'</b> ('+asset.units+') '+period.name[fdown=='A'&&asset.freqset.Q?'Q':'M']+'</li>';
     }
     html += '</ol>'
-        + 'Recalculate individual compnent series data to be <select id="dsw_period"><option value="A">annual</option>'+ (minPeriod=='Q'?'<option value="Q">quarterly</option>':'')+'</select> if different<br>'
+        //+ 'Recalculate individual compnent series data to be <select id="dsw_period"><option value="A">annual</option>'+ (minPeriod=='Q'?'<option value="Q">quarterly</option>':'')+'</select> if different<br>'
         + '<br>Each component series will be individual recalculated as needed to the new frequency by:<br>'
         + '<label><input type="radio" name="dsw_algor" value="sum"> simple summation</label><br>'
         + '<label><input type="radio" name="dsw_algor" value="wavg"> day-weighted average</label><br>'
@@ -135,7 +135,7 @@ function selectDownshift(graph, plot, minPeriod, callback){
         + '<label><input type="radio" name="dsw_missing" value="null"> the computed value for the datum will be null (i.e. all sub-values are required)</label><br>'
         + '<label><input type="radio" name="dsw_missing" value="zero"> treat as if the value were zero</label><br>'
         + '<label><input type="radio" name="dsw_missing" value="impute"> estimate value to be the day-weighted average of new period\'s existing component values if at least three-quarters of the component values exist</label><br>'
-        + '<span class="ui-state-error warning-box"><span class="ui-icon ui-icon-alert" style="display:inline-block;"></span>WARNING: Change frequencies and use estimates for missing values with care.  Summations produce valid results for monthly production quantities, whereas day-weighted averages are statistically correct for rates where the implied denominator is constant.<br><br>For more information, see <a href="/workbench-help/changing-frequency/" traget="_blank" class="link">changing frequencies help</a>.</span>'
+        + '<span class="ui-state-error warning-box"><span class="ui-icon ui-icon-alert" style="display:inline-block;"></span>WARNING: Change frequencies and use estimates with care.  Summations produce valid results for monthly production quantities, whereas day-weighted averages are statistically correct for rates where the implied denominator is constant.<br><br>For more information, see <a href="/workbench-help/changing-frequency/" traget="_blank" class="link">changing frequencies help</a>.</span>'
         + '<button id="dsw_ok" class="right">OK</button> <button id="dsw_cancel" class="right">cancel</button>'
         + '</div>';
 
@@ -149,7 +149,6 @@ function selectDownshift(graph, plot, minPeriod, callback){
     var $dsw = $('#downshiftWizard');
     $('#dsw_ok').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
         var downshift = {
-            fdown: $('#dsw_period').val(),
             algorithm: $dsw.find('input:radio[name=\'dsw_algor\']:checked').val(),
             missing: $dsw.find('input:radio[name=\'dsw_missing\']:checked').val()
         };
@@ -162,7 +161,7 @@ function selectDownshift(graph, plot, minPeriod, callback){
     });
     $('#dsw_cancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
         $.fancybox.close();
-        callback({fdown: false});
+        callback(false);
     });
 }
 function downShiftData(asset, fdown, algorithm, missing){

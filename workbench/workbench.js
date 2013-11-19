@@ -331,6 +331,7 @@ $(document).ready(function(){
                 try {
                     temp.apply(this, arguments);
                 } catch (err) {
+                    unmask();
                     var browser = window.nagivator?navigator.appName+' - '+ navigator.appCodeName+' - '+ navigator.appVersion:'undefined';
                     $.ajax({type: 'POST',
                         url: "api.php",
@@ -375,6 +376,9 @@ function parseHash(newHash, oldHash){
                 $('#series-tabs').find('li.cloud-series a').click();
                 $search = $('#series_search_text');
                 searchCatId == oH.cat||0;
+                $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
+                $('#series_search_source').val(oH.api||'all'); //search executes on API change
+                $('#public-mapset-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
                 if(searchCatId!=0){
                     $search.val("category: " + browsedCats[searchCatId].name);
                     seriesCloudSearch();
@@ -384,9 +388,7 @@ function parseHash(newHash, oldHash){
                         $('#series-search-button').click();  //to exec search
                     }
                 }
-                $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
-                $('#series_search_source').val(oH.api||'all'); //search executes on API change
-                $('#public-mapset-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
+
                 if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();
                 break;
             case 'mg': //my graphs

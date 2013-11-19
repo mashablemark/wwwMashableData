@@ -48,6 +48,7 @@ var period = {
         SA: 365/2*24*3600*1000,
         A: 365*24*3600*1000
     },
+    order: ['N','D','W','M','Q','SA','A'],
     name: {
         N: 'non period data',
         D: 'daily',
@@ -362,7 +363,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
             var jsDate = closestDate(jsDateClicked, oGraph.calculatedMapData.dates);
             for(var i=0;i<oGraph.calculatedMapData.dates.length;i++){
                 if(oGraph.calculatedMapData.dates[i]['dt'].getTime()==jsDate){
-                    $('#' + panelId + ' .slider').slider('value',i);
+                    $('#' + panelId + ' .map-slider').slider('value',i);
                 }
             }
         }
@@ -1772,9 +1773,10 @@ function calcAttributes(graph){
                             }
                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
                             for(j=0;j<mapOptions.discreteColors.length;j++){
-                                if((j==0 && parseFloat(mapOptions.discreteColors[j].cutoff)<=y) || (j!=0 && parseFloat(mapOptions.discreteColors[j].cutoff)<y)){
+                                if((j!=mapOptions.discreteColors.length-1 && y<=parseFloat(mapOptions.discreteColors[j].cutoff)) || j==mapOptions.discreteColors.length-1){
                                     calcData.regionColors[dateKey][geo] = mapOptions.discreteColors[j].color;
-                                } else break;
+                                    break;
+                                }
                             }
                         }
                     } else {
@@ -1932,7 +1934,7 @@ function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match an
         if(mapData[mdDate]) return mapData[mdDate];
         mdDate = mdDate.substr(0,mdDate.length-2);
     }
-    return {};
+    return false;
 }
 
 function downloadMap(panelID, format){
@@ -2151,7 +2153,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<h3 class="map-title" style="color:black;"></h3>'+
             '<div class="container map-controls">' +
             '<div class="jvmap" style="display: inline-block;"></div>' +
-            '<div class="slider" style="display: inline-block;width: 280px;"></div>' +
+            '<div class="map-slider" style="display: inline-block;width: 280px;"></div>' +
             '<button class="map-step-backward">step backwards</button>' +
             '<button class="map-play">play</button>' +
             '<button class="map-step-forward">step forwards</button>' +
@@ -2780,20 +2782,23 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 },
                 onRegionLabelShow: function(event, label, code){
                     var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
-                    if(containingDateData && typeof containingDateData[code] != 'undefined'){
-                        for(i=0;i<calculatedMapData.dates.length;i++){
-                            if(typeof calculatedMapData.regionData[calculatedMapData.dates[i].s]!='undefined') vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
+                    if(calculatedMapData.regionColors){
+                        var containingDateColor = getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
+                        if(containingDateColor && typeof containingDateColor[code] != 'undefined'){
+                            for(i=0;i<calculatedMapData.dates.length;i++){
+                                if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
+                            }
+                            var y = containingDateData[code];
+                            label.html(
+                                '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+'</b> '
+                                    + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
+                                    + ' ' + (calculatedMapData.mapUnits||'')
+                                    + '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
+                            ).css("z-Index",400);
+                            var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: "400px"};
+                            if(typeof y != 'undefined' && y!==null) sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                            $('.inlinesparkline').sparkline(vals, sparkOptions);
                         }
-                        var y = containingDateData[code];
-                        label.html(
-                            '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+'</b> '
-                                + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
-                                + ' ' + (calculatedMapData.mapUnits||'')
-                                + '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
-                        ).css("z-Index",400);
-                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: "400px"};
-                        if(y!==null) sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
-                        $('.inlinesparkline').sparkline(vals, sparkOptions);
                     }
                 },
                 regionsSelectable: (typeof oGraph.mapsets != "undefined"),
@@ -2869,8 +2874,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             }
 
             //$thisPanel.find('button.map-unselect').show().click(function(){$map.reset()});
-            var $mapSlider = $thisPanel.find('.slider').show().off().slider({
-                value: 0,
+            var $mapSlider = $thisPanel.find('.map-slider').show().off().slider({
+                value: calculatedMapData.endDateIndex,
                 min: calculatedMapData.startDateIndex,
                 max: calculatedMapData.endDateIndex,
                 step: 1,
@@ -2909,7 +2914,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         makeList($map);
                     }
                 }
-            }).slider( "value", calculatedMapData.endDateIndex);
+            }).slider("value", calculatedMapData.endDateIndex);
 
             $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}}).off()
                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
