@@ -625,7 +625,7 @@ function ProvenanceController(panelId){
                                 }
                             });
                             f = newF;
-                            fetchNewSeries();
+                            self.fetchNewSeries(oPlot);
                             makeDirty();
                         } else {
                             $editDiv.find('select.dshift').val(f);  //reset to former value
@@ -640,20 +640,8 @@ function ProvenanceController(panelId){
                        this.handle = self.graph.assets[this.handle].freqset[newF];
                     });
                     f = newF;
-                    fetchNewSeries();
+                    self.fetchNewSeries(oPlot);
                     makeDirty();
-                }
-                function fetchNewSeries(){
-                    var assetsToFetch = {S:[],U:[], X:[], M:[]};
-                    $.each(oPlot.components, function(){ assetNeeded(this.handle, self.graph, assetsToFetch)});
-                    if(assetsToFetch.S.length>0 || assetsToFetch.U.length>0){
-                        callApi(
-                            {command:"GetMashableData", sids: assetsToFetch.S, usids: assetsToFetch.U},
-                            function(jsoData, textStatus, jqXHR){
-                                for(var handle in jsoData.series) self.graph.assets[handle] = jsoData.series[handle];
-                            }
-                        );
-                    }
                 }
             });
             //buttonsets
@@ -750,6 +738,11 @@ function ProvenanceController(panelId){
             if(!freqs['A'] && (freqs['M'] || freqs['Q'])) options += '<option value="A" data="'+(freqs['Q']?'Q':'M')+'">'+period.name.A +' calculated from '+(freqs['Q']?period.name.Q:period.name.M)+' data</option>';
 
             return options;
+        },
+        fetchNewSeries: function (oPlot){
+            var self = this, assetsToFetch = {S:[],U:[], X:[], M:[]};
+            $.each(oPlot.components, function(){ assetNeeded(this.handle, self.graph, assetsToFetch)});
+            fetchAssets(self.graph, assetsToFetch, unmask);
         },
         showPointSetEditor: function($liPointSet){
             var self = this;

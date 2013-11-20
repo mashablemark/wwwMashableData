@@ -182,12 +182,14 @@ function downShiftData(asset, fdown, algorithm, missing){
         point = aData[i].split('|');
         pointDate = dateFromMdDate(point[0]);
         //old new interval check: if(pointDate.getUTCMonth()%lengthInMonths==0){
-        if(periodsStartDate===false || pointDate.getUTCMonth()-periodsStartDate.getUTCMonth()>lengthInMonths-1 || pointDate.getUTCFullYear()!=periodsStartDate.getUTCFullYear()){
+        if(periodsStartDate===false
+            || pointDate.getUTCMonth()-periodsStartDate.getUTCMonth()>lengthInMonths-1
+            || pointDate.getUTCFullYear()!=periodsStartDate.getUTCFullYear()){
             if(bin.length!=0) {
                 newData.push(downShiftDatum());
                 bin = [];
             }
-            periodsStartDate = new Date(pointDate.getUTCFullYear()+'-'+(Math.floor(pointDate.getUTCMonth()/lengthInMonths)+1)+'-1 UTC');
+            periodsStartDate = new Date(pointDate.getUTCFullYear()+'-'+(Math.floor(pointDate.getUTCMonth()/lengthInMonths)*lengthInMonths+1)+'-1 UTC');
         }
         bin[pointDate.getUTCMonth()] = point[1];
     }
@@ -197,8 +199,8 @@ function downShiftData(asset, fdown, algorithm, missing){
     function downShiftDatum(){ //process bin, including imputations if requested
         var subPeriodDays, valueDays=0, missingDays=0, missingPeriods=0, newY=0;
         mdDate = mashableDate(periodsStartDate.getTime(), fdown);
-        //if(bin.length==lengthInMonths && (pointDate.getUTCMonth()-periodStartDate.getUTCMonth()==lengthInMonths) && (pointDate.getUTCFullYear()==periodStartDate.getUTCFullYear())){
-        for(var j=0;j<lengthInMonths;j=j+lengthAssetPeriod){
+        var startMonth = periodsStartDate.getUTCMonth();
+        for(var j=startMonth;j<startMonth+lengthInMonths;j=j+lengthAssetPeriod){
             subPeriodDays = -Math.round(periodsStartDate.getTime()-periodsStartDate.setUTCMonth(periodsStartDate.getUTCMonth()+lengthAssetPeriod)/period.value.D);
             if(typeof bin[j]=='undefined' || bin[j]===null){
                 if(missing=='null'){

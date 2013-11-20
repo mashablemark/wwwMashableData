@@ -489,26 +489,12 @@ function assetNeeded(handle, graph, assetsToFetch){
 function getAssets(graph, callBack){
     var assetsToFetch = {S:[],U:[], X:[], M:[]};
     var p, c, handle;
-    if(graph.plots){
-        for(p=0;p<graph.plots.length;p++){
-            for(c=0;c<graph.plots[p].components.length;c++){
-                assetNeeded(graph.plots[p].components[c].handle, graph, assetsToFetch);
-            }
-        }
-    }
-    if(graph.mapsets){
-        for(c=0;c<graph.mapsets.components.length;c++){
-            assetNeeded(graph.mapsets.components[c].handle, graph, assetsToFetch);
-        }
-    }
-    if(graph.pointsets){
-        for(p=0;p<graph.pointsets.length;p++){
-            for(c=0;c<graph.pointsets[p].components.length;c++){
-                assetNeeded(graph.pointsets[p].components[c].handle, graph, assetsToFetch);
-            }
-        }
-    }
-
+    eachComponent(graph, function(){
+        assetNeeded(this.handle, graph, assetsToFetch);
+    });
+    fetchAssets(graph, assetsToFetch, callBack);
+}
+function fetchAssets(graph, assetsToFetch, callBack){
     if(assetsToFetch.S.length>0 || assetsToFetch.U.length>0){
         callApi(
             {command:"GetMashableData", sids: assetsToFetch.S, usids: assetsToFetch.U, modal:'persist'},
@@ -3656,11 +3642,11 @@ var graphTitle = {
                 if(graph.title.length==0){
                     graph.controls.chart.setTitle({text: 'untitled - click to edit', style: {color: 'grey', font: 'italic'}});
                 } else {
-                    oGraph.controls.chart.setTitle({text: graph.title, style: {color: 'black', font: 'normal'}});
+                    graph.controls.chart.setTitle({text: graph.title, style: {color: 'black', font: 'normal'}});
                 }
                 $('#' + thisPanelID + ' .highcharts-title').click(function(){graphTitle.show(this)});
             }
-            var tabLabel = newTitle || "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1)
+            var tabLabel = newTitle || "Graph " +  thisPanelID.substr(thisPanelID.indexOf('-')+1);
             $('#graph-tabs a[href=\'#'+ thisPanelID +'\']').attr('title',tabLabel).html(tabLabel);
             $('#' + thisPanelID + ' h3.map-title').html(graph.title);
             if(graph.title.length==0){
