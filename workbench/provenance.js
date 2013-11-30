@@ -725,7 +725,10 @@ function ProvenanceController(panelId){
                 thisPeriod = period.order[i];
                 for(c=0;c<plot.components.length;c++){
                     asset = this.graph.assets[plot.components[c].handle];
-                    if(!asset.freqset) asset.freqset[asset.period] = asset.handle;
+                    if(!asset.freqset) {
+                        asset.freqset = {};
+                        asset.freqset[asset.period] = asset.handle;
+                    }
                     if(!asset.freqset[thisPeriod]) allComps = false;
                 }
                 if(allComps){

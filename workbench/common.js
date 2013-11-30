@@ -217,11 +217,11 @@ function downShiftData(asset, fdown, algorithm, missing){
 
             switch(algorithm){
                 case 'wavg':
-                    newY += bin[j]*subPeriodDays;
+                    newY += parseFloat(bin[j])*subPeriodDays;
                     valueDays += subPeriodDays;
                     break;
                 case 'sum':
-                    newY += bin[j];
+                    newY += parseFloat(bin[j]);
                     break;
                 default:
                     throw('unrecognized down frequency conversion algorithm')

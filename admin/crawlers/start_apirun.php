@@ -13,6 +13,7 @@ die();*/
  */
 $sql_logging = true;
 $event_logging = true;
+$maxTries = 1;
 include_once("../../global/php/common_functions.php");
 
 /* This is the sole API for the MashableData Admin panel (http://www.mashabledata.com/admin) application connecting
@@ -136,39 +137,45 @@ switch($command){
         $output["runid"] = $runid;
         break;
     case "ExecuteJobs":
-        if(isset($_REQUEST["runid"])){
-            //to execute a particular job:  http://www.mashabledata.com/admin/crawlers/start_apirun.php?uid=1&command=ExecuteJobs&jobid=XXX
-            $jobid = (isset($_REQUEST["jobid"]))?intVal($_REQUEST["jobid"]):$jobid="ALL";   //"ALL": execute all queued jobs for the given run until none left
-            $output =ApiExecuteJobs(intVal($_REQUEST["runid"]), $jobid);
-        } else {
-            $sql = "select count(*) as count from apirunjobs where status = 'Q' or (status = 'F' and  tries<3) or (status = 'R' and  tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())>10 and TIMESTAMPDIFF(MINUTE , enddt, NOW())>10)";
-            //updating series print($sql);
-            $result = $db->query($sql);
-            $counts = $result->fetch_assoc();
-            if($counts["count"] > 0){ //there are jobs to be run
-                $sql = "select jobid, runid from apirunjobs where status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW()<10 and TIMESTAMPDIFF(MINUTE , enddt, NOW()<10";
-                $result = runQuery($sql);
-                if($result->num_rows < 4){  // max threadCount = 4!!!!
-                    //so there are jobs to be run and the thread count is < 4
-                    $sql="select * from apirunjobs where status = 'Q' and tries<3 limit 0,1";
+        try{
+            if(isset($_REQUEST["runid"])){
+                //to execute a particular job:  http://www.mashabledata.com/admin/crawlers/start_apirun.php?uid=1&command=ExecuteJobs&jobid=XXX
+                $jobid = (isset($_REQUEST["jobid"]))?intVal($_REQUEST["jobid"]):$jobid="ALL";   //"ALL": execute all queued jobs for the given run until none left
+                $output =ApiExecuteJobs(intVal($_REQUEST["runid"]), $jobid);
+            } else {
+                $sql = "select count(*) as count from apirunjobs where status = 'Q' or (status = 'F' and  tries<$maxTries) or (status = 'R' and  tries<$maxTries and TIMESTAMPDIFF(MINUTE , startdt, NOW())>20 and TIMESTAMPDIFF(MINUTE , enddt, NOW())>20)";
+                //updating series print($sql);
+                $result = $db->query($sql);
+                $counts = $result->fetch_assoc();
+                if($counts["count"] > 0){ //there are jobs to be run
+                    $sql = "select jobid, runid from apirunjobs where status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())<20 and TIMESTAMPDIFF(MINUTE , enddt, NOW())<20";
                     $result = runQuery($sql);
-                    if($result->num_rows==0){ //only try to rerun the failures after exhausting the queue
-                        $sql="select * from apirunjobs where tries<3 and (status = 'F' or (status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10 and TIMESTAMPDIFF(MINUTE , enddt, NOW())<10)) limit 0,1";
+                    if($result->num_rows < 4){  // max threadCount = 4!!!!
+                        //so there are jobs to be run and the thread count is < 4
+                        $sql="select * from apirunjobs where status = 'Q' and tries<$maxTries limit 0,1";
                         $result = runQuery($sql);
-                    }
-                    $job_row = $result->fetch_assoc();
-                    $sql = "select * from apis where apiid = (select apiid from apiruns where runid = ".$job_row["runid"].")";
-                    $result = runQuery($sql);
-                    $api_row = $result->fetch_assoc(); //global
-                    include_once($api_row["file"]);
-                    if($job_row["tries"]==0){
-                        $output = ApiExecuteJobs($job_row["runid"]); //create thread
-                    } else {
-                        $output = ApiExecuteJobs($job_row["runid"], $job_row["jobid"]); //single job only!
-                    }
+                        if($result->num_rows==0){ //only try to rerun the failures after exhausting the queue
+                            $sql="select * from apirunjobs where tries<$maxTries and (status = 'F' or (status = 'R' and TIMESTAMPDIFF(MINUTE , startdt, NOW())>20 and TIMESTAMPDIFF(MINUTE , enddt, NOW())>20)) limit 0,1";
+                            $result = runQuery($sql);
+                        }
+                        $job_row = $result->fetch_assoc();
+                        $sql = "select * from apis where apiid = (select apiid from apiruns where runid = ".$job_row["runid"].")";
+                        $result = runQuery($sql);
+                        $api_row = $result->fetch_assoc(); //global
+                        include_once($api_row["file"]);
+                        if($job_row["tries"]==0){
+                            $output = ApiExecuteJobs($job_row["runid"]); //create thread
+                        } else {
+                            $output = ApiExecuteJobs($job_row["runid"], $job_row["jobid"]); //single job only!
+                        }
 
+                    }
                 }
             }
+        }
+    catch(Exception $e)
+        {
+          logEvent('API job error', $e->getMessage());
         }
         break;
     case "Get":  //anonymous allowed
@@ -286,6 +293,9 @@ function prune($api_id = 0){
             runQuery("delete c.* from categories c inner join (" . $sql . ") j on c.catid=j.catid "); //prune the deadend cat
         }
     } while($deadEndCount>0 && $iterations <10); //continue until no more dead end categories
+    //clean out any dangling category series records
+    runQuery("delete from cs.* USING categoryseries cs left outer join series s on cs.seriesid=s.seriesid where s.seriesid is null");
+    runQuery("delete from  cs.* USING categoryseries cs left outer join categories c on cs.catid=c.catid where c.catid  is null");
 
     return array("status" => "ok", "pruned"=>$pruned, "iterations"=>$iterations);
 }
@@ -435,13 +445,13 @@ function archiveSeries($obj){ //accepts either an ID or a an array of all fields
     runQuery($sql);
 }
 
-function updateSeries(&$status, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
+function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
     global $db;
     $sql = "select * from series where skey = " . safeStringSQL($key) . " and apiid=" . $apiid;
     $result = runQuery($sql);
     if($result->num_rows==1){
         $series = $result->fetch_assoc();
-        if($series["units"]!=$units || $series["periodicity"]!=$period || $series["notes"]!=$notes || $series["name"]!=$name || $series["data"]!=$data || $series["mapsetid"]!=$mapsetid || $series["pointsetid"]!=$pointsetid){
+        if($series["units"]!=$units || $series["periodicity"]!=$period || $series["notes"]!=$notes || $series["name"]!=$name || $series["data"]!=$data || ($geoid != null && is_numeric ($geoid) && $geoid != $series["geoid"]) || $series["mapsetid"]!=$mapsetid || $series["pointsetid"]!=$pointsetid){
             archiveSeries($series);
             $sql = "update series set "
                 ."skey=".safeStringSQL($key).","
@@ -459,7 +469,9 @@ function updateSeries(&$status, $key, $name, $src, $url, $period, $units, $units
                 ."apidt=".safeStringSQL($apidt).","
                 ."firstdt=".$firstdt.","
                 ."lastdt=".$lastdt.","
-                ."apifailures=0";
+                ."apifailures=0,"
+                ."updatets=now(),"
+                ."jobid=".$jobid;
             if($title!="") $sql .= ", title=".safeStringSQL($title);
             if($geoid != null && is_numeric ($geoid)) $sql .= ", geoid=".$geoid;
             if($mapsetid != null  && is_numeric ($mapsetid)) $sql .= ", mapsetid=".$mapsetid;
@@ -472,10 +484,12 @@ function updateSeries(&$status, $key, $name, $src, $url, $period, $units, $units
                 $status["updated"]++;
                 print($status["updated"] . ". updating series " .$key .": ".$name."<br>");
             } else {
+                runQuery("update series set apifailures=apifailures+1, updatets=now(), jobid=".$jobid." where seriesid=".$series["seriesid"]);
                 $status["failed"]++;
                 print($status["failed"] . ". failed series update for " .$key .": ".$name."<br>");
             }
         } else {
+            runQuery("update series set apifailures=0, jobid=$jobid where seriesid=".$series["seriesid"]);
             $status["skipped"]++;
             print($status["skipped"] . ". skipping series " .$key .": ".$name."<br>");
         }
@@ -528,7 +542,7 @@ function queueJob($runid, $config){  //return jobid
 
 //checks if all active jobs for this run have ended.  If so, runs and emails the report and then runs findsets if added>0
 function jobThreadEnded($runid){
-    $sql = "select count(*) as activejobcount from apirunjobs where runid=".$runid." and status='R' and tries<3 and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10)";
+    $sql = "select count(*) as activejobcount from apirunjobs where runid=".$runid." and status='R' and tries<$maxTries and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10)";
     $result = runQuery($sql,"activejobcount check");
     $row = $result->fetch_assoc();
     if($row["activejobcount"]==0){
@@ -660,7 +674,7 @@ function findSets($apiid){
 function updateJob($jobid, $status, $options){
 
 }
-//MOVE TO START_APIRUN
+
 function setCategory($apiid, $name, $parentid){ //insert categories and catcat records as needed; return catid
     //ASSUME SIBLING HAVE UNIQUE NAMES
     global $db;

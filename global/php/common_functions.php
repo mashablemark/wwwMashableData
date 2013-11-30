@@ -78,6 +78,9 @@ function safePostVar($key){
     return $val;
 }
 function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
+/*    var_dump($val);
+    debug_print_backtrace();
+    print("<br>");*/
     if(($val == NULL  || $val === NULL) && $val != ''){  //removed "|| $val==''" test
         return NULL;
     } else {

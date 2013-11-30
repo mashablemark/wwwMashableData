@@ -1298,7 +1298,10 @@ function quickViewToMap(){
         dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
         return null;
     }
-
+    if(map=='other'){
+        dialogShow("selection required","Please select a base map to graph this set.");
+        return null;
+    }
     var oGraph;
     if(panelId=="new"){
         oGraph = emptyGraph()

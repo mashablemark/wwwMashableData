@@ -1,3 +1,9 @@
+<?php
+    $event_logging = false;
+    $sql_logging = false;
+    include_once("../global/php/common_functions.php");
+    date_default_timezone_set('UTC');
+?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -5,28 +11,32 @@
 <title>MashableData Admin Dashboard</title>
 
 
+    <!--Google API JavaScript files-->
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
 
-    <link  rel="stylesheet" href="css/smoothness/jquery-ui-1.8.16.custom.css" />
-    <link  rel="stylesheet" href="/global/datatables/jquery.dataTables.css" />
-<!--    <link  rel="stylesheet" href="css/ColVis.css" />
-    <link  rel="stylesheet" href="md_workbench.css" />-->
-    <script type="text/javascript" src="/global/jquery/jquery-1.7.min.js"></script>
-    <script type="text/javascript" src="/global/jquery-ui-1.8.16.custom.min.js"></script>
-    <script type="text/javascript" src="/global/datatables/jquery.dataTables.min.js"></script>
-<!--    <script type="text/javascript" src="js/ColVis.min.js"></script>
-    <script type="text/javascript" src="js/ColReorder.min.js"></script>
-    <script type="text/javascript" src="js/ColReorderWithResize.js"></script>
-    <script type="text/javascript" src="js/highcharts-2.2.1.js"></script>
-    <script type="text/javascript" src="js/exporting.src.js"></script-->
-    <script type="text/javascript" src="/global/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
-    <link rel="stylesheet" href="/global/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
+    <link  rel="stylesheet" href="/workbench/css/smoothness/jquery-ui-1.9.2.custom.css" />
+    <link  rel="stylesheet" href="/global/css/datatables/jquery.dataTables.css" />
+    <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.9.4.min.js"></script>
+    <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
+    <link rel="stylesheet" href="/workbench/css/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
+
+
+<style>
+    table{
+        width: 1800px;
+        border: thin solid #000000;
+    }
+    thead{background-color: #00bfff}
+    tr:nth-child(even) {background: #CCC}
+
+</style>
 </head>
 
 <body>
 <script type="text/javascript">
 $(document).ready(function(){
     loadApiTable();
-    addStringify();
 });
 
 var userid = 2;         //TODO: get actual userid via facebook
@@ -43,7 +53,11 @@ function loadApiTable(){
                     {"mDataProp": "name", "sTitle": 'name'},
                     {"mDataProp": null, "sTitle": 'domain', fnRender: function(obj){return obj.aData.l2domain + '.' + obj.aData.l1domain}},
                     {"mDataProp": null, "sTitle": 'last run', fnRender: function(obj){return obj.aData.finishdt+ ' (' + obj.aData.command + '[' + obj.aData.periodicity + "] => added:" +  obj.aData.added+ "; updated:" +  obj.aData.updated+ "; failed:" +  obj.aData.failed + ")"}},
-                    {"mDataProp": null, "sTitle": 'Update', fnRender: function(obj){return '<input class="api-since" value="<?=date("Y-m-d") ?>"> <select class="api-period"><option>all</option><option>Y</option><option>M</option><option>W</option><option>D</option></select><button class="api-update" onclick="runApiUpdate(this)">Start Batch Update</button>'}},
+                    {"mDataProp": null, "sTitle": 'Update',
+                        fnRender: function(obj){
+                            return '<input class="api-since" value=""> <select class="api-period"><option>all</option><option>Y</option><option>M</option><option>W</option><option>D</option></select><button class="api-update" onclick="runApiUpdate(this)">Start Batch Update</button>'
+                        }
+                    },
                     {"mDataProp": null, "sTitle": 'Get', fnRender: function(obj){return 'Source Keys:  <input class="api-skeys"><button class="api-get" onclick="runApiGet(this)">Get</button>'}},
                     {"mDataProp": null, "sTitle": 'Full Crawl', fnRender: function(obj){return '<button class="api-crawl" onclick="runApiCrawl(this)">Crawl</button>'}}
                 ]
@@ -195,10 +209,10 @@ function adminData(params, callback){
         success: function(results, textStatus, jqXH){
             if(results.status=='ok'){
                 callback(results);
-            } else debug(results);
+            } else console.info(results);
         },
         error: function(results, textStatus, jqXH){
-            debug(results);
+            console.info(results);
         }
     });
 }
@@ -219,202 +233,90 @@ function callApi(params, callback){
             $('#api-status').html('<table>' + statusTable + '</table>');
             if(results.status=='ok'){
                 callback(results);
-            } else debug(results);
+            } else console.info(results);
         },
         error: function(results, textStatus, jqXH){
-            debug(results);
+            console.info(results);
         }
     });
 }
 
 
-
-function addStringify(){
-    jQuery.extend({
-        stringify  : function stringify(obj) {
-
-            if ("JSON" in window) {
-                return JSON.stringify(obj);
-            }
-
-            var t = typeof (obj);
-            if (t != "object" || obj === null) {
-                // simple data type
-                if (t == "string") obj = '"' + obj + '"';
-
-                return String(obj);
-            } else {
-                // recurse array or object
-                var n, v, json = [], arr = (obj && obj.constructor == Array);
-
-                for (n in obj) {
-                    v = obj[n];
-                    t = typeof(v);
-                    if (obj.hasOwnProperty(n)) {
-                        if (t == "string") {
-                            v = '"' + v + '"';
-                        } else if (t == "object" && v !== null){
-                            v = jQuery.stringify(v);
-                        }
-
-                        json.push((arr ? "" : '"' + n + '":') + String(v));
-                    }
-                }
-
-                return (arr ? "[" : "{") + String(json) + (arr ? "]" : "}");
-            }
-        }
-    });
-}
-function debug(obj){
-    if(navigator.userAgent.toLowerCase().indexOf('chrome') > -1) console.info(obj);
-}
 
 </script>
 
 
-<div class="captures"><fieldset><legend>Captures</legend><table width="200" border="1">
-  <tr>
-    <th scope="col">CID</th>
-    <th scope="col">series name</th>
-      <th scope="col">domain</th>
-    <th scope="col">UID</th>
-    <th scope="col">new/updated</th>
-    <th scope="col">date time</th>
-  </tr>
-  <tr>
-    <td><a href="#">to CID chain</a></td>
-    <td><a href="#">to source</a></td>
-    <td><a href="#">user detail</a></td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-</table>
+<div class="err-js"><fieldset><legend>Recent JavaScript Errors</legend>
+<?php
+    $sql = "select eventid, eventdt as 'time stamp', data from eventlog where event = 'javaScript error' order by eventid desc limit 0,20";
+    $result = runQuery($sql);
+    $writeHeader = true;
+    if($result->num_rows>0){
+        print("<table border=\"1\">");
+        while ($aRow = $result->fetch_assoc()) {
+            if($writeHeader){
+                print("<thead><tr>");
+                foreach($aRow as $fld=>$val){
+                    print("<th>".$fld."</th>");
+                }
+                print("</tr></thead>");
+
+                $writeHeader = false;
+            }
+            foreach($aRow as $fld=>$val){
+                /*if($fld=="data"){
+                    $params = json_decode($val, true);  //php does not seem to be able to decode this...  Chrome can!
+                    print("<td>");
+                    var_dump($params);
+                    foreach($params as $param=>$s){
+                        print("<pre>".$param.": ".$s."</pre><br>");
+                    }
+                    print("</td>");
+                } else */
+                    print("<td>".$val."</td>");
+            }
+            print("</tr>");
+        }
+        print("</table>");
+    } else {
+        print("no records found");
+    }
+?>
 </fieldset></div>
-<div class="captures"><fieldset>
-<legend>alerts</legend>
-<table width="200" border="1">
-  <tr>
-    <th scope="col">UID</th>
-    <th scope="col">series name</th>
-    <th scope="col">CID</th>
-    <th scope="col">k (new+changed)/total</th>
-    <th scope="col">date</th>
-    <th scope="col">resolution</th>
-  </tr>
-  <tr>
-    <td><p><a href="#">user detail</a></p>      </td>
-    <td><a href="#">to source</a></td>
-    <td><a href="#">to CID chain</a></td>
-    <td>5% (1+0)/20</td>
-    <td>alert date</td>
-    <td><label>
-      <textarea name="textfield" id="textfield">type notes here</textarea>
-      ignore/revert/revert and block user</label></td>
-  </tr>
-  <tr>
-    <td><a href="#">user detail</a></td>
-    <td><a href="#">to source</a></td>
-    <td><a href="#">to CID chain</a></td>
-    <td>revert</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-</table>
+<div class="err-sql"><fieldset>
+<legend>Recent SQL Errors</legend>
+    <?php
+    $sql = "select eventid, eventdt as 'time stamp', data from eventlog where event = 'bad query' order by eventid desc limit 0,20";
+    $result = runQuery($sql);
+    $writeHeader = true;
+    if($result->num_rows>0){
+        print("<table>");
+        while ($aRow = $result->fetch_assoc()) {
+            if($writeHeader){
+                print("<thead><tr>");
+                foreach($aRow as $fld=>$val){
+                    print("<th>".$fld."</th>");
+                }
+                print("</tr></thead>");
+
+                $writeHeader = false;
+            }
+            foreach($aRow as $fld=>$val){
+                print("<td>".$val."</td>");
+            }
+            print("</tr>");
+        }
+        print("</table>");
+    } else {
+        print("no records found");
+    }
+    ?>
 </fieldset></div>
+
 <div class="captures"><fieldset>
-<legend>Duplicates</legend>
-<table width="200" border="1">
-  <tr>
-    <th scope="col">ghash</th>
-    <th scope="col">series name</th>
-    <th scope="col">UID</th>
-    <th scope="col">domain</th>
-    <th scope="col">date</th>
-    <th scope="col">?</th>
-  </tr>
-  <tr>
-    <td>82349a799b999ab99975b68f</td>
-    <td><a href="#">to source</a></td>
-    <td><a href="#">to source</a></td>
-    <td>syn/block</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-</table>
+<legend>Current users (today)</legend>
+
+
 </fieldset></div>
 
 

@@ -3,7 +3,11 @@
  * Created by JetBrains PhpStorm.
  */
 
+$event_logging = true;
+$sql_logging = false;
+
 /*To clean JODI API, leaving only the 3 root cats:
+rerunning import... Jun 2013
     DELETE FROM series WHERE apiid = 6;
     DELETE FROM categories WHERE apiid=6 AND catid >= 318252;
     DELETE FROM catcat WHERE parentidid > 318249;
@@ -67,11 +71,11 @@ $jodi_codes = array(
         "CSNATTER" => "Closing Stocks"
         ),
     "unit" => array(
-        "KBD" => "Thousand Barrels per day (kb/d)",
-        "KBBL" => "Thousand Barrels (kbbl)",
-        "KL" => "Thousand Kilolitres (kl)",
-        "TONS" => "Thousand Metric Tons (kmt)",
-        "CONVBBL" => "Conversion factor barrels/ktons"
+        "KBD" => ["full"=>"Thousand Barrels per day", "short"=>"kb/d"],
+        "KBBL" => ["full"=>"Thousand Barrels", "short"=>"kbbl"],
+        "KL" => ["full"=>"Thousand Kilolitres", "short"=>"kl"],
+        "TONS" => ["full"=>"Thousand Metric Tons", "short"=>"kmt"],
+        "CONVBBL" => ["full"=>"Conversion factor barrels/ktons", "short"=>""]
         ),
     "code" => array(
         "1" => "Results of the assessment show reasonable levels of comparability",
@@ -95,7 +99,7 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
     ini_set("default_socket_timeout", 6000);
     global $JODI_FILES;
     global $db;
-    $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE USE PREVIOUSLY DOWNLOADED FILES TO DEBUG
+    $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST JODI FILES; ELSE USE PREVIOUSLY DOWNLOADED FILES TO DEBUG
     $ROOT_JODI_CATID = $api_row["rootcatid"];
     //first build the two base categories and download and unzip the associated csv files:
     foreach($JODI_FILES as $primeCategory=>$jobInfo){
@@ -203,6 +207,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
             }
         }
         updateTempJodi($jobInfo["filenum"], $series_header, $data);
+        print("STARTING JODI JOBID ".$apirunjob["jobid"]."<br>"."\r\n");
 
 
         $jodi_records = runQuery("select * from temp_jodi where file=" . $jobInfo["filenum"]);
@@ -224,7 +229,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
             $skey = $countryRow["iso3166"]."-".$aryLine[$COL_PRODUCT]."-".$aryLine[$COL_FLOW]."-".$aryLine[$COL_UNIT];
             $setName = $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]] .": ". $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]];
             if($countryRow["geoid"]!==null) {
-                $mapSetId = getMapSet($setName, $apirunjob["apiid"], "M", $jodi_codes["unit"][$aryLine[$COL_UNIT]]);
+                $mapSetId = getMapSet($setName, $apirunjob["apiid"], "M", $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"]);
             } else {
                 $mapSetId = null;
             }
@@ -236,8 +241,8 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
             $firstDate = strtotime(substr($aryFirstPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")*1000;
             $lastDate = strtotime(substr($aryLastPoint[0],0,4) . "-" . (substr($aryLastPoint[0],4,2)+1) . "-1 UTC")*1000;
 
-            $seriesid = updateSeries($status, $skey, $setName.": ".$countryRow["name"],"Joint Oil Data Initiative","http://www.jodidata.org/database/data-downloads.aspx","M",
-                $jodi_codes["unit"][$aryLine[$COL_UNIT]], $jodi_codes["unit"][$aryLine[$COL_UNIT]],
+            $seriesid = updateSeries($status, $apirunjob["jobid"], $skey, $setName.": ".$countryRow["name"],"Joint Oil Data Initiative","http://www.jodidata.org/database/data-downloads.aspx","M",
+                $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"], $jodi_codes["unit"][$aryLine[$COL_UNIT]]["short"],
                 "For methodology and data visit http://http://www.jodidata.org/database/data-downloads.aspx. For codes, see http://www.jodidata.org/_resources/files/downloads/resources/jodi-wdb-short-long-names.pdf",
                 $setName, $apirunjob["apiid"], date("Y-m-d"),
                 $firstDate,
@@ -247,8 +252,11 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
             catSeries($flowCatId, $seriesid);
         }
         $updatedJobJson = json_encode(array_merge($status, $jobInfo));
+        print("COMPLETE JODI JOBID ".$apirunjob["jobid"]."<br>"."\r\n");
         runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$apirunjob["jobid"]);
         runQuery($timestamp_run_sql);
+        runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"].", added=added+".$status["added"].", updated=updated+".$status["updated"].", failed=failed+".$status["failed"]." where runid=".$apirunjob["runid"]);
+
         set_time_limit(600);
         setMapsetCounts("all", $apirunjob["apiid"]);
     } else { //unknown file format
@@ -267,17 +275,10 @@ function updateTempJodi($filenum, $aryLine, $data){
     global $jodi_codes, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
     $keys = implode(array_slice($aryLine, 0, $COL_UNIT+1), ",");
     $sql = "insert into temp_jodi values(".$filenum.",'".$keys."','".$data."') on duplicate key update data=concat(data,',','" . $data . "')";
-    if($keys=="") die($i.": ".implode(",", $aryLine));
+    if($keys=="") fatal_error($i.": ".implode(",", $aryLine));
     runQuery($sql);
 }
 
-function saveSeries(&$status, $api_row, $jobInfo, $aryFirstLine, $aryLastLine, $arydata){
-    global $jodi_codes, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
-    //find catid and create categories as needed
-
-
-
-}
 
 function countryLookup($country){
     static $countries = array(
@@ -311,15 +312,23 @@ function countryLookup($country){
         );
     if(!isset($countries[$country])){
         $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='all' and name like '". $country ."%'");
-        if($result->num_rows != 1) die("unable to find country = ". $country);  //or found more than one!
+        if($result->num_rows != 1) fatal_error("unable to find country = ". $country);  //or found more than one!
         $geo = $result->fetch_assoc();
         $countries[$country] = array("name"=>$geo["name"], "geoid"=>$geo["geoid"], "iso3166"=>$geo["iso3166"]);
     } elseif(!isset($countries[$country]["geoid"])) {
         $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='all' and iso3166 = '". $countries[$country]["iso3166"] ."'");
-        if($result->num_rows != 1) die("unable to find country = ". $country);  //or found more than one!
+        if($result->num_rows != 1) fatal_error("unable to find country = ". $country);  //or found more than one!
         $geo = $result->fetch_assoc();
         $countries[$country] = array("name"=>$geo["name"], "geoid"=>$geo["geoid"], "iso3166"=>$geo["iso3166"]);
     }
     return $countries[$country];
 }
-
+function fatal_error($msg){
+    global $MAIL_HEADER;
+    mail($_POST["email"],
+        "fatal error during JODI api run",
+        $msg,
+        $MAIL_HEADER
+    );
+    die($msg);
+}
