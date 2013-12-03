@@ -18,7 +18,7 @@ delete from series where seriesid>580785;
 */
 
  $event_logging = true;
- $sql_logging = true;
+ $sql_logging = false;
 
 /* This is the plugin for the offical EIA API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
@@ -36,7 +36,36 @@ delete from series where seriesid>580785;
 $eai_api_key = 'mce';  //was '2A4EA0048A8ED2FB578E31467DACD950';     //key registered to mark.elbert@eia.gov
 $threadjobid="null";  //used to track of execution thread
 
-function ApiCrawl($catid, $api_row){ //initiates a WB crawl
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function OLDApiCrawl($catid, $api_row){ //initiates a WB crawl
     global $db, $threadjobid;
     set_time_limit(60); //
 
@@ -56,7 +85,7 @@ function ApiCrawl($catid, $api_row){ //initiates a WB crawl
 }
 
 
-function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single single api run until no more
+function OLDApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single single api run until no more
     global $db, $indicators, $topics, $iso2to3, $threadjobid;
     $sql="SELECT a.apiid, a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"
         . " FROM apis a, apiruns r, apirunjobs j"
@@ -301,7 +330,7 @@ $needCapture=true;  //force read and calc
     return $status;
 }
 
-function ApiGet($sourcekeys, $api_row){
+/*function ApiGet($sourcekeys, $api_row){
     $return = array("status"=>"ok", "apiid"=>$api_row["apiid"], "count" => count($sourcekeys));
     $in_skeys="";
     foreach($sourcekeys as $skey) $in_skeys .= ((strlen($in_skeys)==0?"":",") . "'" . $skey . "'");
@@ -310,7 +339,7 @@ function ApiGet($sourcekeys, $api_row){
         " on s.captureid = c.captureid where s.skey in (" .
         $in_skeys .  ") and apiid = " . $api_row["apiid"] . " and l1domain='" . $api_row["l1domain"] .
         "' and l2domain = '" . $api_row["l2domain"] . "' order by periodicity";
-    logEvent("FRED API: GetSeries", $sql);
+    logEvent("EIA API: GetSeries", $sql);
     $series_recordset = mysql_query($sql);
 
     $seriesHeaders = array();
@@ -321,6 +350,6 @@ function ApiGet($sourcekeys, $api_row){
     $output = getSeriesDataFromFred($seriesHeaders, $api_row);
     foreach($return as $a => $b){$output[$a]=$b;}
     return $return;
-}
+}*/
 
 ?>

@@ -103,7 +103,7 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
     $ROOT_JODI_CATID = $api_row["rootcatid"];
     //first build the two base categories and download and unzip the associated csv files:
     foreach($JODI_FILES as $primeCategory=>$jobInfo){
-        $fileCatid = setCategory($api_row['apiid'], $primeCategory, $ROOT_JODI_CATID);
+        $fileCatid = setCategoryByName($api_row['apiid'], $primeCategory, $ROOT_JODI_CATID);
         $jobInfo["catid"] = $fileCatid;
         $jobInfo["name"] = $primeCategory;
         set_time_limit(300);
@@ -222,8 +222,8 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
                 runQuery($timestamp_job_sql);
             }
 
-            $parentCatId = setCategory($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]], $jobInfo["catid"]);
-            $flowCatId = setCategory($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]], $parentCatId);
+            $parentCatId = setCategoryByName($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]], $jobInfo["catid"]);
+            $flowCatId = setCategoryByName($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]], $parentCatId);
 
             $countryRow = countryLookup($aryLine[$COL_COUNTRY]);
             $skey = $countryRow["iso3166"]."-".$aryLine[$COL_PRODUCT]."-".$aryLine[$COL_FLOW]."-".$aryLine[$COL_UNIT];

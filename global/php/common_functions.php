@@ -82,7 +82,7 @@ function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mys
     debug_print_backtrace();
     print("<br>");*/
     if(($val == NULL  || $val === NULL) && $val != ''){  //removed "|| $val==''" test
-        return NULL;
+        return 'NULL';
     } else {
         return "'" . str_replace("'", "''", $val) . "'";
     }
@@ -236,6 +236,14 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
         return false;
     }
 }
+
+
+function printNow($msg){ //print with added carriage return and flushes buffer so messages appears as there are created instead all at once after entire process completes
+    print($msg . "<br />");
+    ob_flush();
+    flush();
+}
+
 function encyptAcctInfo($value){
 
 }

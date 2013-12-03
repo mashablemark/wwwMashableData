@@ -87,12 +87,12 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     $jobid = $db->insert_id;
 
     foreach($baseCats as $primeCategory=>$subTree){
-        $primeCatid = setCategory($api_row['apiid'], $primeCategory, $ROOT_FAO_CATID);
+        $primeCatid = setCategoryByName($api_row['apiid'], $primeCategory, $ROOT_FAO_CATID);
         foreach($subTree as $branchName=>$branchInfo){
             set_time_limit(300);
             if($branchName!="Producer Prices -<br> Monthly"){ //this is a different format;  only a few months given.  Maybe ingest if we can get a decade of prices
                 $branchName = str_ireplace("<br>"," ",$branchName);
-                $catid = setCategory($api_row['apiid'], $branchName, $primeCatid);
+                $catid = setCategoryByName($api_row['apiid'], $branchName, $primeCatid);
                 $branchInfo["catid"] = $catid;
                 $branchInfo["name"] = $branchName;
                 $fileName = substr_replace(substr($branchInfo["link"], strrpos($branchInfo["link"],"/")),"",-4);
@@ -260,7 +260,7 @@ function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $li
     $colValue = 9;
     $colFlag = 10;
 
-    $thisCatId = setCategory($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
+    $thisCatId = setCategoryByName($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
     $geoid = countryLookup($line[$colCountry]);
     $setName = $series_header[$colElement] .": ". $series_header[$colItem];
     $mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
