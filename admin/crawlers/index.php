@@ -134,7 +134,7 @@ END;
                     //****
                     $status = ApiExecuteJob($api_run, $job_row); //execute this API's job routine
                     //****
-                    runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"].", added=added+".$status["added"].", updated=updated+".$status["updated"].", failed=failed+".$status["failed"]." where runid=".$api_run["runid"]);
+                    runQuery( "update apiruns set finishdt=now(), scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"].", added=added+".$status["added"].", updated=updated+".$status["updated"].", failed=failed+".$status["failed"]." where runid=".$api_run["runid"]);
                     $output["updated"] += $status["updated"];
                     $output["failed"] += $status["failed"];
                     $output["skipped"] += $status["skipped"];

@@ -128,7 +128,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     runQuery("update apirunjobs set status='S' where jobid=".$jobid);
 }
 
-function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($runid, $job_row){//runs all queued jobs in a single single api run until no more
     global $MAIL_HEADER, $db;
     $thread_status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
     $sql="SELECT a.apiid, a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"

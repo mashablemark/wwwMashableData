@@ -49,85 +49,44 @@ function ApiCrawl($catid, $api_row){ //returns series and child categories.
     ApiExecuteJobs($api_row["runid"]);
 }
 
-function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($runid, $apirunjob){//runs all queued jobs in a single single api run until no more
     global $MAIL_HEADER, $db;
-    $sql="SELECT a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"
-        . " FROM apis a, apiruns r, apirunjobs j"
-        . " WHERE a.apiid = r.apiid AND r.runid = j.runid AND r.runid=".$runid
-        . " AND " . ($jobid=="ALL"?"STATUS =  'Q'":"jobid=".$jobid)
-        . " LIMIT 0 , 1";
-    $result = runQuery($sql);
-    if($result === false || mysqli_num_rows($result)==0){
-        return(array("status"=>"unable to find queued jobs for run ".$runid));
-    } else {
-        $api_row = $result->fetch_assoc();
-    }
+    $jobid = $apirunjob["jobid"];
 
-    //reusable SQL statements
-    $next_job_sql = "select * from apirunjobs where status='Q' and runid =".$runid." limit 0,1";
-    $update_run_sql = "update apiruns set finishdt=now() where runid = " . $runid;
-
-    //UPDATE THE RUN'S FINISH DATE
-    runQuery($update_run_sql);
-
-    //MASTER LOOP
-    $check = true;
-    $threadjobid = "null";
     $job_count = 0;
-    while($check){
-        if($jobid!="ALL"){
-            $result = runQuery("select * from apirunjobs where jobid =". $jobid);
-            $check = false; //just run this one job; don't loop
-        }  else {
-            $result = runQuery($next_job_sql);
-        }
-        if($result===false || $result->num_rows!=1){
-            $check = false;
-        } else {
-            set_time_limit(60);
-            $job = $result->fetch_assoc();
-            if($threadjobid=="null") $threadjobid=$job["jobid"];
-            $sql = "update apirunjobs set startdt=now(), tries=tries+1, threadjobid=".$threadjobid.", status='R' where jobid =".$job["jobid"];   //closed in ExecuteJob
-            runQuery($sql);
-            $api_row["jobjson"] = $job["jobjson"];
-            $api_row["jobid"] = $job["jobid"];
-            $jobconfig = json_decode($job["jobjson"], true);
-            switch($jobconfig["type"]){
-                case "CatCrawl":
-                    $status = IngestCategory($jobconfig["catid"], $api_row, $jobconfig["deep"]);
-                    $sql = "update apirunjobs set enddt=now(), status='".($status["status"]=="ok"?"S":"F")."' where jobid =".$job["jobid"];   //closed in ExecuteJob
-                    runQuery($sql);
-                    $sql = "update apiruns set scanned=scanned+".$status["skipped"].", added=added+".$status["added"].",  updated=updated+".$status["updated"].", finisheddt=now() where jobid =".$job["jobid"];
-                    runQuery($sql);
-                    break;
-                //TODO: write case: "Update"
-                default:
-                    $sql = "update apirunjobs set enddt=now(), status='F' where jobid =".$job["jobid"];
-                    runQuery($sql);
-            }
-            $job_count++;
-        }
-        if($jobid!="ALL") $check = false; //call parameters either specify a single jobid or none, whereby jobid defaults to "ALL"
+    set_time_limit(60);
+    $jobconfig = json_decode($apirunjob["jobjson"], true);
+    switch($jobconfig["type"]){
+        case "CatCrawl":
+            $status = IngestCategory($jobconfig["catid"], $apirunjob);
+            break;
+        default:
+            die("unknown job type");
     }
-    $sql = "select count(jobid) as jobs_executed, j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed "
-    . " from apiruns r left outer join apirunjobs j on r.runid=j.runid "
-    . " where r.runid=".$runid." group by j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed ";
+    return $status;
+}
+
+
+function ApiRunFinished($api_run){
+    set_time_limit(600);
+    setMapsetCounts("all", $api_run["apiid"]);
+    $sql = <<<EOS
+        select count(jobid) as jobs_executed, j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed
+        from apiruns r left outer join apirunjobs j on r.runid=j.runid
+        where r.runid=".$runid." group by j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed
+EOS;
     $result = runQuery($sql,"FRED run summary");
     $msg="";
     while($row=$result->fetch_assoc()){
         $msg .= json_encode($row);
     }
     mail("admin@mashabledata.com","Fred API run report", $msg, $MAIL_HEADER);
-
-    $output = array("status"=>"ok", "runid"=>$runid, "jobs_executed"=> $job_count);
-    return $output;
 }
-
 
 function IngestCategory($catid, $api_row, $deep = true){ //ingest category's series and child categories.  If deep=true, create job for each child cat.
     global $fred_api_key, $db;
     set_time_limit(60);
-    $status = array("status"=>"ok", "updated"=>0, "skipped"=>0, "added"=>0);
+    $status = array("status"=>"ok", "updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
 // 1. get the children of the category that we are crawling (we already have info about the parent category from previous crawl call)
 // 1A. insert the childCats and relationships as needed
 // 1B. if $deep=true, create ApiRunJobs for each childCat
@@ -187,7 +146,6 @@ function IngestCategory($catid, $api_row, $deep = true){ //ingest category's ser
     $seriesHeaders = array();
     //loop through series and read header info into PHP structure.
     //(Note: series data is not in header and require a separate FRED API call to /series/observations.)
-    $skipped = array();
     foreach($xseries->series as $serie){
         //see if we have a current series & capture (note: more efficient to have this check in getSeriesDataFromFred, but (1) ony add 1ms per series and (2) want to be able to use get series to force a read
         $sql = "select seriesid, skey, name, title, notes, url, units, units_abbrev, src, periodicity, apidt, data, 0 as catid "
@@ -220,8 +178,8 @@ function IngestCategory($catid, $api_row, $deep = true){ //ingest category's ser
             catSeries($catid, $series_in_md["seriesid"]); //even if series is up to date, make sure the category relation exists
         }
     };
-    //3. the following function does all the data calls and series insert/updating
-    $results =  getSeriesDataFromFred($seriesHeaders, $api_row, $status);  //header
+    //3. the following function does all the data calls and series insert/updating based on the seriesHeaders array built above
+    getSeriesDataFromFred($seriesHeaders, $api_row, $status);  //header
     return $status;
 }
 
@@ -277,6 +235,7 @@ function getSeriesDataFromFred($seriesHeaders, $api_row, &$status){
                 $point_count++;
             }
             $seriesId = updateSeries($status,
+                $api_row["jobid"],
                 $seriesHeader["skey"],
                 $seriesHeader["name"],
                 'St. Louis Federal Reserve',

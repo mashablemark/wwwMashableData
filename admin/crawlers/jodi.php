@@ -102,6 +102,9 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
     $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST JODI FILES; ELSE USE PREVIOUSLY DOWNLOADED FILES TO DEBUG
     $ROOT_JODI_CATID = $api_row["rootcatid"];
     //first build the two base categories and download and unzip the associated csv files:
+    $sql = "insert into apirunjobs (runid, jobjson, startdt, tries, status) values(".$api_row["runid"] .",'{\"crawl\": \"download JODI files\"',now(),1,'C')";
+    $result = runQuery($sql);
+    $thisRunId = $db->insert_id;
     foreach($JODI_FILES as $primeCategory=>$jobInfo){
         $fileCatid = setCategoryByName($api_row['apiid'], $primeCategory, $ROOT_JODI_CATID);
         $jobInfo["catid"] = $fileCatid;
@@ -125,13 +128,13 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
         runQuery($sql);
         runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
     }
+    runQuery("update apirunjobs set enddt=now(), status='S' where jobid =$thisRunId");
 }
 
 
-function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked off by api queue master
+function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off by api queue master
 
     global $jodi_codes, $HEADER, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
-    global $db;
     static $MONTHS = array(
         "JAN"=>"00",
         "FEB"=>"01",
@@ -147,19 +150,8 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
         "DEC"=>"11"
     );
     global $MAIL_HEADER, $db;
+    $jobid = $apirunjob["jobid"];
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $sql="SELECT a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"
-        . " FROM apis a, apiruns r, apirunjobs j"
-        . " WHERE a.apiid = r.apiid AND r.runid = j.runid AND r.runid=".$runid
-        . " AND " . ($jobid=="ALL"?"STATUS =  'Q'":"jobid=".$jobid)
-        . " LIMIT 0 , 1";
-    $result = runQuery($sql);
-    if($result === false || mysqli_num_rows($result)==0) return(array("status"=>"unable to find queued jobs for run ".$runid." / jobid=".$jobid));
-    $apirunjob = $result->fetch_assoc();
-
-    //grab the job
-    $sql = "update apirunjobs set startdt=now(), enddt=now(), tries=tries+1, status='R' where jobid =".$apirunjob["jobid"];
-    runQuery($sql);
 
     //reusable update SQL
     $timestamp_run_sql = "update apiruns set finishdt=now() where runid = " . $runid;    //UPDATE THE RUN'S FINISH DATE
@@ -253,12 +245,7 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
         }
         $updatedJobJson = json_encode(array_merge($status, $jobInfo));
         print("COMPLETE JODI JOBID ".$apirunjob["jobid"]."<br>"."\r\n");
-        runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$apirunjob["jobid"]);
-        runQuery($timestamp_run_sql);
-        runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"].", added=added+".$status["added"].", updated=updated+".$status["updated"].", failed=failed+".$status["failed"]." where runid=".$apirunjob["runid"]);
 
-        set_time_limit(600);
-        setMapsetCounts("all", $apirunjob["apiid"]);
     } else { //unknown file format
         print("Header Format mismatch:<br>");
         print("actual header:".$header."<br>");
@@ -267,6 +254,11 @@ function ApiExecuteJobs($runid, $jobid="ALL"){//runs one queued job as kicked of
         runQuery($timestamp_run_sql);
     }
     return $status;
+}
+
+function ApiRunFinished($api_run){
+    set_time_limit(600);
+    setMapsetCounts("all", $api_run["apiid"]);
 }
 
 function updateTempJodi($filenum, $aryLine, $data){
@@ -278,7 +270,6 @@ function updateTempJodi($filenum, $aryLine, $data){
     if($keys=="") fatal_error($i.": ".implode(",", $aryLine));
     runQuery($sql);
 }
-
 
 function countryLookup($country){
     static $countries = array(
