@@ -657,41 +657,6 @@ function updateJob($jobid, $status, $options){
 
 }
 
-function setCategoryByName($apiid, $name, $parentid){ //insert categories and catcat records as needed; return catid
-    //ASSUMES SIBLINGS HAVE UNIQUE NAMES
-    global $db;
-    $sql = "select * from categories c, catcat cc where c.catid=cc.childid and apiid = ".$apiid." and cc.parentid=".$parentid." and name=".safeStringSQL($name);
-    $result = runQuery($sql);
-    if($result->num_rows==1){
-        $row = $result->fetch_assoc();
-        return $row["catid"];
-    } else {
-        $sql = "insert into categories (apiid, name) values(".$apiid.",".safeStringSQL($name).")";
-        $result = runQuery($sql);
-        if($result == false) die("unable to create category in setCategory");
-        $catid = $db->insert_id;
-        $sql = "insert into catcat (parentid, childid) values(".$parentid.",".$catid.")";
-        runQuery($sql);
-        return $catid;
-    }
-}
-function setCategoryById($apiid, $apicatid, $name, $apiparentid){ //insert categories and catcat records as needed; return catid
-    global $db;
-    $sql = "select * from categories where apicatid=" . safeStringSQL($apicatid) . " and apiid=" . $apiid;
-    $result = runQuery($sql, "FRED API: check cat");
-    if($result->num_rows==0){
-        $sql="insert into categories (apiid, apicatid, name) values(" . $apiid . "," . safeStringSQL($apicatid).",".safeStringSQL($name).")";
-        if(!runQuery($sql, "FRED API: insert cat")) return array("status"=>"error: unable to insert category: ".$sql);;
-        $catid = $db->insert_id;
-    } else {
-        $row = $result->fetch_assoc();
-        $catid = $row["catid"];
-    }
-
-    $sql = "insert ignore into catcat (parentid, childid) select catid, $catid from categories where apiid=$apiid and apicatid=".safeStringSQL($apiparentid);
-    $result = runQuery($sql);
-    return $catid;
-}
 function setCatSeries($catid, $seriesid){ //insert catSeries record if DNE
 
 }

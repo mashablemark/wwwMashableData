@@ -1,0 +1,474 @@
+<census>
+    <theme name="Median age" units="years">
+        <concept name="P13. MEDIAN AGE BY SEX [3] (1 expressed decimal)">
+            <variable name="P0130001" concept="P13. MEDIAN AGE BY SEX [3] (1 expressed decimal)">Both sexes</variable>
+            <variable name="P0130002" concept="P13. MEDIAN AGE BY SEX [3] (1 expressed decimal)">Male</variable>
+            <variable name="P0130003" concept="P13. MEDIAN AGE BY SEX [3] (1 expressed decimal)">Female</variable>
+        </concept>
+    </theme>
+    <theme name="Population" units="persons">
+        <concept name="P12. Sex By Age [49]">
+            <variable name="P0120001" concept="P12. Sex By Age [49]">Total population</variable>
+            <variable name="P0120002" concept="P12. Sex By Age [49]">Male:</variable>
+            <variable name="P0120003" concept="P12. Sex By Age [49]">Male: !! Under 5 years</variable>
+            <variable name="P0120004" concept="P12. Sex By Age [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P0120005" concept="P12. Sex By Age [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P0120006" concept="P12. Sex By Age [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P0120007" concept="P12. Sex By Age [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P0120008" concept="P12. Sex By Age [49]">Male: !! 20 years</variable>
+            <variable name="P0120009" concept="P12. Sex By Age [49]">Male: !! 21 years</variable>
+            <variable name="P0120010" concept="P12. Sex By Age [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P0120011" concept="P12. Sex By Age [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P0120012" concept="P12. Sex By Age [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P0120013" concept="P12. Sex By Age [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P0120014" concept="P12. Sex By Age [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P0120015" concept="P12. Sex By Age [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P0120016" concept="P12. Sex By Age [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P0120017" concept="P12. Sex By Age [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P0120018" concept="P12. Sex By Age [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P0120019" concept="P12. Sex By Age [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P0120020" concept="P12. Sex By Age [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P0120021" concept="P12. Sex By Age [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P0120022" concept="P12. Sex By Age [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P0120023" concept="P12. Sex By Age [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P0120024" concept="P12. Sex By Age [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P0120025" concept="P12. Sex By Age [49]">Male: !! 85 years and over</variable>
+            <variable name="P0120026" concept="P12. Sex By Age [49]">Female:</variable>
+            <variable name="P0120027" concept="P12. Sex By Age [49]">Female: !! Under 5 years</variable>
+            <variable name="P0120028" concept="P12. Sex By Age [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P0120029" concept="P12. Sex By Age [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P0120030" concept="P12. Sex By Age [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P0120031" concept="P12. Sex By Age [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P0120032" concept="P12. Sex By Age [49]">Female: !! 20 years</variable>
+            <variable name="P0120033" concept="P12. Sex By Age [49]">Female: !! 21 years</variable>
+            <variable name="P0120034" concept="P12. Sex By Age [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P0120035" concept="P12. Sex By Age [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P0120036" concept="P12. Sex By Age [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P0120037" concept="P12. Sex By Age [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P0120038" concept="P12. Sex By Age [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P0120039" concept="P12. Sex By Age [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P0120040" concept="P12. Sex By Age [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P0120041" concept="P12. Sex By Age [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P0120042" concept="P12. Sex By Age [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P0120043" concept="P12. Sex By Age [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P0120044" concept="P12. Sex By Age [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P0120045" concept="P12. Sex By Age [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P0120046" concept="P12. Sex By Age [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P0120047" concept="P12. Sex By Age [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P0120048" concept="P12. Sex By Age [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P0120049" concept="P12. Sex By Age [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12A. Sex By Age (White Alone) [49]">
+            <variable name="P012A001" concept="P12A. Sex By Age (White Alone) [49]">People who are White alone</variable>
+            <variable name="P012A002" concept="P12A. Sex By Age (White Alone) [49]">Male:</variable>
+            <variable name="P012A003" concept="P12A. Sex By Age (White Alone) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012A004" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012A005" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012A006" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012A007" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012A008" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 20 years</variable>
+            <variable name="P012A009" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 21 years</variable>
+            <variable name="P012A010" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012A011" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012A012" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012A013" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012A014" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012A015" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012A016" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012A017" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012A018" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012A019" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012A020" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012A021" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012A022" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012A023" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012A024" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012A025" concept="P12A. Sex By Age (White Alone) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012A026" concept="P12A. Sex By Age (White Alone) [49]">Female:</variable>
+            <variable name="P012A027" concept="P12A. Sex By Age (White Alone) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012A028" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012A029" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012A030" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012A031" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012A032" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 20 years</variable>
+            <variable name="P012A033" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 21 years</variable>
+            <variable name="P012A034" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012A035" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012A036" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012A037" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012A038" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012A039" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012A040" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012A041" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012A042" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012A043" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012A044" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012A045" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012A046" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012A047" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012A048" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012A049" concept="P12A. Sex By Age (White Alone) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12B. Sex By Age (Black Or African American Alone) [49]">
+            <variable name="P012B001" concept="P12B. Sex By Age (Black Or African American Alone) [49]">People who are Black or African American alone</variable>
+            <variable name="P012B002" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male:</variable>
+            <variable name="P012B003" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012B004" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012B005" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012B006" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012B007" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012B008" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 20 years</variable>
+            <variable name="P012B009" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 21 years</variable>
+            <variable name="P012B010" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012B011" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012B012" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012B013" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012B014" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012B015" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012B016" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012B017" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012B018" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012B019" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012B020" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012B021" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012B022" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012B023" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012B024" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012B025" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012B026" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female:</variable>
+            <variable name="P012B027" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012B028" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012B029" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012B030" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012B031" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012B032" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 20 years</variable>
+            <variable name="P012B033" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 21 years</variable>
+            <variable name="P012B034" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012B035" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012B036" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012B037" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012B038" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012B039" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012B040" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012B041" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012B042" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012B043" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012B044" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012B045" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012B046" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012B047" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012B048" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012B049" concept="P12B. Sex By Age (Black Or African American Alone) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">
+            <variable name="P012C001" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">
+                People who are American Indian and Alaska Native alone
+            </variable>
+            <variable name="P012C002" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male:</variable>
+            <variable name="P012C003" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012C004" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012C005" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012C006" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012C007" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012C008" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 20 years</variable>
+            <variable name="P012C009" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 21 years</variable>
+            <variable name="P012C010" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012C011" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012C012" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012C013" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012C014" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012C015" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012C016" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012C017" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012C018" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012C019" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012C020" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012C021" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012C022" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012C023" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012C024" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012C025" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012C026" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female:</variable>
+            <variable name="P012C027" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012C028" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012C029" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012C030" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012C031" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012C032" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 20 years</variable>
+            <variable name="P012C033" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 21 years</variable>
+            <variable name="P012C034" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012C035" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012C036" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012C037" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012C038" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012C039" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012C040" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012C041" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012C042" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012C043" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012C044" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012C045" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012C046" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012C047" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012C048" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012C049" concept="P12C. Sex By Age (American Indian And Alaska Native Alone) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12D. Sex By Age (Asian Alone) [49]">
+            <variable name="P012D001" concept="P12D. Sex By Age (Asian Alone) [49]">People who are Asian alone</variable>
+            <variable name="P012D002" concept="P12D. Sex By Age (Asian Alone) [49]">Male:</variable>
+            <variable name="P012D003" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012D004" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012D005" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012D006" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012D007" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012D008" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 20 years</variable>
+            <variable name="P012D009" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 21 years</variable>
+            <variable name="P012D010" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012D011" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012D012" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012D013" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012D014" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012D015" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012D016" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012D017" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012D018" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012D019" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012D020" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012D021" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012D022" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012D023" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012D024" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012D025" concept="P12D. Sex By Age (Asian Alone) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012D026" concept="P12D. Sex By Age (Asian Alone) [49]">Female:</variable>
+            <variable name="P012D027" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012D028" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012D029" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012D030" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012D031" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012D032" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 20 years</variable>
+            <variable name="P012D033" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 21 years</variable>
+            <variable name="P012D034" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012D035" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012D036" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012D037" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012D038" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012D039" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012D040" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012D041" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012D042" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012D043" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012D044" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012D045" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012D046" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012D047" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012D048" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012D049" concept="P12D. Sex By Age (Asian Alone) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">
+            <variable name="P012E001" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">
+                People who are Native Hawaiian and Other Pacific Islander alone
+            </variable>
+            <variable name="P012E002" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male:</variable>
+            <variable name="P012E003" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012E004" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012E005" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012E006" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012E007" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012E008" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 20 years</variable>
+            <variable name="P012E009" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 21 years</variable>
+            <variable name="P012E010" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012E011" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012E012" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012E013" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012E014" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012E015" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012E016" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012E017" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012E018" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012E019" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012E020" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012E021" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012E022" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012E023" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012E024" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012E025" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012E026" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female:</variable>
+            <variable name="P012E027" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012E028" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012E029" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012E030" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012E031" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012E032" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 20 years</variable>
+            <variable name="P012E033" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 21 years</variable>
+            <variable name="P012E034" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012E035" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012E036" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012E037" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012E038" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012E039" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012E040" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012E041" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012E042" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012E043" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012E044" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012E045" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012E046" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012E047" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012E048" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012E049" concept="P12E. Sex By Age (Native Hawaiian And Other Pacific Islander Alone) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12F. Sex By Age (Some Other Race Alone) [49]">
+            <variable name="P012F001" concept="P12F. Sex By Age (Some Other Race Alone) [49]">People who are Some Other Race alone</variable>
+            <variable name="P012F002" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male:</variable>
+            <variable name="P012F003" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012F004" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012F005" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012F006" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012F007" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012F008" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 20 years</variable>
+            <variable name="P012F009" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 21 years</variable>
+            <variable name="P012F010" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012F011" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012F012" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012F013" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012F014" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012F015" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012F016" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012F017" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012F018" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012F019" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012F020" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012F021" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012F022" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012F023" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012F024" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012F025" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012F026" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female:</variable>
+            <variable name="P012F027" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012F028" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012F029" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012F030" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012F031" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012F032" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 20 years</variable>
+            <variable name="P012F033" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 21 years</variable>
+            <variable name="P012F034" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012F035" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012F036" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012F037" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012F038" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012F039" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012F040" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012F041" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012F042" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012F043" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012F044" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012F045" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012F046" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012F047" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012F048" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012F049" concept="P12F. Sex By Age (Some Other Race Alone) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12G. Sex By Age (Two Or More Races) [49]">
+            <variable name="P012G001" concept="P12G. Sex By Age (Two Or More Races) [49]">People who are Two or More Races</variable>
+            <variable name="P012G002" concept="P12G. Sex By Age (Two Or More Races) [49]">Male:</variable>
+            <variable name="P012G003" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012G004" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012G005" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012G006" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012G007" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012G008" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 20 years</variable>
+            <variable name="P012G009" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 21 years</variable>
+            <variable name="P012G010" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012G011" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012G012" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012G013" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012G014" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012G015" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012G016" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012G017" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012G018" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012G019" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012G020" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012G021" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012G022" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012G023" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012G024" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012G025" concept="P12G. Sex By Age (Two Or More Races) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012G026" concept="P12G. Sex By Age (Two Or More Races) [49]">Female:</variable>
+            <variable name="P012G027" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012G028" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012G029" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012G030" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012G031" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012G032" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 20 years</variable>
+            <variable name="P012G033" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 21 years</variable>
+            <variable name="P012G034" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012G035" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012G036" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012G037" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012G038" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012G039" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012G040" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012G041" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012G042" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012G043" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012G044" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012G045" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012G046" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012G047" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012G048" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012G049" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 85 years and over</variable>
+        </concept>
+        <concept name="P12H. Sex By Age (Hispanic Or Latino) [49]">
+            <variable name="P012H001" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">People who are Hispanic or Latino</variable>
+            <variable name="P012H002" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male:</variable>
+            <variable name="P012H003" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012H004" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012H005" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012H006" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012H007" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012H008" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 20 years</variable>
+            <variable name="P012H009" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 21 years</variable>
+            <variable name="P012H010" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012H011" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012H012" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012H013" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012H014" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012H015" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012H016" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012H017" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012H018" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012H019" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012H020" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012H021" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012H022" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012H023" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012H024" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012H025" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012H026" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female:</variable>
+            <variable name="P012H027" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012H028" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012H029" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012H030" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012H031" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012H032" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 20 years</variable>
+            <variable name="P012H033" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 21 years</variable>
+            <variable name="P012H034" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012H035" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012H036" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012H037" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012H038" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012H039" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012H040" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012H041" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012H042" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012H043" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012H044" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012H045" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012H046" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012H047" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012H048" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012H049" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 85 years and over</variable>
+        </concept>
+    </theme>
+</census>
