@@ -238,6 +238,306 @@ function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, cr
 }
 
 
+function setCategoryByName($apiid, $name, $parentid){ //insert categories and catcat records as needed; return catid
+    //ASSUMES SIBLINGS HAVE UNIQUE NAMES
+    global $db;
+    $sql = "select * from categories c, catcat cc where c.catid=cc.childid and apiid = ".$apiid." and cc.parentid=".$parentid." and name=".safeStringSQL($name);
+    $result = runQuery($sql);
+    if($result->num_rows==1){
+        $row = $result->fetch_assoc();
+        return $row["catid"];
+    } else {
+        $sql = "insert into categories (apiid, name) values(".$apiid.",".safeStringSQL($name).")";
+        $result = runQuery($sql);
+        if($result == false) die("unable to create category in setCategory");
+        $catid = $db->insert_id;
+        $sql = "insert into catcat (parentid, childid) values(".$parentid.",".$catid.")";
+        runQuery($sql);
+        return $catid;
+    }
+}
+function setCategoryById($apiid, $apicatid, $name, $apiparentid){ //insert categories and catcat records as needed; return catid
+    global $db;
+    $sql = "select * from categories where apicatid=" . safeStringSQL($apicatid) . " and apiid=" . $apiid;
+    $result = runQuery($sql, "check cat");
+    if($result->num_rows==0){
+        $sql="insert into categories (apiid, apicatid, name) values(" . $apiid . "," . safeStringSQL($apicatid).",".safeStringSQL($name).")";
+        if(!runQuery($sql, "insert cat")) return array("status"=>"error: unable to insert category: ".$sql);;
+        $catid = $db->insert_id;
+    } else {
+        $row = $result->fetch_assoc();
+        $catid = $row["catid"];
+    }
+
+    $sql = "insert ignore into catcat (parentid, childid) select catid, $catid from categories where apiid=$apiid and apicatid=".safeStringSQL($apiparentid);
+    $result = runQuery($sql);
+    return $catid;
+}
+
+function setThemeByName($apiid, $themeName){
+    global $db;
+    $sql = "select themeid from themes where apiid=$apiid and name='$themeName'";
+    $result = runQuery($sql, "theme fetch");
+    if($result->num_rows==0){
+        $sql="insert into themes (apiid, name) values($apiid,'$themeName')";
+        if(!runQuery($sql, "insert theme")) throw new Exception("error: unable to insert theme $themeName for apiid $apiid");
+        return $db->insert_id;
+    } else {
+        $row = $result->fetch_assoc();
+        return $row["themeid"];
+    }
+}
+
+function setCubeByDimensions($themeid, $cubeDimensions){
+    global $db;
+    $names = [];
+    for($i=0;$i<count($cubeDimensions);$i++){
+        array_push($names, $cubeDimensions[$i]["dimension"]);
+    }
+    $cubeName = count($cubeDimensions)==0?"total":"by ".implode($names, ", ");
+    $sql = "select cubeid from cubes where themeid=$themeid and name='$cubeName'";
+    $result = runQuery($sql, "cube fetch");
+    if($result->num_rows==0){
+        $sql="insert into cubes (themeid, name) values($themeid,'$cubeName')";
+        if(!runQuery($sql, "insert cube")) throw new Exception("error: unable to insert cube $cubeName for themeid $themeid");
+        $cubeid = $db->insert_id;
+    } else {
+        $row = $result->fetch_assoc();
+        $cubeid =$row["cubeid"];
+    }
+    for($i=0;$i<count($cubeDimensions);$i++){
+        $dimName = $cubeDimensions[$i]["dimension"];
+        $sql = "select dimid from cubedims where cubeid=$cubeid and name='$dimName'";
+        $result = runQuery($sql, "cube fetch");
+        if($result->num_rows==0){
+            $list = [];
+            for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
+                $item = $cubeDimensions[$i]["list"][$j];
+                if(isset($item["sumWithNext"])){
+                    array_push($list,
+                        [
+                            "name"=>isset($item["translation"])?$item["translation"]:$item["pattern"],
+                            "color"=>isset($item["color"])?$item["color"]:null  //default set color
+                        ]
+                    );
+                }
+
+            }
+            $dimjson = json_encode($cubeDimensions[$i]["list"]);
+            $sql="insert into cubedims (cubeid, name, json, dimorder) values($cubeid, '$dimName',".safeStringSQL($dimjson).",$i)";
+            if(!runQuery($sql, "insert cubedim")) throw new Exception("error: unable to insert dimension $dimName for cubeid $cubeid");
+        }
+    }
+    return ["name"=>$cubeName, "id"=>$cubeid];
+}
+
+
+function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
+    global $db;
+    $sql = "select * from series where skey = " . safeStringSQL($key) . " and apiid=" . $apiid;
+    $result = runQuery($sql);
+    if($result->num_rows==1){
+        $series = $result->fetch_assoc();
+        if($series["units"]!=$units
+            || $series["periodicity"]!=$period
+            || $series["notes"]!=$notes
+            || $series["name"]!=$name
+            || $series["data"]!=$data
+            || ($geoid != null && is_numeric ($geoid) && $geoid != $series["geoid"])
+            || ($mapsetid != null && is_numeric($mapsetid) && $series["mapsetid"]!=$mapsetid)
+            || ($pointsetid != null && is_numeric($pointsetid) && $series["pointsetid"]!=$pointsetid)
+        ){
+            archiveSeries($series);
+            $sql = "update series set "
+                ."skey=".safeStringSQL($key).","
+                ."name=".safeStringSQL($name).","
+                ."src=".safeStringSQL($src).","
+                ."url=".safeStringSQL($url).","
+                ."namelen=". strlen($name).","
+                ."periodicity=".safeStringSQL($period).","
+                ."units=".safeStringSQL($units).","
+                ."units_abbrev=".safeStringSQL($units_abbrev).","
+                ."notes=".safeStringSQL($notes).","
+                ."data=".safeStringSQL($data).","
+                ."hash=".safeStringSQL(sha1($data)).","
+                ."apiid=".$apiid.","
+                ."apidt=".safeStringSQL($apidt).","
+                ."firstdt=".$firstdt.","
+                ."lastdt=".$lastdt.","
+                ."apifailures=0,"
+                ."updatets=now(),"
+                ."jobid=".$jobid;
+            if($title!="") $sql .= ", title=".safeStringSQL($title);
+            if($geoid != null && is_numeric ($geoid)) $sql .= ", geoid=".$geoid;
+            if($mapsetid != null  && is_numeric ($mapsetid)) $sql .= ", mapsetid=".$mapsetid;
+            if($pointsetid != null && is_numeric ($pointsetid)) $sql .= ", pointsetid=".$pointsetid;
+            if($lat != null && is_numeric ($lat)) $sql .= ", lat=".$lat;
+            if($lon != null && is_numeric ($lon)) $sql .= ", lon=".$lon;
+            $sql .= " where seriesid=".$series["seriesid"];
+            $queryStatus = runQuery($sql);
+            if($queryStatus){
+                $status["updated"]++;
+                //print($status["updated"] . ". updating series " .$key .": ".$name."<br>");
+            } else {
+                runQuery("update series set apifailures=apifailures+1, updatets=now(), jobid=".$jobid." where seriesid=".$series["seriesid"]);
+                $status["failed"]++;
+                print($status["failed"] . ". failed series update for " .$key .": ".$name."<br>");
+            }
+        } else{
+            runQuery("update series set apifailures=0, jobid=$jobid where seriesid=".$series["seriesid"]);
+            $status["skipped"]++;
+            //print($status["skipped"] . ". skipping series " .$key .": ".$name."<br>");
+        }
+        return $series["seriesid"];
+    } elseif($result->num_rows==0) {
+        $sql = "insert into series (skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
+            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($period).",".safeStringSQL($title).",".safeStringSQL($url).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
+        $queryStatus = runQuery($sql);
+        if($queryStatus ){
+            $status["added"]++;
+            //print($status["added"] . ". adding series " .$key .": ".$name."<br>");
+        } else {
+            print("failed inserting series " .$key .": ".$name."<br>");
+            $status["failed"]++;
+        }
+        return $db->insert_id;
+    } else {
+        runQuery("update series set apifailures=apifailures+1, updatets=now(), jobid=".$jobid." where skey = " . safeStringSQL($key) . " and apiid=" . $apiid);
+        $status["failed"]++;
+        print($status["failed"] . ". failed series update for " .$key .": ".$name."<br>");
+        return false;
+    }
+}
+
+
+function archiveSeries($obj){ //accepts either an ID or a an array of all fields in the series to be archived
+    if(is_array($obj)){
+        $series = $obj;
+    } else {
+        $sql = "select * from series where seriesid = ".$obj;
+        $result = runQuery($sql);
+        $series = $result->fetch_assoc();
+    }
+    $fieldlist = array();
+    $valuelist = array();
+
+    foreach($series as $field=>$value){
+        array_push($fieldlist, $field);
+        array_push($valuelist, safeStringSQL($value));  //wraps integers as strings - mySQL will be fine
+    }
+    $sql = "insert into seriesarchive (". implode(",", $fieldlist) .") values(". implode(",", $valuelist) .")";
+    runQuery($sql);
+}
+
+
+function setMapsetCounts($mapsetid="all", $apiid = "all"){
+    runQuery("truncate temp;");
+    runQuery("SET SESSION group_concat_max_len = 4000;");
+    runQuery(
+        "insert into temp (id1, text1) select mapsetid, concat(group_concat(mapcount)) ".
+            " from (select mapsetid, concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
+            " where ".($mapsetid=="all" ?"mapsetid is not null":"mapsetid=".$mapsetid).
+            ($apiid=="all"?"":" and s.apiid=".$apiid).
+            " and map <>'worldx' group by mapsetid, map) mc group by mapsetid;");
+    runQuery("update mapsets ms join temp t on ms.mapsetid=t.id1 set ms.counts=t.text1;");
+    runQuery("truncate temp;");
+}
+function setPointsetCounts($pointsetid="all", $apiid = "all"){
+    runQuery("truncate temp;","setPointsetCounts");
+    runQuery("SET SESSION group_concat_max_len = 4000;");
+    runQuery("insert into temp (id1, text1) "
+        . " select pointsetid , concat(group_concat(mapcount)) "
+        . " from (".
+        " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
+        " FROM series s join mapgeographies mg on s.geoid=mg.geoid ".
+        " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        ($apiid=="all"?"":" and s.apiid=".$apiid).
+        " and map <>'worldx' ".
+        " group by pointsetid, map".
+        " UNION ".
+        " select pointsetid , concat('\"',map, '\":{\"set\":', count(s.geoid),'}') as mapcount ".
+        " FROM series s join maps m on s.geoid=m.bunny ".
+        " where ".($pointsetid=="all" ?"pointsetid is not null":"pointsetid =".$pointsetid).
+        " and map <>'worldx' ".
+        " group by pointsetid, map"
+        ." ) mc group by pointsetid;","setPointsetCounts");
+    runQuery("update pointsets ps join temp t on ps.pointsetid=t.id1 set ps.counts=t.text1;","setPointsetCounts");
+    //runQuery("truncate temp;");
+}
+function freqSets($apiid = "all"){
+    /*
+     * The looping is more complex then you would think necessary.  Unfortunately, mySql only matches the first is in the WHERE IN
+     *   clause.  This is actually reasonably efficient, running in under 2 minutes
+    */
+    if($apiid == "all"){
+        $apiFilter = "apiid is not null";
+    } else {
+        $apiFilter = "apiid = ".intval($apiid);
+    }
+    //updates the freqset field in series, mapsets, pointsets table after a crawl.  takes about 3 minutes of heavy mysql time
+    $truncate = "truncate temp";
+    $shift = "update temp set text1= mid(text1, instr(text1, ',') +1) ";
+    $reduce = "delete from temp where text1 not like '%,%'";
+
+    runQuery($truncate, "freqSets");
+//TODO:  this structure craps out for series = too intensive
+    //series
+    $makeSeriesFreqSets = "
+        insert into temp (id1, text1, text2) (SELECT min(seriesid), group_concat(seriesid SEPARATOR ',') as ids, group_concat(concat('\"', periodicity,'\":\"S', seriesid, '\"') SEPARATOR ',') as freqset
+        FROM series
+        WHERE $apiFilter
+        group by apiid, units, name
+        having count(*)>1)
+";
+    $updateSeries = "update series s, temp set s.freqset = temp.text2 where s.seriesid in (temp.text1)";
+    runQuery($makeSeriesFreqSets, "freqSets");
+    runQuery($updateSeries, "freqSets");
+    for($i=0;$i<5;$i++){
+        runQuery($shift, "freqSets");
+        runQuery($updateSeries, "freqSets");
+        runQuery($reduce, "freqSets");
+    }
+    runQuery($truncate, "freqSets");
+
+    //mapsets
+    $makeSeriesFreqSets = "
+        insert into temp (id1, text1, text2) (SELECT min(mapsetid), group_concat(mapsetid SEPARATOR ',') as ids, group_concat(concat('\"', periodicity,'\":\"M', mapsetid, '\"') SEPARATOR ',') as freqset
+        FROM mapsets
+        WHERE $apiFilter
+        group by apiid, units, name
+        having count(*)>1);
+";
+    $updateMapSets = "update mapsets m, temp set m.freqset = temp.text2 where m.mapsetid in ()temp.text1)";
+    runQuery($makeSeriesFreqSets, "freqSets");
+    runQuery($updateMapSets, "freqSets");
+    for($i=0;$i<5;$i++){
+        runQuery($shift, "freqSets");
+        runQuery($updateMapSets, "freqSets");
+        runQuery($reduce, "freqSets");
+    }
+    runQuery($truncate, "freqSets");
+
+    //pointsets
+    $makeSeriesFreqSets = "
+        insert into temp (id1, text1, text2) (SELECT min(pointsetid), group_concat(pointsetid SEPARATOR ',') as ids, group_concat(concat('\"', periodicity,'\":\"X', pointsetid, '\"') SEPARATOR ',') as freqset
+        FROM pointsets
+        WHERE $apiFilter
+        group by apiid, units, name
+        having count(*)>1);
+";
+    $updatePointSets = "update pointsets x, temp set x.freqset = temp.text2 where x.pointsetid in (temp.text1)";
+    runQuery($makeSeriesFreqSets, "freqSets");
+    runQuery($updatePointSets, "freqSets");
+    for($i=0;$i<5;$i++){
+        runQuery($shift, "freqSets");
+        runQuery($updatePointSets, "freqSets");
+        runQuery($reduce, "freqSets");
+    }
+    runQuery($truncate, "freqSets");
+    return array("status" => "ok");
+}
+
+
 function printNow($msg){ //print with added carriage return and flushes buffer so messages appears as there are created instead all at once after entire process completes
     print($msg . "<br />");
     ob_flush();

@@ -31,7 +31,12 @@ $sql = <<<EOS
 EOS;
 $result = runQuery($sql);
 $geographies = [];
-while($row=$result->fetch_assoc()) array_push($geographies, $row);
+while($row=$result->fetch_assoc()) {
+    $geographies["F".$row["fips"]] = [
+        "name"=>$row["name"],
+        "geoid"=>$row["geoid"]
+    ];
+}
 
 $themes = array(
     "Population"=>array(
@@ -106,6 +111,9 @@ $themes = array(
 
 $apiid = 8;
 $rootcatid = 692361;
+$status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
+$firstDate = strtotime("2000-1-1 UTC")*1000;
+$lastDate = strtotime("2010-1-1 UTC")*1000;
 
 //read the xml file and parse
 $fileArray = file("census.xml");
@@ -151,15 +159,15 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
             //get counties
             fetchData($data, "county", $key);
 
-            saveData(implode($sourceKeys,"+"), $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions);
 
             if(!$sumWithNext) {
+                saveData(implode($sourceKeys,"+"), $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions);
                 $data = array();
                 $sourceKeys = array();
             }
         }
     }
-
+    var_dump($status);
 }
 
 function fetchData(&$data, $location, $key){
@@ -197,7 +205,7 @@ function fetchData(&$data, $location, $key){
 }
 
 function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions){
-    global $apiid;
+    global $apiid, $geographies, $status, $firstDate, $lastDate;
     //1. get themeid, saving as needed
     $themeid = setThemeByName($apiid, $themeName);
     //2. get cubeid, saving the cube and its dimensions as needed
@@ -207,11 +215,30 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
     //4. get mapsetid and set_catid
     $setName = $themeName . (count($seriesDimensions)==0?"":" ".implode($seriesDimensions, " and "));
     $set_catid = setCategoryByName($apiid, $setName, $cube_catid);
-    printNow($cube["name"]." ".$units);
     $mapsetid = getMapSet($setName, $apiid, "A", $units);
     //5. loop through the dataset and save/update it
-    /*for($i=0;$i<count($data);$i++){
+    foreach($data as $locationCode=>$dataArray){
         //determine geoid and insert series, categoryseries
+        if(isset($geographies[$locationCode])){
+            $geoname = $geographies[$locationCode]["name"];
+            $geoid = $geographies[$locationCode]["geoid"];
+            $mdData = [];
+            for($j=0;$j<count($dataArray);$j++){
+                array_push($mdData, implode($dataArray[$j],"|"));
+            }
+            //printNow("$locationCode $geoname($geoid): $j");
 
-    }*/
+            $sid = updateSeries($status, "null", $sourceKey."-".substr($locationCode, 1), $setName." in ".$geoname,
+                "US Census Bureau","http://www.census.gov/developers/data/","A",
+                $units,"null","null",$setName,$apiid,"",
+                $firstDate,$lastDate,implode($mdData,"||"), $geoid, $mapsetid, null, null, null);
+            runQuery("insert ignore into categoryseries (catid, seriesid) values($set_catid, $sid)");
+        } else {
+            if(substr($locationCode,0,3)!="F72") printNow($locationCode);  //puerto rico
+            $status["failed"]++;
+        }
+    }
+    setMapsetCounts($mapsetid, $apiid);
+    printNow("processed set $setName ($units), part of the cube $themeName ". $cube["name"]);
+
 }
