@@ -6,6 +6,59 @@
             <variable name="P0130003" concept="P13. MEDIAN AGE BY SEX [3] (1 expressed decimal)">Female</variable>
         </concept>
     </theme>
+    <theme name="Hispanic population" units="persons">
+        <concept name="P12H. Sex By Age (Hispanic Or Latino) [49]">
+            <variable name="P012H001" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">People who are Hispanic or Latino</variable>
+            <variable name="P012H002" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male:</variable>
+            <variable name="P012H003" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! Under 5 years</variable>
+            <variable name="P012H004" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 5 to 9 years</variable>
+            <variable name="P012H005" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 10 to 14 years</variable>
+            <variable name="P012H006" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 15 to 17 years</variable>
+            <variable name="P012H007" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 18 and 19 years</variable>
+            <variable name="P012H008" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 20 years</variable>
+            <variable name="P012H009" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 21 years</variable>
+            <variable name="P012H010" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 22 to 24 years</variable>
+            <variable name="P012H011" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 25 to 29 years</variable>
+            <variable name="P012H012" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 30 to 34 years</variable>
+            <variable name="P012H013" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 35 to 39 years</variable>
+            <variable name="P012H014" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 40 to 44 years</variable>
+            <variable name="P012H015" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 45 to 49 years</variable>
+            <variable name="P012H016" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 50 to 54 years</variable>
+            <variable name="P012H017" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 55 to 59 years</variable>
+            <variable name="P012H018" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 60 and 61 years</variable>
+            <variable name="P012H019" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 62 to 64 years</variable>
+            <variable name="P012H020" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 65 and 66 years</variable>
+            <variable name="P012H021" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 67 to 69 years</variable>
+            <variable name="P012H022" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 70 to 74 years</variable>
+            <variable name="P012H023" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 75 to 79 years</variable>
+            <variable name="P012H024" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 80 to 84 years</variable>
+            <variable name="P012H025" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 85 years and over</variable>
+            <variable name="P012H026" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female:</variable>
+            <variable name="P012H027" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! Under 5 years</variable>
+            <variable name="P012H028" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 5 to 9 years</variable>
+            <variable name="P012H029" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 10 to 14 years</variable>
+            <variable name="P012H030" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 15 to 17 years</variable>
+            <variable name="P012H031" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 18 and 19 years</variable>
+            <variable name="P012H032" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 20 years</variable>
+            <variable name="P012H033" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 21 years</variable>
+            <variable name="P012H034" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 22 to 24 years</variable>
+            <variable name="P012H035" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 25 to 29 years</variable>
+            <variable name="P012H036" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 30 to 34 years</variable>
+            <variable name="P012H037" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 35 to 39 years</variable>
+            <variable name="P012H038" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 40 to 44 years</variable>
+            <variable name="P012H039" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 45 to 49 years</variable>
+            <variable name="P012H040" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 50 to 54 years</variable>
+            <variable name="P012H041" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 55 to 59 years</variable>
+            <variable name="P012H042" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 60 and 61 years</variable>
+            <variable name="P012H043" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 62 to 64 years</variable>
+            <variable name="P012H044" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 65 and 66 years</variable>
+            <variable name="P012H045" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 67 to 69 years</variable>
+            <variable name="P012H046" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 70 to 74 years</variable>
+            <variable name="P012H047" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 75 to 79 years</variable>
+            <variable name="P012H048" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 80 to 84 years</variable>
+            <variable name="P012H049" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 85 years and over</variable>
+        </concept>
+    </theme>
     <theme name="Population" units="persons">
         <concept name="P12. Sex By Age [49]">
             <variable name="P0120001" concept="P12. Sex By Age [49]">Total population</variable>
@@ -418,57 +471,6 @@
             <variable name="P012G047" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 75 to 79 years</variable>
             <variable name="P012G048" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 80 to 84 years</variable>
             <variable name="P012G049" concept="P12G. Sex By Age (Two Or More Races) [49]">Female: !! 85 years and over</variable>
-        </concept>
-        <concept name="P12H. Sex By Age (Hispanic Or Latino) [49]">
-            <variable name="P012H001" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">People who are Hispanic or Latino</variable>
-            <variable name="P012H002" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male:</variable>
-            <variable name="P012H003" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! Under 5 years</variable>
-            <variable name="P012H004" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 5 to 9 years</variable>
-            <variable name="P012H005" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 10 to 14 years</variable>
-            <variable name="P012H006" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 15 to 17 years</variable>
-            <variable name="P012H007" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 18 and 19 years</variable>
-            <variable name="P012H008" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 20 years</variable>
-            <variable name="P012H009" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 21 years</variable>
-            <variable name="P012H010" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 22 to 24 years</variable>
-            <variable name="P012H011" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 25 to 29 years</variable>
-            <variable name="P012H012" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 30 to 34 years</variable>
-            <variable name="P012H013" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 35 to 39 years</variable>
-            <variable name="P012H014" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 40 to 44 years</variable>
-            <variable name="P012H015" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 45 to 49 years</variable>
-            <variable name="P012H016" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 50 to 54 years</variable>
-            <variable name="P012H017" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 55 to 59 years</variable>
-            <variable name="P012H018" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 60 and 61 years</variable>
-            <variable name="P012H019" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 62 to 64 years</variable>
-            <variable name="P012H020" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 65 and 66 years</variable>
-            <variable name="P012H021" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 67 to 69 years</variable>
-            <variable name="P012H022" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 70 to 74 years</variable>
-            <variable name="P012H023" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 75 to 79 years</variable>
-            <variable name="P012H024" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 80 to 84 years</variable>
-            <variable name="P012H025" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Male: !! 85 years and over</variable>
-            <variable name="P012H026" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female:</variable>
-            <variable name="P012H027" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! Under 5 years</variable>
-            <variable name="P012H028" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 5 to 9 years</variable>
-            <variable name="P012H029" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 10 to 14 years</variable>
-            <variable name="P012H030" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 15 to 17 years</variable>
-            <variable name="P012H031" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 18 and 19 years</variable>
-            <variable name="P012H032" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 20 years</variable>
-            <variable name="P012H033" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 21 years</variable>
-            <variable name="P012H034" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 22 to 24 years</variable>
-            <variable name="P012H035" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 25 to 29 years</variable>
-            <variable name="P012H036" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 30 to 34 years</variable>
-            <variable name="P012H037" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 35 to 39 years</variable>
-            <variable name="P012H038" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 40 to 44 years</variable>
-            <variable name="P012H039" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 45 to 49 years</variable>
-            <variable name="P012H040" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 50 to 54 years</variable>
-            <variable name="P012H041" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 55 to 59 years</variable>
-            <variable name="P012H042" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 60 and 61 years</variable>
-            <variable name="P012H043" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 62 to 64 years</variable>
-            <variable name="P012H044" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 65 and 66 years</variable>
-            <variable name="P012H045" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 67 to 69 years</variable>
-            <variable name="P012H046" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 70 to 74 years</variable>
-            <variable name="P012H047" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 75 to 79 years</variable>
-            <variable name="P012H048" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 80 to 84 years</variable>
-            <variable name="P012H049" concept="P12H. Sex By Age (Hispanic Or Latino) [49]">Female: !! 85 years and over</variable>
         </concept>
     </theme>
 </census>

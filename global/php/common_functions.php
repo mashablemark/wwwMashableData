@@ -332,7 +332,7 @@ function setCubeByDimensions($themeid, $cubeDimensions){
 }
 
 
-function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon){ //inserts or archive & update a series as needed.  Returns seriesid.
+function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon, $cubeid=null){ //inserts or archive & update a series as needed.  Returns seriesid.
     global $db;
     $sql = "select * from series where skey = " . safeStringSQL($key) . " and apiid=" . $apiid;
     $result = runQuery($sql);
@@ -371,6 +371,7 @@ function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units
             if($geoid != null && is_numeric ($geoid)) $sql .= ", geoid=".$geoid;
             if($mapsetid != null  && is_numeric ($mapsetid)) $sql .= ", mapsetid=".$mapsetid;
             if($pointsetid != null && is_numeric ($pointsetid)) $sql .= ", pointsetid=".$pointsetid;
+            if($cubeid != null && is_numeric ($cubeid)) $sql .= ", cubeid=".$cubeid;
             if($lat != null && is_numeric ($lat)) $sql .= ", lat=".$lat;
             if($lon != null && is_numeric ($lon)) $sql .= ", lon=".$lon;
             $sql .= " where seriesid=".$series["seriesid"];
@@ -390,8 +391,8 @@ function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units
         }
         return $series["seriesid"];
     } elseif($result->num_rows==0) {
-        $sql = "insert into series (skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
-            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($period).",".safeStringSQL($title).",".safeStringSQL($url).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
+        $sql = "insert into series (skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, cubeid, lat, lon) "
+            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($period).",".safeStringSQL($title).",".safeStringSQL($url).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",". ($cubeid===null?"null":$cubeid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
         $queryStatus = runQuery($sql);
         if($queryStatus ){
             $status["added"]++;

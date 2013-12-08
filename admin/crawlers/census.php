@@ -39,6 +39,48 @@ while($row=$result->fetch_assoc()) {
 }
 
 $themes = array(
+    "Hispanic population"=>[
+        "name"=>"Hispanic population",
+        "variables"=>array(
+            array(
+                "dimension"=>"sex",
+                "location"=>"variable",
+                "list"=>array(
+                    array("pattern"=>"Male", "color"=>"lightblue"),
+                    array("pattern"=>"Female", "color"=>"pink")
+                )
+            ),
+            array(
+                "dimension"=>"age",
+                "location"=>"variable",
+                "list"=>array(
+                    array("pattern"=>"Under 5 years"),
+                    array("pattern"=>"5 to 9 years"),
+                    array("pattern"=>"10 to 14 years"),
+                    array("pattern"=>"15 to 17 years", "sumWithNext"=>true),
+                    array("pattern"=>"18 and 19 years", "translation"=>"15 to 19 years"),
+                    array("pattern"=>"20 years", "sumWithNext"=>true),
+                    array("pattern"=>"21 years", "sumWithNext"=>true),
+                    array("pattern"=>"22 to 24 years", "translation"=>"20 to 24 years"),
+                    array("pattern"=>"25 to 29 years"),
+                    array("pattern"=>"30 to 34 years"),
+                    array("pattern"=>"35 to 39 years"),
+                    array("pattern"=>"40 to 44 years"),
+                    array("pattern"=>"45 to 49 years"),
+                    array("pattern"=>"50 to 54 years"),
+                    array("pattern"=>"55 to 59 years"),
+                    array("pattern"=>"60 and 61 years", "sumWithNext"=>true),
+                    array("pattern"=>"62 to 64 years", "translation"=>"60 to 64 years"),
+                    array("pattern"=>"65 and 66 years", "sumWithNext"=>true),
+                    array("pattern"=>"67 to 69 years", "translation"=>"65 to 69 years"),
+                    array("pattern"=>"70 to 74 years"),
+                    array("pattern"=>"75 to 79 years"),
+                    array("pattern"=>"80 to 84 years"),
+                    array("pattern"=>"85 years and over")
+                )
+            )
+        )
+    ],
     "Population"=>array(
         "name"=>"Population",
         "variables"=>array(
@@ -83,8 +125,8 @@ $themes = array(
                 "dimension"=>"race",
                 "location"=>"concept",
                 "list"=>array(
-                    array("pattern"=>"white", "color"=>"white"),
-                    array("pattern"=>"black", "color"=>"black"),
+                    array("pattern"=>"White", "color"=>"white"),
+                    array("pattern"=>"Black", "color"=>"black"),
                     array("pattern"=>"Asian", "color"=>"yellow"),
                     array("pattern"=>"American Indian And Alaska Native", "color"=>"red", "translation"=>"native American"),
                     array("pattern"=>"Pacific Islander", "color"=>"brown"),
@@ -154,11 +196,11 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
                     }
                 }
             }
+
             //get states
             fetchData($data, "state", $key);
             //get counties
             fetchData($data, "county", $key);
-
 
             if(!$sumWithNext) {
                 saveData(implode($sourceKeys,"+"), $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions);
@@ -230,8 +272,9 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
 
             $sid = updateSeries($status, "null", $sourceKey."-".substr($locationCode, 1), $setName." in ".$geoname,
                 "US Census Bureau","http://www.census.gov/developers/data/","A",
-                $units,"null","null",$setName,$apiid,"",
-                $firstDate,$lastDate,implode($mdData,"||"), $geoid, $mapsetid, null, null, null);
+                $units,"null","null",$setName,
+                $apiid, "",
+                $firstDate,$lastDate,implode($mdData,"||"), $geoid, $mapsetid, null, null, null, $cube["id"]);
             runQuery("insert ignore into categoryseries (catid, seriesid) values($set_catid, $sid)");
         } else {
             if(substr($locationCode,0,3)!="F72") printNow($locationCode);  //puerto rico
@@ -239,6 +282,6 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
         }
     }
     setMapsetCounts($mapsetid, $apiid);
-    printNow("processed set $setName ($units), part of the cube $themeName ". $cube["name"]);
+    printNow(date("Y-m-d H:i:s") .": processed set $setName ($units), part of the cube $themeName ". $cube["name"]);
 
 }
