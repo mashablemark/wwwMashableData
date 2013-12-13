@@ -585,7 +585,7 @@ function emptyGraph(){
 }
 function makeChartOptionsObject(oGraph){
     console.time('makeChartOptionsObject');
-    var i, j, dt, allX = {};
+    var i, j, dt, allX = {}, xVals = {};
     var	jschart = {
         chart:
         {
@@ -675,6 +675,7 @@ function makeChartOptionsObject(oGraph){
             }
         }
     }
+    //find and create any mathematical days per interval series
     eachComponent(oGraph, function(i, plot){
         var asset = oGraph.assets[this.handle];
         if(asset.src == 'MashableData'){
@@ -760,6 +761,13 @@ function makeChartOptionsObject(oGraph){
         jschart.series.push(oDataSeries);
         lineIndex++
     }
+
+    // additional series object process for specialty charts
+    for(var key in allX){
+        jschart.chart.x.push(Number(key));
+    }
+    jschart.chart.x.sort(function(a,b){return parseInt(a)-parseInt(b)});
+
     //these scatter plot series are used to show annotations
     for(i=0;i<jschart.yAxis.length;i++){
         jschart.series.push({
@@ -807,7 +815,7 @@ function makeChartOptionsObject(oGraph){
         case "auto":
             if(oGraph.smallestPeriod!=oGraph.largestPeriod ){
                 for(i=0;i<jschart.series.length;i++){
-                    if(oGraph.largestPeriod == jschart.series[i].period){  //only convert the largest to column (ie. if monthly + quarterly + annual, only annual data become columns) or very short series
+                    if(oGraph.largestPeriod == jschart.series[i].period){  //convert the largest periods to column if multi-frequency (ie. if monthly + quarterly + annual, only annual data become columns) or very short series
                         jschart.series[i].type = 'column';
                         jschart.series[i].zIndex = 8;
                         jschart.series[i].pointRange = period.value[jschart.series[i].period];
@@ -828,10 +836,10 @@ function makeChartOptionsObject(oGraph){
                         maxCount = Math.max(maxCount, onscreenCount);
                     }
                 }
-                if(maxCount<=5) jschart.chart.type = 'column';
-                /*{
-                 for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column';
-                 }*/
+                if(maxCount<=5) {
+                    jschart.chart.type = 'column';
+                    for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column'  //TODO use categories
+                }
             }
             break;
         case "logarithmic":
@@ -880,11 +888,7 @@ function makeChartOptionsObject(oGraph){
 
             jschart.yAxis = [{title:{text: 'Normalized to 1'}}];
     }
-    // additional series object process for specialty charts
-    for(var key in allX){
-        jschart.chart.x.push(Number(key));
-    }
-    jschart.chart.x.sort(function(a,b){return parseInt(a)-parseInt(b)});
+
     console.timeEnd('makeChartOptionsObject');
     return jschart
 }
@@ -2150,6 +2154,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<span class="right"><label><input type="checkbox" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
             '<span class="right"><label><input type="checkbox" class="map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
             '</div>' +
+            '<div class="cube-viz" style="width: 28%;height: 93%;display: none;position: absolute;top: 0;right: 10px;border: thin black solid;margin: 10px;"></div>' +
             '</div>' +
             '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
             '</div>' +
@@ -2488,10 +2493,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         delete oGraph.assets;
         var calculatedMapData = oGraph.calculatedMapData;
         delete oGraph.calculatedMapData;
+        delete oGraph.assets;
+        var controls = oGraph.controls;
+        delete oGraph.controls;
         var newGraph = $.extend(true, {}, oGraph);
         oGraph.assets = assets;
         newGraph.assets = {};
         oGraph.calculatedMapData = calculatedMapData;
+        oGraph.controls = controls;
         //2. set new map
         newGraph.map = $(this).val();
         newGraph.mapFile = mapsList[$(this).val()].jvectormap;
@@ -2704,6 +2713,13 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
             if($map) $map.remove();
+            if(oGraph.mapconfig.cubeid){
+                $thisPanel.find('.cube-viz').css('display', 'inline-block');
+                $thisPanel.find('.container.map-controls').css('width', '70%');
+            } else {
+                $thisPanel.find('.cube-viz').hide();
+                $thisPanel.find('.container.map-controls').removeAttr("style");
+            }
             calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
             calcAttributes(oGraph);
             if(isBubble()) bubbleCalc();
@@ -2817,6 +2833,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                 },
                 onRegionSelected: function(e, code, isSelected){
+                    cubeVizFromMap();
                     setMergablity();
                     var selectedMarkers = $map.getSelectedMarkers();
                     if(selectedMarkers.length>0){
@@ -2895,12 +2912,33 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             id: 'timeLine'
                         })
                     }
-                    $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
-                    if(oGraph.mapconfig.showList) {
-                        makeList($map);
-                    }
+                    cubeVizFromMap();
                 }
             }).slider("value", calculatedMapData.endDateIndex);
+            function cubeVizFromMap(){
+                if(oGraph.mapconfig.cubeid) {
+                    var geoKey = null;
+                    //is a (last) region selected
+                    var selectedRegions = $map.getSelectedRegions();
+                    if(selectedRegions.length>0){
+                        geoKey = selectedRegions[selectedRegions.length-1]
+                    } else { //how about a marker
+                        var selectedMarkers = $map.getSelectedMarkers();
+                        if(selectedMarkers.length>0){
+                            geoKey = selectedMarkers[selectedMarkers.length-1]
+                        } else {
+                            geoKey = mapsList[oGraph.map].bunny
+                        }
+                    }
+
+                    vizualizeCube(oGraph, geoKey, calculatedMapData.regionData,calculatedMapData.dates[val].s);
+                }
+                $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
+                if(oGraph.mapconfig.showList) {
+                    makeList($map);
+                }
+            }
+            cubeVizFromMap();
 
             $thisPanel.find('.map-graph-selected').button({icons:{secondary: 'ui-icon-image'}}).off()
                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
@@ -3920,4 +3958,193 @@ function formatRationalize(value){
     var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
     var y  = Math.round(value / Math.pow(10,order-2)) * Math.pow(10,order-2);
     return Highcharts.numberFormat(y, (order>1?0:2-order))
+}
+function vizualizeCube(graph, geoKey, mapDate){
+    var serie, i, j, k, cubeid = graph.mapconfig.cubeid;
+    if(!graph.assets.cube) graph.assets.cube = {data: {}};
+    var cube = graph.assets.cube;
+    if(!cube['G'+geoKey]){
+        callApi(
+            {command:"GetCubeSeries", cubeid: cubeid, geokey: geoKey, modal:'none'},  //geoKey can be a "lat,lon" or the jVectorMaps code (requiring a lookup) or a geoid
+            function(jsoData, textStatus, jqXHR){
+                cube['G'+geoKey] = {series: jsoData.series};
+                cube.dimensions = jsoData.dimensions;
+                cube.theme = jsoData.themename;
+                cube.name = jsoData.cubename;
+                makeCubeChart();
+            }
+        );
+    } else {
+        makeCubeChart();
+    }
+    function makeCubeChart(){
+        //1. detect order
+        var dimensions = cube.dimensions;
+        var n = dimensions.length;
+
+        //2. find geoName from assets geoKey
+        var geoName = null;
+        eachComponent(graph, function(){
+            if(geoName == null && (this.handle[0]=='M' || this.handle[0]=='X')){
+                var asset = graph.assets[this.handle];
+                for(var key in asset.data){
+                    if(key==geoKey){ //pointset
+                        geoName = asset.data[key].name;
+                        break;
+                    }
+                    if(asset.data[key].geoid==geoKey){  //mapset
+                        geoName = asset.data[key].geoname;
+                        break;
+                    }
+                }
+            }
+        });
+
+        //if not already organized...
+        //organize into nested arrays of facets (= unique combo of dims) which will be used to organize the series and to create the chart object
+        var cubeData = cube['G'+geoKey];
+        if(cubeData.series){
+            var cubeSeries = cubeData.series;
+            cubeData.facetedData = [];
+            function makeFacetedData(d, facetArray, facetsItem){
+                for(var i=0;i<dimensions[d].list.length;i++){
+                    if(d==n-1){
+                        var newFactetsItem = facetsItem.slice()
+                        newFactetsItem.push(dimensions[d].list[i]);
+                        facetArray.push(
+                            {
+                                dims: newFactetsItem,
+                                data: getCubeSeries(newFactetsItem)
+                            }
+                        );
+
+                    } else {
+                        var facetSubArray = [];
+                        facetArray.push(facetSubArray);
+                        var newFactetsItem = facetsItem.slice();
+                        newFactetsItem.push(dimensions[d].list[i]);
+                        makeFacetedData(d+1, facetSubArray, newFactetsItem);
+                    }
+                }
+                function getCubeSeries(facets){
+                    for(var s=0;s<cubeSeries.length;s++){
+                        var match = true;
+                        var serie = cubeSeries[s];
+                        for(var d=0;d<n;d++){
+                            if(serie.name.indexOf(facets[i][d].pattern)===-1){
+                                break;
+                                match = false;
+                            }
+                            if(match){
+                                cubeSeries.splice(s,1);
+                                return serie.data;
+                            }
+                        }
+                    }
+                    return null;
+                }
+            }
+            makeFacetedData(0, cubeData.facetedData, []); //fills cubeFacets
+            delete cube.series;
+        }
+
+        //3. make chart base chart object
+        var vizChart = {
+            chart: {
+                type: 'bar'
+            },
+            plotOptions: {
+                bar: {
+                    dataLabels: {
+                        enabled: true
+                    }
+                }
+            },
+            xAxis: {
+                categories: [],
+                title: {
+                    text: null
+                }
+            },
+            title: {
+                text: graph.mapconfig.cubename||'' + ' for ' + geoName
+            },
+            subtitle: {
+                text: 'click on map to select location'
+            },
+            series: []
+        };
+        function seriesValue(mdData,mdDate){
+            var point, data = mdData.split('||');
+            for(var i=0;i<data.length;i++){
+                point = data[i].split('|');
+                if(point[0]==mdDate) return point[1];
+            }
+        }
+        facetedData = cubeData.facetedData;
+        //4. switch on dimension order n for 3 different routines:  fill chart objects series from faceted
+        switch(n){
+            case 1:
+                var barData = [];
+                for(var i=0;i<dimensions[0].list.length;i++){
+                    var point = {y: dimensions[0].list[i].pattern};
+                    if(dimensions[0].list[i].pattern.color) point.color = dimensions[0].list[i].pattern.color;
+                    vizChart.xAxis.categories.push(point);
+                    barData.push(seriesValue(mapDate, facetedData[i]));
+                }
+                vizChart.legend = {enabled: false};
+                vizChart.series.push({data: barData});
+                break;
+            case 2:
+                for(var i=0;i<dimensions[1].list.length;i++){
+                    var barData = [];
+                    for(var j=0;j<dimensions[0].list.length;j++){
+                        barData.push(seriesValue(mapDate, facetedData[i][j]));
+                    }
+                    vizChart.xAxis.categories.push(dimensions[1].list[i].pattern);
+                    serie = {
+                        name: dimensions[1].list[j].pattern,
+                        data: barData
+                    };
+                    if(dimensions[1].list[j].pattern.color) serie.color = dimensions[1].list[j].pattern.color;
+                    vizChart.series.push(serie);
+                }
+                break;
+            case 3:  //only 3-cube is sex x race x age
+                for(var i=0;i<dimensions[2].list.length;i++){
+                    for(var j=0;j<dimensions[1].list.length;j++){
+                        var barData = [];
+                        for(var k=0;k<dimensions[0].list.length;k++){
+                            vizChart.xAxis.categories.push(dimensions[0].list[i].pattern);
+                            barData.push(seriesValue(mapDate, (i==0?-1:1)*facetedData[i][j][k]));
+                        }
+                        serie = {
+                            name: dimensions[1].list[j].pattern,
+                            data: barData
+                        };
+                        if(dimensions[1].list[j].pattern.color) serie.color = dimensions[1].list[j].pattern.color;
+                        vizChart.series.push(serie);
+                    }
+                }
+                vizChart.tooltip = {
+                    formatter: function(){
+                        return '<b>'+ this.series.name +', age '+ this.point.category +'</b><br/>'+
+                            'Population: '+ Highcharts.numberFormat(Math.abs(this.point.y), 0);
+                        }
+                    };
+                break;
+        }
+        if(graph.controls.vizChart) graph.controls.vizChart.destroy();
+        graph.controls.vizChart = new Highcharts.Chart(vizChart);
+    }
+}
+
+function seriesValue(mdData, mapDate){
+    var point, data = mdData.split('||');
+    for(var i=0;i<data.length;i++){
+        point = data[i].split('|');
+        mdDate = dateFromMdDate(point[0]);
+        if(mdDate.getTime() == mapDate.getTime()) return point[1]
+    }
+    return null
 }

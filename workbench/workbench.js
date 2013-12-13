@@ -19,8 +19,9 @@ var templates = {
 
 graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/colour/Colour.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
 var iconsHMTL= {
-    mapset: '<span class="ui-icon ui-icon-mapset" title="This series is part of a map set"></span>',
-    pointset: '<span class="ui-icon ui-icon-pointset" title="This series is part of a set of markers (defined longitude and latitude)"></span>',
+    mapset: '<span class="ui-icon ui-icon-mapset" title="series is part of a map set"></span>',
+    pointset: '<span class="ui-icon ui-icon-pointset" title="series is part of a set of markers (defined longitude and latitude)"></span>',
+    hasCubeViz: '<span class="ui-icon ui-icon-cube" title="map has supplemental visualizations"></span>',
     hasHeatMap: '<span class="ui-icon ui-icon-mapset" title="contains a heat-map"></span>',
     hasMarkerMap: '<span class="ui-icon ui-icon-pointset" title="contains sets of mapped markers (defined longitude and latitude)."></span>',
     hasBubbleMap: '<span class="ui-icon ui-icon-bubble" title="bubble map of data aggregated into user-defined regions"></span>'
@@ -71,7 +72,8 @@ var layoutDimensions= {
 
     }
 };
-var MY_SERIES_DATE = 9;  //important column indexes used for ordering
+var themeCubes = {}; //stores {cubes: [{cubeid, name}...] under T+themeid key to eliminate repretative calls
+var MY_SERIES_DATE = 7;  //important column indexes used for ordering
 var nonWhitePattern = /\S/;  //handy pattern to check for non-whitespace
 //Datatable variables set after onReady calls to... , setupMySeriesTable, setupMySeriesTable, and setupMySeriesTable,
 var dtMySeries; //...setupMySeriesTable
@@ -518,6 +520,7 @@ function setupMySeriesTable(){
                     "mRender": function(value, type, obj){
                         return ((obj.mapsetid)?iconsHMTL.mapset:'')
                             + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                            + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                             + value
                             + '<span class="handle">' + obj.handle + '</span>';
                     }
@@ -538,7 +541,7 @@ function setupMySeriesTable(){
                         }
                     }
                 },
-                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'],  "sWidth": colWidths.shortDate + "px", "resize": false,
+                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'], sType: "date",  "sWidth": colWidths.shortDate + "px", "resize": false,
                     "mRender": function(value, type, obj){ return timeOrDate(value)}
                 }
             ]
@@ -619,6 +622,7 @@ function setupPublicSeriesTable(){
                 "mRender": function(value, type, obj){
                     return ((obj.mapsetid)?iconsHMTL.mapset:'')
                         + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                        + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(value)
                         + '<span class="handle">' + (obj.userid?'U':'S') + obj.seriesid + '</span>';
                 }},
@@ -672,14 +676,17 @@ function setupMyGraphsTable(){
         "oColReorder": {"iFixedColumns": 2},
         "sScrollY": (layoutDimensions.heights.innerDataTable-120) + "px",
         "sScrollX": layoutDimensions.widths.myGraphsTable.table + "px",
-        "aaSorting": [[9,'desc']],
+        "aaSorting": [[5,'desc']],
         "aoColumns": [
             {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap title", "sWidth": layoutDimensions.widths.myGraphsTable.columns.title+"px",
                 "mRender": function(value, type, obj){return value + '<span class="handle" data="G' + obj.gid + '">G' + obj.gid + '</span> '}
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
-                    return (obj.mapsets?(obj.mapsets.options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'') + (obj.pointsets?iconsHMTL.hasMarkerMap:'') + spanWithTitle(value)
+                    return (obj.mapsets?(obj.mapsets.options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
+                        + (obj.pointsets?iconsHMTL.hasMarkerMap:'')
+                        + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
+                        + spanWithTitle(value)
                 }
             },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
@@ -693,7 +700,7 @@ function setupMyGraphsTable(){
                     }
                 }
             },
-            {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
+            {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], sType: "date","sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
@@ -756,7 +763,12 @@ function setupPublicGraphsTable(){
             {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'title',  "sWidth":  layoutDimensions.widths.publicGraphTable.columns.title + 'px',
                 "mRender": function(value, type, obj){return value + '<span class="handle">G'+obj.graphid+'</span>';}
             },
-            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){
+                return (obj.mapsets?iconsHMTL.hasHeatMap:'')
+                    + (obj.pointsets?iconsHMTL.hasMarkerMap:'')
+                    + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
+                    + spanWithTitle(value);
+            }},
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  layoutDimensions.widths.publicGraphTable.columns.analysis + 'px'},
             {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": layoutDimensions.widths.publicGraphTable.columns.series + 'px'},
             {"mData":"views", "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'count', "sWidth": colWidths.views + 'px'},
@@ -1331,24 +1343,53 @@ function quickViewToMap(){
             }
         }
     }
+    if(serie.themeid){
+        if(themeCubes['T'+serie.themeid]) {
+            selectCube(serie.themeid);
+        } else {
+            callApi({command: "GetCubeList", themeid: serie.themeid}, function(jsoData, textStatus, jqXH){
+                themeCubes['T'+jsoData.themeid] = {cubes: jsoData.cubes, name: jsoData.themname};
+                selectCube(serie.themeid);
+            });
+        }
+    } else makeGraphAfterFetches();
 
-    getAssets(oGraph, function(){
-        require(['js/maps/' + oGraph.mapFile + '.js'],function(){
-            if(oGraph.title===null || oGraph.title==''){
-                oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets):plotName(oGraph, oGraph.pointsets[0]);
-            }
-            if(panelId=="new"){
-                buildGraphPanel(oGraph);
-            } else {
-                $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                oGraph.controls.redraw();
-            }
-            mask('drawing');
-            setPanelHash();
-        });
-        hideGraphEditor();
-    });
     quickViewClose();
+
+    function selectCube(themeid){
+        var theme = themeCubes['T'+themeid];
+        var html = '<div id="select-cube" style="width:330px;">'
+            + '<h4>Map linked visualization available</h4>'
+            + '<p>This series is part of a '+theme.name+'structure set that supports the following facetted vizualizations, which will be linked to the user\'s map clicks.</p><p>Please choose one.</p>'
+            + '<select class="cubeSelector" size="'+theme.cubes.length+'">';
+        for(var c=0;c<theme.cubes.length;c++){
+            html += '<option value="'+theme.cubes[c].cubeid+'">'+theme.cubes[c].name+'</option>';
+        }
+        html += '</select></label><br><br>'
+            + '<button class="right" id="vizSetOk">OK</button> <button class="right" id="noViz">no linked visualization</button>'
+            + '</div>';
+        $.fancybox(html,
+            {
+                showCloseButton: false,
+                autoScale: true,
+                overlayOpacity: 0.5,
+                hideOnOverlayClick: false
+            });
+        var $panel = $('#select-cube');
+        $('#vizSetOk').button({icons: {secondary: 'ui-icon-cube'}}).click(function(){
+            var cubeid = $panel.find('.cubeSelector').val();
+            oGraph.mapconfig.cubeid = cubeid;
+            close();
+        });
+        $('#noViz').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
+            close();
+        });
+        function close(){
+            $.fancybox.close();
+            makeGraphAfterFetches();
+        }
+
+    }
     function hasMapset(mapsetid){
         if(oGraph.mapsets){
             for(var c=0;c<oGraph.mapsets.components.length;c++){
@@ -1366,6 +1407,24 @@ function quickViewToMap(){
             }
         }
         return false;
+    }
+    function makeGraphAfterFetches(){
+        getAssets(oGraph, function(){
+            require(['js/maps/' + oGraph.mapFile + '.js'],function(){
+                if(oGraph.title===null || oGraph.title==''){
+                    oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets):plotName(oGraph, oGraph.pointsets[0]);
+                }
+                if(panelId=="new"){
+                    buildGraphPanel(oGraph);
+                } else {
+                    $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
+                    oGraph.controls.redraw();
+                }
+                mask('drawing');
+                setPanelHash();
+            });
+            hideGraphEditor();
+        });
     }
 }
 function quickViewClose(){

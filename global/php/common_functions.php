@@ -289,6 +289,8 @@ function setThemeByName($apiid, $themeName){
 }
 
 function setCubeByDimensions($themeid, $cubeDimensions){
+    //save teh cube and its dimensions if DNE
+    //return an assc array with cube name and id
     global $db;
     $names = [];
     for($i=0;$i<count($cubeDimensions);$i++){
@@ -313,7 +315,7 @@ function setCubeByDimensions($themeid, $cubeDimensions){
             $list = [];
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 $item = $cubeDimensions[$i]["list"][$j];
-                if(isset($item["sumWithNext"])){
+                if(!isset($item["sumWithNext"])){
                     array_push($list,
                         [
                             "name"=>isset($item["translation"])?$item["translation"]:$item["pattern"],

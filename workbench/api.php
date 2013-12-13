@@ -107,7 +107,7 @@ switch($command){
 
         $aColumns=array("s.seriesid", "name", "units", "periodicity", "title", "url", "firstdt", "lastdt", "updated");
 
-        $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, name, units, periodicity as period, title, src, url, "
+        $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, themeid, name, units, periodicity as period, title, src, url, "
         . " firstdt, lastdt, apiid"
         . " FROM series s ";
 
@@ -225,13 +225,15 @@ switch($command){
         $sql = "SELECT g.graphid, g.title, map, text as analysis, serieslist, ghash, views, "
        //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
        . " ifnull(updatedt, createdt) as modified "
-       //. ", count(gpm.type) as mapsets, count(gpx.type) as pointsets "
-       . " FROM graphs g " //left outer join graphplots gpm on g.graphid=gpm.graphid left outer join graphplots gpx on g.graphid=gpx.graphid "
-       . " WHERE published='Y' "; // and (gpm.type='M' or gpm.type is null) and (gpx.type='X' or gpx.type is null) ";
+       . ", mapsets, pointsets "
+       . " FROM graphs g "
+       . " left outer join (select graphid, count(type) as mapsets from graphplots where  type='M' group by graphid) gpm on g.graphid=gpm.graphid "
+       . " left outer join (select graphid, count(type) as pointsets from graphplots where type='X' group by graphid) gpx on g.graphid=gpx.graphid "
+       . " WHERE published='Y' ";
         if($search!='+ +'){
             $sql .= "   and  match(g.title, g.text, g.serieslist, g.map) against ('" . $search . "' IN BOOLEAN MODE) ";
         }
-        //$sql .= " group by graphid, g.title, g.map, g.text, g.serieslist, views, ifnull(g.updatedt , g.createdt) ";
+        $sql .= " group by graphid, g.title, g.map, g.text, g.serieslist, ghash, views, ifnull(g.updatedt , g.createdt) ";
 /*        if($periodicity != "all") {
             $sql = $sql . " and periodicity='" . $periodicity . "'";
         }
@@ -400,6 +402,47 @@ switch($command){
             array_push($output["geographies"], $row);
         }
         break;
+    case "GetCubeList":
+        if(!isset($_POST["themeid"]) && !isset($_POST["cubeid"])){
+            $output = ["status"=>"must provide  valid cube or theme id"];
+        } else {
+            $cubeid = isset($_POST["cubeid"])?intval($_POST["cubeid"]):0;
+            $themeid = isset($_POST["themeid"])?intval($_POST["themeid"]):0;
+            $output = ["status"=>"ok", "cubes"=>[]];
+
+            $sql = "select t.themeid, t.name as themename, c.cubeid, c.name from cubes c inner join themes t on t.themeid=c.themeid where c.cubeid=$cubeid or c.themeid=$themeid";
+            $result = runQuery($sql,"GetCubeList");
+            while($row = $result->fetch_assoc()){
+                $output["themeid"] = $row["themeid"];
+                $output["themename"] = $row["themename"];
+                array_push($output["cubes"], ["cubeid"=>$row["cubeid"], "name"=>$row["name"]]);
+            }
+        }
+        break;
+    case "GetCubeSeries":
+        if(!isset($_POST["geokey"]) || !isset($_POST["cubeid"])){
+            $output = ["status"=>"invalid cube id or geography"];
+        } else {
+            $cubeid = intval($_POST["cubeid"]);
+            $geokey = $_POST["geokey"];
+            $output = ["status"=>"ok", "cubeid"=>$cubeid, "geokey"=>$geokey];
+            //todo:  check for latlon geokey and geoid geokey. For now, aussume jvectormap code
+            if(is_numeric($geokey)){
+                $geoid = $geokey;
+            } else {
+                $sql = "select geoid from geographies where jvectormap=".safeStringSQL($geokey);
+                $result = runQuery($sql);
+                if($result->num_rows==1){
+                    $row = $result->fetch_assoc();
+                    $geoid = $row["geoid"];
+                } else {
+                    $output = ["status"=>"invalid geography key"];
+                    break;
+                }
+            }
+            getCubeSeries($output, $cubeid, $geoid);
+        }
+        break;
     case "ChangeMaps":
         $sql = "select g1.regexes as regex, g2.name as replacement from geographies g1, geographies g2 "
         ." where g1.geoid=".intval($_POST["fromgeoid"])." and g2.geoid=".intval($_POST["togeoid"]);
@@ -407,23 +450,20 @@ switch($command){
         $output = $result->fetch_assoc();
         $output["status"] = "ok";
         $output["bunnies"] = array();
-        $bunnies = $_POST["bunnies"];
-        if(isset($bunnies )){
-            foreach($bunnies as $bunny=>$set){
-                $sid = substr($bunny,1); //remove the leading U or S
-                $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
-                    . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
-                    . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
-                    . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
-                    . " WHERE s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
-                $result = runQuery($sql, "ChangeMaps: get series");
-                if($result->num_rows==1){
-                    $output["bunnies"][$bunny] = $result->fetch_assoc();
-                    $output["bunnies"][$bunny]["handle"] = ($output["bunnies"][$bunny]["userid"]===null?"S":"U").$output["bunnies"][$bunny]["id"];
-                }
+        $bunnies = isset($_POST["bunnies"])?$_POST["bunnies"]:[];
+        foreach($bunnies as $bunny=>$set){
+            $sid = substr($bunny,1); //remove the leading U or S
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+                . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
+                . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
+                . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
+                . " WHERE s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
+            $result = runQuery($sql, "ChangeMaps: get series");
+            if($result->num_rows==1){
+                $output["bunnies"][$bunny] = $result->fetch_assoc();
+                $output["bunnies"][$bunny]["handle"] = ($output["bunnies"][$bunny]["userid"]===null?"S":"U").$output["bunnies"][$bunny]["id"];
             }
         }
-
         break;
     case 'GetBunnySeries':
         $mapsetids = $_POST["mapsetids"];
@@ -1134,7 +1174,7 @@ switch($command){
         }
         $output = array("status" => "ok", "series" => array());
         if(count($clean_seriesids)>0){
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
             . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
             . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
             . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
@@ -1165,6 +1205,15 @@ switch($command){
                     $freqset = '{"a":{'.$aRow["freqset"].'}}';
                     $ary = json_decode($freqset, true);
                     $aRow["freqset"] = $ary["a"];
+                }
+                if($aRow["themeid"]!==null && intval($aRow["themeid"])!=0){
+                    $cubeResults = runQuery("select c.cubeid, c.name from cubes c where c.themeid=".$aRow["themeid"]);
+                    $aRow["cubes"] = [];
+                    while($cubeRow = $cubeResults->fetch_assoc()){
+                        array_push($aRow["cubes"], $cubeRow);
+                    }
+                    $aRow["handle"] =  "S".$aRow["id"];
+                    $aRow["sid"] =  $aRow["id"];
                 }
                 if($aRow["userid"]==null){
                     $aRow["handle"] =  "S".$aRow["id"];
@@ -1260,11 +1309,12 @@ function getGraphs($userid, $ghash){
     if(strlen($ghash)==0 && intval($userid)==0){
         die('{"status":"Must provide valid a hash or user credentials."}');
     }
-    $sql = "SELECT g.graphid as gid, g.userid, g.title, text as analysis, "
-        . " g.map, jvectormap, mapconfig, "
-        . " serieslist, s.name, s.units, skey, s.src, s.freqset, s.notes, s.lat, s.lon, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
-        . " ghash,  g.fromdt, g.todt,  g.published, views, ifnull(updatedt,createdt) as updatedt, "
-        . " gp.plotid, gp.type as plottype, gp.options as plotoptions, legendorder, pc.objtype as comptype, objid, "
+    $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis, "
+        . " g.map, g.mapconfig,  g.serieslist, "
+        . " g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt, "
+        . " m.jvectormap, m.bunny, "
+        . " s.name, s.units, skey, s.src, s.freqset, s.notes, s.lat, s.lon, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
+        . " gp.plotid, gp.type as plottype, gp.options as plotoptions, gp.legendorder, pc.objtype as comptype, objid, "
         . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
         . " from graphs g left outer join maps m on g.map=m.map, graphplots gp, plotcomponents pc left outer join series s on pc.objid=s.seriesid   "
         . " where g.graphid=gp.graphid and gp.plotid=pc.plotid ";
@@ -1274,7 +1324,7 @@ function getGraphs($userid, $ghash){
         requiresLogin();
         $sql .= " and g.userid=" . intval($userid);  //used by GetMyGraphs
     }
-    $sql .= " order by gid, plottype, legendorder, comporder";
+    $sql .= " order by updatedt desc, gid, plottype, gp.legendorder, pc.comporder";
 
     $result = runQuery($sql, "GetGraphs subfunc");
     if($result->num_rows==0){
@@ -1286,6 +1336,7 @@ function getGraphs($userid, $ghash){
     while ($aRow = $result->fetch_assoc()){
         if($gid != $aRow['gid']){ //avoid repeats due to the joined SQL recordset
             $gid = $aRow['gid'];
+            $bunny = $aRow['gid'];
             $output['graphs']['G' . $gid] = array(
                 "gid" =>  $aRow["gid"],
                 "userid" =>  $aRow["userid"],
@@ -1403,6 +1454,22 @@ function getGraphs($userid, $ghash){
 
                 $mapAsset = getPointSets($aRow["map"], array($aRow["objid"]));
                 $output['graphs']['G' . $gid]["assets"][$handle] = $mapAsset[$handle];
+            }
+        }
+    }
+    if(strlen($ghash)>0){
+        $mapconfig = json_decode($output['graphs']['G' . $gid]);
+        if($mapconfig!==null){
+            if(isset($mapconfig["cubeid"])){
+                $output['graphs']['G' . $gid]["assets"]["cube"]=[];
+                if(isset($mapconfig["cubegeoid"])){
+                    $cubegeoid = $mapconfig["cubegeoid"];
+                } elseif($bunny!==null) {
+                    $cubegeoid = $bunny;
+                } else {
+                    $cubegeoid = 0;
+                }
+                getCubeSeries($output['graphs']['G' . $gid]["assets"], $mapconfig["cubeid"], $cubegeoid);
             }
         }
     }
@@ -1539,6 +1606,26 @@ function getGraphMapSets($gid, $map){
         }
     }
     return $mapsetdata;
+}
+function getCubeSeries(&$output, $cubeid, $geoid=0){
+    //fetch cube dimensions (just in case)
+    $sql = "select json from cubedims where cubeid=$cubeid order by dimorder";
+    $result = runQuery($sql,"GetCubeSeries dimensions");
+    $output["dimensions"] = [];
+    while($row = $result->fetch_assoc()){
+        array_push($output["dimensions"], ["list"=>json_decode($row["json"], true)]);
+    }
+    //fetch cube series
+    if(intval($geoid)>0){
+        $output["series"] = [];
+        $sql = "select name, data from series s inner join cubeseries cs on s.seriesid=cs.seriesid where cs.geoid = $geoid and cs.cubeid=$cubeid";
+        $result = runQuery($sql,"GetCubeSeries data");
+        while($row = $result->fetch_assoc()){
+            array_push($output["series"], $row);
+        }
+    } else {
+        $output["status"] = "invalid geoid $geoid";
+    }
 }
 
 function validationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}

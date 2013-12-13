@@ -890,6 +890,12 @@ div.jvectormap-container{
     background-position: -144px -147px;
     display: inline-block;
 }
+.ui-icon-cube{
+    background-image: url(images/ui-icons_222222_256x240.png);
+    height: 11px;
+    background-position: -48px -80px;
+    display: inline-block;
+}
 .ui-icon-bubble{
     background-image: url(images/ui-icons_222222_256x240.png);
     height: 11px;
