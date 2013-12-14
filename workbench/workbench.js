@@ -36,6 +36,7 @@ var dialogues = {
     deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm to delete.'
 };
 //GLOBAL VARIABLES
+var totalServerTime = 0;
 var colWidths = {
     quickView: 50,
     views: 55,
@@ -1363,10 +1364,10 @@ function quickViewToMap(){
             + '<p>This series is part of a '+theme.name+'structure set that supports the following facetted vizualizations, which will be linked to the user\'s map clicks.</p><p>Please choose one.</p>'
             + '<select class="cubeSelector" size="'+theme.cubes.length+'">';
         for(var c=0;c<theme.cubes.length;c++){
-            html += '<option value="'+theme.cubes[c].cubeid+'">'+theme.cubes[c].name+'</option>';
+            html += '<option value="'+theme.cubes[c].cubeid+'" '+(c==theme.cubes.length-1?'selected':'')+'>'+theme.cubes[c].name+'</option>';
         }
         html += '</select></label><br><br>'
-            + '<button class="right" id="vizSetOk">OK</button> <button class="right" id="noViz">no linked visualization</button>'
+            + '<button class="right" id="noViz">close</button> <button class="right" id="vizSetOk">add linked visualization</button> '
             + '</div>';
         $.fancybox(html,
             {
@@ -2676,7 +2677,8 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
         dataType: 'json',
         success: function(jsoData, textStatus, jqXHR){
             if(jsoData.status=="ok"){
-                console.info(params.command+': '+jsoData.exec_time);
+                totalServerTime += parseFloat(jsoData.exec_time);
+                console.info(params.command+': '+jsoData.exec_time+' (total server time: '+totalServerTime+'ms)');
                 callBack(jsoData, textStatus, jqXHR);
                 if(params.modal!='persist')unmask();
                 if(jsoData.msg) dialogShow('', jsoData.msg);

@@ -15,8 +15,8 @@ function octet(s){
     s = s.toString(16);
     return (s.length==1?0:'') + s;
 }
-function mashableDataString(serie){
 
+function mashableDataString(serie){
     var i, points=[];
     if (typeof serie.data == 'string'){
         return serie.data;
@@ -50,6 +50,61 @@ function mashableDate(jsDate, period){
     }
     return mdDate;
 }
+function dateFromMdDate(mddt){  //returns a data object
+    var udt;
+    udt = new Date('1/1/' + mddt.substr(0,4) + ' UTC'); //language & region independent
+    if(mddt.length>4){
+        switch(mddt.substr(4,1)){
+            case 'Q':
+                udt.period = 'Q';
+                udt.setUTCMonth((mddt.substr(5,1)-1)*3);
+                break;
+            case 'H':
+                udt.period = 'H';
+                udt.setUTCMonth((mddt.substr(5,1)-1)*6);
+                break;
+            default:
+                udt.period = 'M';
+                udt.setUTCMonth(mddt.substr(4,2));
+        }
+        if(mddt.length>6){
+            udt.period = 'D';
+            udt.setUTCDate(mddt.substr(6,2));
+            if(mddt.length>8){
+                udt.setUTCHours(mddt.substr(9,2));
+                udt.setUTCMinutes(mddt.substr(12,2));
+                udt.setUTCSeconds(mddt.substr(15,2));
+            }
+        }
+    }else{
+        udt.period = 'A';
+    }
+    return udt
+}
+
+Date.prototype.toMDDateString = function(period){
+    var p = period || this.period;
+    if(!p) throw('no period found');
+    var mdDate = this.getUTCFullYear();
+    switch (period){
+        case 'M':
+            mdDate += (this.getUTCMonth().toString().length==1?'0':'')+this.getUTCMonth();
+            break;
+        case 'Q':
+            mdDate += 'Q'+parseInt((this.getUTCMonth()+3)/3);
+            break;
+        case 'SA':
+            mdDate += 'H'+parseInt((this.getUTCMonth()+6)/6);
+            break;
+        case 'W':
+        case 'D':
+            mdDate += (this.getUTCMonth().toString().length==1?'0':'')+this.getUTCMonth();
+            mdDate += (this.getUTCDate().toString().length==1?'0':'')+this.getUTCDate();
+            break;
+
+    }
+    return mdDate;
+};
 
 function dateConversionData(key, jsStart, jsEnd){
 //if end is not specified, this year is used.

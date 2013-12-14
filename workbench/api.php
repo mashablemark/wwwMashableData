@@ -1608,6 +1608,17 @@ function getGraphMapSets($gid, $map){
     return $mapsetdata;
 }
 function getCubeSeries(&$output, $cubeid, $geoid=0){
+
+    //fetch cube and theme name (just in case)
+    $sql = "select c.units, c.name as cubename, t.name as themename from cubes c join themes t on t.themeid=c.themeid where cubeid=$cubeid";
+    $result = runQuery($sql,"GetCubeSeries dimensions");
+    while($row = $result->fetch_assoc()){
+        $output["name"] = $row["cubename"];
+        $output["theme"] = $row["themename"];
+        $output["units"] = $row["units"];
+    }
+
+    $output["dimensions"] = [];
     //fetch cube dimensions (just in case)
     $sql = "select json from cubedims where cubeid=$cubeid order by dimorder";
     $result = runQuery($sql,"GetCubeSeries dimensions");
