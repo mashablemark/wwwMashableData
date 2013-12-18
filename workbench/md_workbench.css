@@ -409,17 +409,15 @@ div.map {
     padding: 5px;
     top: 0;
     z-index: 1;
-    margin-right: 10px;
+//TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
 }
 div.map-title{
     cursor: pointer;
 }
 div.jvmap {
-    position: relative;
     width: 100%;
-    padding: 5px;
+    padding: 0;
     margin: 0;
-    top: 0;
     z-index: 1;
 }
 div.map-list {
@@ -428,9 +426,9 @@ div.map-list {
     border:  thin solid black;
     width: 400px;
     position: absolute;
-    height: 98%;
-    top: 5px;
-    right: 3px;
+    height: 100%;
+    top: -1px;
+    right: 0;
     z-index: 100;
     overflow-y: auto;
     overflow-x: auto;
@@ -459,7 +457,9 @@ div.map-list table{
 div.map-list table tr td:first-child, div.map-list table tr td:last-child{
     text-align: right;
 }
-
+div.map-controls{
+    margin-top: 5px;
+}
 button.map-graph-selected{
     margin: 0 5px;
 }
@@ -1109,10 +1109,10 @@ span.sibling{
     display:inline-block;
     width: auto;
     float: none;
-    margin-left: 10px;
+    margin-left: 5px;
     margin-right: 5px;
     color: #444;
-    font-size: 12px;
+    font-size: 9px;
 }
 #my_graphs_table_filter input{
     width: 300px;

@@ -838,7 +838,7 @@ function makeChartOptionsObject(oGraph){
                 }
                 if(maxCount<=5) {
                     jschart.chart.type = 'column';
-                    for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column'  //TODO use categories
+                    //for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column'  //TODO use categories
                 }
             }
             break;
@@ -2059,108 +2059,110 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             '<li class="graph-nav-sources"  data="graph-sources"></li>' +
             '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
             '</ol>' +
-            '</div>'+
-            '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to turn on Facebook comments.</p>' +
-            '</div>' +
-            '<div class="graph-data graph-subpanel" style="display: none;">' +
+        '</div>'+
+        '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to turn on Facebook comments.</p></div>' +
+        '<div class="graph-data graph-subpanel" style="display: none;">' +
             '<div class="graph-data-inner">' +
-            '<ul>' +
-            '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
-            '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
-            '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
-            '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                '<ul>' +
+                '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
+                '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
+                '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
+                '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
+                '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
             '</div>' +
-            '</div>' +
-            '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
-            '<div class="graph-chart graph-subpanel">' +
+        '</div>' +
+        '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
+        '<div class="graph-chart graph-subpanel">' +
             '<div class="graph_control_panel" style="font-size: 11px !important;">' +
-            //change map sleector and default
-            '<div class="change-map">change base map ' +
-            '<select class="change-map"></select>' +
-            '</div>' +
-            //default series type (line, column..)
-            '<div class="graph-type">default graph type ' +
-            '<select class="graph-type">' +
-            '<option value="auto">auto (line &amp; column)</option>' +
-            '<option value="line">line</option>' +
-            '<option value="marker">line with markers</option>' +
-            '<option value="column">column</option>' +
-            '<option value="stacked-column">stacked column</option>' +
-            '<option value="area-percent">stacked percent</option>' +
-            '<option value="area">stacked area</option>' +
-            '<option value="logarithmic">logarithmic</option>' +
-            '<option value="normalized-line">normalized line</option>' +
-            '<option value="pie">pie</option>' +
-            '</select>' +
-            '</div>' +
-            '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
-            '<table>' +
-            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
-            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
-            '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
-            '<div class="crop-slider"></div>' +
-            '</td></tr>' +
-            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
-            '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
-            '</table>' +
-            '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
-            '</div>' +
-            '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
-            '<table class="annotations"></table>' +
-            '</fieldset></div>' +
-            '<div class="downloads">' +
-            '<fieldset>' +
-            '<legend>&nbsp;Download image&nbsp;</legend>' +
-            '<select class="download-selector"><option '+(!(oGraph.mapsets||oGraph.pointsets)?'selected':'')+'>chart</option><option '+(oGraph.mapsets||oGraph.pointsets?'selected':'')+'>map</option></select> ' +
-            'format: ' +
-            '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
-            //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
-            '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
-            '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
-            '</fieldset>' +
-            '</div>' +
-            '<div class="sharing">' +
-            '<fieldset>' +
-            '<legend>&nbsp;Sharing&nbsp;</legend>' +
-            '<div class="share-links">' +
-            '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
-            //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
-            '<a class="graph-email">email </a> ' +
-            '<button class="graph-link">link </button>' +
-            //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
-            '</div><div class="searchability">' +
-            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
-            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
-            '</div>' +
-            '</fieldset>' +
-            '</div>' +
-            '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
+                //change map selector and default
+                '<div class="change-map">change base map ' +
+                '<select class="change-map"></select>' +
+                '</div>' +
+                //default series type (line, column..)
+                '<div class="graph-type">default graph type ' +
+                '<select class="graph-type">' +
+                '<option value="auto">auto (line &amp; column)</option>' +
+                '<option value="line">line</option>' +
+                '<option value="marker">line with markers</option>' +
+                '<option value="column">column</option>' +
+                '<option value="stacked-column">stacked column</option>' +
+                '<option value="area-percent">stacked percent</option>' +
+                '<option value="area">stacked area</option>' +
+                '<option value="logarithmic">logarithmic</option>' +
+                '<option value="normalized-line">normalized line</option>' +
+                '<option value="pie">pie</option>' +
+                '</select>' +
+                '</div>' +
+                '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
+                '<table>' +
+                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
+                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
+                '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
+                '<div class="crop-slider"></div>' +
+                '</td></tr>' +
+                '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
+                '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+                '</table>' +
+                '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
+                '</div>' +
+                '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
+                '<table class="annotations"></table>' +
+                '</fieldset></div>' +
+                '<div class="downloads">' +
+                '<fieldset>' +
+                '<legend>&nbsp;Download image&nbsp;</legend>' +
+                '<select class="download-selector"><option '+(!(oGraph.mapsets||oGraph.pointsets)?'selected':'')+'>chart</option><option '+(oGraph.mapsets||oGraph.pointsets?'selected':'')+'>map</option></select> ' +
+                'format: ' +
+                '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
+                //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
+                '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
+                '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
+                '</fieldset>' +
+                '</div>' +
+                '<div class="sharing">' +
+                '<fieldset>' +
+                '<legend>&nbsp;Sharing&nbsp;</legend>' +
+                '<div class="share-links">' +
+                '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
+                //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
+                '<a class="graph-email">email </a> ' +
+                '<button class="graph-link">link </button>' +
+                //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
+                '</div><div class="searchability">' +
+                '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
+                '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
+                '</div>' +
+                '</fieldset>' +
+                '</div>' +
+                '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
             '</div>' +
             '<div class="chart-map" style="width:70%;display:inline;float:right;">' +
-            '<div class="chart"></div>' +
-            '<div class="map" style="display:none;">' +
-            '<h3 class="map-title" style="color:black;"></h3>'+
-            '<div class="container map-controls">' +
-            '<div class="jvmap" style="display: inline-block;"></div>' +
-            '<div class="map-slider" style="display: inline-block;width: 280px;"></div>' +
-            '<button class="map-step-backward">step backwards</button>' +
-            '<button class="map-play">play</button>' +
-            '<button class="map-step-forward">step forwards</button>' +
-            '<button class="map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
-            '<button class="make-map" disabled="disabled">reset</button>' +
-            '<button class="merge group hidden" disabled="disabled">group</button>' +
-            '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
-            '<span class="right"><label><input type="checkbox" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
-            '<span class="right"><label><input type="checkbox" class="map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
+                '<div class="chart"></div>' +
+                '<div class="map" style="display:none;">' +
+                    '<h3 class="map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
+                    '<div class="map-and-cub-viz">' +
+                        '<div class="cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
+                        '<div class="jvmap" style="display: inline-block;"></div>' +
+                    '</div>' +
+                    '<div class="container map-controls">' +
+                        '<div class="map-slider" style="display: inline-block;width: 280px;"></div>' +
+                        '<button class="map-step-backward">step backwards</button>' +
+                        '<button class="map-play">play</button>' +
+                        '<button class="map-step-forward">step forwards</button>' +
+                        '<button class="map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
+                        '<button class="make-map" disabled="disabled">reset</button>' +
+                        '<button class="merge group hidden" disabled="disabled">group</button>' +
+                        '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
+                        '<span class="right"><label><input type="checkbox" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
+                        '<span class="right"><label><input type="checkbox" class="map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
+                    '</div>' +
+                '</div>' +
+                '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
             '</div>' +
-            '<div class="cube-viz" style="width: 28%;height: 93%;display: none;position: absolute;top: 0;right: -10px;border: thin black solid;margin: 10px;"></div>' +
-            '</div>' +
-            '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;"  class="graph-analysis" maxlength="1000" /></div>' +
-            '</div>' +
-            '</div>');
+        '</div>'
+    );
     var chart, grid;
     console.timeEnd('buildGraphPanel:thisPanel');
     console.time('buildGraphPanel:thisPanel events');
@@ -2722,12 +2724,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             }
 
             if($map) $map.remove();
+            //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
+            var mapHeight = ($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1);
             if(oGraph.mapconfig.cubeid || isSummationMap()){
-                $thisPanel.find('.cube-viz').css('display', 'inline-block');
-                $thisPanel.find('.container.map-controls').css('width', '70%');
+                $thisPanel.find('.cube-viz').show().height(mapHeight); //css('display', 'inline-block');
+                $thisPanel.find('.jvmap').css('width', '70%');
             } else {
                 $thisPanel.find('.cube-viz').hide();
-                $thisPanel.find('.container.map-controls').removeAttr("style");
+                $thisPanel.find('.jvmap').removeAttr("style");
             }
             calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
             calcAttributes(oGraph);
@@ -2843,7 +2847,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                 },
                 onRegionSelected: function(e, code, isSelected){
-                    cubeVizFromMap();
+                    cubeVizFromMap(isSelected?code:null);
                     setMergablity();
                     var selectedMarkers = $map.getSelectedMarkers();
                     if(selectedMarkers.length>0){
@@ -2852,7 +2856,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                     var selectedRegions = $map.getSelectedRegions();
                     for(var i=0;i<selectedRegions.length;i++){
-                        if(calculatedMapData.regionData[calculatedMapData.dates[0].s]&&typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][selectedRegions[i]]!='undefined'){
+                        if(calculatedMapData.regionColors &&typeof calculatedMapData.regionColors[calculatedMapData.dates[0].s][selectedRegions[i]]!='undefined'){
                             $thisPanel.find('.map-graph-selected, .make-map').button('enable');
                             return;
                         }
@@ -2871,8 +2875,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             val = calculatedMapData.endDateIndex; //initial value
             $thisPanel.find('div.map').show();
 
-            //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
-            $thisPanel.find('div.jvmap').show().height(($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1)).vectorMap(vectorMapSettings);
+            $thisPanel.find('div.jvmap').show().height(mapHeight).vectorMap(vectorMapSettings);
             $map = $thisPanel.find('div.jvmap').vectorMap('get', 'mapObject');
             oGraph.controls.map = $map;
             var $mapDateDiv = $('<div class="map-date"></div>').prependTo($thisPanel.find('div.jvectormap-container'));
@@ -2925,44 +2928,47 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     cubeVizFromMap();
                 }
             }).slider("value", calculatedMapData.endDateIndex);
-            function cubeVizFromMap(){
+            function cubeVizFromMap(code){
                 //find the key.  If this get a visualization courtesy of being a Summation Map, create the cube
                 if(oGraph.mapconfig.cubeid || isSummationMap()) {
-                    var mapDate = calculatedMapData.dates[val].s;
-                    var geoKey = null;
-                    //is a (last) region selected
-                    var selectedRegions = $map.getSelectedRegions();
-                    if(selectedRegions.length>0){
-                        geoKey = selectedRegions[0]
-                    } else { //how about a marker
-                        var selectedMarkers = $map.getSelectedMarkers();
-                        if(selectedMarkers.length>0){
-                            geoKey = selectedMarkers[0]
-                        } else {
-                            geoKey = mapsList[oGraph.map].bunny
+                    var geoKey, mapDate = calculatedMapData.dates[val].s;
+                    if(code){
+                        geoKey = code;
+                    } else {
+                        geoKey = null;
+                        //is a (last) region selected
+                        var selectedRegions = $map.getSelectedRegions();
+                        if(selectedRegions.length>0){
+                            geoKey = selectedRegions[0]
+                        } else { //how about a marker
+                            var selectedMarkers = $map.getSelectedMarkers();
+                            if(selectedMarkers.length>0){
+                                geoKey = selectedMarkers[0]
+                            } else {
+                                geoKey = mapsList[oGraph.map].bunny
+                            }
                         }
                     }
-                    if(!oGraph.mapconfig.cubeid && !oGraph.assets.cube){  //the cube must be made from the mapsets in assets
+                    if(!oGraph.mapconfig.cubeid){  //the cube must be made from the mapsets in assets
                         if(!isNaN(geoKey)) return null; //can do the bunny
                         var oFormula = oGraph.mapsets.options.calculatedFormula;
                         var signedNumArray = oFormula.numFormula.replace('-','+-').split('+');
                         var unsignedNumArray = oFormula.numFormula.replace('-','+').split('+');
                         //loop though components and build a values array
-                        var asset, vals = [], names = [], i, numNamesAsWords = [], symbol, o = {}, nameTree = {};
+                        var asset, seriesVal, symbolData = {}, names = [], i, numNamesAsWords = [], symbol, o = {}, nameTree = {};
                         $.each(oGraph.mapsets.components, function(c){
                             asset = oGraph.assets[this.handle];
                             names.push(asset.name);
+                            symbol = compSymbol(c);
                             if(this.handle[0]=='M'){
-                                val = seriesValue(asset.data[geoKey], mapDate);
+                                symbolData[symbol] = asset.data[geoKey].data;
                             } else {
-                                val = seriesValue(asset.data, mapDate);
+                                symbolData[symbol] = asset.data;
                             }
                             names.push(asset.name);
-                            symbol = compSymbol(c);
-                            vals.push(o[symbol] = val);
                             nameTree[symbol] = asset.name;
                         });
-                        for(i=0;unsignedNumArray.length;i++){
+                        for(i=0;i<unsignedNumArray.length;i++){
                             numNamesAsWords.push(nameTree[unsignedNumArray[i].trim()].split(' '));
                         }
 
@@ -2992,14 +2998,16 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         }
                         var categories = [];
                         //
-                        if(!oGraph.assets.cube) oGraph.assets.cube = {dimensions: [[]]};
+                        oGraph.assets.cube = {dimensions: [{list: []}]};
                         var cube = oGraph.assets.cube;
                         cube.theme =  peeledWords.join(' ');
-                        cube['G'+geoKey] = {data: []};
+                        cube.name = '';
+                        cube.units = plotUnits(oGraph, oGraph.mapsets);
+                        cube['G'+geoKey] = {facetedData: []};
                         for(i=0;i<numNamesAsWords.length;i++){
-                            cube.dimensions[0].push({pattern: numNamesAsWords[i].join(' ')});
-                            //TODO: need to synthese each numerator component as plot
-                            cube['G'+geoKey].data.push();
+                            cube.dimensions[0].list.push({name: numNamesAsWords[i].join(' ')});
+                            //TODO: need to synthesize each numerator component as per createSerieFromPlot
+                            cube['G'+geoKey].facetedData[i] = symbolData[unsignedNumArray[i].trim()];
                         }
                     }
                     vizualizeCube(oGraph, geoKey, mapDate);
@@ -3317,7 +3325,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         function makeList(map){
             var list = [], id, units, attr;
             if($thisPanel.find('div.map-list').length==0){
-                $thisPanel.find('div.jvmap')
+                $thisPanel.find('div.jvectormap-container')
                     .prepend('<div class="map-list">'
                         + '<div class="order">'
                         + '<input type="radio" id="'+panelId+'-map-list-order-asc" name="'+panelId+'-map-list-order" value="asc" '+(oGraph.mapconfig.listOrder!='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-asc">ascending</label>'
@@ -3794,26 +3802,29 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
     if(!plot.options.units || forceCalculated){
         //calculate from component series
         if(!formulaObj) formulaObj = plotFormula(plot);
+        //use local copies
+        var numerUnits = formulaObj.numFormula;
+        var denomFormula = formulaObj.denomFormula;
         // remove any leading negative sign or numerator "1" to not trip ourselves up
         replaceFormula('^(\-)?(1)?','');
         //1. remove any numerical scalor and flag
         var patKs=/[0-9]+/g;
-        var scalorFlag = patKs.test(formulaObj.numFormula) || patKs.test(formulaObj.denomFormula);
-        formulaObj.numFormula = formulaObj.numFormula.replace(patKs, ' ');
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(patKs, ' ');
+        var scalorFlag = patKs.test(numerUnits) || patKs.test(denomFormula);
+        numerUnits = numerUnits.replace(patKs, ' ');
+        denomFormula = denomFormula.replace(patKs, ' ');
         //2. remove any numerical scalers K
         var patRemoveOps = /(\*|\(|\))/g;
-        formulaObj.numFormula = formulaObj.numFormula.replace(patRemoveOps, ' ');
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(patRemoveOps, ' ');
+        numerUnits = numerUnits.replace(patRemoveOps, ' ');
+        denomFormula = denomFormula.replace(patRemoveOps, ' ');
         var patPer = /\//g;
-        formulaObj.numFormula = formulaObj.numFormula.replace(patPer, ' per ');
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(patPer, ' per ');
+        numerUnits = numerUnits.replace(patPer, ' per ');
+        denomFormula = denomFormula.replace(patPer, ' per ');
         var patMinus = /-/g;
-        formulaObj.numFormula = formulaObj.numFormula.replace(patMinus, '+');
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(patMinus, '+');
+        numerUnits = numerUnits.replace(patMinus, '+');
+        denomFormula = denomFormula.replace(patMinus, '+');
         var patWhiteSpace = /[\s]+/g;
-        formulaObj.numFormula = formulaObj.numFormula.replace(patWhiteSpace, ' ');
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(patWhiteSpace, ' ');
+        numerUnits = numerUnits.replace(patWhiteSpace, ' ');
+        denomFormula = denomFormula.replace(patWhiteSpace, ' ');
         //3. wrapped variable in code to prevent accident detection in next step
         replaceFormula('([A-Z]+)','{{$1}}');
         //4. swap in units (removing any + signs)
@@ -3822,15 +3833,15 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
             replaceFormula('{{'+compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units||'').replace(patPlus,' '));
         }
         var error = false;
-        if(formulaObj.numFormula!=''){
-            terms = formulaObj.numFormula.split('+');
-            numUnits = terms[0].trim();
+        if(numerUnits!=''){
+            terms = numerUnits.split('+');
+            numerUnits = terms[0].trim();
             for(i=1;i<terms.length;i++){
-                if(terms[i].trim()!=numUnits) error = true;
+                if(terms[i].trim()!=numerUnits) error = true;
             }
         }
-        if(formulaObj.denomFormula!=''){
-            terms = formulaObj.denomFormula.split('+');
+        if(denomFormula!=''){
+            terms = denomFormula.split('+');
             denomUnits = terms[0].trim();
             for(i=1;i<terms.length;i++){
                 if(terms[i].trim()!=terms[0]) error = true;
@@ -3839,10 +3850,10 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
         if(error){
             return 'potentially mismatched units';
         } else {
-            if(numUnits==denomUnits && numUnits.length>0){
+            if(numerUnits==denomUnits && numerUnits.length>0){
                 return 'ratio';
             } else {
-                return  (scalorFlag?'user scaled ':'') + numUnits + (denomUnits==''?'':' per ' + denomUnits);
+                return  (scalorFlag?'user scaled ':'') + numerUnits + (denomUnits==''?'':' per ' + denomUnits);
             }
         }
     } else {
@@ -3851,8 +3862,8 @@ function plotUnits(graph, plot, forceCalculated, formulaObj){
 
     function replaceFormula(search, replace){
         var pat = new RegExp(search, 'g');
-        formulaObj.numFormula = formulaObj.numFormula.replace(pat, replace);
-        formulaObj.denomFormula = formulaObj.denomFormula.replace(pat, replace);
+        numerUnits = numerUnits.replace(pat, replace);
+        denomUnits = denomUnits.replace(pat, replace);
     }
 }
 function panelIdContaining(cntl){  //uniform way of getting ID of active panel for user events
@@ -4031,17 +4042,20 @@ function formatRationalize(value){
 }
 function vizualizeCube(graph, geoKey, mapDate){
     var serie, i, j, k, cubeid = graph.mapconfig.cubeid;
-    if(!graph.assets.cube) graph.assets.cube = {data: {}};
+    if(!graph.assets.cube) graph.assets.cube = {};
     var cube = graph.assets.cube;
     if(!cube['G'+geoKey]){
+        var $cubViz = graph.controls.$thisPanel.find('div.cube-viz');
+        $cubViz.mask('loading...');
         callApi(
             {command:"GetCubeSeries", cubeid: cubeid, geokey: geoKey, modal:'none'},  //geoKey can be a "lat,lon" or the jVectorMaps code (requiring a lookup) or a geoid
             function(jsoData, textStatus, jqXHR){
                 cube['G'+geoKey] = {series: jsoData.series};
                 cube.dimensions = jsoData.dimensions;
-                cube.theme = jsoData.themename;
-                cube.name = jsoData.cubename;
+                cube.theme = jsoData.theme;
+                cube.name = jsoData.name;
                 cube.units = jsoData.units;
+                $cubViz.unmask();
                 makeCubeChart();
             }
         );
@@ -4057,18 +4071,8 @@ function vizualizeCube(graph, geoKey, mapDate){
         var geoName = null;
         if(isNaN(geoKey)){
             eachComponent(graph, function(){
-                if(geoName == null && (this.handle[0]=='M' || this.handle[0]=='X')){
-                    var asset = graph.assets[this.handle];
-                    for(var key in asset.data){
-                        if(key==geoKey){ //pointset
-                            geoName = asset.data[key].name;
-                            break;
-                        }
-                        if(asset.data[key].geoid==geoKey){  //mapset
-                            geoName = asset.data[key].geoname;
-                            break;
-                        }
-                    }
+                if(!geoName){ //TODO: pointsets names
+                    if(this.handle[0]=='M' && graph.assets[this.handle].data[geoKey]) geoName = graph.assets[this.handle].data[geoKey].geoname;
                 }
             });
         } else {
@@ -4087,13 +4091,7 @@ function vizualizeCube(graph, geoKey, mapDate){
                     if(d==n-1){
                         newFactetsItem = facetsItem.slice();
                         newFactetsItem.push(dimensions[d].list[i]);
-                        facetArray.push(
-                            {
-                                dims: newFactetsItem,
-                                data: getCubeSeries(newFactetsItem)
-                            }
-                        );
-
+                        facetArray.push(getCubeSeries(newFactetsItem));
                     } else {
                         var facetSubArray = [];
                         facetArray.push(facetSubArray);
@@ -4108,7 +4106,7 @@ function vizualizeCube(graph, geoKey, mapDate){
                         match = true;
                         serie = cubeSeries[s];
                         for(var d=0;d<n;d++){
-                            if(serie.name.toLowerCase().indexOf(facetsItem[d].pattern.toLowerCase())===-1){
+                            if(serie.name.toLowerCase().indexOf(' '+facetsItem[d].name.toLowerCase())===-1){ //start of word; requires space
                                 match = false;
                                 break;
                             }
@@ -4132,19 +4130,23 @@ function vizualizeCube(graph, geoKey, mapDate){
                 renderTo: graph.controls.$thisPanel.find('.cube-viz')[0]
             },
             title: {
-                text: geoName,
-                style: {fontSize: '10px'}
+                text: cube.theme+'<br>'+geoName,
+                style: {fontSize: '12px'}
                 //text: (graph.assets.cube.theme||'')  + (graph.assets.cube.name?' by '+graph.assets.cube.name:'') + ' for ' + geoName
             },
             subtitle: {
-                text: 'click on map to select location'
+                text: 'click on map to select location',
+                style: {fontSize: '10px'},
+                y: 50
             },
             plotOptions: {
                 bar: {
                     dataLabels: {
-                        enabled: true
+                        enabled: false,
+                        align: 'left'
                     },
-                    borderColor: '#303030'
+                    borderWidth: 0,
+                    stacking: null
                 }
             },
             xAxis: {
@@ -4152,11 +4154,10 @@ function vizualizeCube(graph, geoKey, mapDate){
                 title: {
                     text: null
                 },
-                lineWidth: 0,
+                lineWidth: 1,
                 minorGridLineWidth: 0,
-                lineColor: 'transparent',
                 labels: {
-                    enabled: false
+                    enabled: true
                 },
                 minorTickLength: 0,
                 tickLength: 0
@@ -4183,60 +4184,82 @@ function vizualizeCube(graph, geoKey, mapDate){
                 type: "image/png",
                 url: "http://www.mashabledata.com/workbench/export/index.php"
             },
-            series: []
+            legend: {
+                floating: false,
+                borderWidth: 0,
+                y: -5
+
+            },
+            series: [],
+            tooltip: {
+                formatter: function(){
+                    return '<b>'+ cube.theme + '</b><br/>' + this.point.name +':<br/>'
+                        + Highcharts.numberFormat(Math.abs(this.point.y), 0) + ' ' + cube.units;
+                }
+            }
         };
         var facetedData = cubeData.facetedData;
         //4. switch on dimension order n for 3 different routines:  fill chart objects series from faceted
+        var point, varData;
         switch(n){
             case 1:
-                var barData = [];
+                barData = [];
                 for(i=0;i<dimensions[0].list.length;i++){
-
-                    var point = {y: seriesValue(facetedData[i].data, mapDate) };
+                    point = {
+                        y:  seriesValue(facetedData[i], mapDate),
+                        name: dimensions[0].list[i].name
+                    };
                     if(dimensions[0].list[i].color) point.color = dimensions[0].list[i].color;
-                    vizChart.xAxis.categories.push(dimensions[0].list[i].pattern);
                     barData.push(point);
+                    vizChart.xAxis.categories.push(dimensions[0].list[i].short||dimensions[0].list[i].name);
                 }
                 vizChart.legend = {enabled: false};
                 vizChart.series.push({data: barData});
+                vizChart.plotOptions.bar.dataLabels.enabled = true;
                 break;
             case 2:
-                for(i=0;i<dimensions[1].list.length;i++){
-                    var barData = [];
-                    for(j=0;j<dimensions[0].list.length;j++){
-                        barData.push(seriesValue(facetedData[i][j].data, mapDate));
+                for(i=0;i<dimensions[0].list.length;i++){
+                    barData = [];
+                    for(j=0;j<dimensions[1].list.length;j++){
+                        if(i==0) vizChart.xAxis.categories.push(dimensions[1].list[j].short||dimensions[1].list[j].name);
+                        point = {
+                            y:  seriesValue(facetedData[i][j], mapDate),
+                            name: dimensions[0].list[i].name + '<br>and ' + dimensions[1].list[j].name
+                        };
+                        barData.push(point);
                     }
-                    vizChart.xAxis.categories.push(dimensions[1].list[i].pattern);
                     serie = {
-                        name: dimensions[1].list[j].pattern,
+                        name: dimensions[0].list[i].name,
                         data: barData
                     };
-                    if(dimensions[1].list[j].pattern.color) serie.color = dimensions[1].list[j].pattern.color;
+                    if(dimensions[0].list[i].color) serie.color = dimensions[0].list[i].color;
                     vizChart.series.push(serie);
+                    vizChart.plotOptions.bar.stacking = 'normal';
                 }
                 break;
             case 3:  //only 3-cube is demographics: sex x age x race
-                for(i=0;i<dimensions[2].list.length;i++){
-                    for(j=0;j<dimensions[1].list.length;j++){
-                        var barData = [];
-                        for(k=0;k<dimensions[0].list.length;k++){
-                            vizChart.xAxis.categories.push(dimensions[0].list[k].pattern);
-                            barData.push((k==0?-1:1) * seriesValue(facetedData[k][j][i].data, mapDate));
+                for(i=0;i<dimensions[0].list.length;i++){
+                    for(k=0;k<dimensions[2].list.length;k++){
+                        barData = [];
+                        for(j=0;j<dimensions[1].list.length;j++){
+                            if(i==0&&k==0) vizChart.xAxis.categories.push(dimensions[1].list[j].short||dimensions[1].list[j].name);
+                            point = {
+                                y: (i==0?-1:1) * seriesValue(facetedData[i][j][k], mapDate),
+                                name: dimensions[0].list[i].name + '<br>and ' + dimensions[1].list[j].name + '<br>and ' + dimensions[2].list[k].name
+                            };
+                            barData.push(point);
                         }
                         serie = {
-                            name: dimensions[1].list[j].pattern,
+                            name: dimensions[2].list[k].name,
                             data: barData
                         };
-                        if(dimensions[1].list[j].pattern.color) serie.color = dimensions[1].list[j].pattern.color;
+                        if(dimensions[2].list[k].color) serie.color = dimensions[2].list[k].color;
                         vizChart.series.push(serie);
                     }
                 }
-                vizChart.tooltip = {
-                    formatter: function(){
-                        return '<b>'+ this.series.name +', age '+ this.point.category +'</b><br/>'+
-                            'Population: '+ Highcharts.numberFormat(Math.abs(this.point.y), 0);
-                    }
-                };
+                vizChart.legend.enabled = false;  //todo:  have only have the series show
+                vizChart.plotOptions.bar.stacking = 'normal';
+                vizChart.xAxis.lineWidth = 0;
                 break;
         }
         if(graph.controls.vizChart) graph.controls.vizChart.destroy();
@@ -4245,6 +4268,7 @@ function vizualizeCube(graph, geoKey, mapDate){
 }
 
 function seriesValue(mdData, mdDate){
+    if(!mdData) return null;
     var point, data = mdData.split('||');
     for(var i=0;i<data.length;i++){
         point = data[i].split('|');

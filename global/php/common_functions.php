@@ -288,7 +288,7 @@ function setThemeByName($apiid, $themeName){
     }
 }
 
-function setCubeByDimensions($themeid, $cubeDimensions){
+function setCubeByDimensions($themeid, $cubeDimensions, $units){
     //save teh cube and its dimensions if DNE
     //return an assc array with cube name and id
     global $db;
@@ -297,10 +297,10 @@ function setCubeByDimensions($themeid, $cubeDimensions){
         array_push($names, $cubeDimensions[$i]["dimension"]);
     }
     $cubeName = count($cubeDimensions)==0?"total":"by ".implode($names, ", ");
-    $sql = "select cubeid from cubes where themeid=$themeid and name='$cubeName'";
+    $sql = "select cubeid from cubes where themeid=$themeid and name='$cubeName' and units='$units'";
     $result = runQuery($sql, "cube fetch");
     if($result->num_rows==0){
-        $sql="insert into cubes (themeid, name) values($themeid,'$cubeName')";
+        $sql="insert into cubes (themeid, name, units) values($themeid,'$cubeName','$units')";
         if(!runQuery($sql, "insert cube")) throw new Exception("error: unable to insert cube $cubeName for themeid $themeid");
         $cubeid = $db->insert_id;
     } else {
@@ -316,12 +316,10 @@ function setCubeByDimensions($themeid, $cubeDimensions){
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 $item = $cubeDimensions[$i]["list"][$j];
                 if(!isset($item["sumWithNext"])){
-                    array_push($list,
-                        [
-                            "name"=>isset($item["translation"])?$item["translation"]:$item["pattern"],
-                            "color"=>isset($item["color"])?$item["color"]:null  //default set color
-                        ]
-                    );
+                    $listItem = ["name"=>isset($item["translation"])?$item["translation"]:$item["pattern"]];
+                    if(isset($item["short"])) $listItem["short"] = $item["short"];
+                    if(isset($item["color"])) $listItem["short"] = $item["color"];
+                    array_push($list, $listItem);
                 }
 
             }
@@ -334,7 +332,7 @@ function setCubeByDimensions($themeid, $cubeDimensions){
 }
 
 
-function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon, $cubeid=null){ //inserts or archive & update a series as needed.  Returns seriesid.
+function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon, $themeid=null){ //inserts or archive & update a series as needed.  Returns seriesid.
     global $db;
     $sql = "select * from series where skey = " . safeStringSQL($key) . " and apiid=" . $apiid;
     $result = runQuery($sql);
@@ -373,7 +371,7 @@ function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units
             if($geoid != null && is_numeric ($geoid)) $sql .= ", geoid=".$geoid;
             if($mapsetid != null  && is_numeric ($mapsetid)) $sql .= ", mapsetid=".$mapsetid;
             if($pointsetid != null && is_numeric ($pointsetid)) $sql .= ", pointsetid=".$pointsetid;
-            if($cubeid != null && is_numeric ($cubeid)) $sql .= ", cubeid=".$cubeid;
+            if($themeid != null && is_numeric ($themeid)) $sql .= ", themeid=".$themeid;
             if($lat != null && is_numeric ($lat)) $sql .= ", lat=".$lat;
             if($lon != null && is_numeric ($lon)) $sql .= ", lon=".$lon;
             $sql .= " where seriesid=".$series["seriesid"];
@@ -393,8 +391,8 @@ function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units
         }
         return $series["seriesid"];
     } elseif($result->num_rows==0) {
-        $sql = "insert into series (skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, cubeid, lat, lon) "
-            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($period).",".safeStringSQL($title).",".safeStringSQL($url).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",". ($cubeid===null?"null":$cubeid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
+        $sql = "insert into series (skey, name, namelen, src, units, units_abbrev, periodicity, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, themeid, lat, lon) "
+            . " values (".safeStringSQL($key).",".safeStringSQL($name).",".strlen($name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units_abbrev).",".safeStringSQL($period).",".safeStringSQL($title).",".safeStringSQL($url).",".safeStringSQL($notes).",".safeStringSQL($data).",".safeStringSQL(sha1($data)).",".$apiid.",".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",". ($themeid===null?"null":$themeid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
         $queryStatus = runQuery($sql);
         if($queryStatus ){
             $status["added"]++;

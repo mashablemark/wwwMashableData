@@ -596,7 +596,8 @@ function setupPublicSeriesTable(){
                 "url": "api.php",
                 "data": aoData,
                 "success": function(data, textStatus, jqXHR){
-                    console.log(data.command+" ("+data.search+"): "+data.exec_time);
+                    totalServerTime += parseFloat(data.exec_time);
+                    console.log(data.command+" ("+data.search+"): "+data.exec_time+' ('+totalServerTime+'ms)');
                     if(data.status=='ok') fnCallback(data, textStatus, jqXHR); else dialogShow('server error', data.status);
                 },
                 "error": function(results){
