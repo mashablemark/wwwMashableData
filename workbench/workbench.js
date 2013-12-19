@@ -55,7 +55,7 @@ var colWidths = {
     scrollbarWidth: 35,
     padding: 11
 };
-var layoutDimensions= {
+var layoutDimensions = {
     heights: {
 //        graphTabsMinGap: 30,
         graphTabsGap: null,
@@ -202,7 +202,7 @@ $(document).ready(function(){
         'height'            : '100%',
         'autoScale'         : true,
         'showCloseButton'   : false,
-        //'overlayOpacity'    : 0,
+        'scrolling'         : 'no',
         'transitionIn'		: 'none',
         'transitionOut'		: 'none'
     });
@@ -419,10 +419,11 @@ function parseHash(newHash, oldHash){
                     if(oH.graphcode){
                         for(var g in oPanelGraphs){
                             if(oPanelGraphs[g].ghash==oH.graphcode){
-                                var $tab = $('#graph-tabs a[href=\'#'+oH.graphcode+'\']');
+                                var $tab = $('#graph-tabs a[href=\'#'+g+'\']');
                                 if($tab.length==1) {
                                     var found = true;
                                     $tab.click();
+                                    break;
                                 }
                             }
                         }
@@ -445,7 +446,7 @@ function setHashSilently(hash){
 }
 
 function resizeCanvas(){
-    var winHeight = Math.max($(window).innerHeight()-10, layoutDimensions.widths.windowMinimum);
+    var winHeight = Math.max($(window).innerHeight()-10, layoutDimensions.heights.windowMinimum);
     var winWidth = Math.max($(window).innerWidth()-10, layoutDimensions.widths.windowMinimum);
     $("div#wrapper").height(winHeight).width(winWidth);
 
@@ -635,7 +636,7 @@ function setupPublicSeriesTable(){
             { "mData":"title", "sTitle": "Category<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
-                        return '<span class="ui-icon browse-right" onclick="browseFromSeries('+ obj.seriesid +')">browse similar series</span> ' + spanWithTitle(value);
+                        return '<span class="ui-icon browse-right" onclick="browseFromSeries('+ obj.seriesid +');">browse similar series</span> ' + spanWithTitle(value);
                     } else {
                         return '<a class="link" onclick="getPublicSeriesByCat(this)">' + spanWithTitle(value) + '</a>'
                     }
@@ -692,13 +693,13 @@ function setupMyGraphsTable(){
                 }
             },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.series+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sClass":"series", "sWidth": layoutDimensions.widths.myGraphsTable.columns.series+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
                 "mRender": function(value, type, obj){
                     if(obj.published == 'N'){
                         return '<span class=" ui-icon ui-icon-locked" title="This graph has not been published.  You must publish your graphs from the graph editor">locked</span>';
                     } else {
-                        return '<a href="view.php?g='+obj.ghash+'">' + obj.views + '</a>';
+                        return obj.views;
                     }
                 }
             },
@@ -787,15 +788,12 @@ function setupPublicGraphsTable(){
             var $graphRow = dtPublicGraphs.find('tr.ui-selected');
             if($graphRow.length==1){
                 var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
-                hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
-            } else {
-                if(dtPublicGraphs.fnGetData().length==0){
-                    dialogShow('no graph selected', dialogues.noPublicGraphs);
+                if(rowObject){
+                    hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
                 } else {
-                    dialogShow('search for public graphs', dialogues.noGraphSelected);
+                    dialogShow('search for public graphs', dialogues.noPublicGraphs);
                 }
             }
-            /* }*/
         });
     $('#tblPublicGraphs_info').appendTo('#public_graphs_search');
     $('#tblPublicGraphs_filter').hide();
@@ -1197,15 +1195,19 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         seriesMaps.sort();
         otherMaps.sort();
         //$('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
-        $('#quick-view-chart-or-map').show().find('input').off().click(function(){mapOrChartChange()});
-        $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):'')).show();
-        mapOrChartChange();
+        $('#quick-view-chart-or-map').show().find('input').off().click(showHideMapSelector );
+        $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):''));
     } else {
         $mapSelect.hide();
         $('#quick-view-chart-or-map').hide();
     }
     $('#qv-info').html(qvNotes);
-
+    function showHideMapSelector (){
+        var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
+        var shown = $mapSelect.css("display")!='none';
+        if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
+    }
+    showHideMapSelector();
     if(showAddSeries){
         $('#quick-view-to-series').button("disable").show();
         $('#quick-view-delete-series').hide();
@@ -1227,13 +1229,6 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     //$('#quick-view-add-to-graph').button("enable");
     $('.show-graph-link').click();
 
-    function mapOrChartChange(){
-        if($('#quick-view-chart-or-map input:checked').val()=='chart'){
-            $('#quick-view-maps').attr('disabled','disabled');
-        } else {
-            $('#quick-view-maps').removeAttr('disabled');
-        }
-    }
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
     $(btn).button("disable");
@@ -1243,7 +1238,7 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
         updateMySeries(oQuickViewSeries[i]); //cloud update
     }
     dialogShow('My Series', 'series added.',[]);
-    $('#dialog').closest('.ui-dialog').fadeOut(1000, function(){ $('#dialog').dialog('close')})
+    $('#dialog').closest('.ui-dialog').fadeOut(1000, function(){ $('#dialog').dialog('close')});
     //quickView not closed automatically, user can subsequently chart or close
 }
 function quickViewToChart(btn){

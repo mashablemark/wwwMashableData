@@ -177,8 +177,13 @@ option.other-maps{
 #edit-my-series{
     margin: 0 20px;
 }
-#quick-view-close{
-    margin-top: 15px;
+#quick-view-controls{
+    margin: 5px 0;
+}
+#quick-view-controls-add{
+    padding:  9px 5px 11px 5px;
+    background-color: lightblue;
+    display: inline;
 }
 
 /*
@@ -1189,9 +1194,6 @@ table.dataTable tr:hover td.title, table.dataTable tr:hover td.units, table.data
     background-color: lightyellow;
     position: relative;
     top: -4px;
-}
-#cloud-series-browse{
-    margin-left: 20px;
 }
 #browse-api{
     position: absolute;

@@ -110,7 +110,7 @@ function chartPanel(panel, annotations){  //MAIN CHART OBJECT, CHART PANEL, AND 
         $chart.hide();
         return void 0;
     }
-    $chart.show().height();
+    $chart.show();
     //final additions to the HC Chart Object
     oChartOptions.chart.renderTo = $chart.get(0);
     oChartOptions.plotOptions.series.point = {
@@ -1862,7 +1862,7 @@ function calcAttributes(graph){
                     } else {
                         markerAttr.stroke[dateKey][markerId] = '#000000';
                     }
-                    markerAttr.r[dateKey][markerId] = (graph.mapconfig.radius || DEFAULT_RADIUS_SCALE) *  Math.sqrt(rData)/Math.sqrt(markerRadiusAbs);
+                    markerAttr.r[dateKey][markerId] = (graph.mapconfig.maxRadius || DEFAULT_RADIUS_SCALE) *  Math.sqrt(rData)/Math.sqrt(markerRadiusAbs);
                 }
                 if(hasFillShading){
                     fillData = calcData.markerData[dateKey][markerId].f || null;
@@ -1934,9 +1934,9 @@ function downloadMap(panelID, format){
     downloadMadeFile({
         type: format,
         filename: 'MashableDataMap',
-        width: 800,
+        width: 2000,
         svg: svg,
-        url: 'export/index.php'
+        url: 'https://www.mashabledata.com/workbench/export/index.php'
     });
 
 }
@@ -2112,8 +2112,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 '</fieldset></div>' +
                 '<div class="downloads">' +
                 '<fieldset>' +
-                '<legend>&nbsp;Download image&nbsp;</legend>' +
-                '<select class="download-selector"><option '+(!(oGraph.mapsets||oGraph.pointsets)?'selected':'')+'>chart</option><option '+(oGraph.mapsets||oGraph.pointsets?'selected':'')+'>map</option></select> ' +
+                '<legend>&nbsp;Download visualization&nbsp;</legend>' +
+                '<select class="download-selector"></select> ' +
                 'format: ' +
                 '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
                 //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
@@ -2229,7 +2229,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
             });
         });
-    $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.chart-map').width($thisPanel.width()-40-350); //
+    var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.chart-map').width($thisPanel.width()-40-350).end().innerHeight();
     $thisPanel.find('.graph-data-subpanel').height($thisPanel.innerHeight()-60);  //account for chart/region/markers tabs
     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
@@ -2452,6 +2452,16 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     });
 // *** crop routine end ***
 
+    //the annotations height must be set after the jQuery UI changes to buttons, spinners, ...
+    $thisPanel.find('div.annotations fieldset').height(
+        innerHeight //from graph subpanel
+        - $thisPanel.find('div.change-map').height()
+        - $thisPanel.find('div.crop-tool').height()
+        - $thisPanel.find('div.graph-type').height()
+        - $thisPanel.find('div.downloads').height()
+        - $thisPanel.find('div.sharing').height()
+        - 50 //save close buttons
+    );
 
     $thisPanel.find('input.graph-publish')
         .change(function(){
@@ -2598,6 +2608,11 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         } else {
             $thisPanel.find('div.change-map').hide();
         }
+        var options = '';
+        if(oGraph.plots) options  += '<option value="chart">chart</option>';
+        if(oGraph.mapsets||oGraph.pointsets) options  += '<option value="map" selected>map</option>';
+        if(oGraph.mapconfig.cubeid || isSummationMap()) options  += '<option value="cube">supplemental bar chart</option>';
+        $('.download-selector').html(options);
     }
     function redraw(){
         mask('redrawing');
@@ -2644,11 +2659,17 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         makeClean();
     }
     function exportChart(type){
-        if(oPanelGraphs[panelId].map&&($thisPanel.find('select.download-selector').val()=='map'||!oGraph.plots)){
-            downloadMap(panelId, type);
-        } else {
-            annotations.sync();
-            chart.exportChart({type: type});
+        switch($thisPanel.find('select.download-selector').val()){
+            case 'map':
+                downloadMap(panelId, type);
+                break;
+            case 'chart':
+                annotations.sync();
+                chart.exportChart({type: type, width: 2000});
+                break;
+            case 'cube':
+                oGraph.controls.vizChart.exportChart({type: type, width: 2000});
+                break;
         }
     }
     $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button((oGraph.userid == account.info.userid) && oGraph.gid?'disable':'enable')
@@ -2713,15 +2734,16 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     console.time('buildGraphPanel:drawMap');
     drawMap();
     console.timeEnd('buildGraphPanel:drawMap');
-
+    function isSummationMap(){
+        if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
+        if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
+        var formula = oGraph.mapsets.options.calculatedFormula;
+        return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))
+    }
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
 
-            function isSummationMap(){
-                if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
-                var formula = oGraph.mapsets.options.calculatedFormula;
-                return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))
-            }
+
 
             if($map) $map.remove();
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
@@ -2950,7 +2972,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         }
                     }
                     if(!oGraph.mapconfig.cubeid){  //the cube must be made from the mapsets in assets
-                        if(!isNaN(geoKey)) return null; //can do the bunny
+                        if(!isNaN(geoKey)) geoKey = 'G'+geoKey; //don't show the map name for the bunny of a summation map:  only instructions
                         var oFormula = oGraph.mapsets.options.calculatedFormula;
                         var signedNumArray = oFormula.numFormula.replace('-','+-').split('+');
                         var unsignedNumArray = oFormula.numFormula.replace('-','+').split('+');
@@ -2961,7 +2983,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             names.push(asset.name);
                             symbol = compSymbol(c);
                             if(this.handle[0]=='M'){
-                                symbolData[symbol] = asset.data[geoKey].data;
+                                symbolData[symbol] = asset.data[geoKey]?asset.data[geoKey].data:null;
                             } else {
                                 symbolData[symbol] = asset.data;
                             }
@@ -3339,7 +3361,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         for(var r=0;r<table.rows.length;r++){ //header row = rank; plot name; plot units
                             grid.push([table.rows[r].cells[0].innerHTML.replace('<br>',''), table.rows[r].cells[1].innerHTML, table.rows[r].cells[2].innerHTML]);
                         }
-                        downloadMadeFile({   //does the highcharts trick to download a file
+                        downloadMadeFile({   //does the highcharts trick to download an Excel file
                             filename: oGraph.title,
                             data: JSON.stringify([{name: 'ranked list', grid: grid}]),
                             url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
@@ -3438,8 +3460,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             //redirect the Highcharts' renderer to add element to JVM's new group instead of the dummy div's group
             hcr.box = gLegend.node;
             $('#dummyLegend').remove();
-
-            switch((oGraph.mapconfig.legendLocation || 'TR').substr(0,1)){
+            var legendLocation = oGraph.mapconfig.legendLocation || mapsList[oGraph.map].legend || 'TR';
+            switch(legendLocation.substr(0,1)){
                 case 'T':
                     yOffset = spacer;
                     break;
@@ -3450,7 +3472,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     yOffset = map.height - Math.max(markerHeight,regionHeight) - spacer;
             }
 
-            switch((oGraph.mapconfig.legendLocation || 'TR').substr(1,1)){
+            switch(legendLocation.substr(1,1)){
                 case 'L':
                     xOffset = spacer;
                     if((oGraph.mapconfig.legendLocation || 'TR').substr(0,1)=='T') xOffset+30; //space for zoom buttons
@@ -4127,10 +4149,11 @@ function vizualizeCube(graph, geoKey, mapDate){
         var vizChart = {
             chart: {
                 type: 'bar',
+                spacingRight: 50,
                 renderTo: graph.controls.$thisPanel.find('.cube-viz')[0]
             },
             title: {
-                text: cube.theme+'<br>'+geoName,
+                text: cube.theme+'<br>'+(geoName||''),
                 style: {fontSize: '12px'}
                 //text: (graph.assets.cube.theme||'')  + (graph.assets.cube.name?' by '+graph.assets.cube.name:'') + ' for ' + geoName
             },
@@ -4146,6 +4169,7 @@ function vizualizeCube(graph, geoKey, mapDate){
                         align: 'left'
                     },
                     borderWidth: 0,
+                    animation: false,
                     stacking: null
                 }
             },
@@ -4182,7 +4206,7 @@ function vizualizeCube(graph, geoKey, mapDate){
             exporting: {
                 enabled: false,
                 type: "image/png",
-                url: "http://www.mashabledata.com/workbench/export/index.php"
+                url: "https://www.mashabledata.com/workbench/export/index.php"
             },
             legend: {
                 floating: false,

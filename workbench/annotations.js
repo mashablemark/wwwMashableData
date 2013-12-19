@@ -270,7 +270,7 @@ function AnnotationsController(panelId, makeDirty){
             }
             console.timeEnd('annotation redraw');
             console.time('annotation rest');
-            if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" style="font-style:italic;color:aaaaaa#">right-click on the chart to annotate a point, a band, or an event</td></tr>';
+            if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" class="grey-italics">right-click on the chart to annotate a point, band, or event, or to perform a linear regression or average</td></tr>';
             $annotations.html(sTable).find('input, select').change(function(){self.change(this)});
             $annotations.find('.annotation-color-picker').colorPicker();
             $annotations.find('.ui-icon-trash').click(function(){

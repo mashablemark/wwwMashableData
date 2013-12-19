@@ -927,24 +927,14 @@ function ProvenanceController(panelId){
                 +   '<div class="edit-block">name: </span><input class="plot-name" type="text" data="name"/></div><br>'
                 +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text"/><span class="plot-edit-k"> scalor: <input class="short" value="'+(options.k||1)+'"></div><br>'
                 +   '<span class="edit-label">Point calculations:</span>'
-                +   self.HTML.compMath + '<br>'
-            //if(self.plotsEdits.length>0){
-            editDiv +=   '<div class="edit-block bunny-selector"><span class="bunny-selector" data="bunny">Color map relative to: <select class="bunny-selector">'
-                + '<option value="-1">none (simple heat map)</option>';
-            if(self.plotsEdits){
-                for(i=0;i<self.plotsEdits.length;i++){
-                    editDiv += '<option ' + (options.bunny==i?'selected':'') +' value="'+i+'" >'+(i+1)+'. '+plotName(self.graph, self.plotsEdits[i])+'</option> '
-                }
-            }
-            editDiv += '<option value="add"><b>create regional plot for me</b></option>'
-                +  '</select></span></div> ';
-            //}
+                +   self.HTML.compMath
+                +   '<div class="edit-block add-bunny"><button  class="add-bunny">add regional tracking plot</button></span></div> ';
             editDiv += '</div>';
             var $editDiv = $(editDiv);
 
             //bunny
-            $editDiv.find('select.bunny-selector').change(function(){  //this is a multifunction selector: delete bunny, use existing plot, or create bunny
-                var val = $(this).val();
+            $editDiv.find('button.add-bunny').button({icons: {secondary: 'ui-icon-plus'}}).click(function(){  //this is a multifunction selector: delete bunny, use existing plot, or create bunny
+                var val = "add";
                 if(val=="add"){
                     var i, handle, asset, mapsetids=[];
                     for(i=0;i<mapset.components.length;i++){
@@ -952,7 +942,7 @@ function ProvenanceController(panelId){
                             mapsetids.push(mapset.components[i].handle.substr(1));
                         }
                     }
-                    callApi({command: 'GetBunnySeries', mapsetids: mapsetids, geoid: self.mapconfigEdits.geoid, mapname: self.graph.map}, function (oReturn, textStatus, jqXH) {
+                    callApi({command: 'GetBunnySeries', mapsetids: mapsetids, geoid: parseInt(mapsList[self.graph.map].bunny), mapname: self.graph.map}, function (oReturn, textStatus, jqXH) {
                         if(oReturn.allfound){
                             for(handle in oReturn.assets){ //the handle being looped over in the mappset handle
                                 self.graph.assets[oReturn.assets[handle].handle] = oReturn.assets[handle];
@@ -976,7 +966,7 @@ function ProvenanceController(panelId){
                             var p, plots = self.plotsEdits, bunnyExists = false;
                             if(plots){
                                 for(p=0;p<plots.length;p++){
-                                    if(bunnyPlot.options.k!=plots.options.k||1){ //check plot options first for consistency
+                                    if(bunnyPlot.options.k!=plots[p].options.k||1){ //check plot options first for consistency
                                         for(i=0;i<plots[p].components.length;i++){ // then check component and component options for consistency
                                             if(plots[p].components[i].handle!=bunnyPlot.components[i].handle
                                                 || plots[p].components[i].options.k||1!=bunnyPlot.components[i].options.k
@@ -1145,7 +1135,7 @@ function ProvenanceController(panelId){
                     min: 2,
                     max:200,
                     change: function(event, ui){
-                        if(type=='M' || options.attribute=='fill'){
+                        if(type=='M' || options.attribute!='fill'){
                             self.mapconfigEdits.maxRadius = $(this).val();
                         } else {
                             self.mapconfigEdits.fixedRadius = $(this).val();

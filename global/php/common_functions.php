@@ -316,7 +316,7 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 $item = $cubeDimensions[$i]["list"][$j];
                 if(!isset($item["sumWithNext"])){
-                    $listItem = ["name"=>isset($item["translation"])?$item["translation"]:$item["pattern"]];
+                    $listItem = ["name"=>$item["name"]];
                     if(isset($item["short"])) $listItem["short"] = $item["short"];
                     if(isset($item["color"])) $listItem["short"] = $item["color"];
                     array_push($list, $listItem);

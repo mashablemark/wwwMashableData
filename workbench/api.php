@@ -410,7 +410,7 @@ switch($command){
             $themeid = isset($_POST["themeid"])?intval($_POST["themeid"]):0;
             $output = ["status"=>"ok", "cubes"=>[]];
 
-            $sql = "select t.themeid, t.name as themename, c.cubeid, c.name from cubes c inner join themes t on t.themeid=c.themeid where c.cubeid=$cubeid or c.themeid=$themeid";
+            $sql = "select t.themeid, t.name as themename, c.cubeid, c.name from cubes c inner join themes t on t.themeid=c.themeid where c.cubeid=$cubeid or (c.themeid=$themeid and c.name<>'total')";
             $result = runQuery($sql,"GetCubeList");
             while($row = $result->fetch_assoc()){
                 $output["themeid"] = $row["themeid"];
@@ -503,7 +503,6 @@ switch($command){
                     $row["handle"] = "S".$row["id"];
                     $output["assets"]["M".$mapsetids[$i]] = $row;
                 }
-                $geoid = $row["bunny"];
             } else {
                 $output["allfound"]=false;
                 $output["assets"]=false; //no need to transmit series as it will not be used
@@ -1458,7 +1457,7 @@ function getGraphs($userid, $ghash){
         }
     }
     if(strlen($ghash)>0){
-        $mapconfig = json_decode($output['graphs']['G' . $gid]);
+        $mapconfig = isset($output["graphs"]["G" . $gid]["mapconfig"])?json_decode($output['graphs']['G' . $gid]["mapconfig"],true):null;
         if($mapconfig!==null){
             if(isset($mapconfig["cubeid"])){
                 $output['graphs']['G' . $gid]["assets"]["cube"]=[];
