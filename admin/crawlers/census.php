@@ -190,7 +190,7 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
                 for($j=0;$j<count($list);$j++){  //inner loop of variable.list ->  pattern matching
                     $searchText = $variables[$i]["location"]=="variable" ? (string)$xmlVariable : $conceptName;
                     //print($searchText.':'.' '.$list[$j]["pattern"].'<br>');
-                    if(strpos(' '.$searchText, ' '.$list[$j]["pattern"])!==false){ //prevents partial word detection (eg. female detected as male)
+                    if(strpos($searchText, $list[$j]["pattern"])!==false){ //prevents partial word detection (eg. female detected as male)
                         //found a match between XML variable info and my array!!
                         //print('match!!');
                         if(isset($list[$j]["sumWithNext"])) {
@@ -241,7 +241,7 @@ function fetchData(&$data, $location, $key){
             if($year=="2000" && substr($key,4,1)=="0") $yearKey = substr($key,0,4).substr($key,5);
             $url = "http://api.census.gov/data/$year/sf1?get=$yearKey&for=$location:*&key=$api_key";
             printNow($url);
-            $fetched = json_decode(implode(file($url),"\n"));
+                $fetched = json_decode(implode(file($url),"\n"));
             for($j=1;$j<count($fetched);$j++){ //start with 1 to skip the header row
                 if(count($fetched[$j])==3){
                     $locationCode = "F".str_pad($fetched[$j][1], 2, '0', STR_PAD_LEFT)  . str_pad($fetched[$j][2], 3, '0', STR_PAD_LEFT);
