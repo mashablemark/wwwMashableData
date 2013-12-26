@@ -1,6 +1,9 @@
 <?php
 $event_logging = true;
 $sql_logging = false;
+$downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
+
+
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
  * All returns are JSON objects. Supports the standard MD API functions:
@@ -76,9 +79,9 @@ to refetch tree with last updated dates:
 */
 
 function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
+    global $downloadFiles;
     global $treeJson;
     global $db;
-    $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
     $ROOT_FAO_CATID = $api_row["rootcatid"];
     $baseCats = json_decode($treeJson, true);
     //first build the base categories:
@@ -113,7 +116,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
                     print('downloading '.$fileName.'.zip<br>');
                 }
                 if(file_exists("bulkfiles/fao/".$fileName.".csv")){
-                    print("creating job for ".$branchName." > ".$branchInfo."<br>");
+                    print("creating job for ".$branchName." > ".json_encode($branchInfo)."<br>");
                     flush();
                     ob_flush();
                     //queue the job after the file is downloaded and unzipped
@@ -128,124 +131,94 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     runQuery("update apirunjobs set status='S' where jobid=".$jobid);
 }
 
-function ApiExecuteJob($runid, $job_row){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a single single api run until no more
     global $MAIL_HEADER, $db;
-    $thread_status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $sql="SELECT a.apiid, a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"
-        . " FROM apis a, apiruns r, apirunjobs j"
-        . " WHERE a.apiid = r.apiid AND r.runid = j.runid AND r.runid=".$runid
-        . " AND " . ($jobid=="ALL"?"STATUS =  'Q'":"jobid=".$jobid)
-        . " LIMIT 0 , 1";
-    $result = runQuery($sql);
-    if($result === false || mysqli_num_rows($result)==0){
-        return(array("status"=>"unable to find queued jobs for run ".$runid));
-    }
-    $api_row = $result->fetch_assoc();
-    $updateRunSql = "update apiruns set finishdt=now() where runid=".$api_row["runid"];
+    $jobid = $job_row["jobid"];
+    $runid = $api_run_row["runid"];
 
     //reusable SQL statements
-    $next_job_sql = "select * from apirunjobs where status='Q' and runid =".$runid." limit 0,1";
-    $running_jobs_sql = "select * from apirunjobs where status='R' and runid =".$runid." limit 0,1";
-    $update_run_sql = "update apiruns set finishdt=now() where runid = " . $runid;
+    $updateRunSql = "update apiruns set finishdt=now() where runid=".$runid;
+    $updateJobSql = "update apirunjobs set status = 'R', enddt=now() where jobid=$jobid";
 
     //UPDATE THE RUN'S FINISH DATE
-    runQuery($update_run_sql);
+    runQuery($updateRunSql);
+    $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
 
-    //MASTER LOOP
-    $check = true;
-    $threadjobid = "null";
-    $job_count = 0;
-    while($check){
-        $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-        if($jobid=="ALL"){
-            $result = runQuery($next_job_sql);
-        }  else {
-            $result = runQuery("select * from apirunjobs where jobid=". intval($jobid));
-            $check = false; //just run this one job; don't loop
-        }
-        if($result===false || $result->num_rows!=1){
-            $check = false; //this is the stop command
-            $running_jobs = runQuery($running_jobs_sql);
-            if($running_jobs!=false && $running_jobs->num_rows!=1){
-                set_time_limit(200);
-                setMapsetCounts("all", $api_row["apiid"]);
-                set_time_limit(200);
-                prune($api_row["apiid"]);
-            }
-        } else {
-            //$result is a pointer to the job to run
-            set_time_limit(60);
-            $job = $result->fetch_assoc();
-            if($threadjobid=="null") $threadjobid=$job["jobid"];
-            $sql = "update apirunjobs set startdt=now(), tries=tries+1, threadjobid=".$threadjobid.", status='R' where jobid =".$job["jobid"];   //closed in ExecuteJob
-            runQuery($sql);
 
-            $HEADER = '"CountryCode","Country","ItemCode","Item","ElementGroup","ElementCode","Element","Year","Unit","Value","Flag"';
-            $colCountryCode = 0;
-            $colCountry = 1;
-            $colItemCode = 2;
-            $colItem = 3;
-            $colElementGroup = 4;
-            $colElementCode	= 5;
-            $colElement	= 6;
-            $colYear = 7;
-            $colUnit = 8;
-            $colValue = 9;
-            $colFlag = 10;
+    //$result is a pointer to the job to run
+    set_time_limit(60);
 
-            $updateJobSql = "update apirunjobs set status = 'R', enddt=now() where jobid=".$job["jobid"];
-            $branchInfo = json_decode($api_row['jobjson'], true);
-            $branchName = $branchInfo['name'];
-            print("STARTING FAO : $branchName (job ".$job["jobid"].")<br>\r\n");
+    $HEADER = '"CountryCode","Country","ItemCode","Item","ElementGroup","ElementCode","Element","Year","Unit","Value","Flag"';
+    $colCountryCode = 0;
+    $colCountry = 1;
+    $colItemCode = 2;
+    $colItem = 3;
+    $colElementGroup = 4;
+    $colElementCode	= 5;
+    $colElement	= 6;
+    $colYear = 7;
+    $colUnit = 8;
+    $colValue = 9;
+    $colFlag = 10;
 
-            $csv=fopen("bulkfiles/fao".$branchInfo["file"],"r");
-            $header = fgets($csv);  //throw away the header line
-            if($HEADER==trim($header)){ //know file format
-                $line = json_decode("[". $header . "]");
-                $initial = true;
-                $series_header = array(0,1,2,3,4,5,6,7,8,9,10); //dummy data for first check
-                while(!feof($csv)){
-                    $line = json_decode("[". fgets($csv) . "]");
-                    if(count($line)==11){
-                        if($line[$colItem]!=$series_header[$colItem] || $line[$colCountry]!=$series_header[$colCountry] || $line[$colElement]!=$series_header[$colElement]){ //series
-                            if(!$initial){
-                                saveSeries($status, $api_row, $job["jobid"], $series_header, $branchInfo, $lastLine, $data);
-                                runQuery($updateJobSql);
-                            } else {
-                                $initial = false;
-                            }
-                            //start series
-                            set_time_limit(60);
-                            $series_header = $line;
-                            $lastLine = $line;
-                            $data = $line[$colYear]."|".$line[$colValue];
-                        } else { //another point in current series
-                            $data .= "||".$line[$colYear]."|".$line[$colValue];
-                            $lastLine = $line;
-                        }
+    $branchInfo = json_decode($job_row['jobjson'], true);
+    $branchName = $branchInfo['name'];
+    print("STARTING FAO : $branchName (job $jobid)<br>\r\n");
+
+    $csv=fopen("bulkfiles/fao".$branchInfo["file"],"r");
+    $header = fgets($csv);  //throw away the header line
+    if($HEADER==trim($header)){ //know file format
+        $line = json_decode("[". $header . "]");
+        $initial = true;
+        $series_header = array(0,1,2,3,4,5,6,7,8,9,10); //dummy data for first check
+        while(!feof($csv)){
+            $line = json_decode("[". fgets($csv) . "]");
+            if(count($line)==11){
+                if($line[$colItem]!=$series_header[$colItem] || $line[$colCountry]!=$series_header[$colCountry] || $line[$colElement]!=$series_header[$colElement]){ //series
+                    if(!$initial){
+                        $seriesid = saveSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $data);
+                        runQuery($updateJobSql);
+                    } else {
+                        $initial = false;
                     }
+                    //start series
+                    set_time_limit(60);
+                    $series_header = $line;
+                    $lastLine = $line;
+                    $data = $line[$colYear]."|".$line[$colValue];
+                } else { //another point in current series
+                    $data .= "||".$line[$colYear]."|".$line[$colValue];
+                    $lastLine = $line;
                 }
-                saveSeries($status, $api_row, $job["jobid"], $series_header, $branchInfo, $lastLine, $data);
-                $updatedJobJson = json_encode(array_merge($branchInfo, $status));
-                runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=".$job["jobid"]);
-                runQuery($updateRunSql);
-                runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"].", added=added+".$status["added"].", updated=updated+".$status["updated"].", failed=failed+".$status["failed"]." where runid=".$api_row["runid"]);
-                $thread_status["updated"] += $status["updated"];
-                $thread_status["failed"] += $status["failed"];
-                $thread_status["skipped"] += $status["skipped"];
-                $thread_status["added"] += $status["added"];
-
-            } else { //unknown file format
-                print($header."X<br>");
-                print($HEADER."X<br>");
-                runQuery( "update apirunjobs set status = 'F', enddt=now() where jobid=".$job["jobid"]);
-                runQuery($updateRunSql);
             }
-            print("ENDING FAO $branchName: ".$branchInfo["file"]." (job ".$job["jobid"].")<br>\r\n");
         }
+        saveSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $data);
+        $updatedJobJson = json_encode(array_merge($branchInfo, $status));
+        runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
+        runQuery($updateRunSql);
+        runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
+            .", added=added+".$status["added"]
+            .", updated=updated+".$status["updated"]
+            .", failed=failed+".$status["failed"]
+            ." where runid=$runid");
 
+    } else { //unknown file format
+        print("mismatch between file header format and expected format<br>".$header."X<br>");
+        print($HEADER."X<br>");
+        runQuery( "update apirunjobs set status = 'F', enddt=now() where jobid=$jobid");
+        runQuery($updateRunSql);
     }
-    return $thread_status;
+    print("ENDING FAO $branchName: ".$branchInfo["file"]." (job $jobid)<br>\r\n");
+    return $status;
+}
+function ApiRunFinished($api_run){
+    set_time_limit(200);
+    setMapsetCounts("all", $api_run["apiid"]);
+    set_time_limit(200);
+    freqSets($api_run["apiid"]);
+    set_time_limit(200);
+    prune($api_run["apiid"]);
+
 }
 function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $line, $data){
     $colCountryCode = 0;
@@ -261,10 +234,10 @@ function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $li
     $colFlag = 10;
 
     $thisCatId = setCategoryByName($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
-    $geoid = countryLookup($line[$colCountry]);
+    $geoid = countryLookup($series_header[$colCountry]);
     $setName = $series_header[$colElement] .": ". $series_header[$colItem];
     $mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
-    $skey = $line[$colCountryCode]."-".$line[$colElementCode]."-".$line[$colItemCode];
+    $skey = $series_header[$colCountryCode]."-".$series_header[$colElementCode]."-".$series_header[$colItemCode];
     $seriesid = updateSeries(
         $status,
         $jobid,
@@ -285,6 +258,7 @@ function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $li
         $mapSetId,
         null, null, null);
     catSeries($thisCatId, $seriesid);
+    return $seriesid;
 }
 
 function countryLookup($country){
@@ -301,7 +275,7 @@ function countryLookup($country){
 
         if(preg_match($regex, $country, $matches)==1){
             $exceptex = $countries[$i]["exceptex"];
-            if($exceptex!=null && preg_match($exceptex, $country, $matches)==0){
+            if($exceptex==null || preg_match($exceptex, $country, $matches)==0){
                 return $countries[$i]["geoid"];
             }
         }
