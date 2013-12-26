@@ -761,9 +761,9 @@ function setupPublicGraphsTable(){
         "oColReorder": {"iFixedColumns": 2},
         //"sScrollY": (layoutDimensions.heights.innerDataTable-220) + "px",
         "sScrollX": layoutDimensions.widths.publicGraphTable.table + "px",
-        "aaSorting": [[6,'desc']],
+        "aaSorting": [[5,'desc']],
         "aoColumns": [
-            {"mData":"title", "sTitle": "Title (click to view)<span></span>", "bSortable": false, "sClass": 'title',  "sWidth":  layoutDimensions.widths.publicGraphTable.columns.title + 'px',
+            {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true, "sClass": 'title',  "sWidth":  layoutDimensions.widths.publicGraphTable.columns.title + 'px',
                 "mRender": function(value, type, obj){return value + '<span class="handle">G'+obj.graphid+'</span>';}
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px", "mRender": function(value, type, obj){

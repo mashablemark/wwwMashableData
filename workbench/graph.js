@@ -977,11 +977,10 @@ function createSerieFromPlot(oGraph, plotIndex){
     }
     //3. reconstruct an ordered MD data array
     plotData.sort(function(a,b){return a[0]-b[0];});
-    calculatedSeries.data = plotData;
-    /*    }*/
     if(breakMissing){
-        //todo:  break on missing code
+        plotData = addBreaks(plotData, calculatedSeries.period);
     }
+    calculatedSeries.data = plotData;
     console.timeEnd('createSerieFromPlot');
     return calculatedSeries;
 }
@@ -2835,7 +2834,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: Math.min(400, 10*vals.length) +"px"};
                             if(vals.length<10) sparkOptions.type = 'bar';
                             if(typeof y != 'undefined' && y!==null) sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
-                            $('.inlinesparkline').sparkline(vals, sparkOptions);
+                            if(vals.length>1)$('.inlinesparkline').sparkline(vals, sparkOptions);
                         }
                     }
                 },
@@ -3103,7 +3102,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
                         for(i=0;i<selectedRegions.length;i++){
                             for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
-                                if(typeof calculatedMapData.regionData[dateSet][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
+                                if(typeof calculatedMapData.regionColors[dateSet][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
                                     plt = $.extend(true, {}, oGraph.mapsets);
                                     for(j=0;j<plt.components.length;j++){
                                         if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)

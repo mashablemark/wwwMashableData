@@ -11,8 +11,8 @@ function ProvenanceController(panelId){
     var mapsetLegend, pointsetLegend;
     var controller = {
         HTML: {
-            nLanding: '<li class="component-landing"><span class="landing">drag numerator series here</span></li>',
-            dLanding: '<li class="component-landing"><span class="landing">drag denominator series here</span></li>',
+            /*            nLanding: '<li class="component-landing"><span class="landing">drag numerator series here</span></li>',
+             dLanding: '<li class="component-landing"><span class="landing">drag denominator series here</span></li>',*/
             compMath: '<div class="edit-block">'
                 +       '<div class="edit-math">'
                 +           '<input type="radio" id="required-'+panelId+'" name="comp-math-'+panelId+'" data="compMath"  value="required"/><label for="required-'+panelId+'">all values required else null</label>'
@@ -111,10 +111,10 @@ function ProvenanceController(panelId){
                 .off("click")
                 .click(function(){
                     var $liPlot = $(this).closest("li");
-                    self.showPlotEditor($liPlot);
                     $liPlot.find("li.component").each(function(){
                         self.showComponentEditor(this, 'plot');
                     });
+                    self.showPlotEditor($liPlot);
                 });
 
             self.$prov.find(".edit-mapset")
@@ -122,10 +122,10 @@ function ProvenanceController(panelId){
                 .off("click")
                 .click(function(){
                     self.sortableOff();
-                    self.showMapSetEditor();
                     self.$prov.find('.mapset').find("ol.map-comp li.component").each(function(){
                         self.showComponentEditor(this, 'mapset');
                     });
+                    self.showMapSetEditor();
                 });
 
             self.$prov.find(".edit-pointset")
@@ -133,10 +133,10 @@ function ProvenanceController(panelId){
                 .off("click")
                 .click(function(){
                     var $liPlot = $(this).closest("li");
-                    self.showPointSetEditor($liPlot);
                     $liPlot.find("ol li.component").each(function(){
                         self.showComponentEditor(this, 'pointset');
                     });
+                    self.showPointSetEditor($liPlot);
                 });
             self.sortableOn();
         },
@@ -146,7 +146,7 @@ function ProvenanceController(panelId){
             var plotColor, plotList = '', plot = self.plotsEdits[i];
             plot.options.lineWidth = plot.options.lineWidth||2;
             plot.options.lineStyle = plot.options.lineStyle || 'Solid';
-            plotColor = plot.options.color || ((oHighCharts[panelId]&&oHighCharts[panelId].get('P'+i))?oHighCharts[panelId].get('P'+i).color:hcColors[i%hcColors.length]);
+            plotColor = plot.options.color || ((self.graph.chart&&self.graph.chart.get('P'+i))?self.graph.chart.get('P'+i).color:hcColors[i%hcColors.length]);
             plotList += '<li class="plot" data="P' + i + '">'
                 + '<button class="edit-plot">configure</button>'
                 + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
@@ -158,7 +158,7 @@ function ProvenanceController(panelId){
             return plotList;
         },
         componentsHTML: function(plot){
-            var plotList, comp, type='plot', numerCount=1, numerHTML='', denomHTML='', compHTML, isDenom=false, graph = this.graph;
+            var plotList, comp, type='plot', compHTML='', graph = this.graph;
             var algorithm = {
                 sum: 'summing',
                 wavg: 'day-weighted averaging of'
@@ -169,7 +169,7 @@ function ProvenanceController(panelId){
                 if(plot.components[j].options.op==null)plot.components[j].options.op="+";
                 if(comp.handle[0]=='M')type='map';  //overides default = 'plot'
                 if(comp.handle[0]=='X')type='point';
-                compHTML = '<li class="component ui-state-default" data="'+comp.handle+'">'
+                compHTML += '<li class="component ui-state-default" data="'+comp.handle+'">'
                     + '<span class="plot-op ui-icon ' + op.cssClass[plot.components[j].options.op] + '">operation</span> '
                     + '<span class="comp-edit-k" style="display:none;"><input class="short" value="'+(comp.options.k||1)+'"> * </span>'
                     + (comp.handle[0]=='X'?iconsHMTL.pointset:(comp.handle[0]=='M'?iconsHMTL.mapset:''))
@@ -180,16 +180,9 @@ function ProvenanceController(panelId){
                     + graph.assets[comp.handle].units
                     + (type=='plot'?' <a class="link comp-view">view source data</a>':'')
                     + '</li>';
-                if(plot.components[j].options.dn=='d'||isDenom){
-                    isDenom= true; denomHTML += compHTML;
-                } else {
-                    numerHTML += compHTML;
-                    numerCount++;
-                }
+
             }
-            plotList = '<ol class="components '+type+'-comp numer">'+(numerHTML||this.HTML.nLanding) + '</ol>'
-                + '<hr>'
-                + '<ol class="components '+type+'-comp denom" start="'+numerCount+'">'+(denomHTML||this.HTML.dLanding) + '</ol>';
+            plotList = '<ol class="components '+type+'-comp">'+compHTML + '</ol>';
             return plotList;
         },
         plotPeriodicity:   function plotPeriodicity(plot){
@@ -235,12 +228,8 @@ function ProvenanceController(panelId){
                             plotIndex = null;
                         }
                         //determine comp index
-                        if(ui.item.parent().hasClass("numer")){
-                            compIndex = ui.item.index();
-                        } else {
-                            var numerLength = ui.item.closest("ol.components").parent().find("ol.numer li.component").length;
-                            compIndex = ui.item.index() + numerLength;
-                        }
+                        compIndex = ui.item.index();
+
                         /*else {  //THIS WILL NEVER HAPPEN:  MOVE TO PLOTS START
                          if(ui.item.hasClass("plot"))type="plot";
                          if(ui.item.hasClass("pointset"))type="point";
@@ -383,25 +372,18 @@ function ProvenanceController(panelId){
             //1. remove unneeded landing <li>s
             ui.item.parent().find('.component-landing').remove();
             //2. add a landing to the source <ol> if needed
-            if(self.dragging.$ol.children("li").length==0){
-                if(self.dragging.$ol.hasClass('numer')){
-                    self.dragging.$ol.append(self.HTML.nLanding);
-                } else {
-                    self.dragging.$ol.append(self.HTML.dLanding);
-                }
-            }
+            /*if(self.dragging.$ol.children("li").length==0){
+             if(self.dragging.$ol.hasClass('numer')){
+             self.dragging.$ol.append(self.HTML.nLanding);
+             } else {
+             self.dragging.$ol.append(self.HTML.dLanding);
+             }
+             }*/
             //3. remove the component
             var cmp = self.dragging.obj.components.splice(self.dragging.compIndex,1)[0];
             //4. set the numer/denom flag and add the component
-            if(ui.item.closest('ol').hasClass('numer') || newPlot){
-                cmp.options.dn='n';
-                toC = ui.item.index();
-            } else {
-                cmp.options.dn='d';
-                var numerLength = ui.item.closest('ol').parent().find('ol.numer').children('li.component').length;
-                toC = ui.item.index() + numerLength;
-                ui.item.closest('ol').attr("start", numerLength+1);
-            }
+            toC = ui.item.index();
+
             if(newPlot){
                 toPlotObject = {options: {}, components: [cmp]};
                 self.plotsEdits.push(toPlotObject);
@@ -475,9 +457,6 @@ function ProvenanceController(panelId){
         compIndex: function(liComp){
             var $liComp = $(liComp);
             var cmpIndex = $liComp.index();
-            if($liComp.parent().hasClass('denom')) {
-                cmpIndex += $liComp.parent().parent().find('ol.numer li.component').length;
-            }
             return cmpIndex;
         },
         showComponentEditor:  function showComponentEditor(liComp, type){
@@ -491,7 +470,7 @@ function ProvenanceController(panelId){
             var compHandle = $(liComp).attr('data');
             var component = plot.components[iComp];
             var editDiv = (vectorPattern.test(compHandle)?'<button class="comp-copy prov-float-btn">make copy</button>':'')
-                    + '<button class="comp-delete prov-float-btn">remove series</button>'
+                + '<button class="comp-delete prov-float-btn">remove series</button>'
             var $editDiv = $(editDiv);
             $liComp.find(".plot-op").hide().after(
                 '<div class="op">'
@@ -499,6 +478,8 @@ function ProvenanceController(panelId){
                     +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'">-</label>'
                     +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'">*</label>'
                     +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'">/</label>'
+                    +       '<input type="radio" data="(..)*(..)"  id="op-term-multiply'+compHandle+'" value="(..)*(..)" name="op-radio'+compHandle+'" /><label for="op-term-multiply'+compHandle+'"><b>()*</b></label>'
+                    +       '<input type="radio" data="(..)/(..)"  id="op-term-divide'+compHandle+'" value="(..)/(..)" name="op-radio'+compHandle+'" /><label for="op-term-divide'+compHandle+'"><b>(..)/</b></label>'
                     +   '</div>');
             $liComp.find("div.op").find("input[data='"+component.options.op+"']").attr('checked','checked')
                 .end()
@@ -552,7 +533,7 @@ function ProvenanceController(panelId){
             var plotIndex = $liPlot.index();
             var oPlot = self.plotsEdits[plotIndex];
             var options = oPlot.options;
-            var plotColor = oPlot.options.color||oHighCharts[visiblePanelId()].get('P' + $liPlot.index()).color;
+            var plotColor = oPlot.options.color||self.graph.chart.get('P' + $liPlot.index()).color;
             $liPlot.find(".edit-plot, .plot-info").hide();
             //line thickness selector
             var selectThickness='<select class="plot-thickness" data="lineWidth">';
@@ -608,9 +589,9 @@ function ProvenanceController(panelId){
                 var synF = $editDiv.find('select.dshift option:selected').attr('data');
 
                 if(newF != synF){
-                   /* $.each(oPlot.components, function(){
-                        if(!maxF||period.value[maxF]<period.value[self.graph.assets[this.handle].period]) maxF = self.graph.assets[this.handle].period
-                    });*/
+                    /* $.each(oPlot.components, function(){
+                     if(!maxF||period.value[maxF]<period.value[self.graph.assets[this.handle].period]) maxF = self.graph.assets[this.handle].period
+                     });*/
                     selectDownshift(self.graph, newF, oPlot, function(oDown){
                         if(oDown){
                             options.fdown = newF;
@@ -637,7 +618,7 @@ function ProvenanceController(panelId){
                     delete options.algorithm;
                     delete options.missing;
                     $.each(oPlot.components, function(){ //and swap in new series
-                       this.handle = self.graph.assets[this.handle].freqset[newF];
+                        this.handle = self.graph.assets[this.handle].freqset[newF];
                     });
                     f = newF;
                     self.fetchNewSeries(oPlot);
@@ -714,7 +695,9 @@ function ProvenanceController(panelId){
                 $liPlot.find(".edit-plot").show();
                 self.sortableOn();
             });
-            $editDiv.prependTo($liPlot).slideDown();
+            $editDiv.prependTo($liPlot);
+            this.editPlotFormula(oPlot, $liPlot);
+            $editDiv.slideDown();
             self.$prov.find('.landing').slideUp();
         },
         freqOptions: function(plot){
@@ -857,7 +840,9 @@ function ProvenanceController(panelId){
                 $liPointSet.find(".edit-plot").show();
                 self.sortableOn();
             });
-            $editDiv.prependTo($liPointSet).slideDown();
+            $editDiv.prependTo($liPointSet);
+            this.editPlotFormula(oPointset ,$liPointSet)
+            $editDiv.slideDown();
             self.$prov.find('.landing').slideUp();
             $liPointSet.find('.edit-pointset').hide();
         },
@@ -908,11 +893,65 @@ function ProvenanceController(panelId){
             }
             return provHTML;
         },
+        editPlotFormula: function(plot, $plot){
+            if(plot.options.userFormula){
+                guidedEditing();
+            } else {
+                manualEditing();
+            }
+            function manualEditing(){
+                $plot.find('div.op, span.comp-edit-k').show();
+                $plot.find('input.plot-formula, button.manual').remove();
+                $plot.find('.plot-formula').val(plotFormula(plot).formula)
+                    .after('<button class="guided">guided editing</button>');
+                $plot.find('button.guided').button({icons: {secondary: 'ui-icon-star'}}).click(function(){
+                        guidedEditing();
+                    }
+                );
+                delete plot.options.userFormula;
+            }
+            function guidedEditing(){
+                $plot.find('div.op, span.comp-edit-k').hide();
+                $plot.find('button.guided').remove();
+                $plot.find('span.plot-formula').hide()
+                    .after('<button class="manual">manual editing</button>')
+                    .after('<input class="plot-formula">');
+                $plot.find('input.plot-formula').val(plot.options.userFormula|| plotFormula(plot).formula).keyup(function(){
+                        try{
+                            var userFormula = $(this).val();
+                            if(userFormula.indexOf(';')>=0) throw('invalid mathematical syntax');
+                            var expression = 'return ' + userFormula.replace(patVariable,'values.$1') + ';';
+                            var compute = new Function('values', expression);
+                            var valuesObject = {}, symbol;
+                            $.each(plot.components, function(c){
+                                    symbol = compSymbol(c);
+                                    if(userFormula.indexOf(symbol)===-1) throw('all symbols must be used');
+                                    valuesObject[compSymbol(c)] = c;}
+                            );
+                            var testCalc = compute(valuesObject);
+                            $(this).removeClass('ui-state-error');
+                            //if we got to here, the formula is valid
+                            plot.options.userFormula = userFormula;
+                            $plot.find('.plot-formula').val(plot.options.userFormula);
+                        } catch(err){
+                            $(this).addClass('ui-state-error');
+                            delete plot.options.userFormula;
+                        }
+                    });
+                $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
+                        manualEditing();
+                    }
+                );
+            }
+
+        },
         showMapSetEditor: function(){
             var self = this;
             var mapset = this.mapsetEdits;
             var options = this.mapsetEdits.options;
             var $mapset = self.$prov.find('.mapset');
+            this.editPlotFormula(this.mapsetEdits, $mapset);
+
             var i;
             self.$prov.find("button.plot-close").click();  //close any open editors
             $mapset.find('.edit-mapset').hide();

@@ -79,6 +79,7 @@ function dateFromMdDate(mddt){  //returns a data object
     }else{
         udt.period = 'A';
     }
+    udt.s = mddt;
     return udt
 }
 
@@ -305,4 +306,71 @@ function equivalentRGBA(hexColor, alpha){
     function gun(desired, alpha){
         return  parseInt(desired/alpha - (1-alpha)*255/alpha);
     }
+}
+
+
+function addBreaks(seriesData, periodicity){
+    var data = seriesData.slice(0); //make a copy
+    data.sort(function(a,b){return a[0]-b[0]});
+    var oData = [];
+    if(data.length>0) oData.push([data[0][0], data[0][1]]);  //oData.push({x: data[0][0], y: data[0][1], marker: {enabled: (data.length==1)}});
+    var interval;
+    switch(periodicity){
+        case 'T':
+        case 'N':
+        case 'D':
+        /*return data;
+         break;*/
+        case 'W':
+            maxInterval = Date.UTC(2000,0,9)-Date.UTC(2000,0,1);
+            break;
+        case 'M':
+            maxInterval = Date.UTC(2000,1,2)-Date.UTC(2000,0,1);
+            break;
+        case 'SA':
+            maxInterval = Date.UTC(2000,7,2)-Date.UTC(2000,0,1);
+            break;
+
+        default: //annual
+            maxInterval =  Date.UTC(2001, 2)-Date.UTC(2000,1);
+    }
+    for(var i=1;i<data.length;i++){
+        if(data[i-1][1]!= null && data[i][1]!= null && ((data[i][0]-data[i-1][0]) > maxInterval)){
+            var interDate = new Date(data[i][0] );
+            switch(periodicity){
+                case 'd':
+                case 'w':
+                    interDate.setDate(interDate.getDate()+7);
+                    break;
+                case '4':
+                    interDate.setDate(interDate.getDate()+28);
+                    break;
+                case 'm':
+                    interDate.setMonth(interDate.getMonth()+1);
+                    break;
+                default: //annual
+                    interDate.setMonth(interDate.getMonth()+12);
+            }
+            data.splice(i,0,[parseInt(interDate), null]);
+            /*
+             oData.push({x: parseInt(interDate), y: null, marker: {enabled: false}});
+             if(i==1){
+             oData[0].marker.enabled = true;
+             } else if(oData[i-2].y==null){
+             oData[i-1].marker.enabled = true;
+             }
+             */
+            i++;
+        }
+        //oData.push({x: data[i][0], y: data[i][1], marker: {enabled: false}});
+
+    }
+
+    /*    if(oData.length>1){
+     if(oData[oData.length-2].y==null){
+     oData[oData.length-1].marker.enabled = true;
+     }
+     }
+     */
+    return data //oData
 }

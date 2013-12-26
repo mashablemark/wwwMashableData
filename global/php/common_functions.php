@@ -289,7 +289,7 @@ function setThemeByName($apiid, $themeName){
 }
 
 function setCubeByDimensions($themeid, $cubeDimensions, $units){
-    //save teh cube and its dimensions if DNE
+    //save the cube and its dimensions if DNE
     //return an assc array with cube name and id
     global $db;
     $names = [];
@@ -323,7 +323,7 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
                 }
 
             }
-            $dimjson = json_encode($cubeDimensions[$i]["list"]);
+            $dimjson = json_encode($list);
             $sql="insert into cubedims (cubeid, name, json, dimorder) values($cubeid, '$dimName',".safeStringSQL($dimjson).",$i)";
             if(!runQuery($sql, "insert cubedim")) throw new Exception("error: unable to insert dimension $dimName for cubeid $cubeid");
         }
@@ -508,7 +508,7 @@ function freqSets($apiid = "all"){
         group by apiid, units, name
         having count(*)>1);
 ";
-    $updateMapSets = "update mapsets m, temp set m.freqset = temp.text2 where m.mapsetid in ()temp.text1)";
+    $updateMapSets = "update mapsets m, temp set m.freqset = temp.text2 where m.mapsetid in (temp.text1)";
     runQuery($makeSeriesFreqSets, "freqSets");
     runQuery($updateMapSets, "freqSets");
     for($i=0;$i<5;$i++){
@@ -551,3 +551,4 @@ function encyptAcctInfo($value){
 function decryptAcctInfo($encyptedString){
 
 }
+

@@ -105,7 +105,7 @@ switch($command){
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
        }
 
-        $aColumns=array("s.seriesid", "name", "units", "periodicity", "title", "url", "firstdt", "lastdt", "updated");
+        $aColumns=array("name", "units", "periodicity", "firstdt", "lastdt", "title");
 
         $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, themeid, name, units, periodicity as period, title, src, url, "
         . " firstdt, lastdt, apiid"
@@ -142,10 +142,10 @@ switch($command){
             $sql = $sql . " AND periodicity='" . $periodicity . "'";
         };
         if($mapset=='mapsets'){
-            $sql = $sql . " AND mapsetid is not null ";
+            $sql = $sql . " AND mapsetid is not null AND pointsetid is null  ";
         }
         if($mapset=='pointsets'){
-            $sql = $sql . " AND pointsetid is not null ";
+            $sql = $sql . " AND pointsetid is not null AND mapsetid is null";
         }
         /*
          * Ordering
@@ -220,7 +220,7 @@ switch($command){
            $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
         }
-        $aColumns=array("g.graphid", "g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
+        $aColumns=array("g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
 
         $sql = "SELECT g.graphid, g.title, map, text as analysis, serieslist, ghash, views, "
        //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
@@ -344,7 +344,7 @@ switch($command){
         $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
         $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, seriesid, s.name, s.units, s.units_abbrev, title, data, notes"
         . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
-        . " left outer join (select * from series s where mapsetid=".$mapsetid.") s on g.geoid=s.geoid "
+        . " left outer join (select * from series s where mapsetid=".$mapsetid." and pointsetid is null) s on g.geoid=s.geoid "
         . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
         $headerResult = runQuery($sqlHeader,"GetSet: header");
         $setResult = runQuery($sqlSetSeries,"GetSet: series");
@@ -371,8 +371,8 @@ switch($command){
         $sql = "select m.name, jvectormap, geographycount, count(s.geoid) as setcount "
             . " from series s, maps m, mapgeographies mg "
             . " where m.map=mg.map and mg.geoid=s.geoid";
-        if($mapsetid>0) $sql .= " and s.mapsetid=".$mapsetid;
-        if($pointsetid>0) $sql .= " and s.pointsetid=".$pointsetid;
+        if($mapsetid>0) $sql .= " and s.mapsetid=".$mapsetid." and s.pointsetid is null";
+        if($pointsetid>0) $sql .= " and s.pointsetid=".$pointsetid." and s.mapsetid is null";
         if($geoid>0) $sql .= " and m.map in (select map from mapgeographies where geoid = " . $geoid . ")";
         $sql .= " group by m.name, geographycount ";
         if($pointsetid>0&&$geoid>0) {
@@ -455,9 +455,9 @@ switch($command){
             $sid = substr($bunny,1); //remove the leading U or S
             $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
                 . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
-                . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
-                . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
-                . " WHERE s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
+                . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ms.counts as geocounts "
+                . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid "
+                . " WHERE s.pointsetid is null and s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
             $result = runQuery($sql, "ChangeMaps: get series");
             if($result->num_rows==1){
                 $output["bunnies"][$bunny] = $result->fetch_assoc();
@@ -485,7 +485,7 @@ switch($command){
             . "s.title as graph, s.src, s.url, s.units, s.data, periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
             . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount "
             . " FROM series s "
-            . " where mapsetid = " . intval($mapsetids[$i]) . " and geoid = " . $geoid;
+            . " where mapsetid = " . intval($mapsetids[$i]) . " and pointsetid is null and geoid = " . $geoid;
             $result = runQuery($sql,"GetBunnySeries");
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
@@ -1481,7 +1481,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
     $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
     . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt, g.lat, g.lon "
     . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
-    . " WHERE ms.mapsetid = s.mapsetid and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
+    . " WHERE ms.mapsetid = s.mapsetid and s.pointsetid is null and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
     . " and m.map  = " . safeStringSQL($map)
     . " and g.geoid=s.geoid and mg.geoid=s.geoid and mg.map=" . safeStringSQL($map)
     . " and mg.map=m.map "
@@ -1539,7 +1539,7 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, ps.freqset,"
         . " s.seriesid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
         . " from pointsets ps, series s, mapgeographies mg, maps m "
-        . " where ps.pointsetid = s.pointsetid and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
+        . " where ps.pointsetid = s.pointsetid and s.mapsetid is null  and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
         . " and m.map  = " . safeStringSQL($map)
         . " and mg.geoid=s.geoid and ((mg.map =" . safeStringSQL($map). " and mg.map=m.map) or bunny=s.geoid)"
         . " and ps.pointsetid in (" . implode($aryPointsetIds, ",") . ")";
