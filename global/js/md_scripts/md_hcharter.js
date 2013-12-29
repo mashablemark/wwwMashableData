@@ -273,6 +273,7 @@ window.MashableData = { //mashableData namespace
         this.series[key].isDirty = true;
     },
     showPanel: function(chart){
+        jQuery(document).bind('click', closePanel);
         jQuery('#mashabledata_panel').remove();  //get rid of any open panels
         this.loadAllSeries();
         this.activeChart = chart;
@@ -290,6 +291,7 @@ window.MashableData = { //mashableData namespace
         var $panel, self=this, html = '<div id="mashabledata_panel">'
             + '<h3>Charting Toolbox</h3>'
             //+ ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<fieldset><legend>&nbsp;Download chart as file&nbsp;</legend><a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a></fieldset><button id="mashabledata_print">print chart</button>':'')
+            +   '<span id="mashabledata_cancel" class="mashabledata_close">close</span>'
             + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span>Download chart as: <a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a><button id="mashabledata_print">print chart</button></span>':'')
             + '<div id="mashabledata_tabs">'
             +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span class="mashabledata_info">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span class="mashabledata_info">('+this.bookmarks.length+')</span></a></li></ol>'
@@ -302,11 +304,10 @@ window.MashableData = { //mashableData namespace
             +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.bookmarks)+'</table></div>'
             +   '</div>'
-            +   '<span class="mashabledata_these">applies to</span> <span id="mashabledata_check_all">check all</span> '
-            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="chart" checked>update chart</label>'
-            +   '<label><input type="radio" name="mashabledata_action" class="mashabledata_action" value="md">open in the MashableData.com Workbench</label>'
-            +   '<button id="mashabledata_ok" disabled="disabled">ok</button>' //<a id="mashableddata_workbench" href="http://www.mashabledata.com/workbench" target="_blank">open workbench</a>'
-            +   '<button id="mashabledata_cancel">close</button>'
+            +   '<span class="mashabledata_these">applies to</span> <span id="mashabledata_check_all">uncheck all</span> '
+            +   '<button id="mashabledata_update" value="chart" checked>update</button>'
+            +   '<button id="mashabledata_export" value="md">export to MashableData Workbench</button>'
+            //+   '<button id="mashabledata_ok" disabled="disabled">ok</button>' //<a id="mashableddata_workbench" href="http://www.mashabledata.com/workbench" target="_blank">open workbench</a>'
             + '</div>'
             + '</div>';
         $panel = jQuery(html).prependTo(chart.container);
@@ -337,8 +338,13 @@ window.MashableData = { //mashableData namespace
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
                 $panel.find('li.mashabledata_bookmarks span').html('('+visible+(table[0].rows.length==visible?'':' of '+table[0].rows.length)+')');
             });
-        $panel.find('input:checkbox, input:radio').change(function(){
+        $panel.find('input:checkbox').change(function(){
             jQuery('#mashabledata_ok').removeAttr('disabled');
+            if($panel.find('input:checkbox:checked').length==0){
+                $panel.find('#mashabledata_check_all').innerHTML='uncheck all';
+            } else {
+                $panel.find('#mashabledata_check_all').innerHTML='check all';
+            }
         });
         $panel.find('ol a').click(function(){  //tabs
             $panel.find('ol li').removeClass('mashabledata_active');
@@ -402,65 +408,73 @@ window.MashableData = { //mashableData namespace
                 this.innerHTML='check all';
             }
         });
-        $panel.find('#mashabledata_ok').click(function(){
-            //1.make array of checked keys
-            var checkedKeys = [], series, y;
+        function getCheckKeys(){
+            var checkedKeys = [], key;
             $panel.find('table input:checked').each(function(){
                 key = jQuery(this).attr('data');
                 if(checkedKeys.indexOf(key)==-1) checkedKeys.push(key);  //avoid double counting from recents + bookmarks
             });
+            return checkedKeys;
+        }
+        $panel.find('#mashabledata_update').click(function(){
+            //1.make array of checked keys
+            var checkedKeys = getCheckKeys(), series, y;
 
-            if($panel.find('input:radio[name=mashabledata_action]:checked').val()=='chart'){
-                //2. if graph, add / remove series from chart
-                //2A. first remove
-                for(var i=0;i<chart.series.length;i++){
-                    if(chart.series[i].options.md_key && checkedKeys.indexOf(chart.series[i].options.md_key)==-1){
-                        chart.series[i--].remove(false);  //need to backup one to account for the change in the series array
-                    }
+            //2. if graph, add / remove series from chart
+            //2A. first remove
+            for(var i=0;i<chart.series.length;i++){
+                if(chart.series[i].options.md_key && checkedKeys.indexOf(chart.series[i].options.md_key)==-1){
+                    chart.series[i--].remove(false);  //need to backup one to account for the change in the series array
                 }
-                //2B. now add
-                for(i=0;i<checkedKeys.length;i++){
-                    if(!self.hasSeries(checkedKeys[i])){
-                        series = self.series[checkedKeys[i]];
-                        for(y=0;y<chart.yAxis.length;y++){ //check for and add y-axis if necessary
-                            if((series.units || 'values') == chart.yAxis[y].options.title.text) break;
-                        }
-                        if(y==chart.yAxis.length){ //not found (no break) therefore add new yAxis
-                            chart.addAxis({
-                                title: {
-                                    text: series.units || 'values'
-                                }
-                            }, false, false);
-                        }
-                        chart.addSeries({
-                            name: series.name,
-                            data: series.data,
-                            mash: true,
-                            md_key: checkedKeys[i],
-                            yAxis: y
-                        }, false);
-                    }
-                }
-                //3. remove any unused yAxis
-                for(y=chart.yAxis.length-1;y>=0;y--){ //check for and add y-axis not have not series
-                    if(chart.yAxis[y].series.length==0) chart.yAxis[y].remove(false);
-                }
-                chart.redraw();
-            } else {
-                //3. if MD, post checked series and open in new page
-                for(i=0;i<checkedKeys.length;i++){
-                    self.seriesXferCount++;
-                    self.postSeries(self.series[checkedKeys[i]]);
-                }
-                if(self.seriesXferCount==self.seriesXfered) self.navigate(); else self.OKToNavigate = true;
             }
+            //2B. now add
+            for(i=0;i<checkedKeys.length;i++){
+                if(!self.hasSeries(checkedKeys[i])){
+                    series = self.series[checkedKeys[i]];
+                    for(y=0;y<chart.yAxis.length;y++){ //check for and add y-axis if necessary
+                        if((series.units || 'values') == chart.yAxis[y].options.title.text) break;
+                    }
+                    if(y==chart.yAxis.length){ //not found (no break) therefore add new yAxis
+                        chart.addAxis({
+                            title: {
+                                text: series.units || 'values'
+                            }
+                        }, false, false);
+                    }
+                    chart.addSeries({
+                        name: series.name,
+                        data: series.data,
+                        mash: true,
+                        md_key: checkedKeys[i],
+                        yAxis: y
+                    }, false);
+                }
+            }
+            //3. remove any unused yAxis
+            for(y=chart.yAxis.length-1;y>=0;y--){ //check for and add y-axis not have not series
+                if(chart.yAxis[y].series.length==0) chart.yAxis[y].remove(false);
+            }
+            chart.redraw();
+
+            closePanel();
+        });
+        $panel.find('#mashabledata_export').click(function(){
+            var checkedKeys = getCheckKeys();
+            //3. if MD, post checked series and open in new page
+            for(i=0;i<checkedKeys.length;i++){
+                self.seriesXferCount++;
+                self.postSeries(self.series[checkedKeys[i]]);
+            }
+            if(self.seriesXferCount==self.seriesXfered) self.navigate(); else self.OKToNavigate = true;
             closePanel();
         });
         $panel.find('#mashabledata_cancel').click(function(){
             closePanel();
         });
-        function closePanel(){
-            $panel.slideUp(function(){$panel.remove();});
+        function closePanel(evt){
+            if(evt && jQuery(evt.target).closest('#mashabledata_panel').length==1) return;  //this is also the document click event to detect click outside the panel
+            $panel.remove();
+            jQuery(document).unbind('click', closePanel);
         }
         jQuery('#mashabledata_recents th.mashabledata_cell_check').click();  //sort by most recently viewed
         function updateLocalStorage(){
@@ -607,4 +621,3 @@ jQuery(document).ready(function(){
         });
     }
 });
-
