@@ -1348,7 +1348,7 @@ function getGraphs($userid, $ghash){
                 "type" =>  $aRow["type"],
                 "published" =>  $aRow["published"],
                 "views" =>  $aRow["views"],
-                "updatedt" =>  $aRow["updatedt"],
+                "updatedt" =>  intval($aRow["updatedt"]),
                 "annotations" =>  $aRow["annotations"],
                 "intervals" => $aRow["intervalcount"]
             );

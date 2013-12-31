@@ -33,7 +33,10 @@ var dialogues = {
     noGraphSelected: 'Click on a row in the table below to select a graph first.<br><br>As a shortcut, you can double-click on a graph to select and open it.',
     noMyGraphs: 'You have no My Graphs.  Graphs are built by searching for public series or upload your own data and building a graph. Saving graphs you build adds to them to your My Graphs folder.<br><br>You can also view a public graph and make a personal copy.<br><br>See the help (upper right after you close this dialogue) to learn more.',
     noPublicGraphs: 'First search for public graphs.  Note that a search with no keywords will return the most recent published graphs.',
-    deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm to delete.'
+    deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm to delete.',
+    signInRequired: 'You must be signed in to do this edit and create your own series.  Please use the sign in button to use your Facebook account.'
+
+
 };
 //GLOBAL VARIABLES
 var totalServerTime = 0;
@@ -161,6 +164,7 @@ $(document).ready(function(){
         $('.ui-dialog-titlebar-close').remove();
         return false;  //no further executes
     }
+    $(document).mouse({distance: 10});  //prevent jQuery from turning accidental mouse movement during a click into a dray event
     //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from graph.js)
     require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
@@ -168,19 +172,7 @@ $(document).ready(function(){
 
     //setup the quickview controls
     $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
-        var series = [], hasMySeries = false;
-        dtMySeries.find('tr.ui-selected').each(function(){
-            series.push(dtMySeries.fnGetData(this));
-        });
-        if(series.length==0){
-            for(var handle in oMySeries){
-                hasMySeries = true;
-                break;
-            }
-            if(hasMySeries) dialogShow('selection required', dialogues.noSeriesSelected); else dialogShow('selection required',dialogues.noMySeries);
-        } else {
-            if(series.length==1) editSeries(series[0].handle); else dialogShow('warning',dialogues.editLimit);
-        }
+        editSeries(oQuickViewSeries); //else dialogShow('warning',dialogues.editLimit);
     });
     $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}}).click(function(){quickViewToSeries(this)});
     $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error').click(function(){deleteMySeries(this)});
@@ -537,13 +529,13 @@ function setupMySeriesTable(){
                 { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                     "mRender": function(value, type, obj){
                         if(obj.handle[0]=='S') {
-                            return formatAsUrl(obj.url) + obj.src;
+                            return formatAsUrl(obj.url,  obj.src) ;
                         } else {
                             return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.username||'';
                         }
                     }
                 },
-                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": false, "asSorting":  [ 'desc','asc'], sType: "date",  "sWidth": colWidths.shortDate + "px", "resize": false,
+                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": true, sType: "numeric",  "sWidth": colWidths.shortDate + "px", "resize": false,
                     "mRender": function(value, type, obj){ return timeOrDate(value)}
                 }
             ]
@@ -555,6 +547,9 @@ function setupMySeriesTable(){
                 $td.closest('tr').addClass('ui-selected');
                 previewMySeries();
             }
+            /* if($td.hasClass('url')){
+             if(!$(e.target).hasClass('ui-icon-extlink')) $td.find('a').click();
+             }*/
         });
     $('#series-table_filter')
         .appendTo('#series-bar-controls')
@@ -636,13 +631,14 @@ function setupPublicSeriesTable(){
             { "mData":"title", "sTitle": "Category<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
-                        return '<span class="ui-icon browse-right" onclick="browseFromSeries('+ obj.seriesid +');">browse similar series</span> ' + spanWithTitle(value);
+                        return '<span class="ui-icon browse-right">browse similar series</span> ' + spanWithTitle(value);
                     } else {
-                        return '<a class="link" onclick="getPublicSeriesByCat(this)">' + spanWithTitle(value) + '</a>'
+                        return spanWithTitle(value);
                     }
                 }
             },
-            { "mData":null, "sTitle": "Source<span></span>","bSortable": false, "sClass": 'url',  "sWidth": colWidths.src+"px", "resize": false, "mRender": function(value, type, obj){return formatAsUrl(obj.url) + obj.src}}
+            { "mData":null, "sTitle": "Source<span></span>","bSortable": false, "sClass": 'url',  "sWidth": colWidths.src+"px", "resize": false,
+                "mRender": function(value, type, obj){return formatAsUrl(obj.url, obj.src)}}
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
@@ -651,6 +647,14 @@ function setupPublicSeriesTable(){
                 $td.closest('tr').addClass('ui-selected');
                 previewPublicSeries();
             }
+            if($td.hasClass('cat')){
+                var handle = $td.closert('tr').find('span.handle').html();
+                if(handle) browseFromSeries(handle.substr(1));
+            }
+            /*if($td.hasClass('url')){
+             $td.find('a').clone(false).click().remove();  //does not work...
+             //the following causes an infinite loop: if(!$(e.target).hasClass('ui-icon-extlink')) $td.find('a').click();
+             }*/
         });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
@@ -682,7 +686,7 @@ function setupMyGraphsTable(){
         "aaSorting": [[5,'desc']],
         "aoColumns": [
             {"mData":"title", "sTitle": "Title<span></span>", "bSortable": true,  sClass: "wrap title", "sWidth": layoutDimensions.widths.myGraphsTable.columns.title+"px",
-                "mRender": function(value, type, obj){return value + '<span class="handle" data="G' + obj.gid + '">G' + obj.gid + '</span> '}
+                "mRender": function(value, type, obj){return value.trim() + '<span class="handle" data="G' + obj.gid + '">G' + obj.gid + '</span> '}
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
@@ -692,7 +696,7 @@ function setupMyGraphsTable(){
                         + spanWithTitle(value)
                 }
             },
-            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value.trim())}},
             {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sClass":"series", "sWidth": layoutDimensions.widths.myGraphsTable.columns.series+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
                 "mRender": function(value, type, obj){
@@ -703,7 +707,7 @@ function setupMyGraphsTable(){
                     }
                 }
             },
-            {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], sType: "date","sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
+            {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], sType: "numeric","sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
@@ -775,7 +779,7 @@ function setupPublicGraphsTable(){
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  layoutDimensions.widths.publicGraphTable.columns.analysis + 'px'},
             {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": layoutDimensions.widths.publicGraphTable.columns.series + 'px'},
             {"mData":"views", "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'count', "sWidth": colWidths.views + 'px'},
-            {"mData":"modified", "sTitle": "Modified<span></span>", "bSortable": true,  "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
+            {"mData":"modified", "sTitle": "Modified<span></span>", "bSortable": true,  bUseRendered: false, sType: 'numeric', "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
                 "mRender": function(value, type, obj){return timeOrDate(value);}
             }
         ]
@@ -897,8 +901,8 @@ function formatPeriodWithSpan(period){
 function spanWithTitle(val){
     return '<span title="' + ((val==null)?" ":val) + '">' + ((val==null)?" ":val) + '</span>';
 }
-function formatAsUrl(url){
-    return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span></a>';
+function formatAsUrl(url, txt){
+    return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span>'+txt+'</a>';
 }
 function viewGraph(gid){
     createMyGraph(gid);
@@ -1430,26 +1434,18 @@ function quickViewClose(){
     $('#fancybox-close').click();
 }
 
-function editSeries(sHandle){//edit the first visible
-    if($('#outer-show-graph-div:visible').length==1)quickViewClose();
-    if(sHandle){
-        var $select, serie = oMySeries[sHandle];
-        if(serie.mapsetid||serie.pointsetid){
-            //see if user wants to edit the entire set or just this series
-            callApi({command: "GetAvailableMaps", mapsetid: serie.mapsetid, pointsetid: serie.pointsetid, geoid: serie.geoid}, function(jsoData, textStatus, jqXH){
-                var mapOptions='';
-                for(var i=0;i<jsoData.maps.length;i++){
-                    mapOptions+='<option value="'+jsoData.maps[i].name+'|'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
-                }
-                $select = $panel.find('select').html(mapOptions).show();
-            });
-            var html = '<div id="seriesOrSet" style="width:330px;">'
-                + '<h4>This series is part of a set</h4>'
-                + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
-                + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
-                + '<select class="hidden"></select></label><br><br>'
-                + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button>'
-                + '</div>';
+function editSeries(series){//array of series to edit
+    if($('#outer-show-graph-div:visible').length==1) quickViewClose();
+    if(series.length==1){  //only can edit a series' set if we are editing a single series
+        var serie = series[0];
+        //see if user wants to edit the entire set or just this series
+        if(serie.mapsetid||serie.pointsetid){ var html = '<div id="seriesOrSet" style="width:330px;">'
+            + '<h4>This series is part of a set</h4>'
+            + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
+            + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
+            + '<select class="hidden" style="margin-top: 8px;margin-left: 25px"></select></label><br><br>'
+            + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button>'
+            + '</div>';
             $.fancybox(html,
                 {
                     showCloseButton: false,
@@ -1458,9 +1454,24 @@ function editSeries(sHandle){//edit the first visible
                     hideOnOverlayClick: false
                 });
             var $panel = $('#seriesOrSet');
+            var key, mapOptions='', $select = $panel.find('select').html('').show().click(function(){$panel.find('input:radio').removeAttr('checked').filter('[value="set"]').attr('checked','checked')});
+            if(serie.geocounts){
+                for(key in serie.geocounts){
+                    mapOptions+='<option value="'+key+'|'+mapsList[key].jvectormap+'">'+key+' ('+serie.geocounts[key].set+')</option>';
+                }
+                $select.html(mapOptions);
+            } else {
+                callApi({command: "GetAvailableMaps", mapsetid: serie.mapsetid, pointsetid: serie.pointsetid, geoid: serie.geoid}, function(jsoData, textStatus, jqXH){
+                    for(var i=0;i<jsoData.maps.length;i++){
+                        mapOptions+='<option value="'+jsoData.maps[i].name+'|'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
+                    }
+                    $select.html(mapOptions);
+                });
+            }
+
             $('#seriesOrSetOk').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
                 if($('input:radio[name=\'editSeriesOrSet\']:checked').val()=='series'){
-                    showSeriesEditor(sHandle);
+                    showSeriesEditor(series);
                 } else {
                     if(serie.pointsetid) showSeriesEditor('X'+serie.pointsetid, $select.val());
                     if(serie.mapsetid) showSeriesEditor('M'+serie.mapsetid, $select.val());
@@ -1470,77 +1481,136 @@ function editSeries(sHandle){//edit the first visible
             $('#seriesOrSetCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
                 $.fancybox.close();
             });
-
-
-        } else showSeriesEditor(sHandle);
-    }
+        } else
+            showSeriesEditor(series);
+    } else
+        showSeriesEditor(series);
 }
 
 function validatePaste(changes){}
-function showSeriesEditor(handle, map){
-    $('#series-tabs').find('li.local-series a').click();
+function showSeriesEditor(toEdit, map){ //toEdit is either an array of series object or a Map/Pointset handle
+    if(!account.loggedIn()) {
+        dialogShow("account required", dialogues.signInRequired);
+        return;
+    }
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
     var set = 'U';
+    $('#series-tabs').find('li.local-series a').click();
     var requireModules = ["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"];
     var setid=null, rows = {
         S: {name: 0, units: 1, notes: 2, handle:3, header: 4},
-        M:  {name: 0, units: 1, notes: 2, geoid: 3, iso3166: 4, handle:5, header: 6},
-        X: {name: 0, units: 1, notes: 2, geoid: 3, iso3166: 4, handle: 5, lat: 6, lon:7, header: 8}
+        M: {name: 0, units: 1, notes: 2, geoid: 3, handle:4, header: 5},
+        X: {name: 0, units: 1, notes: 2, geoid: 3, handle: 4, lat: 5, lon:6, header: 7}
     };
-    if(handle && handle[0]=='M'){
+    if(toEdit && !Array.isArray(toEdit)){
         require(requireModules); //loading the require JS modules during the API call;
-        set = handle[0];
-        callApi({command: 'GetSet', mapsetid: parseInt(handle.substr(1)), map: map.split('|')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
-            require(requireModules,function(){userMapSet(jsoData.setData)});
-        });
-        function userMapSet(setData){
-            //if(!seriesEditorInitialised)
-            initializeSeriesEditor();
-            var seriesData, point, i, j, row, grid = [["map set",setData.name],["units",setData.units],["notes",""],["geoid"],["date"]];
-            for(i=0;i<setData.geographies.length;i++){
-                grid[3].push(setData.geographies[i].geoid);
-                grid[4].push(setData.geographies[i].geoname);
-                if(i>1){
-                    grid[0].push("");
-                    grid[1].push("");
-                    grid[2].push("");
-                }
-                row=5;  //first data row
-                if(setData.geographies[i].data){
-                    seriesData = setData.geographies[i].data.split('||');
-                    seriesData.sort(); //this should not be necessary is series were properly ordered
-                    for(j=0;j<seriesData.length;j++){
-                        point = seriesData[j].split('|');
-                        while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
-                        if(row==grid.length){
-                            grid.push(makeRow());
-                        } else {
-                            if(grid[row][0]==point[0]) grid[row].push(point[1]);
-                            if(grid[row][0]<point[0]) grid.splice(row,0,makeRow());
-                        }
-                        row++;
-                    }
-                }
-                while(row<grid.length) grid[row++].push('');
-                function makeRow(){
-                    var i, newRow = [point[0]];
-                    for(i=1;i<grid[4].length-1;i++) newRow.push('');
-                    newRow.push(point[1]);
-                    return newRow;
-                }
-
-            }
-            editorCols = setData.geographies.length + 1;
-            $("#data-editor").removeAttr("data").handsontable({
-                data: grid,
-                minCols: editorCols
+        if(toEdit[0]=='M'){ //MAPSET EDIT
+            set = toEdit;
+            callApi({command: 'GetSet', mapsetid: parseInt(set.substr(1)), map: map.split('|')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
+                require(requireModules,function(){userMapSet(jsoData.setData)});
             });
-            unmask();
+            function userMapSet(setData){
+                //if(!seriesEditorInitialised)
+                initializeSeriesEditor();
+                var seriesData, point, i, j, row, grid = [["map set",setData.name],["units",setData.units],["notes",""],["geoid"],[set],["date"]];  //handle col will hold the set id
+                for(i=0;i<setData.geographies.length;i++){
+                    grid[rows.M.geoid].push(setData.geographies[i].geoid);
+                    grid[rows.M.handle].push(setData.geographies[i].handle);
+                    grid[rows.M.header].push(setData.geographies[i].geoname);
+                    /*if(i>1){
+                     grid[rows.M.name].push("");
+                     grid[rows.M.units].push("");
+                     grid[rows.M.notes].push("");
+                     }*/
+                    row = rows.M.header+1;  //first data row
+                    if(setData.geographies[i].data){
+                        seriesData = setData.geographies[i].data.split('||');
+                        seriesData.sort(); //this should not be necessary is series were properly ordered
+                        for(j=0;j<seriesData.length;j++){
+                            point = seriesData[j].split('|');
+                            while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
+                            if(row==grid.length){
+                                grid.push(makeRow());
+                            } else {
+                                if(grid[row][0]==point[0]) grid[row].push(point[1]);
+                                if(grid[row][0]<point[0]) grid.splice(row,0,makeRow());
+                            }
+                            row++;
+                        }
+                    }
+                    while(row<grid.length) grid[row++].push('');
+                    function makeRow(){
+                        var i, newRow = [point[0]];
+                        for(i=1;i<grid[4].length-1;i++) newRow.push('');
+                        newRow.push(point[1]);
+                        return newRow;
+                    }
+
+                }
+                editorCols = setData.geographies.length + 1;
+                $("#data-editor").removeAttr("data")
+                    .handsontable({
+                        data: grid,
+                        minCols: editorCols
+                    }).
+                    find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+                unmask();
+            }
+        }
+        if(toEdit[0]=='X'){ //MARKER SET EDIT
+            set = toEdit;
+            callApi({command: 'GetPointSets', pointsetids: [parseInt(set.substr(1))], map: map.split('|')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
+                require(requireModules,function(){userMarkerSet(jsoData.pointsets[set])});
+            });
+            function userMarkerSet(setData){
+                initializeSeriesEditor();
+                var seriesData, point, i, j, row, grid = [["marker set",setData.name],["units",setData.units],["notes",""],["geoid"],["lat"],["lon"],[set],["date"]]; //handle col will hold the set id
+                for(var latlon in setData.data){
+                    grid[rows.X.geoid].push(setData.data[latlon].geoid);
+                    grid[rows.X.handle].push(setData.data[latlon].handle);
+                    grid[rows.X.lat].push(setData.data[latlon].lat);
+                    grid[rows.X.lon].push(setData.data[latlon].lon);
+                    grid[rows.X.handle].push(setData.data[latlon].handle);
+                    grid[rows.X.header].push(setData.data[latlon].name.replace(setData.name,'').trim());
+                    row = rows.X.header+1;  //first data row
+                    if(setData.data[latlon].data){
+                        seriesData = setData.data[latlon].data.split('||');
+                        seriesData.sort(); //this should not be necessary is series were properly ordered
+                        for(j=0;j<seriesData.length;j++){
+                            point = seriesData[j].split('|');
+                            while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
+                            if(row==grid.length){
+                                grid.push(makeRow());
+                            } else {
+                                if(grid[row][0]==point[0]) grid[row].push(point[1]);
+                                if(grid[row][0]<point[0]) grid.splice(row,0,makeRow());
+                            }
+                            row++;
+                        }
+                    }
+                    while(row<grid.length) grid[row++].push('');
+                    function makeRow(){
+                        var i, newRow = [point[0]];
+                        for(i=1;i<grid[rows.X.header].length-1;i++) newRow.push('');
+                        newRow.push(point[1]);
+                        return newRow;
+                    }
+
+                }
+                editorCols = setData.geographies.length + 1;
+                $("#data-editor").removeAttr("data")
+                    .handsontable({
+                        data: grid,
+                        minCols: editorCols
+                    }).
+                    find('table.htCore tr').show().filter(':eq('+rows.X.handle+')').hide().end().filter(':eq('+rows.X.geoid+')').hide();
+                unmask();
+            }
         }
     } else {
-        require(requireModules, function(){seriesEditor(handle)});
+        require(requireModules, function(){seriesEditor(toEdit)});
     }
     function initializeSeriesEditor(){
         editorCols = 2;
@@ -1548,7 +1618,7 @@ function showSeriesEditor(handle, map){
         var $panel = $('div#edit-user-series').height($('div#local-series').height()).fadeIn();
         var $editor = $("#data-editor").height($('div#local-series').height()-50).html('');
         $panel.find('button.series-edit-save').button({icons:{secondary:'ui-icon-disk'}}).off().click(function(){
-            saveSeriesEditor(false);
+            saveSeriesEditor();
         });
         $panel.find('button.series-edit-cancel').button({icons:{secondary:'ui-icon-close'}}).off().click(function(){
             closeSeriesEditor();
@@ -1572,7 +1642,7 @@ function showSeriesEditor(handle, map){
             fillHandle: false,
             cells: function (row, col, prop) {
                 var cellProperties = {};
-                if ((row < 3 && col == 0)  || row == 3) {
+                if ((row < rows[set[0]].header && col == 0)  || row == rows[set[0]].header) {
                     cellProperties.readOnly = true; //make cell read-only if it is first row or the text reads 'readOnly'
                 }
                 cellProperties.type = {renderer: handsOnCellRenderer};
@@ -1668,88 +1738,146 @@ function showSeriesEditor(handle, map){
     }
 
     function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
-        switch(set){
+        switch(set[0]){
             case 'U':
                 Handsontable.TextCell.renderer.apply(this, arguments);
-                if(row < rows.S.header && col == 0){
+                if(row < rows.U.header && col == 0){
                     td.style.background = '#E0FFFF';
                     td.style.fontWeight = 'bold';
                 }
-                if(row == rows.S.header){
+                if(row == rows.U.header){
                     td.style.background = '#808080';
                     td.style.fontWeight = 'bold';
                 }
                 break;
             case 'M':
                 Handsontable.TextCell.renderer.apply(this, arguments);
-                if(row <=2){
+                if(row < rows.M.header){
                     if(col == 0){
                         td.style.background = '#E0FFFF';
                         td.style.fontWeight = 'bold';
                     } else {
                         if(col==1) {
-                            td.colSpan = Math.min(5,editorCols -1);
+                            td.colSpan = Math.min(5, editorCols -1);
                         } else {
                             $(td).addClass('hidden');
                         }
                     }
                 }
-                //if(row == 3) $(td).closest('tr').addClass('hidden');
-                if(row == 4){
-                    if(col == 0){
-                        td.style.background = '#E0FFFF';
-                    } else {
-                        td.style.background = '#808080';
-                    }
+                if(row == rows.M.header){
+                    td.style.background = '#808080';
                     td.style.fontWeight = 'bold';
                 }
         }
     }
-    function seriesEditor(series_handle){
+    function seriesEditor(series){ //this is called if array of series object is to be edited
         if(!seriesEditorInitialised) initializeSeriesEditor();
-
-        /*    if($('div#local-series:visible').length==1){
-         // var h = $('div#edit-user-series').width($('div#local-series').width()).height($('div#local-series').height());
-         }*/
-
-        $('div#edit-user-series').slideDown();
+        var data, i, $editor = $("#data-editor");
         $('button#series-edit-save').attr("disabled","disabled");
-        if(series_handle){
-            if(series_handle.charAt(0)=='U') $('button#series-edit-save').removeAttr("disabled");
-            var oSerie = oMySeries[series_handle];
-            periodOfEdits = oSerie.period;
-            if(oSerie.data){
-                var data = oSerie.data.split("||").sort();
-                for(var i=0;i<data.length;i++){
-                    data[i] = data[i].split("|");
-                    data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
-                }
-                data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
-                $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
-                $("#data-editor").find('table.htCore tr').show().filter(':eq('+rows.S.handle+')').hide();
-            } else {
-                var sids = [], usids=[];
-                if(series_handle.charAt(0)=="U")usids.push(parseInt(series_handle.substr(1))); else sids.push(parseInt(series_handle.substr(1)));
-                callApi({command:  'GetMashableData', sids:  sids, usids: usids},
-                    function(jsoData, textStatus, jqXH){
-                        //showSeriesInEditor()
-                        oSerie.data = jsoData.series[series_handle].data;
-                        oSerie.notes = jsoData.series[series_handle].notes;
-                        var data = jsoData.series[series_handle].data.split("||").sort();
-                        for(var i=0;i<data.length;i++){
+        if(series){
+            //todo:  expand to edit all series passed in, not just the first
+            var oSerie = series[0], handle = oSerie.handle;
+            var type = handle[0];
+            switch(type){
+                case 'U':
+                    $('button#series-edit-save').removeAttr("disabled");
+                case 'S':
+                    periodOfEdits = oSerie.period;
+                    if(oSerie.data){
+                        data = oSerie.data.split("||").sort();
+                        for(i=0;i<data.length;i++){
                             data[i] = data[i].split("|");
-                            data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
+                            data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(), oSerie.period);
                         }
                         data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
-                        $("#data-editor").attr("data",series_handle).handsontable("loadData", data);
-                        $("#data-editor").find('table.htCore tr').show().filter(':eq('+rows.S.handle+')').hide();
+                        $editor.attr("data",handle).handsontable("loadData", data);
+                        $editor.find('table.htCore tr').show().filter(':eq('+rows.U.handle+')').hide();
+                    } else {
+                        var sids = [], usids=[];
+                        if(handle.charAt(0)=="U")usids.push(parseInt(handle.substr(1))); else sids.push(parseInt(handle.substr(1)));
+                        callApi({command:  'GetMashableData', sids:  sids, usids: usids},
+                            function(jsoData, textStatus, jqXH){
+                                //showSeriesInEditor()
+                                oSerie.data = jsoData.series[handle].data;
+                                oSerie.notes = jsoData.series[handle].notes;
+                                var data = jsoData.series[handle].data.split("||").sort();
+                                for(var i=0;i<data.length;i++){
+                                    data[i] = data[i].split("|");
+                                    data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
+                                }
+                                data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
+                                $editor.attr("data",handle).handsontable("loadData", data);
+                                $editor.find('table.htCore tr').show().filter(':eq('+rows.U.handle+')').hide();
+                            }
+                        );
                     }
-                );
+                    break;
+                /* case 'M':
+                 callApi(
+                 {command:"GetMapSets", mapsetids: [handle.substr(1)], map: map, modal: 'persist'},
+                 function(jsoData, textStatus, jqXHR){
+                 if(jsoData.mapsets[handle]){
+                 var mapset = jsoData.mapsets[handle];
+                 var oDates = {}, mapDates=[], jvmCode, mapDate;
+                 callApi(
+                 {command: 'GetMapGeographies', map: map},
+                 function(jsoData, textStatus, jqXHR){
+                 var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
+                 for(i=0;i<mapDates.length;i++){ //write the left date list
+                 data.push([formatDateByPeriod(mapDates[i].dt.getTime(), mapset.period)]);
+                 }
+                 for(var i=0;i<jsoData.geographies.length;i++){ //write the columns
+                 data[rows.M.geoid].push(jsoData.geographies[i].geoid);
+                 data[rows.M.name].push(jsoData.geographies[i].name);
+                 if(mapset.data[jsoData.geographies[i].code]){ //map code matched one of the mapset's series
+                 var j, k=0, serie = mapset.data[jsoData.geographies[i].code], point;
+                 data[rows.M.handle][i+1] = serie.handle;
+                 var serieData = serie.data.split('||');
+                 for(j=0;j<mapDates.length;j++){
+                 point = serieData[k].split(['|']);
+                 if(k<serieData.length && point[0]==mapDates[j].s){
+                 data[rows.M.header + j + 1].push(point[1]);
+                 k++;
+                 } else {
+                 data[rows.M.header + j + 1].push('');
+                 }
+                 }
+
+                 }
+
+                 }
+                 $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+                 editorCols = jsoData.geographies.length + 1;
+                 $("#data-editor").removeAttr("data").handsontable({
+                 data: data,
+                 minCols: editorCols
+                 });
+                 }
+                 );
+                 for(jvmCode in mapset.data){  //compute Mapdates while fetching GetMapGeographies
+                 data = mapset.data[jvmCode].data.split('||');
+                 for(i=0;i<data.length;i++){
+                 oDates[data[i].split('|')[0]] = true;
+                 }
+                 }
+                 for(mapDate in oDates){
+                 mapDates.push({s: mapDate, dt: dateFromMdDate(mapDate)});
+                 }
+                 mapDates.sort(function(a,b){return a.dt.getTime() - b.dt.getTime()});
+                 }
+                 }
+                 );*/
+                default:
+                    dialogShow('series editor','This option is not yet supported');
+                    return;
             }
         }else {
-            $("#data-editor").handsontable("loadData", [["name", ""],["units",""],["notes",""],["date","value"]]);
+            //no handle = new serie(s)
+            $editor.handsontable("loadData", [["name", ""],["units",""],["notes",""],["handle","new"],["date","value"]]);
+            $editor.find('table.htCore tr').show().filter(':eq('+rows.U.handle+')').hide();
             periodOfEdits = false;
         }
+        $('div#edit-user-series').slideDown();
     }
     function showUserSetWizard(){
         showPanel();
@@ -1800,19 +1928,27 @@ function showSeriesEditor(handle, map){
             //3. cell A1 = [name|map set| point set] will be
             if(type=='M') callApi({command: 'GetMapGeographies', map: map}, newUserMapSet);  //mapsets shown on callback
             else {
-
+                var data = [["point set"],["units"],["notes"],["geoid"],["handle"],["date"]];
+                for(var i=0;i<jsoData.geographies.length;i++){
+                    data[rows.M.geoid].push(jsoData.geographies[i].geoid);
+                    data[rows.M.name].push(jsoData.geographies[i].name);
+                }
+                $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+                editorCols = jsoData.geographies.length + 1;
+                $("#data-editor").removeAttr("data").handsontable({
+                    data: data,
+                    minCols: editorCols
+                });
             }
 
         }
         function newUserMapSet(jsoData, textStatus, jqXH){
-            var data = [["map set"],["units"],["notes"],["geoid"],["date"]];
+            var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
             for(var i=0;i<jsoData.geographies.length;i++){
-                /*data[0].push('');
-                 data[1].push('');
-                 data[2].push('');*/
-                data[3].push(jsoData.geographies[i].geoid);
-                data[4].push(jsoData.geographies[i].name);
+                data[rows.M.geoid].push(jsoData.geographies[i].geoid);
+                data[rows.M.name].push(jsoData.geographies[i].name);
             }
+            $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
             editorCols = jsoData.geographies.length + 1;
             $("#data-editor").removeAttr("data").handsontable({
                 data: data,
@@ -1839,7 +1975,7 @@ function showSeriesEditor(handle, map){
                     case 'M':
                         uSerie = {
                             handle: gridData[rows.M.handle][c],  //handles always blank unless editing existing user series
-                            name: gridData[rows.M.header][1]+' - '+gridData[rows.M.name][c],
+                            name: gridData[rows.M.name][1]+' - '+gridData[rows.M.header][c],
                             units: gridData[rows.M.units][1],
                             notes: gridData[rows.M.geoid][c],
                             geoid: gridData[rows.M.geoid][c],
@@ -1850,7 +1986,7 @@ function showSeriesEditor(handle, map){
                     case 'X':
                         uSerie = {
                             handle: gridData[rows.X.handle][c],
-                            name:gridData[rows.X.header][c],
+                            name:gridData[rows.X.name][c],
                             units:gridData[rows.X.units][1],
                             notes:gridData[rows.X.notes][1],
                             geoid:gridData[rows.X.geoid][c],
@@ -1862,20 +1998,20 @@ function showSeriesEditor(handle, map){
                         break;
                     default:
                         uSerie = {
-                            handle: gridData[rows.S.handle][c],
-                            name:gridData[rows.S.name][c],
-                            units:gridData[rows.S.units][c],
-                            notes:gridData[rows.S.notes][c],
+                            handle: gridData[rows.U.handle][c],
+                            name:gridData[rows.U.name][c],
+                            units:gridData[rows.U.units][c],
+                            notes:gridData[rows.U.notes][c],
                             save_dt: new Date().getTime()
                         };
-                        headerRow = rows.S.header;
+                        headerRow = rows.U.header;
                         break;
                 }
                 if(!uSerie.handle){
                     uSerie.handle = 'L'+localSeriesindex++;
                 }
                 if(uSerie.name.length==0||uSerie.units.length==0){
-                    dialogShow("Unable to Save","Name and units are required fields.");
+                    dialogShow("Invalid Series","Name and units are required fields.");
                     return false;
                 }
                 pointArray=[];
@@ -1917,16 +2053,22 @@ function showSeriesEditor(handle, map){
                     }
                 }
                 uSerie.data = mdata.substr(2);
-                $.extend(uSerie, seriesInfo);
-                userSeries.push(uSerie);
+                if(uSerie.data.trim().length>0){
+                    userSeries.push(uSerie);
+                    $.extend(uSerie, seriesInfo);
+                }
             }
+        }
+        if(userSeries.length==0){
+            dialogShow("No data","No date-value pairs found.");
+            return false;
         }
         return userSeries;
     }
     function saveSeriesEditor(){
-        var arySeries = userSeriesFromEditor();  //returns false if missing name or untis or data
+        var i, arySeries = userSeriesFromEditor();  //returns false if missing name or units or data
         if(arySeries){
-            callApi({command: "SaveUserSeries", modal:"persist", series: arySeries},
+            callApi({command: "SaveUserSeries", series: arySeries, set: set}, //set ie either 'U' or the handle of a mapset or pointset (to be implemented)
                 function(jsoData, textStatus, jqXH){
                     //add update MySeriesGrid on success
                     for(i=0;i<arySeries.length;i++){
@@ -1939,14 +2081,19 @@ function showSeriesEditor(handle, map){
                         //add to dataable and mySeries object
                         arySeries[i].handle = "U"+jsoData.series[i].usid;
                         arySeries[i].usid = jsoData.series[i].usid;
+                        arySeries[i].graph = '';
+                        arySeries[i].url = '';
+                        arySeries[i].username = account.info.name || 'user';
+                        arySeries[i].userid = account.info.userId || null;
                         dtMySeries.fnAddData(arySeries[i]);
                         oMySeries[arySeries[i].handle]=arySeries[i];  //over-write as needed
                     }
-                    unmask();
                 }
             );
         }
         closeSeriesEditor();
+        unmask();
+
     }
     function closeSeriesEditor(){
         var $de = $("#data-editor");

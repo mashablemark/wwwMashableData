@@ -316,8 +316,8 @@ function ProvenanceController(panelId){
             var $targetSeriesList, pFromHandle, draggedComponent;
             var i, handle, thisHandle, from, fromC, toC, fromP, toP, toOp, toType, toPlotObject;  //indexes
             var $prov = self.$prov;
-
-            if(ui.sender==null) return; //prevent double call
+            //sortable's update event gets triggered for each OL of components involved.  If the ui.sender is null, the event is trigger by the sending OL.
+            if(ui.sender==null && ui.item.closest('ol')[0]!=self.dragging.$ol[0]) return; //prevent double call, but allow when sorting within
 
             //cancel if adding to a plot that already has the same series
             toP = ui.item.closest('.plot').index();
@@ -353,12 +353,18 @@ function ProvenanceController(panelId){
             }
 
             //duplicate series in same plot not permitted
-            if(toP!=self.dragging.plotIndex && self.dragging.type!=toType && !newPlot){
+            if(toP!=self.dragging.plotIndex && self.dragging.type==toType && ui.item.closest('ol')[0]!=self.dragging.$ol[0]){
                 for(i=0;i<toPlotObject.components.length;i++){
                     if(toPlotObject.components[i].handle == thisHandle) {
                         self.$prov.find("ol.components").sortable("cancel");
+                        dialogShow('duplicate series', 'This series is already a component of the target plot.<br><br>If you want to use a series multiple times in the plot formula, use <button class="manual ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-secondary ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">manual editing</span><span class="ui-button-icon-secondary ui-icon ui-icon-pencil"></span></button> of the formula from with the <button class="manual ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-secondary ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">manual editing</span><span class="ui-button-icon-secondary ui-icon ui-icon-pencil"></span></button> plot instead.');
                         return;
                     }
+                }
+            }
+
+            if(toP!=self.dragging.plotIndex && self.dragging.type==toType && !newPlot){
+                for(i=0;i<toPlotObject.components.length;i++){
                     if(self.graph.assets[thisHandle].period!=self.graph.assets[toPlotObject.components[i].handle].period){
                         self.$prov.find("ol.components").sortable("cancel");
                         dialogShow('frequency discrepancy', 'When performing array math, the sample frequency of all component series must be the same.');
@@ -678,11 +684,11 @@ function ProvenanceController(panelId){
             });
             $editDiv.find("button.plot-close").button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
                 var k;
-                $liPlot.find(".edit-plot, .plot-info, .line-sample").show();
+                $liPlot.find(".edit-plot, .plot-info, .line-sample, span.plot-formula").show();
                 $liPlot.find(".plot-editor").slideUp("default",function(){
                     $liPlot.find('.op.ui-buttonset').remove();
-                    $liPlot.find('.plot-op').show();
-                    $liPlot.find(".plot-editor").remove();
+                    if(!options.userFormula) $liPlot.find('.plot-op').show();
+                    $liPlot.find(".plot-editor, button.manual, button.guided, input.plot-formula").remove();
                     $liPlot.find("li button").remove();
                     $editDiv.remove();
                 });
@@ -826,9 +832,8 @@ function ProvenanceController(panelId){
                 $liPointSet.find(".edit-plot, .plot-info, .line-sample").show();
                 $liPointSet.find(".plot-editor").slideUp("default",function(){
                     $liPointSet.find('.op.ui-buttonset').remove();
-                    $liPointSet.find('.plot-op').show();
-                    $liPointSet.find(".plot-editor").remove();
-                    $liPointSet.find("li button").remove();
+                    if(!options.userFormula)$liPointSet.find('.plot-op').show();
+                    $liPointSet.find('.guided, .manual, input.plot-formula, .plot-editor, li button').remove();
                     $editDiv.remove();
                 });
 
@@ -895,53 +900,52 @@ function ProvenanceController(panelId){
         },
         editPlotFormula: function(plot, $plot){
             if(plot.options.userFormula){
-                guidedEditing();
-            } else {
                 manualEditing();
+            } else {
+                guidedEditing();
             }
             function manualEditing(){
-                $plot.find('div.op, span.comp-edit-k').show();
-                $plot.find('input.plot-formula, button.manual').remove();
-                $plot.find('.plot-formula').val(plotFormula(plot).formula)
-                    .after('<button class="guided">guided editing</button>');
-                $plot.find('button.guided').button({icons: {secondary: 'ui-icon-star'}}).click(function(){
-                        guidedEditing();
-                    }
-                );
-                delete plot.options.userFormula;
-            }
-            function guidedEditing(){
                 $plot.find('div.op, span.comp-edit-k').hide();
-                $plot.find('button.guided').remove();
+                $plot.find('button.manual').remove();
                 $plot.find('span.plot-formula').hide()
-                    .after('<button class="manual">manual editing</button>')
+                    .after('<button class="guided">guided editing</button>')
                     .after('<input class="plot-formula">');
                 $plot.find('input.plot-formula').val(plot.options.userFormula|| plotFormula(plot).formula).keyup(function(){
-                        try{
-                            var userFormula = $(this).val();
-                            if(userFormula.indexOf(';')>=0) throw('invalid mathematical syntax');
-                            var expression = 'return ' + userFormula.replace(patVariable,'values.$1') + ';';
-                            var compute = new Function('values', expression);
-                            var valuesObject = {}, symbol;
-                            $.each(plot.components, function(c){
-                                    symbol = compSymbol(c);
-                                    if(userFormula.indexOf(symbol)===-1) throw('all symbols must be used');
-                                    valuesObject[compSymbol(c)] = c;}
-                            );
-                            var testCalc = compute(valuesObject);
-                            $(this).removeClass('ui-state-error');
-                            //if we got to here, the formula is valid
-                            plot.options.userFormula = userFormula;
-                            $plot.find('.plot-formula').val(plot.options.userFormula);
-                        } catch(err){
-                            $(this).addClass('ui-state-error');
-                            delete plot.options.userFormula;
-                        }
-                    });
-                $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
-                        manualEditing();
+                    try{
+                        var userFormula = $(this).val();
+                        if(userFormula.indexOf(';')>=0) throw('invalid mathematical syntax');
+                        var expression = 'return ' + userFormula.replace(patVariable,'values.$1') + ';';
+                        var compute = new Function('values', expression);
+                        var valuesObject = {}, symbol;
+                        $.each(plot.components, function(c){
+                                symbol = compSymbol(c);
+                                if(userFormula.indexOf(symbol)===-1) throw('all symbols must be used');
+                                valuesObject[compSymbol(c)] = c;}
+                        );
+                        var testCalc = compute(valuesObject);
+                        $(this).removeClass('ui-state-error');
+                        //if we got to here, the formula is valid
+                        plot.options.userFormula = userFormula;
+                        $plot.find('span.plot-formula').html('= ' + plot.options.userFormula);
+                    } catch(err){
+                        $(this).addClass('ui-state-error');
+                        delete plot.options.userFormula;
                     }
-                );
+                });
+                $plot.find('button.guided').button({icons: {secondary: 'ui-icon-star'}}).click(function(){
+                    guidedEditing();
+                });
+            }
+            function guidedEditing(){
+                $plot.find('div.op, span.comp-edit-k').show();
+                $plot.find('input.plot-formula, button.guided').remove();
+                $plot.find('span.plot-formula').html('= ' + plotFormula(plot).formula).show()
+                    .after('<button class="manual">manual editing</button>');
+                delete plot.options.userFormula;
+                $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
+                    manualEditing();
+                });
+
             }
 
         },
@@ -1071,6 +1075,9 @@ function ProvenanceController(panelId){
                     $(this).remove();
                     $mapset.find('.plot-op').show();
                 });
+
+                $mapset.find('.guided, .manual, input.plot-formula, span.comp-edit-k').remove();
+
                 $mapset.find('.ehide').show();
                 self.$prov.find('.landing').slideDown();
                 $mapset.find(".comp-editor").slideUp("default",function(){
@@ -1246,16 +1253,19 @@ function ProvenanceController(panelId){
                 options.discreteColors = resetLegend(options.discreteColors.length+1, options);
                 if(options.discreteColors.length>9) $(this).button('disable');
                 makeLegend();
+                makeDirty();
             });
             $legend.find('button.dec-discrete').button({disabled: options.discreteColors.length<2}).click(function(){
                 $legend.find('button.inc-discrete').button('enable');
                 options.discreteColors = resetLegend(options.discreteColors.length-1, options);
                 if(options.discreteColors.length<2) $(this).button('disable');
                 makeLegend();
+                makeDirty();
             });
             $legend.find('button.reset-discrete').button().click(function(){
                 options.discreteColors = resetLegend(options.discreteColors.length, options);
                 makeLegend();
+                makeDirty();
             });
             return $legend;
 

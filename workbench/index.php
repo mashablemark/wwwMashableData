@@ -87,7 +87,7 @@
 <div id="fb-root"></div>
 <div id="wrapper" class="wrapper">
     <div id="title-bar" class="title-bar">
-        <a href="/" target="_blank"><img height="56px" width="258px" style="margin:0 50px 0 10px;" src="/global/images/logo/md_logo.png"></a>
+        <a href="http://www.mashabledata.com" target="_blank"><img height="56px" width="258px" style="margin:0 50px 0 10px;" src="/global/images/logo/md_logo.png"></a>
         <!--span style="font-size:20px;color:white;margin: 10px 13px 2px 13px;">Workbench</span-->
         <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
             <!--PICKER TABS-->
@@ -101,8 +101,8 @@
         <button style="position:absolute;left: 920px;top: 25px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor();setPanelHash()"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu-->
         <span id="title-bar-buttons">
-            <button id="menu-help" class="prov-float-btn">Help</button>
-            <button id="menu-account" class="prov-float-btn">Sign in</button>
+            <button id="menu-help">Help</button>
+            <button id="menu-account">Sign in</button>
         </span>
     </div>
     <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER DATATABLES -->

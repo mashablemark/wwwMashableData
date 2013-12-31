@@ -707,11 +707,19 @@ div.mapset{
 .prov-float-btn{
     float: right;
     position: relative;
-    margin: 5px;
+    margin-left: 5px;
+    padding: 0;
+    top: -3px;
 }
-#menu-help{
-    margin-right: 15px;
+.edit-plot span.ui-button-text, .guided span.ui-button-text, .manual span.ui-button-text, .prov-float-btn span.ui-button-text{
+    padding-top: 1px;
+    padding-bottom: 1px;
 }
+#menu-help, #menu-account{
+    margin: 13px;
+    float: right;
+}
+
 li.component, li.mapset {
     margin: 5px;
     padding: 5px;
@@ -978,7 +986,8 @@ span.ui-button-text{
 .browse-rollup{ background-position: -96px -192px; }  /*ui-icon-circle-triangle-n*/
 .browse-rollup:hover{ background-position: -160px -192px; }  /*ui-icon-circle-arrow-n */
 .browse-right { background-position: -48px -192px; float: right;}    /*.ui-icon-circle-triangle-e*/
-.browse-right:hover{ background-position: -112px -192px; }  /*ui-icon-circle-arrow-e*/
+td:hover .browse-right, .browse-right:hover{ background-position: -112px -192px; }  /*ui-icon-circle-arrow-e*/
+
 .ui-seldected{
     background: #F39814;
     color: white;
@@ -1025,6 +1034,7 @@ td.expanded{
     width: 250px;
     height: 160px;
     padding: 10px;
+    /* overflow: hidden; */
 }
 #signin-or{
     width: 100px;
@@ -1145,7 +1155,13 @@ span.sibling{
 td.dte{text-align: right;}
 td.dt-url, td.dt-views, td.dt-delete, td.dt-freq,  td.dt-count, td.dt-vw, td.dt-sv{text-align: center;}
 td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline-block;}
-table.dataTable tr:hover td.title, table.dataTable tr:hover td.units, table.dataTable tr:hover td.dt-freq, table.dataTable tr:hover td.dte, #my_graphs_table tr:hover td, #tblPublicGraphs tr:hover td{
+#tblPublicSeries td.cat:hover, table.dataTable td.url:hover, table.dataTable td.title:hover, table.dataTable td.url:hover{
+    background-color: lightblue;
+    color: blue;
+    text-decoration: underline;
+    cursor: pointer;
+}
+#my_graphs_table tr:hover td, #tblPublicGraphs tr:hover td{
     color: blue;
     text-decoration: underline;
     cursor: pointer;
