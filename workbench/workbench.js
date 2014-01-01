@@ -1493,6 +1493,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         dialogShow("account required", dialogues.signInRequired);
         return;
     }
+    var $editor;  //set in intialize and used throughout
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
@@ -1500,7 +1501,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
     $('#series-tabs').find('li.local-series a').click();
     var requireModules = ["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"];
     var setid=null, rows = {
-        S: {name: 0, units: 1, notes: 2, handle:3, header: 4},
+        U: {name: 0, units: 1, notes: 2, handle:3, header: 4},
         M: {name: 0, units: 1, notes: 2, geoid: 3, handle:4, header: 5},
         X: {name: 0, units: 1, notes: 2, geoid: 3, handle: 4, lat: 5, lon:6, header: 7}
     };
@@ -1616,7 +1617,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         editorCols = 2;
         var lastRow= 0,lastCol=0;
         var $panel = $('div#edit-user-series').height($('div#local-series').height()).fadeIn();
-        var $editor = $("#data-editor").height($('div#local-series').height()-50).html('');
+        $editor = $("#data-editor").height($('div#local-series').height()-50).html('');
         $panel.find('button.series-edit-save').button({icons:{secondary:'ui-icon-disk'}}).off().click(function(){
             saveSeriesEditor();
         });
@@ -1946,7 +1947,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
             var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
             for(var i=0;i<jsoData.geographies.length;i++){
                 data[rows.M.geoid].push(jsoData.geographies[i].geoid);
-                data[rows.M.name].push(jsoData.geographies[i].name);
+                data[rows.M.header].push(jsoData.geographies[i].name);
             }
             $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
             editorCols = jsoData.geographies.length + 1;
