@@ -292,7 +292,7 @@ window.MashableData = { //mashableData namespace
             + '<h3>Charting Toolbox</h3>'
             //+ ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<fieldset><legend>&nbsp;Download chart as file&nbsp;</legend><a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a></fieldset><button id="mashabledata_print">print chart</button>':'')
             +   '<span id="mashabledata_cancel" class="mashabledata_close">close</span>'
-            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span>Download chart as: <a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a><button id="mashabledata_print">print chart</button></span>':'')
+            + ((chart.options.exporting&&chart.options.exporting.enable!==false)?'<span>Download chart as: <a class="mashabledata_png" data="image/png">PNG</a><a class="mashabledata_jpg" data="image/jpeg">JPG</a><a class="mashabledata_svg" data="image/svg+xml">SVG</a><a class="mashabledata_pdf" data="application/pdf">PDF</a><span id="mashabledata_print" class="mashabledata_print">print chart</span></span>':'')
             + '<div id="mashabledata_tabs">'
             +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span class="mashabledata_info">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span class="mashabledata_info">('+this.bookmarks.length+')</span></a></li></ol>'
             +   '<span><input class="mashabledata_inputmsg mashabledata_filter" value="type here to filter series"></span>'
@@ -305,9 +305,8 @@ window.MashableData = { //mashableData namespace
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.bookmarks)+'</table></div>'
             +   '</div>'
             +   '<span class="mashabledata_these">applies to</span> <span id="mashabledata_check_all">uncheck all</span> '
-            +   '<button id="mashabledata_update" value="chart" checked>update</button>'
+            +   '<button id="mashabledata_update" value="chart" disabled>update</button>'
             +   '<button id="mashabledata_export" value="md">export to MashableData Workbench</button>'
-            //+   '<button id="mashabledata_ok" disabled="disabled">ok</button>' //<a id="mashableddata_workbench" href="http://www.mashabledata.com/workbench" target="_blank">open workbench</a>'
             + '</div>'
             + '</div>';
         $panel = jQuery(html).prependTo(chart.container);
@@ -339,7 +338,7 @@ window.MashableData = { //mashableData namespace
                 $panel.find('li.mashabledata_bookmarks span').html('('+visible+(table[0].rows.length==visible?'':' of '+table[0].rows.length)+')');
             });
         $panel.find('input:checkbox').change(function(){
-            jQuery('#mashabledata_ok').removeAttr('disabled');
+            jQuery('#mashabledata_update').removeAttr('disabled');
             if($panel.find('input:checkbox:checked').length==0){
                 $panel.find('#mashabledata_check_all').innerHTML='uncheck all';
             } else {

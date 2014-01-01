@@ -74,6 +74,9 @@ span.mashabledata_asc{
 .mashabledata_pdf:hover{background: no-repeat url('md_assets.png') -170px -72px  ;}
 .mashabledata_close {background: no-repeat url('md_assets.png') -50px -29px; height:17px; width:17px; margin: 5px; cursor:pointer;text-indent: -99999px; display: inline-block;}
 .mashabledata_close:hover{background: no-repeat url('md_assets.png') -17px -29px  ;}
+.mashabledata_print {background: no-repeat url('md_assets.png') -202px -50px; height:20px; width:50px; margin: 5px 5px 0 25px; cursor:pointer;text-indent: -99999px; display: inline-block;}
+.mashabledata_print:hover{background: no-repeat url('md_assets.png') -202px -72px  ;}
+
 
 #mashabledata_tabs{
     position: relative;
