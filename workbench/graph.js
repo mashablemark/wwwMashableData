@@ -838,6 +838,10 @@ function makeChartOptionsObject(oGraph){
                 }
                 if(maxCount<=5) {
                     jschart.chart.type = 'column';
+                    if(maxCount==1 && oGraph.smallestPeriod){
+                        if(jschart.xAxis.min) jschart.xAxis.min -= period.value[oGraph.smallestPeriod]/4;
+                        if(jschart.xAxis.max) jschart.xAxis.max += period.value[oGraph.smallestPeriod]/4;
+                    }
                     //for(i=0;i<jschart.series.length;i++) jschart.series[i].type = 'column'  //TODO use categories
                 }
             }
@@ -888,7 +892,7 @@ function makeChartOptionsObject(oGraph){
 
             jschart.yAxis = [{title:{text: 'Normalized to 1'}}];
     }
-
+    if(oGraph.smallestPeriod) jschart.xAxis.minTickInterval = period.value[oGraph.smallestPeriod];
     console.timeEnd('makeChartOptionsObject');
     return jschart
 }
@@ -2708,7 +2712,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     console.timeEnd('buildGraphPanel:thisPanel events');
     console.time('buildGraphPanel:provController');
     calcGraphMinMaxZoomPeriod(oGraph);
-    oPanelGraphs[panelId]=oGraph;  //oPanelGraphs will be synced will oMyGraphs on save
+    oPanelGraphs[panelId]=oGraph;  //oPanelGraphs will be synced to oMyGraphs on save
     var provenance = new ProvenanceController(panelId);  //needs to be set after oPanelGraphs is updated
     oGraph.controls.provenance = provenance;
     console.timeEnd('buildGraphPanel:provController');
@@ -2877,9 +2881,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                     var selectedRegions = $map.getSelectedRegions();
                     for(var i=0;i<selectedRegions.length;i++){
-                        if(calculatedMapData.regionColors &&typeof calculatedMapData.regionColors[calculatedMapData.dates[0].s][selectedRegions[i]]!='undefined'){
-                            $thisPanel.find('.map-graph-selected, .make-map').button('enable');
-                            return;
+                        if(calculatedMapData.regionColors){
+                            for(var dateKey in calculatedMapData.regionColors){ //only need a single valid region date key
+                                if(typeof calculatedMapData.regionColors[dateKey][selectedRegions[i]]!='undefined'){
+                                    $thisPanel.find('.map-graph-selected, .make-map').button('enable');
+                                    return;
+                                }
+                                break;
+                            }
                         }
                     }
                     //default if no markers selected or region that have data are selected:
@@ -3987,22 +3996,22 @@ function formatDateByPeriod(val, period) { //helper function for the data tables
 function calcGraphMinMaxZoomPeriod(oGraph){
     oGraph.smallestPeriod = "A";
     oGraph.largestPeriod = "N";
-    var min, max, jsdt, handle;
-    for(key in oGraph.assets){
-        if(!oGraph.assets[key].firstdt && (key.charAt(0)=='M' || key.charAt(0)=='X')){
-            for(handle in oGraph.assets[key].data){
-                jsdt = oGraph.assets[key].data[handle].firstdt;
-                oGraph.assets[key].firstdt = Math.min(oGraph.assets[key].firstdt, jsdt)||jsdt;
-                jsdt = oGraph.assets[key].data[handle].lastdt;
-                oGraph.assets[key].lastdt = Math.max(oGraph.assets[key].lastdt, jsdt)||jsdt;
+    var min, max, jsdt, handle, key;
+    eachComponent(oGraph, function(){
+        if(!oGraph.assets[this.handle].firstdt && (this.handle.charAt(0)=='M' || this.handle.charAt(0)=='X')){
+            for(handle in oGraph.assets[this.handle].data){
+                jsdt = oGraph.assets[this.handle].data[handle].firstdt;
+                oGraph.assets[this.handle].firstdt = Math.min(oGraph.assets[this.handle].firstdt, jsdt)||jsdt;
+                jsdt = oGraph.assets[this.handle].data[handle].lastdt;
+                oGraph.assets[this.handle].lastdt = Math.max(oGraph.assets[this.handle].lastdt, jsdt)||jsdt;
             }
         }
 
-        jsdt = oGraph.assets[key].firstdt;
-        min = Math.min(jsdt, min)  || jsdt;
-        jsdt = oGraph.assets[key].lastdt;
-        max = Math.max(jsdt, max)  || jsdt;
-    }
+        jsdt = oGraph.assets[this.handle].firstdt;
+        min = Math.min(jsdt, min)  || jsdt || min; //in case first date is missing
+        jsdt = oGraph.assets[this.handle].lastdt;
+        max = Math.max(jsdt, max)  || jsdt || min; //in case lasst date is missing
+    });
     if(oGraph.plots){
         $.each(oGraph.plots, function(){
             var thisPeriod = this.options.fdown || oGraph.assets[this.components[0].handle].period;
