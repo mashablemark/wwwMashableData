@@ -3750,7 +3750,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     }
     console.timeEnd('buildGraphPanel: '+panelId);
     unmask();
-    setPanelHash();
+    setPanelHash(oGraph.ghash, $thisPanel.get(0).id);
 }
 
 

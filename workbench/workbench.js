@@ -532,7 +532,7 @@ function setupMySeriesTable(){
                 { "mData": "graph",  "sTitle": "Category<span></span>", "sClass": "cat", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.category + "px", "mRender": function(value, type, obj){return value}},
                 { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                     "mRender": function(value, type, obj){
-                        if(obj.handle[0]=='S') {
+                        if(obj.url) {
                             return formatAsUrl(obj.url,  obj.src) ;
                         } else {
                             return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.username||'';
@@ -908,6 +908,7 @@ function spanWithTitle(val){
     return '<span title="' + ((val==null)?" ":val) + '">' + ((val==null)?" ":val) + '</span>';
 }
 function formatAsUrl(url, txt){
+    txt = txt ||url.replace(/\b(http(s)*:\/\/)*(www.)*/gi,'').replace('/', ' /');
     return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span>'+txt+'</a>';
 }
 function viewGraph(gid){
@@ -1524,6 +1525,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                 var seriesData, point, i, j, row, grid = [["map set",setData.name],["units",setData.units],["notes",""],["geoid"],[set],["date"]];  //handle col will hold the set id
                 for(i=0;i<setData.geographies.length;i++){
                     grid[rows.M.geoid].push(setData.geographies[i].geoid);
+                    console.info("trying to set mapset's series handles");
                     grid[rows.M.handle].push(setData.geographies[i].handle);
                     grid[rows.M.header].push(setData.geographies[i].geoname);
                     /*if(i>1){
@@ -1966,23 +1968,25 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
     function userSeriesFromEditor(){
         //build series and validate
         var $editor = $("#data-editor");
+        $editor.handsontable('destroyEditor', false);  //exit cell edit mode and without reverting (ie. commit any edits)
         var gridData = $editor.data('handsontable').getData();
         var localSeriesindex= 1, userSeries = [];
         var uSerie, pointArray, seriesInfo, mdata, rowIndex = rows[set];
-        var c, r, x, y, udt;
+        var c, r, x, y, udt, hasData;
         for(c=1;c<gridData[0].length;c++){
-            var totalChanges="";
+            hasData = false;
             for(r=rows[set[0]].header+1;r<gridData.length;r++){ //does this column have any date?
-                if(nonWhitePattern.test(totalChanges)){
-                    if(set=='U' && (!nonWhitePattern.test(gridData[rows.U.name][c]) || !nonWhitePattern.test(gridData[rows.U.units][c]))){
+                if(gridData[r][c]!==null && nonWhitePattern.test(gridData[r][c])){
+                    if(set=='U' && (!nonWhitePattern.test(gridData[rows.U.name][c]) || (gridData[rows.U.name][c]===null) || !nonWhitePattern.test(gridData[rows.U.units][c]) || (gridData[rows.U.units][c]===null))){
                         dialogShow("Invalid Series","Name and units are required fields.");
                         return false;
                     }
-                    break; //exit on first non-empty cell = fast
+                    hasData = true;
+                    break; //exit on first non-empty cell = faster
                 }
             }
             var headerRow;
-            if(nonWhitePattern.test(totalChanges)) {   //don't try to save empty column
+            if(hasData) {   //don't try to save empty column
                 switch(set[0]){
                     case 'M':
                         uSerie = {
@@ -2616,37 +2620,38 @@ function md_calcSeriesInfo(PointArray){
     var dayOfWeek = null;
     var monthOfYear = null;
     var timeOfDay = null;
-
-    for(var pointIndex in PointArray){
-        //console.info(pointIndex);
-        var thisPoint = PointArray[pointIndex];
-        if(oSeriesInfo.firstdt == null || oSeriesInfo.firstdt > thisPoint.x) oSeriesInfo.firstdt = thisPoint.x;
-        if(oSeriesInfo.lastdt == null || oSeriesInfo.lastdt < thisPoint.x) oSeriesInfo.lastdt = thisPoint.x;
-        if(oSeriesInfo.minValue == null || oSeriesInfo.minValue > thisPoint.y) oSeriesInfo.minValue = thisPoint.y;
-        if(oSeriesInfo.maxValue == null || oSeriesInfo.maxValue < thisPoint.x) oSeriesInfo.maxValue = thisPoint.y;
-        var xDateTime = new Date(thisPoint.x);
-        //console.info(xDateTime);
-        if(timeOfDay == null){timeOfDay = xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()}
-        else if(timeOfDay !== true && timeOfDay != xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()){timeOfDay = true}
-        if(dayOfMonth == null){dayOfMonth = xDateTime.getUTCDate()}
-        else if(dayOfMonth !== true && dayOfMonth != xDateTime.getUTCDate()){dayOfMonth = true}
-        if(dayOfWeek == null){dayOfWeek = xDateTime.getUTCDay()}
-        else if(dayOfWeek !== true && dayOfWeek != xDateTime.getUTCDay()){dayOfWeek = true}
-        if(monthOfYear == null){monthOfYear = xDateTime.getUTCMonth()}
-        else if(monthOfYear !== true && monthOfYear != xDateTime.getUTCMonth()){monthOfYear = true}
+    var xDateTime;
+    if(oSeriesInfo.points==1){ //Annual assumed
+        xDateTime = new Date(PointArray[0].x);
+        if(xDateTime.getUTCMonth()!=0) oSeriesInfo.period = 'M';
+        if(xDateTime.getUTCDate()!=1) oSeriesInfo.period = 'D'; //no way to distinguish daily from weekly
+        if(xDateTime.getUTCHours()+xDateTime.getUTCMinutes()+xDateTime.getUTCSeconds()!=0) oSeriesInfo.period = 'T';
+    } else {
+        for(var i=0;i<oSeriesInfo.points;i++){
+            //console.info(pointIndex);
+            var thisPoint = PointArray[pointIndex];
+            if(oSeriesInfo.firstdt == null || oSeriesInfo.firstdt > thisPoint.x) oSeriesInfo.firstdt = thisPoint.x;
+            if(oSeriesInfo.lastdt == null || oSeriesInfo.lastdt < thisPoint.x) oSeriesInfo.lastdt = thisPoint.x;
+            if(oSeriesInfo.minValue == null || oSeriesInfo.minValue > thisPoint.y) oSeriesInfo.minValue = thisPoint.y;
+            if(oSeriesInfo.maxValue == null || oSeriesInfo.maxValue < thisPoint.x) oSeriesInfo.maxValue = thisPoint.y;
+            xDateTime = new Date(thisPoint.x);
+            //console.info(xDateTime);
+            if(timeOfDay == null){timeOfDay = xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()}
+            else if(timeOfDay !== true && timeOfDay != xDateTime.getUTCHours() + ":" +  xDateTime.getUTCMinutes() + ":" +  xDateTime.getUTCSeconds() + "." + xDateTime.getUTCMilliseconds()){timeOfDay = true}
+            if(dayOfMonth == null){dayOfMonth = xDateTime.getUTCDate()}
+            else if(dayOfMonth !== true && dayOfMonth != xDateTime.getUTCDate()){dayOfMonth = true}
+            if(dayOfWeek == null){dayOfWeek = xDateTime.getUTCDay()}
+            else if(dayOfWeek !== true && dayOfWeek != xDateTime.getUTCDay()){dayOfWeek = true}
+            if(monthOfYear == null){monthOfYear = xDateTime.getUTCMonth()}
+            else if(monthOfYear !== true && monthOfYear != xDateTime.getUTCMonth()){monthOfYear = true}
+        }
+            if(timeOfDay === true) {oSeriesInfo.period = 'T'}
+            else if(dayOfWeek !== true) {oSeriesInfo.period = 'W'}
+            else if(dayOfMonth === true) {oSeriesInfo.period = 'D'}
+            else if(monthOfYear === true) {oSeriesInfo.period = 'M'}
+            else {oSeriesInfo.period = 'A'}
     }
-    /*
-     console.info("timeOfDay: " + timeOfDay);
-     console.info("dayOfWeek: " + dayOfWeek);
-     console.info(dayOfWeek !== true);
-     console.info("monthOfYear: " + monthOfYear);
-     console.info("dayOfMonth: " + dayOfMonth);
-     */
-    if(timeOfDay === true) {oSeriesInfo.period = 'T'}
-    else if(dayOfWeek !== true) {oSeriesInfo.period = 'W'}
-    else if(dayOfMonth === true) {oSeriesInfo.period = 'D'}
-    else if(monthOfYear === true) {oSeriesInfo.period = 'M'}
-    else {oSeriesInfo.period = 'A'}
+
 
     return oSeriesInfo
 }
@@ -2790,8 +2795,12 @@ function panelHash(){
             }
     }
 }
-function setPanelHash(){
-    var hash = panelHash();
+function setPanelHash(ghash, graphTabId){  //optionally, pass in known values rather than detecting = fix for delays in visability
+    if(ghash){
+        hash = 't=g'+graphTabId.replace('graphTab','')+'&graphcode='+ghash;
+    } else {
+        var hash = panelHash();
+    }
     if(hash && hasher.getHash()!=hash) {
         if(hasher.getHash().search('t=g&graphcode=')==-1){
             setHashSilently(hash);

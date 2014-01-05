@@ -342,7 +342,7 @@ switch($command){
     case "GetSet":
         $mapsetid = intval($_POST["mapsetid"]);
         $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
-        $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, seriesid, s.name, s.units, s.units_abbrev, title, data, notes"
+        $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), seriesid) as handle, seriesid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
         . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
         . " left outer join (select * from series s where mapsetid=".$mapsetid." and pointsetid is null) s on g.geoid=s.geoid "
         . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
