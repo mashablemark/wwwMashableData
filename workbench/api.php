@@ -1072,15 +1072,54 @@ switch($command){
             $output = array("status"=>$usageTracking["msg"]);
             break;
         }
+
+        $set = $_POST['set'];  //either "U" or a mapset or pointset handle
+        $setid = (strlen($set)>1)?intval(substr($set,1)):0;
         $user_id =  intval($_POST['uid']);
+        $setType = substr($set,0,1);
         $arySeries = $_POST['series'];
+
+        $mapSet = false;
+        $pointSet = false;
 
         $output = array(
             "status" => "ok",
             "series" => array()
         );
-        for($i=0;$i<count($arySeries);$i++){
+        if($setType=="X"){
+            $sql = "select * from pointsets where pointsetid=$setid and userid=$user_id and apiid is null";
+            $result = runQuery($sql);
+            if($result->num_rows==1) {
+                $pointSet = $result->fetch_assoc();
+                if($pointSet["name"]!=$_POST['setname'] || $pointSet["units"]!=$arySeries[0]['units'] || $pointSet["periodicity"]!=$arySeries[0]['periodicity']){
+                    $pointSet = false;
+                }
+            }
+            if(!$pointSet){
+                $sql = "insert into pointsets (name, units, periodicity, userid) "
+                    ." values(".safeSQLFromPost("setname").",".safeSQLFromPost("units").",".safeSQLFromPost("periodicity").",$user_id)";
+                runQuery($sql);
+                $setid = $db->insert_id;
+            }
+        }
+        if($setType=="M"){
+            $sql = "select * from mapsets where mapsetid=$setid and userid=$user_id and apiid is null";
+            $result = runQuery($sql);
+            if($result->num_rows==1) {
+                $mapSet = $result->fetch_assoc();
+                if($mapSet["name"]!=$_POST['setname'] || $mapSet["units"]!=$arySeries[0]['units'] || $mapSet["periodicity"]!=$arySeries[0]['periodicity']){
+                    $mapSet = false;
+                }
+            }
+            if(!$mapSet){
+                $sql = "insert into mapsets (name, units, periodicity, userid) "
+                    ." values(".safeSQLFromPost("setname").",".safeSQLFromPost("units").",".safeSQLFromPost("periodicity").",$user_id)";
+                runQuery($sql);
+                $setid = $db->insert_id;
+            }
+        }
 
+        for($i=0;$i<count($arySeries);$i++){
             $series_name = $arySeries[$i]['name'];
             $graph_title =  '';
             $units = $arySeries[$i]['units'];
@@ -1117,12 +1156,15 @@ switch($command){
                 $result = runQuery($sql);
                 $aUser = $result->fetch_assoc();
                 $src = $aUser["owner"];
-                $sql = "insert into series (name, namelen, units, notes, periodicity, data, hash, firstdt, lastdt, userid, orgid, src) values ("
+                $sql = "insert into series (name, namelen, units, notes, periodicity, geoid, mapsetid, pointsetid, data, hash, firstdt, lastdt, userid, orgid, src) values ("
                     . safeStringSQL(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"") . ","
                     . strlen(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"") . ","
                     . safeSQLFromPost(isset($arySeries[$i]["units"])?$arySeries[$i]["units"]:"") . ","
                     . safeSQLFromPost(isset($arySeries[$i]["notes"])?$arySeries[$i]["notes"]:"") . ","
                     . safeSQLFromPost(isset($arySeries[$i]["periodicity"])?$arySeries[$i]["periodicity"]:"") . ","
+                    . (isset($arySeries[$i]["geoid"])?$arySeries[$i]["geoid"]:"null") . ","
+                    . ($setType=="M"?$setid:"null") . ","
+                    . ($setType=="P"?$setid:"null") . ","
                     . "'" . $db->real_escape_string($data) . "',"
                     . safeStringSQL(sha1($data)) . ","
                     . intval( $arySeries[$i]['firstdt']/1000)*1000 . ","  //because WAMP's intval is only 32 bit, even on a Windows 8 64bit machine!
@@ -1138,9 +1180,15 @@ switch($command){
             array_push($output["series"],
                 array(
                     "usid" => $usid,
-                    "src"=> $src
+                    "src"=> $src,
+                    "mapsetid"=>$setType=="M"?$setid:null,
+                    "pointsetid"=>$setType=="X"?$setid:null,
                 )
             );
+        }
+        if($setid>0) {
+            if($setType=="M") setMapsetCounts($setid);
+            if($setType=="X") setPointsetCounts($setid);
         }
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         break;

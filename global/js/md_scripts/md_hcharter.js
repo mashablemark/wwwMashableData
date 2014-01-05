@@ -134,6 +134,7 @@ window.MashableData = { //mashableData namespace
         return oSereiesInfo
     },
     storeChartSeries: function(thisChart){
+        if(window.console&&window.console.time) window.console.time('storeChartSeries');
         var i, j, thisSerie, serie, lsKey, recents, bookmarks, idxRecent, idxBookmark, oldSerieString, poppedKey, isMashable;
         var timestamp = (new Date()).getTime();
         if(localStorage.getItem('md_authorized')=='N') return false;
@@ -219,6 +220,7 @@ window.MashableData = { //mashableData namespace
         }
         localStorage.md_recents = JSON.stringify(recents);
         localStorage.md_bookmarks = JSON.stringify(bookmarks);
+        if(window.console&&window.console.time) window.console.timeEnd('storeChartSeries');
     },
     postSeries: function(serie){
         if(!this.iframeRequested) {  //add the iFrame is not already added
@@ -297,7 +299,7 @@ window.MashableData = { //mashableData namespace
             +   '<ol><li class="mashabledata_active mashabledata_recents"><a data="#mashabledata_recents">recent<span class="mashabledata_info">('+this.recents.length+')</span></a></li><li class="mashabledata_bookmarks"><a data="#mashabledata_bookmarks">bookmarks<span class="mashabledata_info">('+this.bookmarks.length+')</span></a></li></ol>'
             +   '<span><input class="mashabledata_inputmsg mashabledata_filter" value="type here to filter series"></span>'
             +   '<div id="mashabledata_recents">'
-            +     '<table><tr><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
+            +     '<table><tr><th class="mashabledata_cell_bookmark"></th><th class="mashabledata_cell_check"></th><th class="mashabledata_cell_name">name</th><th class="mashabledata_cell_units">units</th><th class="mashabledata_cell_f">f</th><th class="mashabledata_cell_from">from</th><th class="mashabledata_cell_to">to</th><th class="mashabledata_cell_viewed">viewed<span id="mashabledata_desc"></span></th><th class="mashabledata_cell_url">url</th></tr></table>'
             +     '<div class="mashabledata_scroll"><table>'+this.makeRows(this.recents)+'</table></div>'
             +   '</div>'
             +   '<div id="mashabledata_bookmarks">'
@@ -306,7 +308,8 @@ window.MashableData = { //mashableData namespace
             +   '</div>'
             +   '<span class="mashabledata_these">applies to</span> <span id="mashabledata_check_all">uncheck all</span> '
             +   '<button id="mashabledata_update" value="chart" disabled>update</button>'
-            +   '<button id="mashabledata_export" value="md">export to MashableData Workbench</button>'
+            +   '<button id="mashabledata_export" value="md">open with MashableData</button>'
+            +   '<br><span style="font-size: 9px;margin: 1px 10px;">The MashableData Workbench provides access to millions of statistical time series and visualization tools to create and share interactive maps and graphs.</span>'
             + '</div>'
             + '</div>';
         $panel = jQuery(html).prependTo(chart.container);
@@ -337,20 +340,55 @@ window.MashableData = { //mashableData namespace
                 visible = self.searchTable(table, keyWords); //TODO:  convert search to ANDed key-word search from key-phrase search
                 $panel.find('li.mashabledata_bookmarks span').html('('+visible+(table[0].rows.length==visible?'':' of '+table[0].rows.length)+')');
             });
-        $panel.find('input:checkbox').change(function(){
-            jQuery('#mashabledata_update').removeAttr('disabled');
-            if($panel.find('input:checkbox:checked').length==0){
-                $panel.find('#mashabledata_check_all').innerHTML='uncheck all';
+
+        $panel.find('div.mashabledata_scroll table').click(function(evt){
+            var $target = jQuery(evt.target);
+            var $td = $target.closest('td');
+            if($td.hasClass('mashabledata_cell_bookmark')){
+                var key = $td.parent().find('input').attr('data');
+                if(self.series[key]){
+                    if(self.series[key].bookmark) { //could have been deselected from either panel
+                        self.unBookmarkSeries(key);
+                        $panel.find('#mashabledata_bookmarks div.mashabledata_scroll input[data=\''+key+'\']').closest('tr').remove();
+                        $panel.find('#mashabledata_recents div.mashabledata_scroll input[data=\''+key+'\']').closest('tr').find('td.mashabledata_cell_bookmark span').addClass('mashabledata_nostar').removeClass('mashabledata_star');
+                    } else { //must have been clicked in the recents panel
+                        self.bookmarkSeries(key);
+                        $td.find('span').addClass('mashabledata_star').removeClass('mashabledata_nostar');
+                        $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table').prepend(self.makeRows([key]));
+                    }
+                    //update the tab with the counts
+                    var $table = $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table');
+                    var visible = $table.find('tr:visible').length;
+                    $panel.find('li.mashabledata_bookmarks span').html('('+visible+($table[0].rows.length==visible?'':' of '+$table[0].rows.length)+')');
+
+                    updateLocalStorage();
+                }
             } else {
-                $panel.find('#mashabledata_check_all').innerHTML='check all';
+                if(!$target.is(':checkbox')){
+                    $td.parent().find('input:checkbox').click();
+                }
+
+                jQuery('#mashabledata_update').removeAttr('disabled');
+                if($panel.find('input:checkbox:checked').length==0){
+                    $panel.find('#mashabledata_check_all').innerHTML='uncheck all';
+                } else {
+                    $panel.find('#mashabledata_check_all').innerHTML='check all';
+                }
             }
         });
+
+        $panel.find('input:checkbox').change(function(){
+        });
+
+        $panel.find('td.mashabledata_cell_bookmark span').click(function(){
+        });
+
         $panel.find('ol a').click(function(){  //tabs
             $panel.find('ol li').removeClass('mashabledata_active');
             $panel.find('#mashabledata_recents, #mashabledata_bookmarks').hide();
             $panel.find(jQuery(this).closest('li').addClass('mashabledata_active').end().attr('data')).show();
         });
-        $panel.find('th')  //table column sorts
+        $panel.find('th')  //table column sorts (maybe shift to a table click event for efficiency)
             .attr('title', 'click to sort on this column')
             .each(function(){
                 var $th = jQuery(this), thIndex = $th.index(), inverse = false;
@@ -374,26 +412,6 @@ window.MashableData = { //mashableData namespace
                 });
             }
         );
-        $panel.find('td.mashabledata_cell_bookmark span').click(function(){
-            var key = jQuery(this).closest('tr').find('input').attr('data');
-            if(self.series[key]){
-                if(self.series[key].bookmark) { //could have been deselected from either panel
-                    self.unBookmarkSeries(key);
-                    $panel.find('#mashabledata_bookmarks div.mashabledata_scroll input[data=\''+key+'\']').closest('tr').remove();
-                    $panel.find('#mashabledata_recents div.mashabledata_scroll input[data=\''+key+'\']').closest('tr').find('td.mashabledata_cell_bookmark span').addClass('mashabledata_nostar').removeClass('mashabledata_star');
-                } else { //must have been clicked in the recents panel
-                    self.bookmarkSeries(key);
-                    jQuery(this).addClass('mashabledata_star').removeClass('mashabledata_nostar');
-                    $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table').prepend(self.makeRows([key]));
-                }
-                //update the tab with the counts
-                var $table = $panel.find('#mashabledata_bookmarks div.mashabledata_scroll table');
-                var visible = $table.find('tr:visible').length;
-                $panel.find('li.mashabledata_bookmarks span').html('('+visible+($table[0].rows.length==visible?'':' of '+$table[0].rows.length)+')');
-
-                updateLocalStorage();
-            }
-        });
         $panel.find('#mashabledata_check_all').click(function(){
             if(this.innerHTML=='check all'){
                 $panel.find('div>div:visible input:not(:checked)').each(function(){
@@ -498,8 +516,8 @@ window.MashableData = { //mashableData namespace
             series = this.series[aryKeys[i]];
             viewed = new Date(parseInt(series.save_dt));
             inChart = this.hasSeries(aryKeys[i]);
-            rows += '<tr><td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(inChart?' checked><span>a'+series.viewed+'</span>':'><span>b'+series.viewed+'</span>')+'</td>'
-                + '<td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
+            rows += '<tr><td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
+                + '<td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(inChart?' checked><span>a'+viewed.getTime()+'</span>':'><span>b'+viewed.getTime()+'</span>')+'</td>'
                 + '<td class="mashabledata_cell_name" title="'+series.name+'">'+series.name+'</td>'
                 + '<td class="mashabledata_cell_units" title="'+series.units+'">'+series.units+'</td>'
                 + '<td class="mashabledata_cell_f">'+series.period+'</td>'

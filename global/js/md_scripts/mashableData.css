@@ -1,7 +1,7 @@
 
 #mashabledata_panel{
     width: 700px;
-    height: 300px;
+    height: 310px;
     z-index: 1001;
     position: absolute;
     right: 10px;
@@ -22,11 +22,15 @@
     margin: 1px 4px;
 }
 #mashabledata_panel button{
-    margin: 4px 5px 5px 10px;
+    margin: 4px 5px 0 0;
     padding: 1px 7px;
     color: #000000;
     min-width: 55px;
     cursor: pointer;
+    float: right;
+}
+#mashabledata_panel button:disabled{
+    color: #808080;
 }
 #mashabledata_panel select{
     width: 75px;
@@ -45,22 +49,25 @@ span.mashabledata_star, span.mashabledata_nostar, span.mashabledata_asc, span.ma
 }
 span.mashabledata_these{
     background: no-repeat url('md_assets.png') -74px -31px;
-    margin-left: 4px;
-    position: relative;
-    top: -6px;
+    margin: 0 0 10px 4px;
+    cursor:default;
 }
-span.mashabledata_nostar{background: no-repeat url('md_assets.png') 0px -115px;}
+span.mashabledata_nostar{
+    background: no-repeat url('md_assets.png') 0px -115px;
+}
 span.mashabledata_star, span.mashabledata_nostar:hover{
     background: no-repeat url('md_assets.png') -20px -115px;
 }
 span.mashabledata_desc{
-    background: no-repeat url('md_assets.png') -46px -115px;
+    background: no-repeat url('md_assets.png') -46px -120px;
     width:8px;
+    height: 8px;
     float: right;
 }
 span.mashabledata_asc{
-    background: no-repeat url('md_assets.png') -111px -115px;
+    background: no-repeat url('md_assets.png') -111px -120px;
     width:8px;
+    height: 8px;
     float: right;
 }
 
@@ -82,7 +89,7 @@ span.mashabledata_asc{
     position: relative;
     bottom: 0;
     background-color: rgb(162,196,201);
-    height: 300px;
+    height: 305px;
     border-top: thin grey solid;
 }
 #mashabledata_tabs>span:first-of-type{
@@ -159,8 +166,9 @@ span.mashabledata_asc{
     height: 210px;
     display: none;
 }
-.mashabledata_scroll{
+div.mashabledata_scroll{
     overflow-y: scroll;
+    overflow-x: hidden;
     height: 190px;
 }
 #mashabledata_panel table{
@@ -168,6 +176,7 @@ span.mashabledata_asc{
     margin: 0;
     padding: 0;
     width: 680px;
+    cursor: pointer;
 }
 #mashabledata_panel th{
     background-color: #000000;
@@ -182,46 +191,54 @@ span.mashabledata_asc{
     white-space: nowrap;
 }
 .mashabledata_cell_check{
-    width: 15px;
-    max-width: 15px;
+    width: 11px;
+    max-width: 11px;
+    min-width: 11px;
 }
 .mashabledata_cell_check span{
     margin-left: 99999px;
 }
 .mashabledata_cell_bookmark{
     width: 15px;
-    cursor: pointer;
+    max-width: 15px;
+    min-width: 15px;
 }
 .mashabledata_cell_name{
     width: 260px;
     max-width: 260px;
+    min-width: 260px;
 }
 .mashabledata_cell_units{
     width: 110px;
     max-width: 110px;
+    min-width: 110px;
 }
 .mashabledata_cell_f{
     width: 15px;
     max-width: 15px;
+    min-width: 15px;
+    text-align: center;
 }
 .mashabledata_cell_from, .mashabledata_cell_to{
     width: 50px;
     max-width: 50px;
+    min-width: 50px;
 }
 .mashabledata_cell_viewed{
-    width: 50px;
-    max-width: 50px;
+    width: 55px;
+    max-width: 55px;
+    min-width: 55px;
 }
 .mashabledata_cell_url{
     width: 90px;
     max-width: 90px;
-    cursor: pointer;
+    min-width: 90px;
 }
-.mashabledata_star{
-
+.mashabledata_scroll .mashabledata_cell_from, .mashabledata_scroll .mashabledata_cell_to, .mashabledata_scroll .mashabledata_cell_viewed{
+    text-align: right;
 }
-.mashabledata_nostar{
-
+#mashabledata_panel th{
+    text-align: center;
 }
 #mashabledata_panel input[type="radio"]{
     margin: 3px 5px 3px 10px;
@@ -241,4 +258,6 @@ span.mashabledata_asc{
 #mashabledata_check_all{
     font-style: italic;
     cursor: pointer;
+    position: relative;
+    top: 6px;
 }

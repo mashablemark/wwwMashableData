@@ -520,11 +520,15 @@ function setupMySeriesTable(){
                     }
                 },
                 { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.units + "px",  "mRender": function(value, type, obj){return value}},
-                { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bUseRendered":false, "bSortable": true, "sWidth": colWidths.periodicity + "px", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}},
-                { "mData":"firstdt", "sTitle": "from<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px", "bSortable": true, "asSorting":  [ 'desc','asc'],
-                    "mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)}
+                { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.periodicity + "px",
+                    "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}
                 },
-                { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "bUseRendered":false, "sWidth": colWidths.shortDate+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return formatDateByPeriod(value, obj.period)} },
+                { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'],
+                    "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return formatDateByPeriod(value, obj.period);}
+                },
+                { "mData":"lastdt", "sTitle": "to<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'], "resize": false,
+                    "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return formatDateByPeriod(value, obj.period);}
+                },
                 { "mData": "graph",  "sTitle": "Category<span></span>", "sClass": "cat", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.category + "px", "mRender": function(value, type, obj){return value}},
                 { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                     "mRender": function(value, type, obj){
@@ -535,9 +539,9 @@ function setupMySeriesTable(){
                         }
                     }
                 },
-                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, "bUseRendered": true, sType: "numeric",  "sWidth": colWidths.shortDate + "px", "resize": false,
-                    "mRender": function(value, type, obj){ return timeOrDate(value)}
-                }
+                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, sType: "numeric",  "sWidth": colWidths.shortDate + "px", "resize": false,
+                    "mRender": function(value, type, obj){ if(type=='sort') return parseInt(value); else return timeOrDate(value);}
+                }//
             ]
         })
         .click(function(e){
@@ -707,7 +711,9 @@ function setupMyGraphsTable(){
                     }
                 }
             },
-            {"mData":"updatedt", "sTitle": "Created<span></span>", "bUseRendered": false, "asSorting":  [ 'desc','asc'], sType: "numeric","sClass": 'dte', "sWidth": colWidths.shortDate + "px", "mRender": function(value, type, obj){return  timeOrDate(value)}}
+            {"mData":"updatedt", "sTitle": "Created<span></span>", "asSorting":  [ 'desc','asc'], sType: "numeric","sClass": 'dte', "sWidth": colWidths.shortDate + "px",
+                "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return timeOrDate(value);}
+            }
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
@@ -779,8 +785,8 @@ function setupPublicGraphsTable(){
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": false, "sWidth":  layoutDimensions.widths.publicGraphTable.columns.analysis + 'px'},
             {"mData":"serieslist", "sTitle": "Series<span></span>", "bSortable": false, "sClass": 'series', "sWidth": layoutDimensions.widths.publicGraphTable.columns.series + 'px'},
             {"mData":"views", "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'count', "sWidth": colWidths.views + 'px'},
-            {"mData":"modified", "sTitle": "Modified<span></span>", "bSortable": true,  bUseRendered: false, sType: 'numeric', "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
-                "mRender": function(value, type, obj){return timeOrDate(value);}
+            {"mData":"modified", "sTitle": "Modified<span></span>", "bSortable": true, sType: 'numeric', "asSorting":  [ 'desc','asc'], "sClass": 'dte', "sWidth": colWidths.shortDate + 'px',
+                "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return timeOrDate(value);}
             }
         ]
     })
@@ -1626,7 +1632,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         });
         $panel.find('button.series-edit-preview').button({icons: {secondary: 'ui-icon-image'}}).off().click(function(){
             var arySeries = userSeriesFromEditor();
-            quickGraph(arySeries, false);
+            if(arySeries) quickGraph(arySeries, false);
         });
         $panel.find('button.series-edit-geoset').button({icons:{secondary:'ui-icon-flag'}}).show().off().click(function(){
             showUserSetWizard();
@@ -1966,17 +1972,23 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         var c, r, x, y, udt;
         for(c=1;c<gridData[0].length;c++){
             var totalChanges="";
-            for(r=0;r<gridData.length;r++){ //does this column have anything?
-                if(r!=3)totalChanges+=gridData[r][c];
-                if(nonWhitePattern.test(totalChanges)) break; //exit on first non-empty cell = fast
+            for(r=rows[set[0]].header+1;r<gridData.length;r++){ //does this column have any date?
+                if(nonWhitePattern.test(totalChanges)){
+                    if(set=='U' && (!nonWhitePattern.test(gridData[rows.U.name][c]) || !nonWhitePattern.test(gridData[rows.U.units][c]))){
+                        dialogShow("Invalid Series","Name and units are required fields.");
+                        return false;
+                    }
+                    break; //exit on first non-empty cell = fast
+                }
             }
             var headerRow;
             if(nonWhitePattern.test(totalChanges)) {   //don't try to save empty column
-                switch(set){
+                switch(set[0]){
                     case 'M':
                         uSerie = {
                             handle: gridData[rows.M.handle][c],  //handles always blank unless editing existing user series
                             name: gridData[rows.M.name][1]+' - '+gridData[rows.M.header][c],
+                            setname: gridData[rows.M.name][1],
                             units: gridData[rows.M.units][1],
                             notes: gridData[rows.M.geoid][c],
                             geoid: gridData[rows.M.geoid][c],
@@ -1987,7 +1999,8 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     case 'X':
                         uSerie = {
                             handle: gridData[rows.X.handle][c],
-                            name:gridData[rows.X.name][c],
+                            name:gridData[rows.X.name][1] + ' ' + gridData[rows.M.header][c],
+                            setname: gridData[rows.M.name][1],
                             units:gridData[rows.X.units][1],
                             notes:gridData[rows.X.notes][1],
                             geoid:gridData[rows.X.geoid][c],
@@ -2020,12 +2033,12 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                 for(r=headerRow+1;r<gridData.length;r++){
                     if(gridData[r][c]!==null&&gridData[r][c].length>0){//if empty value, skip
                         if(isNaN(gridData[r][c]) && gridData[r][c].toLowerCase()!='null'){
-                            dialogShow("Unreadable Values","Value cells must be numbers, 'NULL', or blank.");
+                            dialogShow("Unreadable Values", "Value cells must be numbers, 'null', or blank.");
                             return false;
                         }
                         udt = UTCFromReadableDate(gridData[r][0]);
                         if(!udt){
-                            dialogShow("Invalid Date Formats","Valid date formats are required in the left column for non-empty values.");
+                            dialogShow("Invalid Date Formats", "Valid date formats are required in the left column for non-empty values.");
                             return false;
                         }
                         pointArray.push({x:udt.getTime(),y:parseFloat(gridData[r][c])});
@@ -2054,6 +2067,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     }
                 }
                 uSerie.data = mdata.substr(2);
+                uSerie.period = seriesInfo.period;
                 if(uSerie.data.trim().length>0){
                     userSeries.push(uSerie);
                     $.extend(uSerie, seriesInfo);
@@ -2068,8 +2082,9 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
     }
     function saveSeriesEditor(){
         var i, arySeries = userSeriesFromEditor();  //returns false if missing name or units or data
+        //need to add geoid (of bunny for PointSets + setname)
         if(arySeries){
-            callApi({command: "SaveUserSeries", series: arySeries, set: set}, //set ie either 'U' or the handle of a mapset or pointset (to be implemented)
+            callApi({command: "SaveUserSeries", series: arySeries, set: set, setname:''}, //set ie either 'U' or the handle of a mapset or pointset (to be implemented)
                 function(jsoData, textStatus, jqXH){
                     //add update MySeriesGrid on success
                     for(i=0;i<arySeries.length;i++){
@@ -2466,6 +2481,7 @@ function getMySeries(){
                  //dtMySeries.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
                  dtMySeries.fnDeleteRow(trSeries);
                  }*/
+                results.series[sHandle].save_dt = parseInt(results.series[sHandle].save_dt)
                 oMySeries[sHandle] = results.series[sHandle]; //if exists, it will be overwritten with new data
                 series.push(results.series[sHandle]);  //takes an array or object, not an object
             }
@@ -2570,6 +2586,7 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
 function addMySeriesRow(oMD){  //add to table and to oMySeries
     //TODO:  need to update existing oPanelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySeries.');
     if(oMD.handle){
+        if(oMD.save_dt) oMD.save_dt = parseInt(oMD.save_dt);
         if(oMySeries[oMD.handle]){
             //still need to check if it is a row.  There are lots of things in the oMySeries trunk...
             var $trSeries = dtMySeries.find("button[data='" + oMD.handle + "']").closest('tr');
