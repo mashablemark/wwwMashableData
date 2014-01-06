@@ -2741,7 +2741,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
         if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
         var formula = oGraph.mapsets.options.calculatedFormula;
-        return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))
+        for(var i=0;i<oGraph.mapsets.components.length;i++){
+            if(oGraph.mapsets.components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
+        }
+        return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))  //no division or multiplication TODO:  allow series multipliers/dividers
     }
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
@@ -2998,8 +3001,11 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             names.push(asset.name);
                             nameTree[symbol] = asset.name;
                         });
-                        for(i=0;i<unsignedNumArray.length;i++){
-                            numNamesAsWords.push(nameTree[unsignedNumArray[i].trim()].split(' '));
+                        for(i=unsignedNumArray.length-1;i>=0;i--){
+                            if(unsignedNumArray[i].trim()=="")
+                                unsignedNumArray.splice(i,0,1);
+                            else
+                                numNamesAsWords.unshift(nameTree[unsignedNumArray[i].trim()].split(' '));
                         }
 
                         //core the names to create categories
