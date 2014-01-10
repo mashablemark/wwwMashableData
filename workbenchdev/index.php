@@ -35,13 +35,13 @@
     <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
     <!--script type="text/javascript" src="/global/js/ultbuttons/ultbuttons.min.js"></script-->
-    <script type="text/javascript" src="workbench.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="graph.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="common.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="shims.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="account.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="annotations.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="provenance.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/workbench.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/graph.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/common.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/shims.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/account.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/annotations.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="js/provenance.js?v=<?=$workbenchVersion?>"></script>
 
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/jquery.event.drag-2.0.min.js"></script>
