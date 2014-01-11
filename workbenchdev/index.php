@@ -61,14 +61,8 @@
     <script  type="text/javascript" src="js/jquery.contextMenu.js"></script>
     <script  type="text/javascript" src="js/jquery-jvectormap-1.1.1.min.js"></script>
     -->
-    <!--dynamic loading of maps by REQUIRES as needed
-    <script  type="text/javascript" src="js/maps/jquery_jvectormap_world_mill_en.js"></script>
-    <script  type="text/javascript" src="js/maps/jquery_jvectormap_europe_mill_en.js"></script>
-    <script  type="text/javascript" src="js/maps/jquery_jvectormap_us_aea_en.js"></script>
-    -->
 
-    <!--script type="text/javascript" src="templates.js"></script-->
-
+    <!--dynamic loading of maps by REQUIRES as needed-->
     <script type="text/javascript">
         var mapsList={
             "Africa":{"map":"Africa","name":"Africa","geographycount":"58","bunny":null,"jvectormap":"africa_mill_en","legend":"BL"},"Alabama":{"map":"Alabama","name":"Alabama","geographycount":"67","bunny":"250","jvectormap":"usal_merc_en","legend":"BR"},"Alaska":{"map":"Alaska","name":"Alaska","geographycount":"27","bunny":"251","jvectormap":"usak_merc_en","legend":"TR"},"Arizona":{"map":"Arizona","name":"Arizona","geographycount":"15","bunny":"252","jvectormap":"usaz_merc_en","legend":"BR"},"Arkansas":{"map":"Arkansas","name":"Arkansas","geographycount":"74","bunny":"253","jvectormap":"usar_merc_en","legend":"BR"},"California":{"map":"California","name":"California","geographycount":"58","bunny":"254","jvectormap":"usca_merc_en","legend":"TR"},"Colorado":{"map":"Colorado","name":"Colorado","geographycount":"64","bunny":"255","jvectormap":"usco_merc_en","legend":"BR"},"Connecticut":{"map":"Connecticut","name":"Connecticut","geographycount":"8","bunny":"256","jvectormap":"usct_merc_en","legend":"BR"},"Delaware":{"map":"Delaware","name":"Delaware","geographycount":"3","bunny":"257","jvectormap":"usde_merc_en","legend":"TR"},"District of Columbia":{"map":"District of Columbia","name":"District of Columbia","geographycount":"2","bunny":"694","jvectormap":"usdc_merc_en","legend":"BR"},

@@ -107,7 +107,7 @@ switch($command){
 
         $aColumns=array("name", "units", "periodicity", "firstdt", "lastdt", "title");
 
-        $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, themeid, name, units, periodicity as period, title, src, url, "
+        $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, name, units, periodicity as period, title, src, url, "
         . " firstdt, lastdt, apiid"
         . " FROM series s ";
 
@@ -1221,7 +1221,7 @@ switch($command){
         }
         $output = array("status" => "ok", "series" => array());
         if(count($clean_seriesids)>0){
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, coalesce(ms.themeid, ps.themeid) as themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
             . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
             . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
             . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
@@ -1526,7 +1526,7 @@ function getGraphs($userid, $ghash){
 function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
     global $db, $orgid;
     $mapout = array();
-    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
+    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, ms.themeid, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
     . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt, g.lat, g.lon "
     . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
     . " WHERE ms.mapsetid = s.mapsetid and s.pointsetid is null and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
@@ -1550,6 +1550,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
                 "units"=>$row["units"],
                 "period"=>$row["period"],
                 "src"=>$row["src"],
+                "themeid"=>$row["themeid"],
                 "data"=>array()
             );
             if($row["freqset"]!==null){
@@ -1584,7 +1585,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
 function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
     global $db, $orgid;
     $mapout = array();
-    $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, ps.freqset,"
+    $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, ps.freqset, ps.themeid, "
         . " s.seriesid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
         . " from pointsets ps, series s, mapgeographies mg, maps m "
         . " where ps.pointsetid = s.pointsetid and s.mapsetid is null  and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
@@ -1606,6 +1607,7 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
                 "units"=>$row["units"],
                 "period"=>$row["period"],
                 "src"=>$row["src"],
+                "themeid"=>$row["themeid"],
                 "data"=>array()
             );
         }

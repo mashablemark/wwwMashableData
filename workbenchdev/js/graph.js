@@ -557,7 +557,7 @@ function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a
         }
     }
     function createGraph(){
-        var fileAssets = graphScriptFiles.concat(mdGraph.mapFile?['js/maps/'+ mdGraph.mapFile +'.js']:[]);  //get the map too if needed
+        var fileAssets = graphScriptFiles.concat(mdGraph.mapFile?['/global/js/maps/'+ mdGraph.mapFile +'.js']:[]);  //get the map too if needed
         require(fileAssets); //parallel load while getting db assets
         getAssets(mdGraph, function(){
             require(fileAssets, function(){
@@ -2587,7 +2587,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                 }
 
-                var fileAssets = ['js/maps/'+ newGraph.mapFile +'.js'];
+                var fileAssets = ['/global/js/maps/'+ newGraph.mapFile +'.js'];
                 require(fileAssets); //parallel load while getting db assets
                 getAssets(newGraph, function(){ //this will get the Map and Pointset
                     require(fileAssets, function(){ //ensure that we have the new map file
@@ -2599,6 +2599,16 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         );
     });
 
+    var summationMap;  //function level var allows isSummationMap() to be run only once per load/redraw
+    function isSummationMap(){
+        if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
+        if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
+        var formula = oGraph.mapsets.options.calculatedFormula;
+        for(var i=0;i<oGraph.mapsets.components.length;i++){
+            if(oGraph.mapsets.components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
+        }
+        return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))  //no division or multiplication TODO:  allow series multipliers/dividers
+    }
     showChangeSelectors();
     function showChangeSelectors(){
         if(oGraph.plots){
@@ -2614,7 +2624,8 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         var options = '';
         if(oGraph.plots) options  += '<option value="chart">chart</option>';
         if(oGraph.mapsets||oGraph.pointsets) options  += '<option value="map" selected>map</option>';
-        if(oGraph.mapconfig.cubeid || isSummationMap()) options  += '<option value="cube">supplemental bar chart</option>';
+        summationMap = isSummationMap();
+        if(oGraph.mapconfig.cubeid || summationMap) options  += '<option value="cube">supplemental bar chart</option>';
         $('.download-selector').html(options);
     }
     function redraw(){
@@ -2737,22 +2748,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     console.time('buildGraphPanel:drawMap');
     drawMap();
     console.timeEnd('buildGraphPanel:drawMap');
-    function isSummationMap(){
-        if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
-        if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
-        var formula = oGraph.mapsets.options.calculatedFormula;
-        for(var i=0;i<oGraph.mapsets.components.length;i++){
-            if(oGraph.mapsets.components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
-        }
-        return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))  //no division or multiplication TODO:  allow series multipliers/dividers
-    }
+
     function drawMap(){
         if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
 
             if($map) $map.remove();
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             var mapHeight = ($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1);
-            if(oGraph.mapconfig.cubeid || isSummationMap()){
+            if(oGraph.mapconfig.cubeid || summationMap){
                 $thisPanel.find('.cube-viz').show().height(mapHeight); //css('display', 'inline-block');
                 $thisPanel.find('.jvmap').css('width', '70%');
             } else {
@@ -2873,7 +2876,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     }
                 },
                 onRegionSelected: function(e, code, isSelected){
-                    cubeVizFromMap(isSelected?code:null);
+                    cubeVizFromMap(code, isSelected);
                     setMergablity();
                     var selectedMarkers = $map.getSelectedMarkers();
                     if(selectedMarkers.length>0){
@@ -2959,9 +2962,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     cubeVizFromMap();
                 }
             }).slider("value", calculatedMapData.endDateIndex);
-            function cubeVizFromMap(code){
+            function cubeVizFromMap(code, isSelected){
+                //this will be called multiple time from RegionOnSelect event when deselecting all
                 //find the key.  If this get a visualization courtesy of being a Summation Map, create the cube
-                if(oGraph.mapconfig.cubeid || isSummationMap()) {
+                if(oGraph.mapconfig.cubeid || summationMap) {
                     var geoKey, mapDate = calculatedMapData.dates[val].s;
                     if(code){
                         geoKey = code;

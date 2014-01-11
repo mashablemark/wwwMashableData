@@ -1332,7 +1332,7 @@ function quickViewToMap(){
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = mapsList[map].legend;
     oGraph.mapFile = mapsList[map].jvectormap;
-    require(['js/maps/' +  oGraph.mapFile + '.js']); //preload it
+    require(['/global/js/maps/' +  oGraph.mapFile + '.js']); //preload it
     if(!oGraph.plots) oGraph.plots = [];
 
     for(var s=0;s<oQuickViewSeries.length;s++){
@@ -1418,7 +1418,7 @@ function quickViewToMap(){
     }
     function makeGraphAfterFetches(){
         getAssets(oGraph, function(){
-            require(['js/maps/' + oGraph.mapFile + '.js'],function(){
+            require(['/global/js/maps/' + oGraph.mapFile + '.js'],function(){
                 if(oGraph.title===null || oGraph.title==''){
                     oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets):plotName(oGraph, oGraph.pointsets[0]);
                 }

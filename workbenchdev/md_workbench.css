@@ -233,7 +233,7 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
 /* dataTable associated styles */
 .sorting_asc span {
     width: 16px; height: 16px;
-    background: url('images/ui-icons_2e83ff_256x240.png') no-repeat center right;
+    background: url('/global/css/smoothness/images/ui-icons_2e83ff_256x240.png') no-repeat center right;
     background-position: -64px -16px;
     cursor: pointer;
     float: right;
@@ -241,7 +241,7 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
 
 .sorting_desc span {
     width: 16px; height: 16px;
-    background: url('images/ui-icons_2e83ff_256x240.png') no-repeat center right;
+    background: url('/global/css/smoothness/images/ui-icons_2e83ff_256x240.png') no-repeat center right;
     background-position: 0 -16px;
     cursor: pointer;
     float: right;
@@ -250,14 +250,14 @@ td.sv, td.vw, td.freq, td.url {text-align:center;}
 .sorting span {
     padding:0; margin:0;
     width: 16px; height: 16px;
-    background: url('images/ui-icons_888888_256x240.png') no-repeat  center right;
+    background: url('/global/css/smoothness/images/ui-icons_888888_256x240.png') no-repeat  center right;
     background-position: -128px 0;
     cursor: pointer;
     overflow: hidden;
     float: right;
 }
 .sorting span:hover {
-    background: url('images/ui-icons_2e83ff_256x240.png') no-repeat  center right;
+    background: url('/global/css/smoothness/images/ui-icons_2e83ff_256x240.png') no-repeat  center right;
     background-position: -64px -16px;
 }
 
