@@ -67,7 +67,10 @@ function ProvenanceController(panelId){
                      makeDirty();
                      });*/
                 }
-
+                self.$prov.find('select.cubeSelector').change(function(){
+                    self.set(self.mapconfigEdits, $(this));
+                    delete self.graph.assets.cube;
+                });
                 self.$prov.find('.map-mode').buttonset()
                     .find('input').click(function(){
                         self.mapsetEdits.options.mode = $(this).val();
@@ -484,8 +487,8 @@ function ProvenanceController(panelId){
                     +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'">-</label>'
                     +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'">*</label>'
                     +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'">/</label>'
-                    +       '<input type="radio" data="(..)*(..)"  id="op-term-multiply'+compHandle+'" value="(..)*(..)" name="op-radio'+compHandle+'" /><label for="op-term-multiply'+compHandle+'"><b>()*</b></label>'
-                    +       '<input type="radio" data="(..)/(..)"  id="op-term-divide'+compHandle+'" value="(..)/(..)" name="op-radio'+compHandle+'" /><label for="op-term-divide'+compHandle+'"><b>(..)/</b></label>'
+                    //+       '<input type="radio" data="(..)*(..)"  id="op-term-multiply'+compHandle+'" value="(..)*(..)" name="op-radio'+compHandle+'" /><label for="op-term-multiply'+compHandle+'"><b>()*</b></label>'
+                    //+       '<input type="radio" data="(..)/(..)"  id="op-term-divide'+compHandle+'" value="(..)/(..)" name="op-radio'+compHandle+'" /><label for="op-term-divide'+compHandle+'"><b>(..)/</b></label>'
                     +   '</div>');
             $liComp.find("div.op").find("input[data='"+component.options.op+"']").attr('checked','checked')
                 .end()
@@ -846,16 +849,48 @@ function ProvenanceController(panelId){
                 self.sortableOn();
             });
             $editDiv.prependTo($liPointSet);
-            this.editPlotFormula(oPointset ,$liPointSet)
+            this.editPlotFormula(oPointset ,$liPointSet);
             $editDiv.slideDown();
             self.$prov.find('.landing').slideUp();
             $liPointSet.find('.edit-pointset').hide();
         },
         provenanceOfMap:  function provenanceOfMap(){
             var self = this;
-            var provHTML = '', ps, pointset;
-            if(self.graph.map&&(self.mapsetEdits ||self.pointsetsEdits)){ //map!!
-                provHTML = '<div class="map-prov"><h3>Map of '+ self.graph.map +'</h3>';
+            var provHTML = '', ps, pointset, themes = [], tid, fetchThemes = [], cubeSelector='', summationMap = isSummationMap(self.graph);
+            if(self.graph.map&&(self.mapsetEdits || self.pointsetsEdits)){ //map!!
+                eachComponent(self.graph, function(){
+                    tid = self.graph.assets[this.handle].themeid;
+                    if(tid) {
+                        themes.pushUnique(tid);
+                        if(!themeCubes['T'+tid]) fetchThemes.pushUnique(tid);
+                    }
+                });
+                if(themes.length>0 || summationMap){
+                    if(fetchThemes.length>0) {
+                        callApi({command: "GetCubeList", themeids: fetchThemes}, function(jsoData, textStatus, jqXH){
+                            for(var tHandle in jsoData.themes){
+                                themeCubes[tHandle] = jsoData.themes[tHandle];
+                            }
+                            self.$prov.find('select.cubeSelector').html(cubeOptions());
+                        });
+                    }
+                    cubeSelector = '<div class="cubeSelector right">supplemental visualization: <select class="cubeSelector" data="cubeid">' + cubeOptions() + '</select></div>';
+                }
+                function cubeOptions(){
+                    var t, c, theme, options = '<option value="0">none</option>';
+                    if(summationMap) options += '<option value="sum" '+(self.mapconfigEdits.cubeid=='sum'?'selected':'')+'>bar graph of components</option>';
+                    for(t=0;t<themes.length;t++){
+                        theme = themeCubes['T'+themes[t]];
+                        if(theme){
+                            for(c=0;c<theme.cubes.length;c++){
+                                options += '<option value="'+theme.cubes[c].cubeid+'" '+(self.mapconfigEdits.cubeid==theme.cubes[c].cubeid?'selected':'')+'>'+theme.name+': '+theme.cubes[c].name+'</option>';
+                            }
+                        }
+                    }
+                    return options;
+                }
+
+                provHTML = '<div class="map-prov">'+ cubeSelector +'<h3>Map of '+ self.graph.map +'</h3>';
                 if(self.mapsetEdits){
                     var mapset = self.mapsetEdits;
                     provHTML += '<div class="mapset">'

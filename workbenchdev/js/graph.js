@@ -2600,15 +2600,6 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
     });
 
     var summationMap;  //function level var allows isSummationMap() to be run only once per load/redraw
-    function isSummationMap(){
-        if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
-        if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
-        var formula = oGraph.mapsets.options.calculatedFormula;
-        for(var i=0;i<oGraph.mapsets.components.length;i++){
-            if(oGraph.mapsets.components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
-        }
-        return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula))  //no division or multiplication TODO:  allow series multipliers/dividers
-    }
     showChangeSelectors();
     function showChangeSelectors(){
         if(oGraph.plots){
@@ -2624,8 +2615,12 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         var options = '';
         if(oGraph.plots) options  += '<option value="chart">chart</option>';
         if(oGraph.mapsets||oGraph.pointsets) options  += '<option value="map" selected>map</option>';
-        summationMap = isSummationMap();
-        if(oGraph.mapconfig.cubeid || summationMap) options  += '<option value="cube">supplemental bar chart</option>';
+        if(summationMap = isSummationMap(oGraph)){
+            if(typeof oGraph.mapconfig.cubeid == 'undefined') oGraph.mapconfig.cubeid = 'sum';
+        } else {
+            if(oGraph.mapconfig.cubeid == 'sum') delete oGraph.mapconfig.cubeid;
+        }
+        if(oGraph.mapconfig.cubeid) options  += '<option value="cube">supplemental bar chart</option>';
         $('.download-selector').html(options);
     }
     function redraw(){
@@ -2642,6 +2637,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 $thisPanel.find('div.chart').hide();
                 $thisPanel.find('div.annotations').hide();
             }
+            showChangeSelectors();
             if(oGraph.mapsets||oGraph.pointsets){
                 drawMap(); //shows the map div
                 if(oGraph.plots) $thisPanel.find('map-title').hide(); else $thisPanel.find('map-title').show();
@@ -2649,7 +2645,6 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             } else {
                 $thisPanel.find('div.map').hide();
             }
-            showChangeSelectors();
             unmask();
         }, 10);
     }
@@ -2755,10 +2750,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             if($map) $map.remove();
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             var mapHeight = ($('div.graph-panel').height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1);
-            if(oGraph.mapconfig.cubeid || summationMap){
+            if(parseInt(oGraph.mapconfig.cubeid) || oGraph.mapconfig.cubeid == 'sum'){
                 $thisPanel.find('.cube-viz').show().height(mapHeight); //css('display', 'inline-block');
                 $thisPanel.find('.jvmap').css('width', '70%');
             } else {
+                if(oGraph.controls.vizChart){
+                    oGraph.controls.vizChart.destroy();
+                    delete oGraph.controls.vizChart;
+                }
                 $thisPanel.find('.cube-viz').hide();
                 $thisPanel.find('.jvmap').removeAttr("style");
             }
@@ -2902,7 +2901,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     vectorMapSettings.onRegionSelected(e, code, isSelected);
                 },
                 onZoom: function(e, scale){
-                    transferTransform();
+                    transferTransform();  //unsure how this is supposed to work.  perhaps for bubble.
                 }
             };
 
@@ -2963,9 +2962,14 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
             }).slider("value", calculatedMapData.endDateIndex);
             function cubeVizFromMap(code, isSelected){
+                console.time('cubeVizFromMap');
                 //this will be called multiple time from RegionOnSelect event when deselecting all
                 //find the key.  If this get a visualization courtesy of being a Summation Map, create the cube
-                if(oGraph.mapconfig.cubeid || summationMap) {
+                /*if(code&&summationMap&&!isSelected){
+                    oGraph.controls.vizChart.get(code).remove();
+                    return;
+                }*/
+                if(parseInt(oGraph.mapconfig.cubeid) || oGraph.mapconfig.cubeid == 'sum') {
                     var geoKey, mapDate = calculatedMapData.dates[val].s;
                     if(code){
                         geoKey = code;
@@ -2984,7 +2988,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             }
                         }
                     }
-                    if(!oGraph.mapconfig.cubeid){  //the cube must be made from the mapsets in assets
+                    if(oGraph.mapconfig.cubeid == 'sum'){  //the cube must be made from the mapsets in assets
                         if(!isNaN(geoKey)) geoKey = 'G'+geoKey; //don't show the map name for the bunny of a summation map:  only instructions
                         var oFormula = oGraph.mapsets.options.calculatedFormula;
                         var signedNumArray = oFormula.numFormula.replace('-','+-').split('+');
@@ -3048,9 +3052,22 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                             cube['G'+geoKey].facetedData[i] = symbolData[unsignedNumArray[i].trim()];
                         }
                     }
-                    vizualizeCube(oGraph, geoKey, mapDate);
+                    var action = 'new';
+                    if(summationMap){
+                        if(code){
+                            action = isSelected?'add':'remove';
+                        } else {
+                            action = 'summation';
+                        }
+                    }
+                    vizualizeCube(oGraph, geoKey, mapDate, action);
+
+                    console.time('vizChart.redraw');
+                    if(!noCubeRedraw && action=='remove') oGraph.controls.vizChart.redraw();
+                    console.timeEnd('vizChart.redraw');
                 }
                 $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
+                console.timeEnd('cubeVizFromMap');
             }
             if(oGraph.mapconfig.showList) {
                 makeList($map);
@@ -3185,16 +3202,20 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                     graphTitle.show(this);
                 });  //initialize here rather than set slider value which would trigger a map redraw
 
+            var noCubeRedraw = false;
             $thisPanel.find('.make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
                 .click(function(){
+                    noCubeRedraw = true;
                     $map.clearSelectedMarkers();
                     $map.clearSelectedRegions();
-                    $map.removeAllMarkers();
+                    noCubeRedraw = false;
+                    if(oGraph.controls.vizChart) oGraph.controls.vizChart.redraw();
+                    /*$map.removeAllMarkers();
                     $map.addMarkers(calculatedMapData.markers);
                     calculatedMapData  = calcMap(oGraph);
                     calcAttributes(oGraph);
                     bubbleCalc();
-                    $mapSlider.slider("value", calculatedMapData.dates.length-1);
+                    $mapSlider.slider("value", calculatedMapData.dates.length-1);*/
                     $thisPanel.find('.map-graph-selected, .make-map').button('disable');
                 });
             function setMergablity(){
@@ -4078,7 +4099,8 @@ function formatRationalize(value){
     var y  = Math.round(value / Math.pow(10,order-2)) * Math.pow(10,order-2);
     return Highcharts.numberFormat(y, (order>1?0:2-order))
 }
-function vizualizeCube(graph, geoKey, mapDate){
+function vizualizeCube(graph, geoKey, mapDate, action){
+    if(typeof action == 'undefined') action = 'new';
     var serie, i, j, k, cubeid = graph.mapconfig.cubeid;
     if(!graph.assets.cube) graph.assets.cube = {};
     var cube = graph.assets.cube;
@@ -4176,7 +4198,7 @@ function vizualizeCube(graph, geoKey, mapDate){
             subtitle: {
                 text: 'click on map to select location',
                 style: {fontSize: '10px'},
-                y: 50
+                y: (geoName?50:30)
             },
             plotOptions: {
                 bar: {
@@ -4253,8 +4275,13 @@ function vizualizeCube(graph, geoKey, mapDate){
                     barData.push(point);
                     vizChart.xAxis.categories.push(dimensions[0].list[i].short||dimensions[0].list[i].name);
                 }
-                vizChart.legend = {enabled: false};
-                vizChart.series.push({data: barData});
+                //vizChart.legend = {enabled: false};
+                vizChart.series.push({
+                    id: geoKey,
+                    name: geoName,
+                    data: barData,
+                    showInLegend: false
+                });
                 vizChart.plotOptions.bar.dataLabels.enabled = true;
                 break;
             case 2:
@@ -4302,11 +4329,34 @@ function vizualizeCube(graph, geoKey, mapDate){
                 vizChart.xAxis.lineWidth = 0;
                 break;
         }
-        if(graph.controls.vizChart) graph.controls.vizChart.destroy();
-        graph.controls.vizChart = new Highcharts.Chart(vizChart);
+        switch(action){
+            case 'add':
+                vizChart.series[0].showInLegend = true;
+                graph.controls.vizChart.addSeries(vizChart.series[0]);
+                break;
+            case 'remove':
+                graph.controls.vizChart.get(geoKey).remove(false);   //avoids redraw for each series removed, but requires a redarw call in main after all have been removed
+                break;
+            case 'summation':
+                vizChart.series[0].pointWidth=1;
+                vizChart.series[0].pointPadding=0;
+                vizChart.plotOptions.bar.groupPadding=0;
+            default:  //'new'
+                if(graph.controls.vizChart) graph.controls.vizChart.destroy();
+                graph.controls.vizChart = new Highcharts.Chart(vizChart);
+
+        }
     }
 }
-
+function isSummationMap(oGraph){
+    if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
+    if(!oGraph.mapsets.options.calculatedFormula) plotFormula(oGraph.mapsets);
+    var formula = oGraph.mapsets.options.calculatedFormula;
+    for(var i=0;i<oGraph.mapsets.components.length;i++){
+        if(oGraph.mapsets.components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
+    }
+    return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula));  //no division or multiplication TODO:  allow series multipliers/dividers
+}
 function seriesValue(mdData, mdDate){
     if(!mdData) return null;
     var point, data = mdData.split('||');

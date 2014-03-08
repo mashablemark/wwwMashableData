@@ -664,6 +664,10 @@ div.map-prov{
     border: thin black solid;
     margin-bottom: 20px;
 }
+div.cubeSelector{
+    color: white;
+    margin: 5px 8px 0 0;
+}
 div.graph-subpanel.graph-talk{
     overflow-y: scroll;
 }
@@ -1327,4 +1331,17 @@ div.searchability span.ui-button-text{
 }
 #edit-user-series>button, #setsWizard>button{
     margin: 10px 5px;
+}
+/*adjust fancy box z-index to be under ui-dialog*/
+#fancybox-overlay {
+    z-index: 900;
+}
+#fancybox-wrap {
+    z-index: 901;
+ }
+.fancybox-bg {
+    z-index: 801;
+}
+#fancybox-content {
+    z-index: 902;
 }

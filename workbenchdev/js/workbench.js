@@ -320,7 +320,7 @@ $(document).ready(function(){
         });
     });
     (function () {
-        if(window.location.href.indexOf('nolog')<0){
+        if(window.location.href.indexOf('workbenchdev')<0 && window.location.href.indexOf('nolog')<0){
             var temp = jQuery.event.dispatch;
             jQuery.event.dispatch = function () {
                 try {
@@ -632,7 +632,7 @@ function setupPublicSeriesTable(){
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
-            { "mData":"title", "sTitle": "Category<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
+            { "mData":"title", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
                         return '<span class="ui-icon browse-right">browse similar series</span> ' + spanWithTitle(value);
@@ -652,7 +652,7 @@ function setupPublicSeriesTable(){
                 previewPublicSeries();
             }
             if($td.hasClass('cat')){
-                var handle = $td.closert('tr').find('span.handle').html();
+                var handle = $td.closest('tr').find('span.handle').html();
                 if(handle) browseFromSeries(handle.substr(1));
             }
             /*if($td.hasClass('url')){
@@ -1355,8 +1355,8 @@ function quickViewToMap(){
         if(themeCubes['T'+serie.themeid]) {
             selectCube(serie.themeid);
         } else {
-            callApi({command: "GetCubeList", themeid: serie.themeid}, function(jsoData, textStatus, jqXH){
-                themeCubes['T'+jsoData.themeid] = {cubes: jsoData.cubes, name: jsoData.themname};
+            callApi({command: "GetCubeList", themeids: [serie.themeid]}, function(jsoData, textStatus, jqXH){
+                themeCubes['T'+serie.themeid] = jsoData.themes['T'+serie.themeid];
                 selectCube(serie.themeid);
             });
         }
@@ -1374,7 +1374,7 @@ function quickViewToMap(){
             html += '<option value="'+theme.cubes[c].cubeid+'" '+(c==theme.cubes.length-1?'selected':'')+'>'+theme.cubes[c].name+'</option>';
         }
         html += '</select></label><br><br>'
-            + '<button class="right" id="noViz">close</button> <button class="right" id="vizSetOk">add linked visualization</button> '
+            + '<button class="right" id="noViz">skip</button> <button class="right" id="vizSetOk">add linked visualization</button> '
             + '</div>';
         $.fancybox(html,
             {
@@ -1494,7 +1494,6 @@ function editSeries(series){//array of series to edit
         showSeriesEditor(series);
 }
 
-function validatePaste(changes){}
 function showSeriesEditor(toEdit, map){ //toEdit is either an array of series object or a Map/Pointset handle
     if(!account.loggedIn()) {
         dialogShow("account required", dialogues.signInRequired);
@@ -2088,7 +2087,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         var i, arySeries = userSeriesFromEditor();  //returns false if missing name or units or data
         //need to add geoid (of bunny for PointSets + setname)
         if(arySeries){
-            callApi({command: "SaveUserSeries", series: arySeries, set: set, setname:''}, //set ie either 'U' or the handle of a mapset or pointset (to be implemented)
+            callApi({command: "SaveUserSeries", series: arySeries, set: set, setname:arySeries[0].setname}, //set ie either 'U' or the handle of a mapset or pointset
                 function(jsoData, textStatus, jqXH){
                     //add update MySeriesGrid on success
                     for(i=0;i<arySeries.length;i++){
@@ -2101,6 +2100,8 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                         //add to dataable and mySeries object
                         arySeries[i].handle = "U"+jsoData.series[i].usid;
                         arySeries[i].usid = jsoData.series[i].usid;
+                        arySeries[i].mapsetid = jsoData.series[i].mapsetid;
+                        arySeries[i].pointsetid = jsoData.series[i].pointsetid;
                         arySeries[i].graph = '';
                         arySeries[i].url = '';
                         arySeries[i].username = account.info.name || 'user';
@@ -2110,8 +2111,8 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     }
                 }
             );
+            closeSeriesEditor();
         }
-        closeSeriesEditor();
         unmask();
 
     }
@@ -2627,7 +2628,7 @@ function md_calcSeriesInfo(PointArray){
         if(xDateTime.getUTCDate()!=1) oSeriesInfo.period = 'D'; //no way to distinguish daily from weekly
         if(xDateTime.getUTCHours()+xDateTime.getUTCMinutes()+xDateTime.getUTCSeconds()!=0) oSeriesInfo.period = 'T';
     } else {
-        for(var i=0;i<oSeriesInfo.points;i++){
+        for(var pointIndex=0;pointIndex<oSeriesInfo.points;pointIndex++){
             //console.info(pointIndex);
             var thisPoint = PointArray[pointIndex];
             if(oSeriesInfo.firstdt == null || oSeriesInfo.firstdt > thisPoint.x) oSeriesInfo.firstdt = thisPoint.x;
@@ -2645,11 +2646,11 @@ function md_calcSeriesInfo(PointArray){
             if(monthOfYear == null){monthOfYear = xDateTime.getUTCMonth()}
             else if(monthOfYear !== true && monthOfYear != xDateTime.getUTCMonth()){monthOfYear = true}
         }
-            if(timeOfDay === true) {oSeriesInfo.period = 'T'}
-            else if(dayOfWeek !== true) {oSeriesInfo.period = 'W'}
-            else if(dayOfMonth === true) {oSeriesInfo.period = 'D'}
-            else if(monthOfYear === true) {oSeriesInfo.period = 'M'}
-            else {oSeriesInfo.period = 'A'}
+        if(timeOfDay === true) {oSeriesInfo.period = 'T'}
+        else if(dayOfWeek !== true) {oSeriesInfo.period = 'W'}
+        else if(dayOfMonth === true) {oSeriesInfo.period = 'D'}
+        else if(monthOfYear === true) {oSeriesInfo.period = 'M'}
+        else {oSeriesInfo.period = 'A'}
     }
 
 
@@ -2676,7 +2677,7 @@ function deleteMySeries(){  //remove all series in quickView from users MySeries
                         dtMySeries.fnDeleteRow($quickViewRows.get(i));
                     }
                     $(this).dialog('close');
-                    quickViewClose()
+                    quickViewClose();
                 }
             },
             {text: 'cancel',id:'btn-cancel',click:  function() {$(this).dialog('close');}}
@@ -2727,14 +2728,19 @@ function removeTab(span){
 
 function destroyChartMap(panelId){
     if(oPanelGraphs[panelId] && oPanelGraphs[panelId].controls){
-        if(oPanelGraphs[panelId].controls.chart){
-            oPanelGraphs[panelId].controls.chart.destroy();
-            delete oPanelGraphs[panelId].controls.chart;
+        var controls = oPanelGraphs[panelId].controls;
+        if(controls.chart){
+            controls.chart.destroy();
+            delete controls.chart;
             $.contextMenu('destroy', '#' + panelId + ' div.chart');
         }
-        if(oPanelGraphs[panelId].controls.map){
-            oPanelGraphs[panelId].controls.map.remove();
-            oPanelGraphs[panelId].controls.map;
+        if(controls.map){
+            controls.map.remove();
+            delete controls.map;
+        }
+        if(controls.vizChart){
+            controls.vizChart.destroy();
+            delete controls.vizChart;
         }
     }
 }

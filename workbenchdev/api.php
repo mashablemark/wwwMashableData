@@ -337,7 +337,7 @@ switch($command){
     case "GetPointSets": //USED IN QUICKVIEW TO MAP
         $usageTracking = trackUsage("count_graphsave");
         $map = $_POST["map"];
-        $output = array("status"=>"ok", "pointsets"=>getPointSets($map,cleanIdArray($_POST["pointsetids"])));
+        $output = array("status"=>"ok", "pointsets"=>getPointSets($map,cleanIdArray($_POST["pointsetids"]), true));
         break;
     case "GetSet":
         $mapsetid = intval($_POST["mapsetid"]);
@@ -387,6 +387,17 @@ switch($command){
         }
         break;
     case 'GetMapsList':
+    /*    to add new maps found on http://jvectormap.com/:
+        1.  in the console, run: $.each($('div.panes .jvectormap:nth(0)').vectorMap('get', 'mapObject').mapData.paths, function(key,value){console.info("insert into geographies (geoset, name, jvectormap) values('regions','"+value.name+"','"+key+"');")})
+        2. after inserting these records:
+            insert into maps
+            (SELECT name,  name, geographycount, geoid, concat(lower(ccode),'_mill_en'), 'BR'
+            from `geographies` g1, (select count(*) as geographycount, left(jvectormap,2) ccode FROM `geographies` where jvectormap like '__-%' group by left(jvectormap,2)) g2
+            where ccode = jvectormap and ccode = 'XX')
+        3. insert into mapgeographies (SELECT  geoid, map from geographies g, maps m where g.jvectormap like '__-%' and g.jvectormap not like 'US-%' and m.jvectormap like concat(left(g.jvectormap,2),'__%')  )
+
+    */
+
         $sql = "select * from maps order by name";
         $result = runQuery($sql,"GetMapsList");
         $output = array("status"=>"ok", "maps"=>array());
@@ -403,19 +414,22 @@ switch($command){
         }
         break;
     case "GetCubeList":
-        if(!isset($_POST["themeid"]) && !isset($_POST["cubeid"])){
+        if(!isset($_POST["themeids"]) && !isset($_POST["cubeid"])){
             $output = ["status"=>"must provide  valid cube or theme id"];
         } else {
             $cubeid = isset($_POST["cubeid"])?intval($_POST["cubeid"]):0;
-            $themeid = isset($_POST["themeid"])?intval($_POST["themeid"]):0;
-            $output = ["status"=>"ok", "cubes"=>[]];
+            $themeids = isset($_POST["themeids"])?implode(",", cleanIdArray($_POST["themeids"])):0;
+            $output = ["status"=>"ok", "themes"=>[]];
 
-            $sql = "select t.themeid, t.name as themename, c.cubeid, c.name from cubes c inner join themes t on t.themeid=c.themeid where c.cubeid=$cubeid or (c.themeid=$themeid and c.name<>'total')";
+            $sql = "select t.themeid, t.name as themename, c.cubeid, c.name from cubes c inner join themes t on t.themeid=c.themeid where c.cubeid=$cubeid or (c.themeid in (".$themeids.") and c.name<>'total')";
             $result = runQuery($sql,"GetCubeList");
             while($row = $result->fetch_assoc()){
-                $output["themeid"] = $row["themeid"];
-                $output["themename"] = $row["themename"];
-                array_push($output["cubes"], ["cubeid"=>$row["cubeid"], "name"=>$row["name"]]);
+                if(!isset($output["themes"]["T".$row["themeid"]])) $output["themes"]["T".$row["themeid"]] = [
+                    "themeid" => $row["themeid"],
+                    "name" => $row["themename"],
+                    "cubes" => []
+                ];
+                array_push($output["themes"]["T".$row["themeid"]]["cubes"], ["cubeid"=>$row["cubeid"], "name"=>$row["name"]]);
             }
         }
         break;
@@ -1074,19 +1088,18 @@ switch($command){
         }
 
         $set = $_POST['set'];  //either "U" or a mapset or pointset handle
-        $setid = (strlen($set)>1)?intval(substr($set,1)):0;
+        $setid = (strlen($set)>1) ? intval(substr($set,1)) : 0;
         $user_id =  intval($_POST['uid']);
-        $setType = substr($set,0,1);
+        $setType = substr($set, 0, 1);
         $arySeries = $_POST['series'];
 
-        $mapSet = false;
-        $pointSet = false;
 
         $output = array(
             "status" => "ok",
             "series" => array()
         );
         if($setType=="X"){
+            $pointSet = false;
             $sql = "select * from pointsets where pointsetid=$setid and userid=$user_id and apiid is null";
             $result = runQuery($sql);
             if($result->num_rows==1) {
@@ -1103,6 +1116,7 @@ switch($command){
             }
         }
         if($setType=="M"){
+            $mapSet = false;
             $sql = "select * from mapsets where mapsetid=$setid and userid=$user_id and apiid is null";
             $result = runQuery($sql);
             if($result->num_rows==1) {
@@ -1181,8 +1195,8 @@ switch($command){
                 array(
                     "usid" => $usid,
                     "src"=> $src,
-                    "mapsetid"=>$setType=="M"?$setid:null,
-                    "pointsetid"=>$setType=="X"?$setid:null,
+                    "mapsetid"=>($setType=="M") ? $setid : null,
+                    "pointsetid"=>($setType=="X") ? $setid : null
                 )
             );
         }
@@ -1523,7 +1537,7 @@ function getGraphs($userid, $ghash){
     return $output;
 }
 
-function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
+function getMapSets($map,$aryMapsetIds, $mustBeOwnerOrPublic = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
     global $db, $orgid;
     $mapout = array();
     $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, ms.themeid, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
@@ -1534,7 +1548,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
     . " and g.geoid=s.geoid and mg.geoid=s.geoid and mg.map=" . safeStringSQL($map)
     . " and mg.map=m.map "
     . " and ms.mapsetid in (" . implode($aryMapsetIds, ",") . ")  ";
-    if($mustBeOwner){
+    if($mustBeOwnerOrPublic){
         $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run
     }
     $sql .= " ORDER by mapsetid";
@@ -1582,7 +1596,7 @@ function getMapSets($map,$aryMapsetIds, $mustBeOwner = false){   //"GetMapSet" c
 }
 
 
-function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
+function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
     global $db, $orgid;
     $mapout = array();
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.periodicity as period, ps.freqset, ps.themeid, "
@@ -1592,8 +1606,8 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwner = false){
         . " and m.map  = " . safeStringSQL($map)
         . " and mg.geoid=s.geoid and ((mg.map =" . safeStringSQL($map). " and mg.map=m.map) or bunny=s.geoid)"
         . " and ps.pointsetid in (" . implode($aryPointsetIds, ",") . ")";
-    if($mustBeOwner){
-        $sql .= " and (userid is null or userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run
+    if($mustBeOwnerOrPublic){
+        $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or s.orgid=" . $orgid . ")"; //assumes requiresLogin already run
     }
     $sql .= " order by pointsetid";
     $result = runQuery($sql);
