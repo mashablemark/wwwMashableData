@@ -35,14 +35,17 @@
     <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
     <!--script type="text/javascript" src="/global/js/ultbuttons/ultbuttons.min.js"></script-->
-    <script type="text/javascript" src="js/workbench.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="js/graph.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="js/common.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="js/shims.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="js/account.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="js/annotations.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="js/provenance.js?v=<?=$workbenchVersion?>"></script>
-
+    <? if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
+        <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/common.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/account.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/annotations.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/provenance.js?v=<?=$workbenchVersion?>"></script>
+    <? } else { ?>
+        <script type="text/javascript" src="/workbench/js/workbench.min.js?v=<?=$workbenchVersion?>"></script>
+    <? }  ?>
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/jquery.event.drag-2.0.min.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/slick.core.js"></script>
@@ -69,8 +72,8 @@
         var workbenchVersion="<?=$workbenchVersion?>";
     </script>
 </head>
-<!--[if IE]>  <body onresize="resizeCanvas();" class="ie"> <![endif]-->
-<!--[if !IE]><!--> <body onresize="resizeCanvas();">             <!--<![endif]-->
+<!--[if IE]>  <body class="ie"> <![endif]-->
+<!--[if !IE]><!--> <body>             <!--<![endif]-->
 
 <div id="fb-root"></div>
 <div id="wrapper" class="wrapper">
@@ -86,7 +89,7 @@
                 <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
             </ul>
         </div>
-        <button style="position:absolute;left: 920px;top: 25px;display: none;" id="show-hide-pickers" onclick="showHideGraphEditor();setPanelHash()"><b>show graphs&nbsp;&nbsp;</b> </button>
+        <button style="position:absolute;left: 920px;top: 25px;display: none;" id="show-hide-pickers"><b>show graphs&nbsp;&nbsp;</b> </button>
         <!--account and help menu-->
         <span id="title-bar-buttons">
             <button id="menu-help">Help</button>
@@ -116,7 +119,7 @@
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
-                    <select id="series_search_periodicity"  onchange="seriesCloudSearch()">
+                    <select id="series_search_periodicity">
                         <option selected="selected" value="all">all frequencies</option>
                         <option value="D">daily</option>
                         <option value="W">weekly</option>
@@ -125,7 +128,7 @@
                         <option value="SA">semi-annual</option>
                         <option value="A">annual</option>
                     </select>
-                    <select title="filter results by source" width="50px" id="series_search_source" onchange="seriesCloudSearch()">
+                    <select title="filter results by source" width="50px" id="series_search_source">
                         <option value="ALL">all sources</option>
                         <option value="1">petroleum and NG data from EIA</option>
                         <option value="6">Joint Oil Data Initiative</option>
@@ -137,10 +140,7 @@
                         <option value="7">time conversions</option>
                     </select>
                     <div id="public-mapset-radio"><input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-mapset-radio" value="mapsets"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-mapset-radio" value="pointsets"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
-                    <button id="series-search-button" onclick="seriesCloudSearch()" style="background-color: orange;background: orange;">search</button>
-                    <!--fieldset class="search-box">
-                        <legend style="color: #444;font-size: 12px;">Search MashableData server for series</legend>
-                    </fieldset-->
+                    <button id="series-search-button" style="background-color: orange;background: orange;">search</button>
                 </div>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                     <span id="public-series-buttons-top" class="right">
@@ -228,12 +228,5 @@
     </div>
 </div>
 
-<!--graph title editor div used by fancy box-->
-<a class="showTitleEditor" href="#titleEditor"></a>
-<div id="dwrap2" style="display:none;position:absolute;top:50px;left:0px;width:75%;height:35px;">
-    <div id="titleEditor">
-        <input type="text" width="300px" onkeyup="if(event.keyCode==13)graphTitle.changeOk()" name="title" /> <button onclick="graphTitle.changeOk()">OK</button> <button onclick="graphTitle.changeCancel()">cancel</button>
-    </div>
-</div>
 </body>
 </html>

@@ -889,7 +889,6 @@ function makeChartOptionsObject(oGraph){
                 jschart.seriesyAxis=0;
             }
 
-
             jschart.yAxis = [{title:{text: 'Normalized to 1'}}];
     }
     if(oGraph.smallestPeriod) jschart.xAxis.minTickInterval = period.value[oGraph.smallestPeriod];
@@ -3448,7 +3447,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
         function makeLegend(map){
             var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;
 
-            if(oGraph.mapsets){
+            if(oGraph.mapsets && !isBubble()){
                 if(oGraph.mapsets.options.scale == 'discrete'){
                     regionLegendWidth=185;
                     regionHeight = lineHeight + 2*spacer + oGraph.mapsets.options.discreteColors.length*(spacer+20);
@@ -3474,15 +3473,15 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
              3. show color scale iff fill>0
              */
             var areaCount = areaScalingCount(oGraph.pointsets), fillCount = fillScalingCount(oGraph.pointsets);
-            if(oGraph.pointsets) {
+            if(oGraph.pointsets || isBubble()) {
                 markerLegendWidth=185;
                 if(areaCount>1 && fillCount==0){
                     markerHeight += (areaCount)*(spacer+2*standardRadius)+(markerHeight==0?spacer:0);
                 }
-                if(areaCount>0){
-                    var maxRadius = oGraph.mapconfig.maxRadius||DEFAULT_RADIUS_SCALE;
+                if(areaCount>0 || isBubble()){
+                    var maxRadius = parseInt(oGraph.mapconfig.maxRadius)||DEFAULT_RADIUS_SCALE;
                     var smallRadius = +maxRadius/Math.sqrt(10);
-                    markerHeight += 2*(spacer + maxRadius + smallRadius) + (markerHeight==0?spacer:0);
+                    markerHeight += 2*(spacer + Math.max(maxRadius,15) + smallRadius) + (markerHeight==0?spacer:0);
                 }
             } else markerLegendWidth = 0;
 
@@ -3512,10 +3511,10 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
             switch(legendLocation.substr(1,1)){
                 case 'L':
                     xOffset = spacer;
-                    if((oGraph.mapconfig.legendLocation || 'TR').substr(0,1)=='T') xOffset+30; //space for zoom buttons
+                    if(legendLocation.substr(0,1)=='T') xOffset+=30; //space for zoom buttons
                     break;
                 case 'C':
-                    xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer
+                    xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer;
                     break;
                 case 'R':
                     xOffset = map.width-regionLegendWidth-markerLegendWidth-spacer;
@@ -3557,7 +3556,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                 }
             }
 
-            if(oGraph.pointsets){
+            if(oGraph.pointsets||isBubble()){
                 if(areaCount>1 && fillCount==0){
                     //POINTSET LABELS
                     $.each(oGraph.pointsets, function(i){
@@ -3575,7 +3574,7 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         y += standardRadius;
                     });
                 }
-                if(areaCount>0){
+                if(areaCount>0||isBubble()){
                     //RADIUS SCALING
                     y += spacer+(smallRadius||5);
                     var MarkerSizeAttributes = {
@@ -3585,17 +3584,16 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
                         'stroke-width': 1
                     };
                     hcr.circle(xOffset + spacer + maxRadius, yOffset + y, smallRadius).attr(MarkerSizeAttributes).add();
-                    hcr.text(formatRationalize(oGraph.calculatedMapData.radiusScale/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    hcr.text(formatRationalize((oGraph.calculatedMapData.radiusScale||oGraph.calculatedMapData.markerDataMax)/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
                     y+= (smallRadius||5) + spacer + maxRadius;
 
                     hcr.circle(xOffset + spacer + maxRadius, yOffset + y, maxRadius).attr(MarkerSizeAttributes).add();
-                    hcr.text(formatRationalize(oGraph.calculatedMapData.radiusScale), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                    hcr.text(formatRationalize(oGraph.calculatedMapData.radiusScale||oGraph.calculatedMapData.markerDataMax), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
 
-                    hcr.text(oGraph.calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + spacer).css({fontSize: '12px'}).add();
+                    hcr.text(oGraph.calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + 2*spacer).css({fontSize: '12px'}).add();
                 }
             }
-
-            if(oGraph.mapsets){
+            if(oGraph.mapsets && !isBubble()){
                 hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
                 if(oGraph.mapsets.options.scale!='discrete' && oGraph.mapsets.options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
 
@@ -3795,15 +3793,43 @@ function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorp
 
 //This object performs all of the task associated with editing and setting the chart title
 var graphTitle = {
+    template: '<div id="dwrap2">'
+        + '<div id="titleEditor" style="width: 560px">'
+        + '<input type="text" width="300px" name="title" /> '
+        + '<button id="graph-title-change-ok">OK</button> '
+        + '<button id="graph-title-change-cancel">cancel</button>'
+        + '</div>'
+        + '</div>',
     show: function(oTitle, callback){
-        $('.showTitleEditor').click();
-        var thisPanelID = $(oTitle).closest('div.graph-panel').get(0).id;
-        $('#titleEditor input').attr('data',thisPanelID).val(oPanelGraphs[thisPanelID].title);
+        var self = this;
+        $.fancybox(
+            this.template,
+            {
+                'width'             :  '100%',
+                'height'            : '100%',
+                'autoScale'         : true,
+                'showCloseButton'   : false,
+                'scrolling'         : 'no',
+                'transitionIn'		: 'none',
+                'transitionOut'		: 'none',
+                left              : '55px',
+                top               : '55px'
+            }
+        );
         $("#fancybox-wrap").stop().css({
-            'top': '55px',
-            'left': '50px'
+            'top': '70px'
         });
-        $('#titleEditor input').css("width","450px").focus();
+        $('#graph-title-change-ok').click(self.changeOk);
+        $('#graph-title-change-cancel').click(self.changeCancel);
+        var thisPanelID = $(oTitle).closest('div.graph-panel').get(0).id;
+        $('#titleEditor input')
+            .keyup(function(event){
+                if(event.keyCode==13) self.changeOk()
+            })
+            .attr('data',thisPanelID)
+            .val(oPanelGraphs[thisPanelID].title)
+            .css("width","450px")
+            .focus();
         this.callback = callback;
     },
     callBack: false,

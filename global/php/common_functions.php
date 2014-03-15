@@ -95,6 +95,7 @@ function getConnection(){
     }
     if (!$db) die("status: 'db connection error'");
     $db->select_db("melbert_mashabledata");
+    //$db->query("SET NAMES 'utf8'");
     return $db;
 }
 function closeConnection(){

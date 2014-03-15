@@ -3,7 +3,7 @@ $event_logging = true;
 $sql_logging = true;
 include_once("../global/php/common_functions.php");
 date_default_timezone_set('UTC');
-
+header('Content-type: text/html; charset=utf-8');
 
 //$usageTracking = trackUsage("count_datadown");
 
@@ -410,6 +410,7 @@ switch($command){
         $result = runQuery($sql,"GetMapGeographies");
         $output = array("status"=>"ok", "geographies"=>array());
         while($row = $result->fetch_assoc()){
+            $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying bandaid, not a global solution
             array_push($output["geographies"], $row);
         }
         break;

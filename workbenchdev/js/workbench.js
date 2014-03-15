@@ -189,7 +189,8 @@ $(document).ready(function(){
             }
         });
     $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(function(){quickViewClose()});
-    $(".show-graph-link").fancybox({  //TODO: replace these two hard links with dynamic FancyBox invocations per account.js
+
+    $(".show-graph-link").fancybox({  //TODO: replace index html with dynamic FancyBox invocations per account.js
         'width'             :  '100%',
         'height'            : '100%',
         'autoScale'         : true,
@@ -200,16 +201,6 @@ $(document).ready(function(){
     });
 
     jQuery.fancybox.center = function() {};  //KILLS fancybox.center() !!!
-    $(".showTitleEditor").fancybox({
-        'height'            : '35px',
-        'left'              : '55px',
-        'top'               : '55px',
-        'autoDimensions'    : false,
-        'autoScale'         : false,
-        'showCloseButton'   : false,
-        'transitionIn'		: 'none',
-        'transitionOut'		: 'none'
-    });
     $("#show-hide-pickers").button({icons: {secondary: "browse-rollup"}});
     $("#menu-account").button({icons: {secondary: "ui-icon-triangle-1-s"}})
         .click(function(){
@@ -305,6 +296,12 @@ $(document).ready(function(){
     for(var map in mapsList) mapsArray.push(map);
     mapsArray.sort();
 
+    $('body').resize(resizeCanvas);
+    $('#series_search_periodicity, #series_search_source, #series-search-button').click(seriesCloudSearch);
+    $('#show-hide-pickers').click(function(){
+        showHideGraphEditor();
+        setPanelHash();
+    });
 
     require(graphScriptFiles, function(){
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
@@ -320,7 +317,7 @@ $(document).ready(function(){
         });
     });
     (function () {
-        if(window.location.href.indexOf('workbenchdev')<0 && window.location.href.indexOf('nolog')<0){
+        if(window.location.href.indexOf('workbenchdev')<0 && window.location.href.indexOf('nolog')<0 && !window.localStorage.getItem('nolog')){
             var temp = jQuery.event.dispatch;
             jQuery.event.dispatch = function () {
                 try {
@@ -2354,7 +2351,8 @@ function syncMyAccount(){ //called only after loggin and after initial report of
 // 1. save local series
     var handle, oldHandle, newHandle, serie;
     //1A.look for localseries (handle prefixed with "L")
-    var params = {command: 'UploadMyMashableData', series: []};
+    var adddt = new Date();
+    var params = {command: 'UploadMyMashableData', adddt: adddt.getTime(), series: []};
     for(handle in oMySeries){
         if(handle[0]=='L'){
             params.series.push(oMySeries[handle]);
@@ -2398,28 +2396,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                 return;
             }
         }
-        if(graph.plots){
-            for(i=0;i<graph.plots.length;i++){
-                replaceSeries(graph.plots[i]);
-            }
-        }
-        if(graph.pointsets){
-            for(i=0;i<graph.pointsets.length;i++){
-                replaceSeries(graph.plots[i]);
-            }
-        }
-        if(graph.mapsets){
-            replaceSeries(graph.mapsets);
-        }
-        function replaceSeries(plot){
-            var i;
-            for(i=0;i<plot.components.length;i++){
-                if(plot.components[i].handle == oldHandle){
-                    //update handle!
-                    plot.components[i].handle = serie.handle;
-                }
-            }
-        }
+        eachComponent(graph, function(){if(this.handle==oldHandle) this.handle = serie.handle});
     }
 
 // note: series cleared from localStorage when they were read
@@ -2849,6 +2826,7 @@ function callApi(params, callBack){ //modal waiting screen is shown by default. 
     if(params.modal!='none')mask();
     $.ajax({type: 'POST',
         url: "api.php",
+        encoding:"UTF-8",
         data:$.extend({uid: getUserId(), version: workbenchVersion, accessToken: account.info.accessToken}, params),
         dataType: 'json',
         success: function(jsoData, textStatus, jqXHR){
