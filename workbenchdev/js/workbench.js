@@ -166,6 +166,7 @@ $(document).ready(function(){
     }
     $(document).mouse({distance: 10});  //prevent jQuery from turning accidental mouse movement during a click into a dray event
     //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from graph.js)
+    requirejs.config({waitSeconds: 15});
     require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
     addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
@@ -242,9 +243,10 @@ $(document).ready(function(){
 
     // tabs init with a custom tab template and an "add" callback filling in the content
     $graphTabs = $('#canvas').tabs({
-        tabTemplate: '<li class="graph-tab"><a href="#{href}">#{label}</a> <span class="ui-icon ui-icon-close" onclick="removeTab(this)">Remove Tab</span></li>',
+        tabTemplate: '<li class="graph-tab"><a href="#{href}">#{label}</a> <span class="ui-icon ui-icon-close">Remove Tab</span></li>',
         add: function(event, ui) {
             var tab_content = 'Loading graph.  Please wait.';
+            $('#canvas li.graph-tab span.ui-icon-close').off().click(removeTab);
             return($(ui.panel).append('<p>'+tab_content + '</p>'));
         },
         activate: function(event, ui){
@@ -810,6 +812,7 @@ function setupPublicGraphsTable(){
         .on('click keydown',function(e){
             $(this).removeClass('grey-italics').val('').off('click keydown');
         });
+    $('#graphs-search-button').click(graphsCloudSearch);
 }
 
 //DATATABLE HELPER FUNCTIONS
@@ -2176,10 +2179,13 @@ function browseFromSeries(seriesId){
                     if(childless) nextLevel.push(null);
                     props = levelBranches[i].catProps;
                     $cell = $('<td class="cat-branch" rowspan="'+props.count+'">'
-                        + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1 && seriesId)?'<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)" title="show sibling categories"></span>':'')
-                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category" onclick="publicCat('+props.catid+')">'+ props.name+ '(' + props.scount + ')</a>': props.name)+'</span>'
-                        + ((props.children>0 && childless)?'<span class="ui-icon browse-right" data="'+ props.catid +'" onclick="showChildCats(this,'+ props.catid +')">show child categories</span>':'')
+                        + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1 && seriesId)?'<span class="ui-icon browse-rolldown" title="show sibling categories"></span>':'')
+                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category">'+ props.name+ '(' + props.scount + ')</a>': props.name)+'</span>'
+                        + (props.children>0?'<span class="ui-icon browse-right" data="'+ props.catid +'">show child categories</span>':'')
                         + '</td>');
+                    $cell.find('.browse-rolldown').click(function(){showSiblingCats(this)});
+                    $cell.find('a').click(function(){publicCat($(this).closest('span').attr('data'))});
+                    $cell.find('.browse-right').click(function(){showChildCats(this, $(this).attr('data'))});
                     $chainTable.find("tr:eq("+i+")").append($cell);
                 }
             }
@@ -2234,21 +2240,25 @@ function showSiblingCats(spn){
         });
     }
     function buildSiblings(siblings){
-        var sibling;
-
+        var sibling, $newSibling;
         $(spn).removeClass("browse-rolldown").addClass("ui-icon-stop");
         for(var i=0;i<siblings.length;i++){
             sibling = browsedCats[siblings[i]];
             if(sibling.catid==catId){
                 if(sibling.children>0){
-                    $td.find("span.chain").append('<span class="ui-icon browse-right" onclick="showChildCats(this, '+sibling.catid+')" title="show child categories"></span>');
+                    $newSibling = $('<span class="ui-icon browse-right" title="show child categories" data="'+sibling.catid+'"></span>');
+                    $newSibling.find('.browse-right').click(function(){showChildCats(this)});
+                    $td.find("span.chain").append();
                 }
             } else {
-                $td.append('<div>'
-                    + ((sibling.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this, '+sibling.catid+')" data="'+sibling.catid+'" title="show child categories">asdf</span>':'' )
+                $newSibling = $('<div>'
+                    + ((sibling.children>0)?' <span class="ui-icon browse-right" data="'+sibling.catid+'" title="show child categories">asdf</span>':'' )
                     + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
-                    + (parseInt(sibling.scount)>0?'<a title="Click to view the '+sibling.scount+' series in this category" onclick="publicCat('+sibling.catid+')">' + sibling.name +' (' + sibling.scount + ')</a>':sibling.name) + '</span>'
+                    + (sibling.children>0?'<a title="Click to view the '+sibling.scount+' series in this category">' + sibling.name +' (' + sibling.scount + ')</a>':sibling.name) + '</span>'
                     + '</div>');
+                $newSibling.find('.browse-right').click(function(){showChildCats(this)});
+                $newSibling.find('a').click(function(){publicCat($(this).closest('div').find('span.browse-right').attr('data'))});
+                $td.append($newSibling);
             }
         }
     }
@@ -2281,22 +2291,24 @@ function showChildCats(spn, parentId){
 
         while(browsedCats[nextCatId].parentid!==null){
             newTds = '<td class="chain"><span class="chain" data="'+nextCatId+'">'
-                + '<span class="ui-icon browse-rolldown" onclick="showSiblingCats(this)" title="show sibling categories"></span>'
+                + '<span class="ui-icon browse-rolldown" title="show sibling categories"></span>'
                 + browsedCats[nextCatId].name + '</span></td>'
                 + newTds;
             nextCatId = browsedCats[nextCatId].parentid;
         }
         var $chainTable = $('#cat-chains').html("<tr>"+newTds+"</tr>");
-
+        $chainTable.find('span.browse-rolldown').click(function(){showSiblingCats(this)});
         $currentTd = $('<td class="chain expanded"></td>');
         for(var i=0;i<childrenCats.length;i++){
             child = browsedCats[childrenCats[i]];
 
             $currentTd.append('<div>'
-                + ((child.children>0)?' <span class="ui-icon browse-right" onclick="showChildCats(this)" data="'+child.catid+'" title="show child categories"></span>':'' )
+                + ((child.children>0)?' <span class="ui-icon browse-right" data="'+child.catid+'" title="show child categories"></span>':'' )
                 + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
-                + (parseInt(child.scount)>0?'<a title="Click to view the '+child.scount+' series in this category" onclick="publicCat('+child.catid+')">' + child.name +' (' + child.scount + ')</a>':child.name) + '</span>'
-                + '</div>');
+                + (parseInt(child.scount)>0?'<a title="Click to view the '+child.scount+' series in this category" >' + child.name +' (' + child.scount + ')</a>':child.name) + '</span>'
+                + '</div>')
+                .find('.browse-right').click(function(){showChildCats(this)})
+                .end().find('a').click(function(){publicCat(child.catid)});
         }
         $chainTable.find('tr').append($currentTd);
         $("button.browse-reset").button("enable");
@@ -2684,12 +2696,13 @@ function addTab(title) {
     return($('#canvas .graph-panel:last').attr('id'));
 }
 //run when a graph tab is deleted.  Also checks and sets the edit graph button and global variable
-function removeTab(span){
-    var panelRef = $(span).parent().children("a").attr("href");
+function removeTab(evt){
+    var $span = $(evt.target);
+    var panelRef = $span.parent().children("a").attr("href");
     var panelId = panelRef.substr(1);
-    $(panelRef).remove();
-    $(span).parent().remove();
     destroyChartMap(panelId);
+    $(panelRef).remove();
+    $span.parent().remove();
     delete oPanelGraphs[panelId];
     $graphTabs.tabs('refresh'); //tell JQUI to sync up
     if($graphTabs.find("li").length == 0){

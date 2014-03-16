@@ -671,23 +671,28 @@ switch($command){
         break;
     case "GetCatChains":
         $seriesid = intval($_POST["sid"]);
-        if($seriesid == 0){ //get list of APIs to browse
-            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount "
-                . ", COUNT(DISTINCT childid ) AS children   "
-                . " FROM categories c "
-                . " INNER JOIN catcat cc ON c.catid = cc.childid "
-                . " LEFT OUTER JOIN categoryseries cs2 ON  c.catid = cs2.catid "
-                . " WHERE cc.parentid = 5506 " //select children of root category
-                . " GROUP BY c.catid, c.apicatid, c.name";
+        if($seriesid == 0){ //get list of APIs to browse = select children of root category
+            $sql = <<<EOS
+                SELECT c.catid, c.name, COUNT( DISTINCT cs2.seriesid ) AS scount, COUNT( DISTINCT cc2.childid ) AS children
+                FROM categories c
+                INNER JOIN catcat cc ON c.catid = cc.childid
+                LEFT OUTER JOIN categoryseries cs2 ON c.catid = cs2.catid
+                LEFT OUTER JOIN catcat cc2 ON cc.childid = cc2.parentid
+                WHERE cc.parentid =5506
+                GROUP BY c.catid, c.apicatid, c.name
+EOS;
         } else {
-            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount "
-            . ", COUNT(DISTINCT childid ) AS children   "
-            . " FROM categories c "
-            . " INNER JOIN categoryseries cs ON  c.catid = cs.catid "
-            . " INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid "
-            . " LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid "
-            . " WHERE cs.seriesid = " . $seriesid . " and c.catid<>5506 " //don't select root category
-            . " GROUP BY c.catid, c.apicatid, c.name";
+            $sql = <<<EOS
+            SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount,
+             COUNT(DISTINCT childid ) AS children
+            FROM categories c
+              INNER JOIN categoryseries cs ON  c.catid = cs.catid
+              INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid
+              LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid
+            WHERE cs.seriesid = $seriesid and c.catid<>5506
+            GROUP BY c.catid, c.apicatid, c.name
+EOS;
+//don't get the root category
         }
         logEvent("GetCatChains: get series cats", $sql);
         $catrs = runQuery($sql);

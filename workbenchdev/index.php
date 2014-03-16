@@ -169,7 +169,7 @@
             <div id="publicGraphsHeader" class="md-DS_title">
                 <div id="public_graphs_search" style="display:inline; margin-left:5px; padding:7px; background-color: lightyellow;">
                     <input maxlength="200" id="graphs_search_text" class="long grey-italics"/>
-                    <button id="graphs-search-button" style="background-color: orange;background: orange;" onclick="graphsCloudSearch(event)">search</button>
+                    <button id="graphs-search-button" style="background-color: orange;background: orange;">search</button>
                 </div>
                 <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>
@@ -221,12 +221,5 @@
         </div>
     </div>
 </div>
-<a class="show-link-options" href="#link-options-div"></a>
-<div id="dwrap" style="display:none;width:100%;height:90%;">
-    <div id="link-options-div" style="background-color:white;">
-        link options
-    </div>
-</div>
-
 </body>
 </html>
