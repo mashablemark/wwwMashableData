@@ -21,7 +21,7 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
     $bulkCategoryFilter = [];
 
     $status= [];
-    $eiaBulkDownloadWebDirectory = "http://www.eia.gov/beta/api/bulkdownloads/";
+    $eiaBulkDownloadWebDirectory = "http://api.eia.gov/bulk/";  //"http://www.eia.gov/beta/api/bulkdownloads/";
 
 //0. create inital job
     $insertInitialRun = "insert into apirunjobs (runid, jobjson, tries, status, startdt, enddt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now(), now())";
@@ -53,7 +53,7 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
             printNow("checking dataset ".$datasetKey."<br>");
             if(!$oldManifest || $datasetInfo["last_updated"]!=$oldManifest["dataset"][$datasetKey]["last_updated"]){  //only download and process the EIA bulk download file if it is newer than last ingestion
                 //3a.  get bulk file and unzip it
-                $eia_uri =  $eiaBulkDownloadWebDirectory.$datasetKey.".ZIP";
+                $eia_uri =  $datasetInfo["accessURL"];
                 printNow("downloading to $eia_uri<br>");
                 set_time_limit(300);  //downloading may take a couple of minutes
                 //$fp = fopen($eiaBulkDownloadWebDirectory.$datasetKey."zip", 'r');
@@ -82,8 +82,8 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
                 $zip->extractTo("./".$localBulkFolder);
                 $zip->close();
                 unlink($localBulkFolder.$datasetKey.".zip");  //delete the ZIP file after extracting its .txt files
-                rename($localBulkFolder."bulkFiles/".$datasetKey.".txt", $localBulkFolder.$datasetKey.".txt");
-                rmdir($localBulkFolder."bulkFiles");  //delete the ZIP file after extracting its .txt files
+                //rename($localBulkFolder."bulkFiles/".$datasetKey.".txt", $localBulkFolder.$datasetKey.".txt");
+                //rmdir($localBulkFolder."bulkFiles");  //delete the ZIP file after extracting its .txt files
 
                 printNow("extracted to ".$localBulkFolder.$datasetKey.".txt");
 
@@ -137,7 +137,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         if(isset($oEIA["series_id"])){
             //4a. process series
             if(strPos($oEIA["series_id"],"ELEC.PLANT.")===false || strpos($oEIA["name"], "All Primemovers")!==false){
-                insertOrUpateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
+                insertOrUpdateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
                 if(round(++$seriesCount/1000)*1000==$seriesCount) printNow(date("H:i:s").": processed $seriesCount $datasetKey series");
             }
         }
@@ -157,9 +157,14 @@ function ApiRunFinished($api_run){
     setMapsetCounts("all", $api_run["apiid"]);
     set_time_limit(200);
     setPointsetCounts("all", $api_run["apiid"]);
+    set_time_limit(200);
+    freqSets($api_run["apiid"]);
+    set_time_limit(200);
+    //prune($api_run["apiid"]);
+
 }
 
-function insertOrUpateSeries($series, $apiid, $jobid, $dataset, &$status){
+function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
     try{
 
         $propsToFields = [  //maps the properties to database fields in the series table
@@ -185,9 +190,9 @@ function insertOrUpateSeries($series, $apiid, $jobid, $dataset, &$status){
         $mapsetid = null;
         $pointsetid = null;
 
-        if(strPos($series["series_id"],"ELEC.")==0){
+        if(strPos($series["series_id"],"ELEC.")===0){
             $nameSegments = explode(" : ", $series["name"]);
-            if(strPos($series["series_id"],"ELEC.PLANT.")==0){
+            if(strPos($series["series_id"],"ELEC.PLANT.")===0){
                 $setName = "U.S. Power Plants : " . $nameSegments[0] . " : " . $nameSegments[2];
                 $series["name"] = str_replace(" : All Primemovers", "", $series["name"]);
             } else {
@@ -202,7 +207,7 @@ function insertOrUpateSeries($series, $apiid, $jobid, $dataset, &$status){
                 $mapsetid = getMapSet($setName, $apiid, $series["f"], $series["units"]);
             }
         }
-        $series["name"] = preg_replace("#( : |, )(Quarterly|Annual|Monthly|Weekly)#", "", $series["name"]); //that is adequately capture in the periodicity field
+        $series["name"] = preg_replace("#( : |, )(Quarterly|Annual|Monthly|Weekly|Daily)#", "", $series["name"]); //that is adequately capture in the periodicity field
 
         //correct for the difference between an EIA and MD month date formats
         $mddata = [];
@@ -225,8 +230,8 @@ function insertOrUpateSeries($series, $apiid, $jobid, $dataset, &$status){
                 $end = new DateTime(substr($ed,0,4).'-'.substr($ed,4,2).'-01 UTC');
                 break;
             case "Q":
-                $start = new DateTime(substr($sd,0,4).'-'. (substr($sd,5,1)-1)*3+1 .'-01 UTC');
-                $end = new DateTime(substr($ed,0,4).'-'.(substr($ed,5,1)-1)*3+1 .'-01 UTC');
+                $start = new DateTime(substr($sd,0,4).'-'. ((substr($sd,5,1)-1)*3+1) .'-01 UTC');
+                $end = new DateTime(substr($ed,0,4).'-'.((substr($ed,5,1)-1)*3+1) .'-01 UTC');
                 break;
             case "A":
                 $start = new DateTime($sd.'-01-01 UTC');
@@ -265,7 +270,7 @@ function insertOrUpateSeries($series, $apiid, $jobid, $dataset, &$status){
             case "SEDS":
                 $series["url"] = "http://www.eia.gov/state/seds/seds-data-complete.cfm";
                 break;
-            case "TE":
+            case "TOTAL":
                 $series["url"] = "http://www.eia.gov/totalenergy/data/browser/";
                 break;
             default:
@@ -322,7 +327,7 @@ function insertOrUpdateCategory($cat, $apirow, $job){
     $catid = setCategoryById($apirow["apiid"], $cat["category_id"], $cat["name"], $cat["parent_category_id"]);
     //loop through children series and add them
     for($i=0;$i<count($cat["childseries"]);$i++){
-        $result = runQuery("select seriesid from series where apiid=".$apirow["apiid"]." and skey=".safeStringSQL($cat["childseries"][$i]["series_id"]));
+        $result = runQuery("select seriesid from series where apiid=".$apirow["apiid"]." and skey=".safeStringSQL($cat["childseries"][$i]));
         if($result->num_rows==1){
             $row = $result->fetch_assoc();
             $sid = $row["seriesid"];

@@ -2124,8 +2124,20 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
     }
 }
 
-//API SERIES BROWSE FUNCTIONS
-function browseFromSeries(seriesId){
+/*
+API SERIES BROWSE FUNCTIONS
+
+    table#cat-chains
+        tr
+            td.cat-branch[.[expandable|.expanded]]
+                div.[in-path|sibling] data=catid
+                    span[.[ui-icon.browse-rolldown|ui-icon.ui-icon-stop]]
+                    [a]cat name
+                    span[.[ui-icon.browse-right|ui-icon.browsed-right]]
+
+*/
+
+function browseFromSeries(seriesId){ //initial chain-table build only
     callApi({command:'GetCatChains', sid: seriesId||0},function(jsoData, textStatus, jqXH){
         var chainCount = 0, i, maxHeight=0;
         var $chainTable = $('<table id="cat-chains">');
@@ -2178,50 +2190,64 @@ function browseFromSeries(seriesId){
                     }
                     if(childless) nextLevel.push(null);
                     props = levelBranches[i].catProps;
-                    $cell = $('<td class="cat-branch" rowspan="'+props.count+'">'
-                        + '<span class="chain" data="'+ props.catid +'">' + ((props.siblings>1 && seriesId)?'<span class="ui-icon browse-rolldown" title="show sibling categories"></span>':'')
-                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category">'+ props.name+ '(' + props.scount + ')</a>': props.name)+'</span>'
-                        + (props.children>0?'<span class="ui-icon browse-right" data="'+ props.catid +'">show child categories</span>':'')
+                    $cell = $('<td class="cat-branch'+(props.children>0?' expandable':'')+'" rowspan="'+props.count+'">'
+                        + '<div class="in-path" data="'+ props.catid +'">'
+                        + (props.siblings>1 && seriesId?'<span class="ui-icon browse-rolldown" title="show sibling categories"></span>':'')
+                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category">'+ props.name+ ' (' + props.scount + ')</a>':'<span class="title">'+props.name+'</span>')
+                        + (props.children>0?(childless?'<span class="ui-icon browse-right">show child categories</span>':'<span class="ui-icon browsed-right">child categories shown to right</span>'):'')
+                        + '</div>'
                         + '</td>');
-                    $cell.find('.browse-rolldown').click(function(){showSiblingCats(this)});
-                    $cell.find('a').click(function(){publicCat($(this).closest('span').attr('data'))});
-                    $cell.find('.browse-right').click(function(){showChildCats(this, $(this).attr('data'))});
+                    //$cell.find('.browse-rolldown').click(function(){showSiblingCats(this)});
+                    //$cell.find('a').click(function(){publicCat($(this).closest('span.chain').attr('data'))});
+                    //$cell.find('.browse-right').click(function(){showChildCats(this, $(this).attr('data'))});
                     $chainTable.find("tr:eq("+i+")").append($cell);
                 }
             }
             levelBranches = nextLevel;
         }
+/*        $chainTable.find('td.expandable').click(function(){
+            var $td = $(this);
+            if($td.hasClass('expandable')){
+                showSiblingCats($td.find('span.chain'));
+            }
+        });*/
+        $chainTable.click(chainTableClick);
         if($('#cloud-series:visible').length==1){
             $('div#browse-api').height($('#cloud-series').height()).width($('#cloud-series').width());
         }
-        $('div#browse-api').html('').append($chainTable).fadeIn();
-        $('div#browse-api').prepend('Below are category heirarchy for the series selected. Note that a series can be in more than one category.<br><br>'
-            + '<button id="browse-reset">reset</button> <button id="browse-close">close</button><br><br>');
-        $('#browse-reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}, disabled: true}).click(function(){browseFromSeries(seriesId);});
+        $('div#browse-api')
+            .empty()
+            .prepend('<span style="padding:5px;">Click below to expand sibling and child categories.  Categories containing series are shown as links.  Note that a series can be in more than one category.</span>'
+            //+ '<button id="browse-reset">reset</button> '
+            + '<button id="browse-close" class="right">close</button>')
+            .append($chainTable)
+            .fadeIn();
+        //$('#browse-reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}, disabled: true}).click(function(){browseFromSeries(seriesId);});
         $('#browse-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){browseClose();});
     });
 }
 
-function browseClose(){
-    $('div#browse-api').fadeOut();
-    //$('div#cloudSeriesTableDiv').fadeIn();
-}
-function showSiblingCats(spn){
-    var catId, props, isOpened;
-    var $td;
-    var $span = $(spn);
-    $td = $span.closest('td');
-    isOpened = $(spn).hasClass('ui-icon-stop');
-    var $tcat;
+function showSiblingCats(node){
+    var catId, props, $tcat;
+    var $div = $(node).closest('div');
+    var $td = $div.closest('td');
+    var isOpened = $div.find('span.ui-icon-stop').length==1;
     $tcat = $('#cat-chains'); //table
-    $tcat.find('span.sibling').closest('div').remove();  //remove siblings anywhere in table
-    $tcat.find('td').children('br').remove();
-    $tcat.find('.ui-icon.ui-icon-stop').removeClass("ui-icon-stop").addClass("browse-rolldown"); //revert the original cat's bullet with a roll-down
-    var $tdOld = $tcat.find('td.expanded').removeClass('expanded').find('span.browse-right').remove().end();
+    $tcat.find('div.sibling').remove();  //remove siblings anywhere in table
+    $tcat.find('.ui-icon.ui-icon-stop')
+        .removeClass("ui-icon-stop")
+        .addClass("browse-rolldown"); //revert the original cat's bullet with a roll-down
+    var $tdOld = $tcat.find('td.expanded').removeClass('expanded').addClass("expandable");
+/*        .remove('span.browse-right')
+        .find('.ui-icon-stop').removeClass('ui-icon-stop')
+        .end();*/
     if($tdOld.length==1 && $tdOld.html()=="") $tdOld.remove();
     if(isOpened)return; //don't fetch.  above code already removed the siblings
 
-    catId = $td.addClass("expanded").find('.browse-rolldown').removeClass('browse-rolldown').addClass('ui-icon-stop').end().children('span').attr('data');
+    catId = $td.addClass("expanded").removeClass("expandable").find('.browse-rolldown')
+        .removeClass('browse-rolldown')
+        .addClass('ui-icon-stop')
+        .end().find('div').attr('data');
     var parent = browsedCats[browsedCats[catId].parentid];
     if(parent.childrenCats){
         buildSiblings(parent.childrenCats);
@@ -2241,7 +2267,7 @@ function showSiblingCats(spn){
     }
     function buildSiblings(siblings){
         var sibling, $newSibling;
-        $(spn).removeClass("browse-rolldown").addClass("ui-icon-stop");
+        $div.find('browse-rolldown').removeClass('browse-rolldown').addClass('ui-icon-stop');
         for(var i=0;i<siblings.length;i++){
             sibling = browsedCats[siblings[i]];
             if(sibling.catid==catId){
@@ -2251,29 +2277,27 @@ function showSiblingCats(spn){
                     $td.find("span.chain").append();
                 }
             } else {
-                $newSibling = $('<div>'
-                    + ((sibling.children>0)?' <span class="ui-icon browse-right" data="'+sibling.catid+'" title="show child categories">asdf</span>':'' )
+                $newSibling = $('<div class="sibling" data="'+sibling.catid+'">'
+                    + ((sibling.children>0)?' <span class="ui-icon browse-right" title="show child categories">show children categories</span>':'' )
                     + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
-                    + (sibling.children>0?'<a title="Click to view the '+sibling.scount+' series in this category">' + sibling.name +' (' + sibling.scount + ')</a>':sibling.name) + '</span>'
+                    + (sibling.scount>0?'<a title="Click to view the '+sibling.scount+' series in this category">' + sibling.name +' (' + sibling.scount + ')</a>':sibling.name) + '</span>'
                     + '</div>');
                 $newSibling.find('.browse-right').click(function(){showChildCats(this)});
-                $newSibling.find('a').click(function(){publicCat($(this).closest('div').find('span.browse-right').attr('data'))});
                 $td.append($newSibling);
             }
         }
     }
 }
 
-function showChildCats(spn, parentId){
+function showChildCats(node){
     var child, $currentTd;
-    if(!parentId){
-        parentId = $(spn).attr("data");
-    }
+    var parentId = $(node).closest('div').attr("data");
     if(browsedCats[parentId].childrenCats){
         buildChildren(browsedCats[parentId].childrenCats);
     } else {
         callApi({command: "GetCatChildren", catid: parentId}, function(jsoData, textStatus, jqXH){
             browsedCats[parentId].childrenCats = [];
+            //console.info(jsoData.children);
             for(var i=0;i<jsoData.children.length;i++){
                 child = jsoData.children[i];
                 if(!browsedCats[child.catid]) {
@@ -2290,9 +2314,12 @@ function showChildCats(spn, parentId){
         var newTds='', nextCatId = parentId;
 
         while(browsedCats[nextCatId].parentid!==null){
-            newTds = '<td class="chain"><span class="chain" data="'+nextCatId+'">'
-                + '<span class="ui-icon browse-rolldown" title="show sibling categories"></span>'
-                + browsedCats[nextCatId].name + '</span></td>'
+            newTds = '<td class="cat-branch'+(browsedCats[nextCatId].children>0?' expandable':'')+'">'
+                + '<div class="in-path">'
+                + (browsedCats[nextCatId].siblings>0?'<span class="ui-icon browse-rolldown" title="show sibling categories"></span>':'')
+                + (parseInt(browsedCats[nextCatId].scount)>0?'<a title="Click to view the '+browsedCats[nextCatId].scount+' series in this category" >' + browsedCats[nextCatId].name +' (' + browsedCats[nextCatId].scount + ')</a>':browsedCats[nextCatId].name)
+                + '<span class="ui-icon browsed-right">child categories shown to right</span>'
+                + '</div></td>'
                 + newTds;
             nextCatId = browsedCats[nextCatId].parentid;
         }
@@ -2302,22 +2329,54 @@ function showChildCats(spn, parentId){
         for(var i=0;i<childrenCats.length;i++){
             child = browsedCats[childrenCats[i]];
 
-            $currentTd.append('<div>'
+            $currentTd.append('<div data="' + child.catid + '">'
                 + ((child.children>0)?' <span class="ui-icon browse-right" data="'+child.catid+'" title="show child categories"></span>':'' )
-                + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
-                + (parseInt(child.scount)>0?'<a title="Click to view the '+child.scount+' series in this category" >' + child.name +' (' + child.scount + ')</a>':child.name) + '</span>'
-                + '</div>')
-                .find('.browse-right').click(function(){showChildCats(this)})
-                .end().find('a').click(function(){publicCat(child.catid)});
+                + '<span class="ui-icon ui-icon-stop"></span>'
+                + (parseInt(child.scount)>0?'<a title="Click to view the '+child.scount+' series in this category" >' + child.name +' (' + child.scount + ')</a>':child.name)
+                + '</div>');
         }
         $chainTable.find('tr').append($currentTd);
-        $("button.browse-reset").button("enable");
+        //$("button.browse-reset").button("enable");
+       /* $chainTable.find('td.expandable').click(function(){
+            var $td = $(this);
+            if($td.hasClass('expandable')){
+                showChildCats(this, $td.find('span.chain').attr('data'));
+            }
+        });*/
+    }
+
+}
+
+function publicCat(catId){
+    searchCatId = catId; //global var. reset on filter change
+    hasher.replaceHash(panelHash()); //set the hash using the global searchCatID, which is then interpreted by the has listener parseHash()
+}
+
+function chainTableClick(evt){//unified click event = detect which object clicked and execute accordingly
+    var target = evt.target;
+    switch(target.nodeName){
+        case 'A':  //
+            publicCat($(target).closest('div').attr('data'));
+            break;
+        case 'TD':
+            var children = $(target).children('DIV');
+            if(children.length!=1) return; //only fall through to general DIV&SPAN handler if single DIV in TD
+            target = $(children).get(0);
+        case 'DIV':  // in-path | sibling
+        case 'SPAN': // browse-right | browsed-right | browse-rolldown | ui-icon-stop
+            if($(target).hasClass('browse-right')) return showChildCats(target); //expand and exit click handler
+            if($(target).hasClass('browsed-rolldown')) return showSiblingCats(target); //
+            var $div = $(target).closest('div');
+            if($div.find('span.browse-right').length==1) return showChildCats(target);  //this order prioritizes showing children over showing siblings!
+            if($div.find('span.browse-rolldown').length==1) return showSiblingCats(target);
+            break; //nothing found at this point
     }
 }
 
-function publicCat(catId, apiId){
-    searchCatId = catId; //global var. reset on filter change
-    hasher.replaceHash(panelHash()); //set the hash using the global searchCatID, which is then interpreted by the has listener parseHash()
+
+function browseClose(){
+    $('div#browse-api').fadeOut(function(){$(this).empty()});
+    //$('div#cloudSeriesTableDiv').fadeIn();
 }
 
 //USER ACCOUNT FUNCTIONS

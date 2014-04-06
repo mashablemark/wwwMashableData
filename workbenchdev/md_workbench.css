@@ -540,6 +540,12 @@ h3 {
     background:#FFFFFF;
     overflow: scroll;
 }
+#browse-api{
+    background:#FFFFFF;
+    overflow: auto;
+    display:none;
+    border: 1px solid black;
+}
 .tabs li a {
     padding-right: 50px;
 }
@@ -931,6 +937,10 @@ div.jvectormap-container{
     background-image: url(/global/css/smoothness/images/ui-icons_2e83ff_256x240.png);
     cursor:pointer;
 }
+.browsed-right {
+    display: inline-block;
+    background-image: url(/global/css/smoothness/images/ui-icons_888888_256x240.png);
+}
 .ui-icon-stop{
     display: inline-block;
 }
@@ -979,11 +989,12 @@ span.ui-button-text{
 }
 
 .browse-rolldown {background-position: -64px -192px;}  /*.ui-icon-circle-triangle-s*/
-.browse-rolldown:hover { background-position: -128px -192px; }   /*ui-icon-circle-arrow-s*/
+td.expandable:hover .browse-rolldown, .browse-rolldown:hover { background-position: -128px -192px;}   /*ui-icon-circle-arrow-s*/
+td.expandable:hover{cursor: pointer;}
 .browse-rollup{ background-position: -96px -192px; }  /*ui-icon-circle-triangle-n*/
 .browse-rollup:hover{ background-position: -160px -192px; }  /*ui-icon-circle-arrow-n */
-.browse-right { background-position: -48px -192px; float: right;}    /*.ui-icon-circle-triangle-e*/
-td:hover .browse-right, .browse-right:hover{ background-position: -112px -192px; }  /*ui-icon-circle-arrow-e*/
+.browse-right  { background-position: -48px -192px; float: right; margin-left: 5px}    /*.ui-icon-circle-triangle-e*/
+.browse-right:hover, td.cat:hover .browse-right, .browsed-right { background-position: -112px -192px; cursor: pointer;}  /*ui-icon-circle-arrow-e*/
 
 .ui-seldected{
     background: #F39814;

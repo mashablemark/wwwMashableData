@@ -115,7 +115,7 @@
         </div>
         <!--BEGIN PUBLIC SERIES DATATABLE-->
         <div id="cloud-series" class="picker">
-            <div id="browse-api" class="scrollable" style="display:none; border: 1px solid black;"></div>
+            <div id="browse-api"></div>
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
