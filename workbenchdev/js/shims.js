@@ -1,5 +1,12 @@
 /* copyright MashableData.com 2013 */
 
+//prevent IE from breaking
+if(typeof console == 'undefined') console = {};
+if(typeof console.info == 'undefined') console.info = function(m){};
+if(typeof console.log == 'undefined') console.log = function(m){};
+if(typeof console.time == 'undefined') console.time = function(m){};
+if(typeof console.timeEnd == 'undefined') console.timeEnd = function(m){};
+
 //'use strict';
 
 // SHIMS

@@ -6,11 +6,11 @@
  * To change this template use File | Settings | File Templates.
  */
 
-var BAND_TRANSPARENCY = 0.5;
-var colorsPlotBands = ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'];
-var standardAnnotations = [];  //filled by API call on first use
+MashableData.Annotator = function Annotator(panelId, makeDirty){
+    var MD = MashableData, globals = MD.globals;
+    BAND_TRANSPARENCY = globals.BAND_TRANSPARENCY;
+    panelGraphs = globals.panelGraphs
 
-function AnnotationsController(panelId, makeDirty){
     var controller  = {
         panelId: panelId,
         $panel: $('#'+panelId),
@@ -18,31 +18,27 @@ function AnnotationsController(panelId, makeDirty){
         lineNo: 0,
         banding: false,
         bandStartPoint: void(0),
-        standards: standardAnnotations,
         makeDirty: makeDirty,
-        addStandard: function addStandardAnnotation(annoid){
+        addStandard: function addStandard(annoid){
             var self = this;
             callApi({command: "GetAnnotation", annoid: annoid}, function(data){
                 standardAnno = jQuery.parseJSON(data.annotation);
                 for(var i=0;i<standardAnno.length;i++){
-                    oPanelGraphs[panelId].annotations.push(standardAnno[i]);
+                    panelGraphs[panelId].annotations.push(standardAnno[i]);
                 }
                 self.build( 'new');
             });
         },
         fetchStandards: function(){
-            if(standardAnnotations.length==0){  //standardAnnotations is global scope, so the fetch only ever occurs once
+            if(globals.standardAnnotations.length==0){  //standardAnnotations is global scope, so the fetch only ever occurs once
                 var self = this;
                 callApi({command: "GetAnnotations"}, function(results){
-                    for(var i=0;i<results.annotations.length;i++) standardAnnotations.push(results.annotations[i]);
-                    self.standards = standardAnnotations;
+                    for(var i=0;i<results.annotations.length;i++) globals.standardAnnotations.push(results.annotations[i]);
                 });
-            } else {
-                this.standards = standardAnnotations;
             }
         },
         sync: function annoSync(){  //sync plot lines and bands to options.  must be done prior to printing or exporting
-            var thisChart = oPanelGraphs[this.panelId].controls.chart;
+            var thisChart = panelGraphs[this.panelId].controls.chart;
             var axis = thisChart.options.xAxis,
                 plotLines = (axis.plotLines = []),
                 plotBands = (axis.plotBands = []);
@@ -57,7 +53,7 @@ function AnnotationsController(panelId, makeDirty){
             }
         },
         addPoint: function annotatePoint(selectedPoint){
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             if(typeof(selectedPoint) != "undefined"){
                 //remove all current point annotations
                 var point;
@@ -82,7 +78,7 @@ function AnnotationsController(panelId, makeDirty){
             }
         },
         addXLine:  function annotateXLine(selectedPoint){
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             oGraph.controls.chart.xAxis[0].addPlotLine({
                 value:  selectedPoint.x,
                 color:  '#'+colorsPlotBands[0],
@@ -101,7 +97,7 @@ function AnnotationsController(panelId, makeDirty){
             this.build('table-only');
         },
         startXBand: function annotateXBandStart(pointSelected){
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             this.bandStartPoint = pointSelected;
             this.bandColor = equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY);
             oGraph.controls.chart.xAxis[0].addPlotBand({
@@ -118,10 +114,10 @@ function AnnotationsController(panelId, makeDirty){
             var y, yOffset, self = this, $annotations = $('#' + panelId + ' div.annotations').show().find('table');
             if($annotations.html().length!=0) { //enable on all calls except initial build
                 $('div#' + panelId + ' .graph-save').button("enable");
-                oPanelGraphs[panelId].isDirty = true;
+                panelGraphs[panelId].isDirty = true;
             }
             if(!redrawAnnoTypes) redrawAnnoTypes='all';
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
 // builds and return a fresh annotations table HTML string from oGraph
             var sTable = '';
             var annoLetter = 'A';
@@ -269,19 +265,21 @@ function AnnotationsController(panelId, makeDirty){
                 oGraph.controls.chart.redraw(); //redraw after all have been updated
             }
             console.timeEnd('annotation redraw');
-            console.time('annotation rest');
-            if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" class="grey-italics">right-click on the chart to annotate a point, band, or event, or to perform a linear regression or average</td></tr>';
-            $annotations.html(sTable).find('input, select').change(function(){self.change(this)});
-            $annotations.find('.annotation-color-picker').colorPicker();
-            $annotations.find('.ui-icon-trash').click(function(){
+            if(!globals.isEmbedded){
+                console.time('annotation rest');
+                if(oGraph.annotations.length==0) sTable+='<tr><td colspan="3" class="grey-italics">right-click on the chart to annotate a point, band, or event, or to perform a linear regression or average</td></tr>';
+                $annotations.html(sTable).find('input, select').change(function(){self.change(this)});
+                $annotations.find('.annotation-color-picker').colorPicker();
+                $annotations.find('.ui-icon-trash').click(function(){
                     self['delete'](this)
                 });
-            console.timeEnd('annotation rest');
+                console.timeEnd('annotation rest');
+            }
         },
         change: function changeAnno(obj){
             var i, yOffset, y, id = $(obj).closest('tr').attr('data');
             this.$panel.find('.graph-save').button('enable');
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             var anno;
             for(i=0;i< oGraph.annotations.length;i++){
                 if(id == oGraph.annotations[i].id){
@@ -345,7 +343,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         "delete": function deleteAnno(deleteAnchor){
             var idToDelete = $(deleteAnchor).closest('tr').attr('data');
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             for(var i=0;i< oGraph.annotations.length;i++){
                 if(idToDelete == oGraph.annotations[i].id){
                     oGraph.annotations.splice(i,1);
@@ -364,7 +362,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         startAnalysisBanding: function(point, analysisType){
             var seriesColor = point.series.color;
-            var chart = oPanelGraphs[panelId].controls.chart;
+            var chart = panelGraphs[panelId].controls.chart;
             r = parseInt(seriesColor.substr(1,2),16);
             g = parseInt(seriesColor.substr(3,2),16);
             b = parseInt(seriesColor.substr(5,2),16);
@@ -389,10 +387,10 @@ function AnnotationsController(panelId, makeDirty){
                 pointSelected.series.remove();
                 switch (analysisType){
                     case 'LR':
-                        analyses = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.linRegressions;
+                        analyses = panelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.linRegressions;
                         break;
                     case 'AV':
-                        analyses = oPanelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.averages;
+                        analyses = panelGraphs[panelId].plots[parseInt(plotId.substr(1))].options.averages;
                         break;
                 }
                 this.makeDirty();
@@ -450,7 +448,7 @@ function AnnotationsController(panelId, makeDirty){
             return y;
         },
         mouseOverHCPoint: function mouseOverHCPoint(e, point){
-            var chart = oPanelGraphs[panelId].controls.chart;
+            var chart = panelGraphs[panelId].controls.chart;
             if(!this.banding) return;
             if(this.banding=='x-Time'){
                 try{
@@ -484,7 +482,7 @@ function AnnotationsController(panelId, makeDirty){
             var axisName, axisValue, userValue;
             var pointSelected = this.mouseoverPoint;  //grab reference (set by a HighCharts' event) before point's mouseout event can delete it
             var onPoint = (typeof(this.mouseoverPoint)!="undefined");
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             var self = this;
             if(this.banding=='x-Time'){
                 if(onPoint){
@@ -608,7 +606,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         plotAnnotationSeries: function(){
             var p, i, LR, AV;
-            var oGraph = oPanelGraphs[panelId];
+            var oGraph = panelGraphs[panelId];
             var chart = oGraph.controls.chart;
             var start = oGraph.start||(oGraph.intervals?intervalStartDt(oGraph):oGraph.firstdt);
             if(oGraph.plots && oGraph.plots.length>0){
@@ -635,7 +633,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         plotLinearRegression: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
             if(!redraw) redraw = false;
-            var hChart = oPanelGraphs[panelId].controls.chart;
+            var hChart = panelGraphs[panelId].controls.chart;
             var sumX = 0, minX = null, maxX = null;
             var sumY = 0, minY = null, maxY = null;
             var j, data=[], points = 0;
@@ -705,7 +703,7 @@ function AnnotationsController(panelId, makeDirty){
         },
         plotAverage: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
             if(!redraw) redraw = false;
-            var hChart = oPanelGraphs[panelId].controls.chart;
+            var hChart = panelGraphs[panelId].controls.chart;
             var sumY = 0, pointCount = 0;
             var j, data=[], points = 0;
             if(typeof start == "undefined" || typeof end == "undefined"){
@@ -741,9 +739,7 @@ function AnnotationsController(panelId, makeDirty){
             return(hChart.addSeries(newSeries, redraw));
         }
     };
-    controller.fetchStandards();
+    if(!globals.isEmbedded) controller.fetchStandards();
     return controller;
-}
+};
 
-
-//ANNOTATION CODE

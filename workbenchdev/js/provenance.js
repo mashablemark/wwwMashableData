@@ -8,7 +8,21 @@
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
 function ProvenanceController(panelId){
-    var mapsetLegend, pointsetLegend;
+    var mapsetLegend, pointsetLegend, MD = MashableData, globals = MD.globals, grapher = MD.grapher;
+    var dashStyles = globals.dashStyles,
+        sdf = globals.DEFAULT_RADIUS_FIXED,
+        DEFAULT_RADIUS_SCALE = globals.DEFAULT_RADIUS_SCALE,
+        hcColors = globals.hcColors,
+        period = globals.period,
+        op = globals.op,
+        MAP_COLORS = globals.MAP_COLORS,
+        plotName = grapher.plotName,
+        plotUnits = grapher.plotUnits,
+        plotFormula = grapher.plotFormula,
+        fillScalingCount = grapher.fillScalingCount,
+        eachComponent = grapher.eachComponent;
+
+
     var controller = {
         HTML: {
             /*            nLanding: '<li class="component-landing"><span class="landing">drag numerator series here</span></li>',
@@ -21,7 +35,7 @@ function ProvenanceController(panelId){
                 +       '</div>'
                 +   '</div>'
         },
-        graph: oPanelGraphs[panelId],
+        graph: globals.panelGraphs[panelId],
         $prov: $('#'+panelId + ' .provenance'),
         isDirty: false,
         build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
@@ -478,7 +492,7 @@ function ProvenanceController(panelId){
             var iComp = self.compIndex($liComp); //could have just gotten index of liComp as the object should be in sync
             var compHandle = $(liComp).attr('data');
             var component = plot.components[iComp];
-            var editDiv = (vectorPattern.test(compHandle)?'<button class="comp-copy prov-float-btn">make copy</button>':'')
+            var editDiv = (globals.vectorPattern.test(compHandle)?'<button class="comp-copy prov-float-btn">make copy</button>':'')
                 + '<button class="comp-delete prov-float-btn">remove series</button>'
             var $editDiv = $(editDiv);
             $liComp.find(".plot-op").hide().after(
@@ -856,7 +870,7 @@ function ProvenanceController(panelId){
         },
         provenanceOfMap:  function provenanceOfMap(){
             var self = this;
-            var provHTML = '', ps, pointset, themes = [], tid, fetchThemes = [], cubeSelector='', summationMap = isSummationMap(self.graph);
+            var provHTML = '', ps, pointset, themes = [], tid, fetchThemes = [], cubeSelector='', summationMap = MD.grapher.isSummationMap(self.graph);
             if(self.graph.map&&(self.mapsetEdits || self.pointsetsEdits)){ //map!!
                 eachComponent(self.graph, function(){
                     tid = self.graph.assets[this.handle].themeid;
@@ -1418,18 +1432,19 @@ function ProvenanceController(panelId){
         }
     };
     return controller;
+
+    //private provence methods
     function makeDirty(){
         controller.isDirty = true;
         controller.$prov.find('.config-cancel').button('enable');
     }
-}
-
-function continuousColorStrip(a, b){
-    return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='+a+', endColorstr='+b+', gradientType=1);filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='+a+', endColorstr='+b+', gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from('+a+'), to('+b+'));background-image: -webkit-linear-gradient(left, '+a+', '+b+');background-image: -moz-linear-gradient(left, '+a+', '+b+');background-image:  -o-linear-gradient(left, '+a+', '+b+';background-image: linear-gradient(to left, '+a+','+b+');"></span>';
-    //return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1); filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from(#7ce3ff), to(#00355b));background-image: -webkit-linear-gradient(left, #7ce3ff, #00355b);background-image:    -moz-linear-gradient(left, #7ce3ff, #00355b);background-image:      -o-linear-gradient(left, #7ce3ff, #00355b;background-image:         linear-gradient(to left, #7ce3ff,#00355b);"></span>';
-}
-function continuousColorScale(options){
-    return '<div class="continuous-strip-neg">' + continuousColorStrip(options.negColor||MAP_COLORS.NEG, MAP_COLORS.MID) + '</div>'
-        + '0'
-        + '<div class="continuous-strip-pos">' + continuousColorStrip(MAP_COLORS.MID, options.posColor||MAP_COLORS.POS) + '</div>'
+    function continuousColorStrip(a, b){
+        return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='+a+', endColorstr='+b+', gradientType=1);filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='+a+', endColorstr='+b+', gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from('+a+'), to('+b+'));background-image: -webkit-linear-gradient(left, '+a+', '+b+');background-image: -moz-linear-gradient(left, '+a+', '+b+');background-image:  -o-linear-gradient(left, '+a+', '+b+';background-image: linear-gradient(to left, '+a+','+b+');"></span>';
+        //return '<span class="map_legend_gradient" style="-ms-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1); filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7ce3ff, endColorstr=#00355b, gradientType=1)background-image: -webkit-gradient(linear, left bottom, right bottom, from(#7ce3ff), to(#00355b));background-image: -webkit-linear-gradient(left, #7ce3ff, #00355b);background-image:    -moz-linear-gradient(left, #7ce3ff, #00355b);background-image:      -o-linear-gradient(left, #7ce3ff, #00355b;background-image:         linear-gradient(to left, #7ce3ff,#00355b);"></span>';
+    }
+    function continuousColorScale(options){
+        return '<div class="continuous-strip-neg">' + continuousColorStrip(options.negColor||MAP_COLORS.NEG, MAP_COLORS.MID) + '</div>'
+            + '0'
+            + '<div class="continuous-strip-pos">' + continuousColorStrip(MAP_COLORS.MID, options.posColor||MAP_COLORS.POS) + '</div>'
+    }
 }

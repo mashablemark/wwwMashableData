@@ -67,7 +67,7 @@ header('Content-type: text/html; charset=utf-8');
  *   annoid:
 */
 $time_start = microtime(true);
-$command =  $_REQUEST['command'];
+$command =  isset($_REQUEST['command'])?$_REQUEST['command']:'';
 $con = getConnection();
 switch($command){
     case "LogError":
@@ -1241,11 +1241,12 @@ EOS;
         }
         $output = array("status" => "ok", "series" => array());
         if(count($clean_seriesids)>0){
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, coalesce(ms.themeid, ps.themeid) as themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
-            . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
-            . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts "
-            . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid "
-            . " WHERE s.seriesid in (" . implode($clean_seriesids,",") .") and (s.userid is null or s.userid = " . $user_id . " or orgid=".$orgid.")";
+            $sql = "
+            SELECT s.name, s.mapsetid, s.pointsetid, coalesce(ms.themeid, ps.themeid) as themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid,
+            s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt,
+            lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts
+            FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid
+            WHERE s.seriesid in (" . implode($clean_seriesids,",") .") and (s.userid is null or s.userid = $user_id or orgid=$orgid)";
             $result = runQuery($sql, "GetMashableData series");
 
             while ($aRow = $result->fetch_assoc()) {
@@ -1546,14 +1547,14 @@ function getGraphs($userid, $ghash){
 function getMapSets($map,$aryMapsetIds, $mustBeOwnerOrPublic = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
     global $db, $orgid;
     $mapout = array();
-    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, ms.themeid, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period, "
-    . " g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt, g.lat, g.lon "
-    . " FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m "
-    . " WHERE ms.mapsetid = s.mapsetid and s.pointsetid is null and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")"
-    . " and m.map  = " . safeStringSQL($map)
-    . " and g.geoid=s.geoid and mg.geoid=s.geoid and mg.map=" . safeStringSQL($map)
-    . " and mg.map=m.map "
-    . " and ms.mapsetid in (" . implode($aryMapsetIds, ",") . ")  ";
+    $sql = "SELECT ms.mapsetid, ms.name, ms.counts, ms.freqset, ms.themeid, s.name as seriesname, s.notes, s.src, ms.units, ms.periodicity as period,
+    g.jvectormap as map_code, s.seriesid, s.userid, s.orgid, s.geoid, g.name as geoname, s.data, s.firstdt, s.lastdt, g.lat, g.lon
+    FROM mapsets ms, series s, geographies g, mapgeographies mg, maps m
+    WHERE ms.mapsetid = s.mapsetid and s.pointsetid is null and s.mapsetid in (" . implode($aryMapsetIds, ",") . ")
+    and m.map  = " . safeStringSQL($map) ."
+    and g.geoid=s.geoid and mg.geoid=s.geoid and mg.map=" . safeStringSQL($map) . "
+    and mg.map=m.map
+    and ms.mapsetid in (" . implode($aryMapsetIds, ",") . ")  ";
     if($mustBeOwnerOrPublic){
         $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run
     }

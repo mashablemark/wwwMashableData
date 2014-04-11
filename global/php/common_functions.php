@@ -7,6 +7,7 @@
  * To change this template use File | Settings | File Templates.
  */
 
+$laptop = (strpos($_SERVER["SERVER_NAME"],"mashabledata.")===false);
 $db = getConnection(); //establishes a db connection as a global variable on include
 date_default_timezone_set("UTC");
 $CRYPT_KEY = "jfdke4wm7nfew84i55vs";
@@ -89,8 +90,10 @@ function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mys
 }
 
 function getConnection(){
-    global $db;
-    if(strpos($_SERVER["SERVER_NAME"],"mashabledata.info")>=0){
+    global $db, $laptop;
+    if($laptop){
+        $db = new mysqli("localhost","root","");
+    }else{
         $db = new mysqli("localhost","mashabledata","UxH3XERJ");
     }
     if (!$db) die("status: 'db connection error'");
@@ -136,13 +139,13 @@ function httpGet($target, $timeout = 15){
 
 $orgid = 0;  //global var
 function requiresLogin(){
-    global $orgid;
+    global $orgid, $laptop;
     $uid = intval($_POST["uid"]);
     if($uid==0){
         closeConnection();
         die('{"status": "This function requires you to be logged in.  Create a free account or user your FaceBook account."}');
     }
-    $sql = "select count(*), orgid from users where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken")." group by orgid";
+    $sql = "select count(*), orgid from users where userid = " . $uid . ($laptop?'':" and accesstoken=" . safeSQLFromPost("accessToken"))." group by orgid";
     $result = runQuery($sql);
     if($result->num_rows==0){
         closeConnection();
@@ -154,6 +157,7 @@ function requiresLogin(){
     //eventually will check for valid userID/accesstoken combo.  If not present, return status with error
 }
 function trackUsage($counter){
+    global $laptop;
     $limits = array(
         "count_seriessearch" => array("name"=>"cloud searches", "warn"=>9, "max"=>80),
         "count_graphssearch" => array("name"=>"graph searches", "warn"=>40, "max"=>50),
@@ -166,9 +170,9 @@ function trackUsage($counter){
     if(isset($_POST["uid"])){ //if UID is truly required, it will be caught by requiresLogin()
         if(isset($limits[$counter])){
             $uid = intval($_POST["uid"]);
-            $sql = "update users set ".$counter."=".$counter."+1 where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
+            $sql = "update users set ".$counter."=".$counter."+1 where userid = " . $uid . ($laptop?"":" and accesstoken=" . safeSQLFromPost("accessToken"));
             runQuery($sql);
-            $sql = "select ".$counter.", subscription from users where userid = " . $uid . " and accesstoken=" . safeSQLFromPost("accessToken");
+            $sql = "select ".$counter.", subscription from users where userid = " . $uid . ($laptop?"":" and accesstoken=" . safeSQLFromPost("accessToken"));
             $result = runQuery($sql);
             $aRow = $result->fetch_assoc();
 

@@ -5,6 +5,23 @@
  * Time: 9:04 PM
  * To change this template use File | Settings | File Templates.
  */
+
+//shortcuts:
+var MD = MashableData, globals = MD.globals, grapher = MD.grapher;
+var themeCubes = globals.themeCubes,
+    iconsHMTL = globals.iconsHMTL,
+    panelGraphs = globals.panelGraphs,
+    oMySeries = globals.MySeries,
+    oMyGraphs = globals.MyGraphs,
+    hcColors = globals.hcColors,
+    colorsPlotBands = globals.colorsPlotBands,
+    graphScriptFiles = globals.graphScriptFiles;
+var createMyGraph = grapher.createMyGraph,
+    formatDateByPeriod = grapher.formatDateByPeriod,
+    visiblePanelId = grapher.visiblePanelId,
+    compSymbol = grapher.compSymbol;
+
+//WORKBENCH TEMPLATES
 var templates = {
     plot:  //functions needed: plot.color, component.opUI, plot.plotUnits, plot.plotPeriodicity, seriesname  EASIER???
         '<li class="plot ui-state-highlight" data="{{order}}">'
@@ -16,16 +33,6 @@ var templates = {
             +'{{#component}}<li class="serie ui-state-default" data="{{handle}}" plot="{{order}}"><span class="plot-op ui-icon {{opUI}}">operation</span> '
             + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
 };
-
-graphScriptFiles = ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/colour/Colour.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"];
-var iconsHMTL= {
-    mapset: '<span class="ui-icon ui-icon-mapset" title="series is part of a map set"></span>',
-    pointset: '<span class="ui-icon ui-icon-pointset" title="series is part of a set of markers (defined longitude and latitude)"></span>',
-    hasCubeViz: '<span class="ui-icon ui-icon-cube" title="map has supplemental visualizations"></span>',
-    hasHeatMap: '<span class="ui-icon ui-icon-mapset" title="contains a heat-map"></span>',
-    hasMarkerMap: '<span class="ui-icon ui-icon-pointset" title="contains sets of mapped markers (defined longitude and latitude)."></span>',
-    hasBubbleMap: '<span class="ui-icon ui-icon-bubble" title="bubble map of data aggregated into user-defined regions"></span>'
-};
 var dialogues = {
     noMySeries: 'Your My Series folder is empty.  Please search for Public Series, which can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
     noSeriesSelected: 'Click on one or more series below to select them before previewing.<br><br>Alternatively, you can double-click on a series to quickly preview it.',
@@ -35,10 +42,8 @@ var dialogues = {
     noPublicGraphs: 'First search for public graphs.  Note that a search with no keywords will return the most recent published graphs.',
     deleteMySeries: 'This action will remove the series from your My Series favorites. Public series will still be available through the Public Series finder.  Any uploads or edits will be lost.  Please confirm to delete.',
     signInRequired: 'You must be signed in to do this edit and create your own series.  Please use the sign in button to use your Facebook account.'
-
-
 };
-//GLOBAL VARIABLES
+//WORKBENCH GLOBAL VARIABLES
 var totalServerTime = 0;
 var colWidths = {
     quickView: 50,
@@ -76,7 +81,7 @@ var layoutDimensions = {
 
     }
 };
-var themeCubes = {}; //stores {cubes: [{cubeid, name}...] under T+themeid key to eliminate repretative calls
+
 var MY_SERIES_DATE = 7;  //important column indexes used for ordering
 var nonWhitePattern = /\S/;  //handy pattern to check for non-whitespace
 //Datatable variables set after onReady calls to... , setupMySeriesTable, setupMySeriesTable, and setupMySeriesTable,
@@ -84,25 +89,15 @@ var dtMySeries; //...setupMySeriesTable
 var dtPublicSeries;  //...setupPublicSeriesTable
 var dtMyGraphs;    //...setupMyGraphsTable
 var dtPublicGraphs;   //...setupPublicGraphsTable
-var checkedCount = 0;  //record of how many MySeries are checked
-var searchCatId=0;  //set on API browser selection in hash, cleared on public series search text change
+var searchCatId = 0;  //set on API browser selection in hash, cleared on public series search text change
 var browsedCats = {}; //saves info of categories browsed to assist that function, cache db queries and provide name lookup cabilibilti for the category search function
 var lastSeriesSearch="", lastGraphSearch=""; //kill column sorting on new searches.  Sort is by name length asc to show most concise (best fit) first
-//var activeSeriesSearch=false; //used to avoid double search when clearing sort order
-//These 2 master objects contain representations of MySeries and MyGraphs.  They are filled by API calls and in turn are used populate the datatables
-var oMySeries = {};  //referenced by 'S'+seriesid (i.e. oMySeries['S173937']). Filled from localstatoraged, API.getMySeries (header only; no data for speed), and when series is added from PublicSeries viewer.  Data fetched as needed.  Used to populate graph data (and vice-versa ) as possible.
-//var oPublicSeries = {}; //NOT USED. DataTables fetches directly from API.SearchSeries = endless scroll style fetch
-var oMyGraphs = {};  //complete fetch from API.GetMyGraphs.  Kept in sync with cloud by API.ManageMyGraphs and API.DeleteMyGraphs
-//var oPublicGraphs = {};  //NOT USED.  DataTables fetches directly from API.SearchGraphs = endless scroll style fetch TODO: show button not programmed
-
-var oPanelGraphs = {}; //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. oPanelGraphs['graphTab1']).  Kept in sync by UI events.  Used by save/publish operations.
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
 var $quickViewRows = null; //used to remember jQuery set of rows being previewed in case user chooses to delete them
 
 var editingPanelId = null;  //TODO:  phase out as global var.  (was used for editing a graph's series list via the MySeries panel.  Replaced by graph's series provenance panel and by add to graph from quickViews.
 var mySeriesLoaded = false;
-var apis = false;
 
 var $graphTabs;  //jQuery UI tabs object allows adding, remove, and reordering of visualized graphs
 var tab_counter = 1; //incremented with each new $graphTabs and used to create unqiueID.  Not a count, as tab can be deleted!
@@ -110,20 +105,9 @@ var localSeriesIndex = 0;  //used to give localSeries from chart plugin unique h
 
 var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Add to my Series" and "add to Graph" button functions.
 var quickChart;
-var newPlotIDCounter = -1; //new plots get negative ids (i.e. 'P-8-') which get positive DB identifers on save (the trailing '-' prevents search and replace confusion
-//authentication variables
-var myPreferences = {uselatest: 'N'};
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
-
 var mapsArray = []; //sorted array of available maps created from mapsList object
 var parsingHash = false;
-
-//prevent IE from breaking
-if(typeof console == 'undefined') console = {};
-if(typeof console.info == 'undefined') console.info = function(m){};
-if(typeof console.log == 'undefined') console.log = function(m){};
-if(typeof console.time == 'undefined') console.time = function(m){};
-if(typeof console.timeEnd == 'undefined') console.timeEnd = function(m){};
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
     FB.init({
@@ -408,8 +392,8 @@ function parseHash(newHash, oldHash){
                     $graphTab.click();
                 } else {
                     if(oH.graphcode){
-                        for(var g in oPanelGraphs){
-                            if(oPanelGraphs[g].ghash==oH.graphcode){
+                        for(var g in panelGraphs){
+                            if(panelGraphs[g].ghash==oH.graphcode){
                                 var $tab = $('#graph-tabs a[href=\'#'+g+'\']');
                                 if($tab.length==1) {
                                     var found = true;
@@ -1063,15 +1047,15 @@ function hideGraphEditor(){
 //EVENT FUNCTIONS
 function titleChange(titleControl){
     var panelId = $(titleControl).closest("div.graph-panel").get(0).id;
-    oPanelGraphs[panelId].controls.chart.setTitle({text:titleControl.value});
-    oPanelGraphs[panelId].title = titleControl.value;
+    panelGraphs[panelId].controls.chart.setTitle({text:titleControl.value});
+    panelGraphs[panelId].title = titleControl.value;
     if(titleControl.value.length==0){
         var noTitle= 'Graph'+panelId.substring(panelId.indexOf('-')+1);
         $('a[href=#'+panelId+']').html(noTitle).attr("title",noTitle);
     } else {
         $('a[href=#'+panelId+']').html(titleControl.value).attr("title",titleControl.value);
     }
-    oPanelGraphs[panelId].controls.chart.redraw();
+    panelGraphs[panelId].controls.chart.redraw();
     //oMyGraphs & table synced only when user clicks save
 }
 
@@ -1160,7 +1144,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         }
     }
 
-    var quickChartOptions = makeChartOptionsObject(quickGraph);
+    var quickChartOptions = grapher.makeChartOptionsObject(quickGraph);
     delete quickChartOptions.chart.height;
     if(aoSeries instanceof Array){
         if(aoSeries.length==1){
@@ -1256,14 +1240,14 @@ function quickViewToChart(btn){
     var graph, panelId =  $('#quick-view-to-graphs').val();
     if(oQuickViewSeries.plots){  //we have a complete graph object!
         if(panelId!='new') {
-            var plots = oQuickViewSeries.plots, oGraph = oPanelGraphs[panelId];
+            var plots = oQuickViewSeries.plots, oGraph = panelGraphs[panelId];
             oGraph.controls.provenance.provOk(false); //commit any prov panel changes, but do not redraw graph
             if(!oGraph.plots) oGraph.plots=[];
             for(var p=0;p<plots.length;p++){
                 oGraph.plots.push(plots[p]);
             }
             for(var asset in oQuickViewSeries.assets){
-                oPanelGraphs[panelId].assets[asset] = oPanelGraphs[panelId].assets[asset] || oQuickViewSeries.assets[asset];
+                panelGraphs[panelId].assets[asset] = panelGraphs[panelId].assets[asset] || oQuickViewSeries.assets[asset];
             }
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
             oGraph.controls.redraw();
@@ -1273,7 +1257,7 @@ function quickViewToChart(btn){
     } else {
         if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
         if(panelId!='new'){
-            graph = oPanelGraphs[panelId];
+            graph = panelGraphs[panelId];
             graph.controls.provenance.provOk(false); //commit any prov changes but do not redraw
         } else {
             graph = emptyGraph();
@@ -1307,15 +1291,15 @@ function quickViewToMap(){
     var addedHandle;
     var map = $("#quick-view-maps").val();
     if(
-        oPanelGraphs[panelId]
-            && oPanelGraphs[panelId].map
+        panelGraphs[panelId]
+            && panelGraphs[panelId].map
             && (
-            oPanelGraphs[panelId].map!=map
-                || (oPanelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].mapsets.components[0].handle].period)
-                ||(oPanelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=oPanelGraphs[panelId].assets[oPanelGraphs[panelId].pointsets[0].components[0].handle].period)
+            panelGraphs[panelId].map!=map
+                || (panelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].mapsets.components[0].handle].period)
+                ||(panelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].pointsets[0].components[0].handle].period)
             )
         ){
-        dialogShow("Map Error","This graph already has a "+oPanelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
+        dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
         return null;
     }
     if(map=='other'){
@@ -1326,7 +1310,7 @@ function quickViewToMap(){
     if(panelId=="new"){
         oGraph = emptyGraph()
     } else {
-        oGraph = oPanelGraphs[panelId];
+        oGraph = panelGraphs[panelId];
         oGraph.controls.provenance.provOk(false);
     }
     oGraph.map = map;
@@ -2444,8 +2428,8 @@ function syncMyAccount(){ //called only after loggin and after initial report of
 
                 //$('#series-table').find("td.quick-view button[data='"+oldHandle+"']").attr('data',serie.handle);
 
-                for(tab in oPanelGraphs){
-                    updateHandles(oPanelGraphs[tab],oldHandle, serie);
+                for(tab in panelGraphs){
+                    updateHandles(panelGraphs[tab],oldHandle, serie);
                 }
                 for(var graph in oMyGraphs){
                     updateHandles(oMyGraphs[graph], oldHandle, serie);
@@ -2479,49 +2463,11 @@ function syncMyAccount(){ //called only after loggin and after initial report of
         function(results, textStatus, jqXH){
             for(var key in results.graphs){
                 oMyGraphs[key]=results.graphs[key];
-                inflateGraph(oMyGraphs[key]);
+                grapher.inflateGraph(oMyGraphs[key]);
                 dtMyGraphs.fnAddData(oMyGraphs[key]);
             }
         }
     );
-}
-
-
-function inflateGraph(graph){
-    if(graph.annotations){
-        graph.annotations=safeParse(graph.annotations,[]);
-    } else {
-        graph.annotations=[];
-    }
-    for(var plot in graph.plots){
-        graph.plots[plot].options = safeParse(graph.plots[plot].options, {});
-        for(var comp in graph.plots[plot].components){
-            graph.plots[plot].components[comp].options = safeParse(graph.plots[plot].components[comp].options, {});
-        }
-    }
-    for(var plot in graph.pointsets){
-        graph.pointsets[plot].options = safeParse(graph.pointsets[plot].options, {});
-        for(var comp in graph.pointsets[plot].components){
-            graph.pointsets[plot].components[comp].options = safeParse(graph.pointsets[plot].components[comp].options, {});
-        }
-    }
-    graph.mapconfig = safeParse(graph.mapconfig, {});
-
-    if(graph.mapsets){
-        graph.mapsets.options = safeParse(graph.mapsets.options, {});
-        for(var comp in graph.mapsets.components){
-            graph.mapsets.components[comp].options = safeParse(graph.mapsets.components[comp].options, {});
-        }
-    }
-
-    function safeParse(jsonString, emptyValue){
-        try{
-            return JSON.parse(jsonString);
-        }
-        catch(e){
-            return emptyValue;
-        }
-    }
 }
 
 function getMySeries(){
@@ -2603,7 +2549,7 @@ function saveGraph(oGraph, callback) {
             }
 
             oMyGraphs['G'+oGraph.gid]=objForDataTable;
-            oPanelGraphs[visiblePanelId()] =  oGraph;
+            panelGraphs[visiblePanelId()] =  oGraph;
             if(callback) callback();
         }
     );
@@ -2637,7 +2583,7 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
 }
 
 function addMySeriesRow(oMD){  //add to table and to oMySeries
-    //TODO:  need to update existing oPanelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySeries.');
+    //TODO:  need to update existing panelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySeries.');
     if(oMD.handle){
         if(oMD.save_dt) oMD.save_dt = parseInt(oMD.save_dt);
         if(oMySeries[oMD.handle]){
@@ -2736,13 +2682,13 @@ function deleteMySeries(){  //remove all series in quickView from users MySeries
 // actual addTab function: adds new tab using the title input from the form above.  Also checks and sets the edit graph button
 function addTab(title) {
     var tab_title =  (title.length==0)?'Graph '+tab_counter:title;
-    var newTab = $graphTabs.tabs('add', '#graphTab'+tab_counter, tab_title);
-    $('#graphTab'+tab_counter).addClass('graph-panel');
+    var panelId = 'graphTab'+tab_counter++;
+    var newTab = $graphTabs.tabs('add', '#'+panelId, tab_title);
+    $('#'+panelId).addClass('graph-panel');
     //this causes problem when deleting tabs
     $( "#canvas" ).tabs().find( ".ui-tabs-nav" ).sortable({ axis: "x", distance: 10  });
     $graphTabs.tabs('select', $graphTabs.tabs('length') - 1);
     $(".ui-tabs-selected a").each(function(){$(this).attr("title", $(this).html())});
-    tab_counter++;
     resizeCanvas();
     $("#btnEditGraphTop").removeAttr("disabled");
     if($("#delete-my-series").attr("disabled")!="disabled"){
@@ -2752,7 +2698,7 @@ function addTab(title) {
     $('#graph-tabs a:last').click(function(){
         hideGraphEditor()
     });
-    return($('#canvas .graph-panel:last').attr('id'));
+    return panelId;
 }
 //run when a graph tab is deleted.  Also checks and sets the edit graph button and global variable
 function removeTab(evt){
@@ -2762,7 +2708,7 @@ function removeTab(evt){
     destroyChartMap(panelId);
     $(panelRef).remove();
     $span.parent().remove();
-    delete oPanelGraphs[panelId];
+    delete panelGraphs[panelId];
     $graphTabs.tabs('refresh'); //tell JQUI to sync up
     if($graphTabs.find("li").length == 0){
         editingPanelId = null; //dissociate the chart from the this edit session
@@ -2776,8 +2722,8 @@ function removeTab(evt){
 }
 
 function destroyChartMap(panelId){
-    if(oPanelGraphs[panelId] && oPanelGraphs[panelId].controls){
-        var controls = oPanelGraphs[panelId].controls;
+    if(panelGraphs[panelId] && panelGraphs[panelId].controls){
+        var controls = panelGraphs[panelId].controls;
         if(controls.chart){
             controls.chart.destroy();
             delete controls.chart;
@@ -2845,8 +2791,8 @@ function panelHash(){
             return encodeURI('t=cg'+($search.hasClass(gi)?'':'&s='+$search.val()));
         default:
             var visiblePanel = visiblePanelId();
-            if(visiblePanel && oPanelGraphs[visiblePanel]){
-                return encodeURI('t=g'+visiblePanel.substr(8)+(oPanelGraphs[visiblePanel].ghash?'&graphcode='+oPanelGraphs[visiblePanel].ghash:''));
+            if(visiblePanel && panelGraphs[visiblePanel]){
+                return encodeURI('t=g'+visiblePanel.substr(8)+(panelGraphs[visiblePanel].ghash?'&graphcode='+panelGraphs[visiblePanel].ghash:''));
             }
     }
 }
@@ -2926,4 +2872,315 @@ function unmask(){
 }
 function mask(msg){
     $("#wrapper").mask(msg||"Loading...");
+}
+
+function detectPeriodFromReadableDate(dateString)       {
+    var pat = /^\s*[0-9]{4}\s*$/i;
+    if(pat.test(dateString)) return  "A";
+
+    pat = /^\s*[0-9]{4}[ -]{1}[0-2]{0-1}[0-9]{1-2}\s*$/i;
+    if(pat.test(dateString)) return  "M";
+    pat = /^\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[ -]{1}[0-9]{4}\s*$/i;
+    if(pat.test(dateString)) return  "M";
+    pat = /^\s*[0-9]{4}[ -]{1}(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*$/i;
+    if(pat.test(dateString)) return  "M";
+
+    pat = /^\s*[0-9]{4}\s*$/i;
+    if(pat.test(dateString)) return  "D";
+
+    pat = /^\s*W[0-5]{0-1}[0-9]{1} [0-9]{4}\s*$/i;
+    if(pat.test(dateString)) return  "W"; //unable to detect weekly
+
+    pat = /^Q[1-4]{1}\s[0-9]{4}/i;
+    if(pat.test(dateString)) return  "Q";
+
+    pat = /^H[1-2]{1}\s[0-9]{4}/i;
+    if(pat.test(dateString)) return  "H";
+    return false; //no valid date format detected
+}
+
+function UTCFromReadableDate(dateString){
+    var pat, dt = new Date(dateString + " UTC");  //this should work for year, month, day, and hours
+    if(dt.toString()!="NaN")return dt;
+    pat = /^W[0-5]{0-1}[0-9]{1}\s[0-9]{4}/i;
+    if(pat.test(dateString)){
+        dt = new Date(parseInt(dateString.substr(3))+' UTC');
+        return dt.setUTCMonth((parseInt(dateString.charAt(1))-1)*3);
+    }
+    //quarter?
+    pat = /^Q[1-4]{1}\s[0-9]{4}/i;
+    if(pat.test(dateString)){
+        dt = new Date(parseInt(dateString.substr(3))+' UTC');
+        return dt.setUTCMonth((parseInt(dateString.charAt(1))-1)*3);
+    }
+    pat = /^H[1-2]{1}\s[0-9]{4}/i;
+    if(pat.test(dateString)){
+        dt = new Date(parseInt(dateString.substr(3))+' UTC');
+        return dt.setUTCMonth((parseInt(dateString.charAt(1))-1)*6);
+    }
+    return false;
+}
+
+function nextDate(dt, period){ //return a Javascript date object
+    switch(period){
+        case 'A': return dt.setUTCFullYear(dt.getUTCFullYear()+1);
+        case 'Q': return dt.setUTCMonth(dt.getUTCMonth()+3);
+        case 'SA': return dt.setUTCMonth(dt.getUTCMonth()+6);
+        case 'M': return dt.setUTCMonth(dt.getUTCMonth()+1);
+        case 'W': return dt.setUTCDate(dt.getUTCDate()+6);
+        case 'D': return dt.setUTCDate(dt.getUTCDate()+1);
+        default: return null;
+    }
+}
+
+
+//GRAPH AND MAP FUNCTIONS only used by WORKBENCH (not needed for embedded graph)
+
+function makeSlickDataGrid(grid, panelId, $dataPanel){
+    mask('creating grid');
+    var type = $dataPanel.attr('data');
+    var $container = $dataPanel.find('.slick-holder');
+    if(grid) grid.destroy();  //allow show one SG at a time = too much for browsers to handle
+    var graph = panelGraphs[panelId];
+    var options = {
+        enableCellNavigation: true,
+        enableColumnReorder: false,
+        defaultColumnWidth: 200,
+        headerRowHeight: 100
+    };
+    switch(type){
+        case 'chart':
+            var chartDataObject = gridDataForChart(panelId);
+            grid = new Slick.Grid($container, chartDataObject.rows, chartDataObject.columns, options);
+            break;
+        case 'regions':
+            grid = new Slick.Grid($container, graph.calculatedMapData.regionGrid.data, graph.calculatedMapData.regionGrid.columns, options);
+            break;
+        case 'markers':
+            grid = new Slick.Grid($container, graph.calculatedMapData.markerGrid.data, graph.calculatedMapData.markerGrid.columns, options);
+            break;
+    }
+    unmask();
+}
+
+function gridDataForChart(panelId){  //create tables in data tab of data behind the chart, the map regions, and the map markers
+    console.time("gridDataForChart");
+    var p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, readableDate, mdDate, found, r, pnt;
+    var oGraph = panelGraphs[panelId];
+    var assets = oGraph.assets;
+    var region;
+    if(oGraph.plots){
+        var chart = oGraph.controls.chart;
+    } else {
+        throw "Chart does not exist; cannot make grid objects";
+    }
+    /*
+     strategy:
+     1.  separate slick grids (tabs) for chart, map regions, map markers
+     2.  build array of arrays on the fly, each plot at a time
+     2.  each row contains the full set of assets and calculated data
+     3.  header:  name, units, symbol, source
+     4.  skip the calculated column when formula = A & no unit or name changes
+     5.  insert row where date DNE
+     */
+
+    //create a structure to put all data and results into
+    var plotId, colId, rows = [];
+    var  columns = [{
+        id: 'date',
+        field: 'date',
+        name: 'name:<br>'      //name of component or plot (plot names are bolded); component column removed if straight through plot
+            + 'units:<br>'
+            + 'source:<br>'
+            + 'notes:<br>'
+            + 'region code:<br>' //row deleted if empty at func end
+            + 'lat, lon:<br>'  //row deleted if empty at func end
+            + 'formula:',
+        cssClass: 'grid-date-column'
+    }];
+    for(p=0;p<oGraph.plots.length;p++){
+        plot = oGraph.plots[p];
+        plotId = 'P'+p;
+        serie = chart.get(plotId);
+        var showComponentsAndPlot = (plot.options.formula && plot.options.formula.formula.length>1) || (plot.formula && plot.formula.formula.length>1) || plot.options.units || plot.options.name;
+        for(c=0;c<plot.components.length;c++){
+            colId = 'P'+p+'-C'+c;
+            component = assets[plot.components[c].handle];
+            columns.push({
+                    id: colId,
+                    field: colId,
+                    name:'<b>' + component.name + '</b><br>'
+                        + (component.units||'') + '<br>'
+                        + (component.src||'') + '<br>'
+                        + (component.notes||'') + '<br>'
+                        + (component.iso3166||'') + '<br>'
+                        + (component.lat ? component.lat + ', ' + component.lon : '') + '<br>'
+                        + '<br>component '+compSymbol(c),
+                    cssClass: 'grid-series-column'}
+            );
+
+
+            //loop through the data, adding rows for new dates as needed and then setting the column values
+            compData = component.data.split('||');
+            for(d=0;d<compData.length;d++){
+                mdPoint = compData[d].split('|');
+                jsdt = dateFromMdDate( mdPoint[0]);
+                readableDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
+                if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
+                    //search to see if this date is in rows
+                    for(found=false, r=0;r<rows.length;r++){ //see if date row exists, else add
+                        if(rows[r].id == mdPoint[0]){
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) rows.push({id: mdPoint[0], date: readableDate, order: jsdt});
+                    rows[r][colId] = mdPoint[1]===null?'-':mdPoint[1];
+                }
+            }
+        }
+        if(showComponentsAndPlot){
+            columns.push({
+                    id: plotId,
+                    field: plotId,
+                    name:'<b>' + plotName(oGraph, plot) + '</b><br>'
+                        + plotUnits(oGraph, plot) + '<br>'
+                        + '<br>'
+                        + '<br>'
+                        + '<br>'
+                        + '<br>'
+                        + '<br>'+plot.formula.formula,
+                    cssClass: 'grid-calculated-column'}
+            );
+            for(d=0;d<serie.options.data.length;d++){
+                pnt = serie.options.data[d]
+                readableDate = formatDateByPeriod(pnt[0], serie.options.period);
+                mdDate = mashableDate(pnt[0], serie.options.period);
+                //search to see if this date is in gridArray
+                if((!oGraph.start || oGraph.start<=pnt[0]) && (!oGraph.end || oGraph.end>=pnt[0])){
+                    //search to see if this date is in rows
+                    for(found=false, r=0;r<rows.length;r++){ //see if date row exists, else add
+                        if(rows[r].id == mdDate){
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) rows.push({id: mdDate, date: readableDate, order: pnt[0]});
+                    rows[r][plotId] = pnt[1]===null?'-':pnt[1];
+                }
+            }
+        }
+    }
+    rows.sort(function(a,b){
+        if(b.order!=a.order) {
+            return b.order - a.order;
+        } else {
+            return b.id.length - a.id.length;
+        }
+    });  //guaranteed order because id is the getTime() of the row date
+    console.timeEnd("gridDataForChart ");
+    return {columns: columns, rows: rows};
+}
+
+/*function makeTableFromArray(grid){
+ console.time("makeTableFromArray");
+ var r, c;
+ if(grid[rowPosition.lat_lon].join('')=='lat, lon:') grid.splice(rowPosition.lat_lon,1);
+ if(grid[rowPosition.region].join('')=='region code:') grid.splice(rowPosition.region,1);
+ for(r=0;r<grid.length;r++){
+ grid[r] = '<tr><td>' + grid[r].join('</td><td>') + '</td></tr>';
+ }
+ console.timeEnd("makeTableFromArray");
+ return '<table class="data-grid">' + grid.join('') + '</table>';
+ }*/
+
+function downloadMap(panelID, format){
+    //format = 'image/jpeg';  //'application/pdf',
+    var svg = $('#'+ panelID + ' div.jvmap div').html();
+    svg = cleanMapSVG(svg);
+    downloadMadeFile({
+        type: format,
+        filename: 'MashableDataMap',
+        width: 2000,
+        svg: svg,
+        url: 'https://www.mashabledata.com/workbench/export/index.php'
+    });
+
+}
+
+function cleanMapSVG(svg){
+    //jvector map sanitize
+    svg = svg.replace(/<div[^<]+<\/div>/gi, '');
+    //svg = svg.replace(/ class="[^"]+"/gi, '');
+    //svg = svg.replace(/ id="[^"]+"/gi, '');
+    //svg = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">' + svg;
+    svg = svg.replace(/<svg /gi, '<svg xmlns="http://www.w3.org/2000/svg"  version="1.1" ');
+
+
+    svg = svg.replace(/<g><\/g>/gi, '');
+    //svg = svg.replace(/<g [^>]+>/gi, '<g>');
+    svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+mapBackground+'"></rect><g');
+    // standard sanitize
+    svg = svg
+        .replace(/zIndex="[^"]+"/g, '')
+        .replace(/isShadow="[^"]+"/g, '')
+        .replace(/symbolName="[^"]+"/g, '')
+        .replace(/jQuery[0-9]+="[^"]+"/g, '')
+        .replace(/isTracker="[^"]+"/g, '')
+        .replace(/url\([^#]+#/g, 'url(#')
+        /*.replace(/<svg /, '<svg xmlns:xlink="http://www.w3.org/1999/xlink" ')
+         .replace(/ href=/, ' xlink:href=')
+         .replace(/preserveAspectRatio="none">/g, 'preserveAspectRatio="none"/>')*/
+        /* This fails in IE < 8
+         .replace(/([0-9]+)\.([0-9]+)/g, function(s1, s2, s3) { // round off to save weight
+         return s2 +'.'+ s3[0];
+         })*/
+
+        // Replace HTML entities, issue #347
+        .replace(/&nbsp;/g, '\u00A0') // no-break space
+        .replace(/&shy;/g,  '\u00AD') // soft hyphen
+
+        // IE specific
+        .replace(/id=([^" >]+)/g, 'id="$1"')
+        .replace(/class=([^" ]+)/g, 'class="$1"')
+        .replace(/ transform /g, ' ')
+        .replace(/:(path|rect)/g, '$1')
+        .replace(/style="([^"]+)"/g, function (s) {
+            return s.toLowerCase();
+        });
+
+    // IE9 beta bugs with innerHTML. Test again with final IE9.
+    svg = svg.replace(/(url\(#highcharts-[0-9]+)&quot;/g, '$1')
+        .replace(/&quot;/g, "'");
+    if ((svg.match(/ xmlns="/g)) && svg.match(/ xmlns="/g).length === 2) {
+        svg = svg.replace(/xmlns="[^"]+"/, '');
+    }
+
+    return svg;
+}
+
+function downloadMadeFile(options){
+    var createElement = Highcharts.createElement;
+    // create the form
+    var form = createElement('form', {
+            method: 'post',
+            action: options.url
+        }, {
+            display: 'none'
+        },
+        document.body
+    );
+
+    for(var name in options){
+        createElement('input', {
+            type: 'hidden',
+            name: name,
+            value: options[name]
+        }, null, form);
+    }
+    // submit
+    form.submit();
+
+    // clean up
+    Highcharts.discardElement(form);
 }

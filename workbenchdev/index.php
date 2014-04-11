@@ -1,4 +1,4 @@
-<? $workbenchVersion="0.1" ?>
+<?php $workbenchVersion="0.1" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html>
 <head>
@@ -19,14 +19,15 @@
     <link  rel="stylesheet" href="md_workbench.css?v=<?=$workbenchVersion?>" />
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css?v=<?=$workbenchVersion?>" type="text/css">
     <link rel="stylesheet" href="/global/js/slickgrid/slick.grid.css?v=<?=$workbenchVersion?>" type="text/css">
-
-    <!--Google API JavaScript files-->
-    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
-
-    <!--domestic JavaScript files-->
-    <!--script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script-->
-    <!--script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script-->
+    <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
+        <!--domestic JavaScript files-->
+        <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script>
+        <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
+    <?php } else { ?>
+        <!--Google API JavaScript files-->
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+    <?php }  ?>
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.9.4.js"></script><!-- latest version is 1.9.4-->
     <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
     <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
@@ -34,18 +35,18 @@
     <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.8.js"></script>
     <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
-    <!--script type="text/javascript" src="/global/js/ultbuttons/ultbuttons.min.js"></script-->
-    <? if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
-        <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
+    <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
+        <script type="text/javascript" src="/workbenchdev/js/globals.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/common.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/account.js?v=<?=$workbenchVersion?>"></script>
-        <script type="text/javascript" src="/workbenchdev/js/annotations.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/annotator.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/provenance.js?v=<?=$workbenchVersion?>"></script>
-    <? } else { ?>
+    <?php } else { ?>
         <script type="text/javascript" src="/workbench/js/workbench.min.js?v=<?=$workbenchVersion?>"></script>
-    <? }  ?>
+    <?php }  ?>
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/jquery.event.drag-2.0.min.js"></script>
     <script type="text/javascript" src="/global/js/slickgrid/slick.core.js"></script>
