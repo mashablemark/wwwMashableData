@@ -5,10 +5,14 @@
 <title>PHP Configuration</title>
 </head>
 <?php
-$point = "201201";
-$jsdate = strtotime (substr($point,0,4) ."-".substr($point,4,2). " UTC") * 1000;
-print($jsdate."<br>");
 
+$event_logging = true;
+$sql_logging = true;
+include_once("./global/php/common_functions.php");
+date_default_timezone_set('UTC');
+$con = getConnection();
+
+closeConnection();
 
 phpinfo();
 

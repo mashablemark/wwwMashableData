@@ -1395,7 +1395,7 @@ function ProvenanceController(panelId){
                         }
                     );
                 }
-                var index, skipped = 0, fullPosColor = options.posColor||MAP_COLORS.POS;
+                var index, skipped = 0, fullPosColor = options.posColor||MAP_COLORS.POS, octet = MD.common.octet;
                 if(fullPosColor.substr(0,1)=='#')fullPosColor=fullPosColor.substr(1);
                 fullR = parseInt(fullPosColor.substr(0,2), 16);
                 fullG = parseInt(fullPosColor.substr(2,2), 16);

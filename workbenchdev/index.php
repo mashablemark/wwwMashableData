@@ -37,8 +37,8 @@
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
     <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
         <script type="text/javascript" src="/workbenchdev/js/globals.js?v=<?=$workbenchVersion?>"></script>
-        <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/common.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/account.js?v=<?=$workbenchVersion?>"></script>
@@ -55,7 +55,6 @@
 
 
     <!--immediate dynamic loading
-    //Group for graph creation
     <script type="text/javascript" src="js/highcharts.js"></script>
     <script type="text/javascript" src="js/exporting.src.js"></script>
     <script type="text/javascript" src="js/jquery.colorPicker.js"></script>

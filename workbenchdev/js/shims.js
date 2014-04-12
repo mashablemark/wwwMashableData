@@ -44,6 +44,42 @@ function addJQueryStringify(){ //stringify extension ensure stringify functional
     });
 }
 
+//TODO:  convert MashableData date format support to separate inherited obj
+Date.prototype.toMDDateString = function(period){
+    var p = period || this.period;
+    if(!p) throw('no period found');
+    var mdDate = this.getUTCFullYear();
+    switch (period){
+        case 'M':
+            mdDate += (this.getUTCMonth().toString().length==1?'0':'')+this.getUTCMonth();
+            break;
+        case 'Q':
+            mdDate += 'Q'+parseInt((this.getUTCMonth()+3)/3);
+            break;
+        case 'SA':
+            mdDate += 'H'+parseInt((this.getUTCMonth()+6)/6);
+            break;
+        case 'W':
+        case 'D':
+            mdDate += (this.getUTCMonth().toString().length==1?'0':'')+this.getUTCMonth();
+            mdDate += (this.getUTCDate().toString().length==1?'0':'')+this.getUTCDate();
+            break;
+
+    }
+    return mdDate;
+};
+
+//dictionary support
+if (!('pushUnique' in Array.prototype)) {
+    Array.prototype.pushUnique = function(item) {
+        if(this.indexOf(item)===-1){
+            return this.push(item);
+        } else {
+            return false;
+        }
+    };
+}
+
 // Add ECMA262-5 method binding if not supported natively
 if (!('bind' in Function.prototype)) {
     Function.prototype.bind= function(owner) {

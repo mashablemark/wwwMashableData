@@ -8,20 +8,20 @@
 
 MashableData.Annotator = function Annotator(panelId, makeDirty){
     var MD = MashableData, globals = MD.globals;
-    BAND_TRANSPARENCY = globals.BAND_TRANSPARENCY;
-    panelGraphs = globals.panelGraphs
+    var BAND_TRANSPARENCY = globals.BAND_TRANSPARENCY;
+    var panelGraphs = globals.panelGraphs;
 
     var controller  = {
         panelId: panelId,
-        $panel: $('#'+panelId),
         bandNo: 0,
         lineNo: 0,
         banding: false,
         bandStartPoint: void(0),
         makeDirty: makeDirty,
+        callApi: MD.common.callApi,
         addStandard: function addStandard(annoid){
             var self = this;
-            callApi({command: "GetAnnotation", annoid: annoid}, function(data){
+            self.callApi({command: "GetAnnotation", annoid: annoid}, function(data){
                 standardAnno = jQuery.parseJSON(data.annotation);
                 for(var i=0;i<standardAnno.length;i++){
                     panelGraphs[panelId].annotations.push(standardAnno[i]);
@@ -32,7 +32,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
         fetchStandards: function(){
             if(globals.standardAnnotations.length==0){  //standardAnnotations is global scope, so the fetch only ever occurs once
                 var self = this;
-                callApi({command: "GetAnnotations"}, function(results){
+                this.callApi({command: "GetAnnotations"}, function(results){
                     for(var i=0;i<results.annotations.length;i++) globals.standardAnnotations.push(results.annotations[i]);
                 });
             }
@@ -111,13 +111,13 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             pointSelected.select(true);
         },
         build: function buildAnnotations( redrawAnnoTypes){
-            var y, yOffset, self = this, $annotations = $('#' + panelId + ' div.annotations').show().find('table');
-            if($annotations.html().length!=0) { //enable on all calls except initial build
-                $('div#' + panelId + ' .graph-save').button("enable");
-                panelGraphs[panelId].isDirty = true;
+            var y, yOffset, self = this, oGraph = panelGraphs[panelId], $thisPanel = oGraph.controls.$thisPanel,
+                $annotations = $thisPanel.find('div.annotations').show().find('table');
+            if($annotations && $annotations.length!=0) { //enable on all calls except initial build
+                $thisPanel.find('.graph-save').button("enable");
+                oGraph.isDirty = true;
             }
             if(!redrawAnnoTypes) redrawAnnoTypes='all';
-            var oGraph = panelGraphs[panelId];
 // builds and return a fresh annotations table HTML string from oGraph
             var sTable = '';
             var annoLetter = 'A';
@@ -262,6 +262,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
                     oGraph.controls.chart.get(key).setData(scatterData[key], false);
                 }
+                console.info('annotations fired chart redraw');
                 oGraph.controls.chart.redraw(); //redraw after all have been updated
             }
             console.timeEnd('annotation redraw');
@@ -278,7 +279,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
         },
         change: function changeAnno(obj){
             var i, yOffset, y, id = $(obj).closest('tr').attr('data');
-            this.$panel.find('.graph-save').button('enable');
+            panelGraphs[panelId].controls.$thisPanel.find('.graph-save').button('enable');
             var oGraph = panelGraphs[panelId];
             var anno;
             for(i=0;i< oGraph.annotations.length;i++){

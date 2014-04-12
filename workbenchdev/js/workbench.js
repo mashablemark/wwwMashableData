@@ -7,7 +7,7 @@
  */
 
 //shortcuts:
-var MD = MashableData, globals = MD.globals, grapher = MD.grapher;
+var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
 var themeCubes = globals.themeCubes,
     iconsHMTL = globals.iconsHMTL,
     panelGraphs = globals.panelGraphs,
@@ -20,6 +20,8 @@ var createMyGraph = grapher.createMyGraph,
     formatDateByPeriod = grapher.formatDateByPeriod,
     visiblePanelId = grapher.visiblePanelId,
     compSymbol = grapher.compSymbol;
+var dateFromMdDate = common.dateFromMdDate,
+    callApi = common.callApi;
 
 //WORKBENCH TEMPLATES
 var templates = {
@@ -969,7 +971,7 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
             localStorage.removeItem(seriesKeys[i]);
             mySerie.handle = 'L'+localSeriesIndex++;
             //reformat data as string
-            mySerie.data = mashableDataString(mySerie);
+            mySerie.data = MD.common.mashableDataString(mySerie);
 
             if(account.loggedIn()) {          // ...add to MySeries in cloud
                 params.series.push(mySerie);
@@ -2840,32 +2842,6 @@ function notLoggedInWarningDisplayed(){
     }
     return  (!account.loggedIn());
 }
-function callApi(params, callBack){ //modal waiting screen is shown by default. params.modal option can modify this behavior
-    if(params.modal!='none')mask();
-    $.ajax({type: 'POST',
-        url: "api.php",
-        encoding:"UTF-8",
-        data:$.extend({uid: getUserId(), version: workbenchVersion, accessToken: account.info.accessToken}, params),
-        dataType: 'json',
-        success: function(jsoData, textStatus, jqXHR){
-            if(jsoData.status=="ok"){
-                totalServerTime += parseFloat(jsoData.exec_time);
-                console.info(params.command+': '+jsoData.exec_time+' (total server time: '+totalServerTime+'ms)');
-                callBack(jsoData, textStatus, jqXHR);
-                if(params.modal!='persist')unmask();
-                if(jsoData.msg) dialogShow('', jsoData.msg);
-            } else {
-                unmask();
-                dialogShow('Connected to server, but the command failed.', jsoData.status+'<br><br>If this is a system error and continues to occur, please email <a href="mailto:support@mashabledata.com">support@mashabledata.com</a>.');
-            }
-        },
-        error: function(jqXHR, textStatus, errorThrown){
-            unmask();
-            dialogShow(textStatus, "A system error occurred while trying to connect to the server.  Check your internet connectivity and try again later.");
-            console.log(textStatus);
-            console.log(jqXHR);}
-    });
-}
 //function unmask(){$("div#modal").hide();}
 function unmask(){
     $("#wrapper").unmask()
@@ -3055,7 +3031,7 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
             for(d=0;d<serie.options.data.length;d++){
                 pnt = serie.options.data[d]
                 readableDate = formatDateByPeriod(pnt[0], serie.options.period);
-                mdDate = mashableDate(pnt[0], serie.options.period);
+                mdDate = MD.common.mashableDate(pnt[0], serie.options.period);
                 //search to see if this date is in gridArray
                 if((!oGraph.start || oGraph.start<=pnt[0]) && (!oGraph.end || oGraph.end>=pnt[0])){
                     //search to see if this date is in rows
