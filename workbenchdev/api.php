@@ -1,7 +1,8 @@
 <?php
 $event_logging = true;
 $sql_logging = true;
-include_once("../global/php/common_functions.php");
+$web_root = "/var/www/vhosts/www.mashabledata.info/httpdocs";
+include_once($web_root . "/global/php/common_functions.php");
 date_default_timezone_set('UTC');
 header('Content-type: text/html; charset=utf-8');
 
@@ -304,8 +305,54 @@ switch($command){
     case "GetPublicGraph":  //data and all: the complete protein!
         $ghash =  $_POST['ghash'];
         if(strlen($ghash)>0){
-            $output = getGraphs(0, $ghash);
+            $ghash_var = safeSQLFromPost('ghash');
+            $currentmt = microtime(true);
 
+            //1. check cache
+            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefresh, graphjson from graphcache where ghash=$ghash_var";
+            $result = runQuery($sql);
+            if($result->num_rows==1){
+                $row = $result->fetch_assoc();
+                $age = $currentmt-$row['createmtime'];
+                if($age<15*60*1000 && ($row['lastrefresh']==null || $currentmt-$row['lastrefresh']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
+                    //cache good! (or another refresh in progress...)
+                    $graph_json = (string) $row["graphjson"];
+                    $output = json_decode($graph_json, true, 512, JSON_HEX_QUOT);
+                    //$output = ["json"=>$graph_json];
+                    $output["cache_age"] =  $age / 1000 . "s";
+                } else {
+                    //cache needs refreshing
+                    runQuery("update graphcache set lastrefresh = $currentmt where ghash=$ghash_var");
+                }
+            }
+            if(!isset($output)){
+                //2. fetch if not in cache or needs refreshing
+                $output = getGraphs(0, $ghash);
+
+                //3. insert or update cache
+                $global_sql_logging = $sql_logging;  //don't log these massive inserts
+                $sql_logging = false;
+                $cache_var = safeStringSQL(json_encode($output, JSON_HEX_QUOT));
+                $sql = "insert into graphcache (ghash, createmtime, graphjson) values ($ghash_var, $currentmt, $cache_var)";
+                //two steps instead of 'on duplicate key' to void submitting massive json string twice in one SQL statement
+                runQuery("delete from graphcache where ghash=$ghash_var");
+                runQuery($sql);
+                $sql_logging = $global_sql_logging;
+
+            }
+            //4. log embedded usage
+            //if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
+            if(isset($_REQUEST["host"])){
+                    $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
+                $sql = "
+                    insert into embedlog (host, obj, objfetches) values ($ghash_var, $host, 1)
+                    on duplicate key
+                    update embedlog set objfetches=objfetches+1 where host=$host and obj=$ghash_var
+                ";
+                runQuery($sql);
+            }
+
+            //5. carry on...
             if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
             } else {
@@ -456,6 +503,16 @@ switch($command){
                 }
             }
             getCubeSeries($output, $cubeid, $geoid);
+
+            //log embedded usage
+            if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
+                $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
+                $ghash_var = safeSQLFromPost("ghash");
+                $sql = "
+                    update embedlog set cubefecthes = cubefecthes + 1 where host=$host and obj=$ghash_var
+                ";
+                runQuery($sql);
+            }
         }
         break;
     case "ChangeMaps":
@@ -782,7 +839,7 @@ EOS;
         $gid =  (isset($_POST['gid']))?intval($_POST['gid']):0;
         $user_id =  isset($_POST['uid']) ? intval($_POST['uid']) : 0;
         if($_POST['published']=='Y'){$published = "Y";} else  {$published = "N";}
-        $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;
+        $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;  //WAMP 16bit math compatibility
         $updatedt = isset($_POST['updatedt'])?intval($_POST['updatedt']/1000)*1000:null;
         $intervals = isset($_POST['intervals'])?intval($_POST['intervals']):'null';
         $from = (isset($_POST['start']) && is_numeric($_POST['start']))?intval($_POST['start']/1000)*1000:'null';
@@ -885,9 +942,8 @@ EOS;
                 }
             }
         }
-
-
-
+        //clear the cache when a graph is saved (if new or not previously cached, nothing gets deleted)
+        runQuery("delete from graphcache where ghash='$ghash'");
         break;
 	case "ManageMySeries":
         requiresLogin();
@@ -1295,7 +1351,17 @@ EOS;
             }
         }
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
-		break;
+        //log embedded usage
+        if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
+            $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
+            $sql = "
+                    insert into embedlog (host, obj, objfetches) values ($host, 'series', 1)
+                    on duplicate key
+                    update embedlog set cubefecthes = cubefecthes + 1 where host=$host and obj='series'
+                ";
+            runQuery($sql);
+        }
+        break;
     case  "GetAnnotations":
         if(safePostVar('whose')=="M"){
             requiresLogin();
@@ -1423,6 +1489,7 @@ function getGraphs($userid, $ghash){
             );
             //if($aRow["map"]!=null){
             $output['graphs']['G' . $gid]["map"] = $aRow["map"];
+            $output['graphs']['G' . $gid]["bunny"] = $aRow["bunny"];
             $output['graphs']['G' . $gid]["mapconfig"] = $aRow["mapconfig"];
             $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             //}

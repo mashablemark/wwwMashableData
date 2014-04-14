@@ -404,79 +404,17 @@ ul.blank-plot{
     color: #808080;
     font-size: 12px;
 }
-div.chart{
-    position: relative;
-    top: 0;
-    z-index: 1;
-}
 
-div.map {
-    position: relative;
-    padding: 5px;
-    top: 0;
-    z-index: 1;
-//TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
-}
-div.map-title{
+
+div.mashabledata_map-title{
     cursor: pointer;
 }
-div.jvmap {
-    width: 100%;
-    padding: 0;
-    margin: 0;
-    z-index: 1;
-}
-div.map-list {
-    float:right;
-    background-color: white;
-    border:  thin solid black;
-    width: 400px;
-    position: absolute;
-    height: 100%;
-    top: -1px;
-    right: 0;
-    z-index: 100;
-    overflow-y: auto;
-    overflow-x: auto;
-}
-div.map-list button{
-    margin: 2px 10px;
-}
 
-div.map-list div{
-    margin: 2px 10px;
-    display: inline-block;
-}
 
-div.map-list th{
-    color: #ffffff;
-    background-color: #000000;
-    padding: 4px;
-}
-div.map-list td{
-    padding: 1px 4px;
-    border: thin solid #d3d3d3;
-}
-div.map-list table{
-    border-collapse:collapse;
-}
-div.map-list table tr td:first-child, div.map-list table tr td:last-child{
-    text-align: right;
-}
-div.map-controls{
-    margin-top: 5px;
-}
-button.map-graph-selected{
-    margin: 0 5px;
-}
 div.crop-slider{
     margin: 5px 0;
 }
-div.map-slider{
-    margin: 2px 20px 0 0;
-    top: 4px;
-    left: 4px;
-}
+
 div.sharing fieldset{
     padding: 0;
 }
@@ -858,17 +796,6 @@ li.component{
     width: 50px;
     height: 16px;
     display: inline-block;
-}
-div.jvectormap-container{
-    margin-right: 15px;
-    border: thin black solid;
-}
-.map-date{
-    left: 40px;
-    position: absolute;
-    top: 10px;
-    font-size: 20px;
-    font-weight: bold;
 }
 .ui-tabs .ui-tabs-nav li a {
     padding: .5em 2em .5em 1em;

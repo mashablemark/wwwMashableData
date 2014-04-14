@@ -7,10 +7,11 @@
  */
 
 MashableData.Annotator = function Annotator(panelId, makeDirty){
-    var MD = MashableData, globals = MD.globals;
+    var MD = MashableData, globals = MD.globals, common = MD.common, grapher = MD.grapher;
     var BAND_TRANSPARENCY = globals.BAND_TRANSPARENCY;
     var panelGraphs = globals.panelGraphs;
-
+    var equivalentRGBA = common.equivalentRGBA;
+    var period = globals.period;
     var controller  = {
         panelId: panelId,
         bandNo: 0,
@@ -609,7 +610,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             var p, i, LR, AV;
             var oGraph = panelGraphs[panelId];
             var chart = oGraph.controls.chart;
-            var start = oGraph.start||(oGraph.intervals?intervalStartDt(oGraph):oGraph.firstdt);
+            var start = oGraph.start||(oGraph.intervals?grapher.intervalStartDt(oGraph):oGraph.firstdt);
             if(oGraph.plots && oGraph.plots.length>0){
                 for(p=0;p<oGraph.plots.length;p++){
                     if(oGraph.plots[p].options.linRegressions){

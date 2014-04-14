@@ -2453,7 +2453,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                 return;
             }
         }
-        eachComponent(graph, function(){if(this.handle==oldHandle) this.handle = serie.handle});
+        grapher.eachComponent(graph, function(){if(this.handle==oldHandle) this.handle = serie.handle});
     }
 
 // note: series cleared from localStorage when they were read
@@ -2500,7 +2500,7 @@ function saveGraph(oGraph, callback) {
     }
     //create/update the series list
     oGraph.serieslist = [];
-    eachComponent(oGraph, function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
+    grapher.eachComponent(oGraph, function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
     oGraph.serieslist = oGraph.serieslist.join('; ');
 
 
@@ -2517,7 +2517,7 @@ function saveGraph(oGraph, callback) {
     params.annotations = serializeAnnotations(oGraph);  // over write array of object with a single serialized field
     params.mapconfig = $.stringify(oGraph.mapconfig);
     var plot, comp;
-    eachPlot(params, function(){
+    grapher.eachPlot(params, function(){
         this.options = $.stringify(this.options);
         $.each(this.components, function(){
             this.options = $.stringify(this.options);

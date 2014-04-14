@@ -8,7 +8,7 @@
 
 var MashableData = {
     globals: {
-        isEmbedded: (window.location.hostname.indexOf('www.mashabledata.com')===-1 && window.location.pathname.indexOf('workbench')===-1),
+        isEmbedded: (window.location.hostname.indexOf('www.mashabledata.com')===-1 || window.location.pathname.indexOf('workbench')===-1),
         //ANNOTATOR
         BAND_TRANSPARENCY: 0.5,
         colorsPlotBands: ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'],

@@ -201,6 +201,7 @@ MashableData.common = {
     },
 
     downShiftData: function downShiftData(asset, fdown, algorithm, missing){
+        var period = MashableData.globals.period;
         //algorithm = [sum|wavg] *required
         //not programmed for require all points|missing/null as zero|impute null/missing
         if(period.value[fdown]==period.value[asset.period]) return asset.data;
@@ -357,13 +358,13 @@ MashableData.common = {
     callApi: function callApi(params, callBack){ //modal waiting screen is shown by default. params.modal option can modify this behavior
         var data, embed = MashableData.globals.isEmbedded;
         if(embed){
-            data = $.extend({uid: false}, params)
+            data = $.extend({uid: false, host: window.location.host}, params)
         } else {
             data = $.extend({uid: getUserId(), version: workbenchVersion, accessToken: account.info.accessToken}, params)
         }
         if(!embed && params.modal!='none') mask();
         $.ajax({type: 'POST',
-            url: embed?"http://localhost/workbenchdev/api.php":"api.php",
+            url: embed?"http://remote.mashabledata.com"+(MashableData.globals.dev||''):"api.php",
             encoding:"UTF-8",
             data: data,
             dataType: 'json',
