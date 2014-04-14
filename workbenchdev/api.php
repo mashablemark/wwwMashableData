@@ -2,6 +2,7 @@
 $event_logging = true;
 $sql_logging = true;
 $web_root = "/var/www/vhosts/www.mashabledata.info/httpdocs";
+$cache_TTL = 60; //public_graph and cube cache TTL in minutes
 include_once($web_root . "/global/php/common_functions.php");
 date_default_timezone_set('UTC');
 header('Content-type: text/html; charset=utf-8');
@@ -314,7 +315,7 @@ switch($command){
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
                 $age = $currentmt-$row['createmtime'];
-                if($age<15*60*1000 && ($row['lastrefresh']==null || $currentmt-$row['lastrefresh']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
+                if($age<$cache_TTL*60*1000 && ($row['lastrefresh']==null || $currentmt-$row['lastrefresh']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
                     //cache good! (or another refresh in progress...)
                     $graph_json = (string) $row["graphjson"];
                     $output = json_decode($graph_json, true, 512, JSON_HEX_QUOT);
@@ -487,24 +488,58 @@ switch($command){
         } else {
             $cubeid = intval($_POST["cubeid"]);
             $geokey = $_POST["geokey"];
-            $output = ["status"=>"ok", "cubeid"=>$cubeid, "geokey"=>$geokey];
-            //todo:  check for latlon geokey and geoid geokey. For now, aussume jvectormap code
-            if(is_numeric($geokey)){
-                $geoid = $geokey;
-            } else {
-                $sql = "select geoid from geographies where jvectormap=".safeStringSQL($geokey);
-                $result = runQuery($sql);
-                if($result->num_rows==1){
-                    $row = $result->fetch_assoc();
-                    $geoid = $row["geoid"];
+
+            //1. check cache
+            $currentmt = microtime(true);
+            $ghash_var = safeStringSQL($cubeid.":".$geokey);
+            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefresh, graphjson from graphcache where ghash=$ghash_var";
+            $result = runQuery($sql);
+            if($result->num_rows==1){
+                $row = $result->fetch_assoc();
+                $age = $currentmt-$row['createmtime'];
+                if($age<$cache_TTL*60*1000 && ($row['lastrefresh']==null || $currentmt-$row['lastrefresh']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
+                    //cache good! (or another refresh in progress...)
+                    $cube_json = (string) $row["graphjson"];
+                    $output = json_decode($cube_json, true, 512, JSON_HEX_QUOT);
+                    $output["cache_age"] =  $age / 1000 . "s";
                 } else {
-                    $output = ["status"=>"invalid geography key"];
-                    break;
+                    //cache needs refreshing
+                    runQuery("update graphcache set lastrefresh = $currentmt where ghash=$ghash_var");
                 }
             }
-            getCubeSeries($output, $cubeid, $geoid);
+            if(!isset($output)){
+                //2. fetch if not in cache or needs refreshing
+                $output = ["status"=>"ok", "cubeid"=>$cubeid, "geokey"=>$geokey];
+                //todo:  check for latlon geokey and geoid geokey. For now, aussume jvectormap code
 
-            //log embedded usage
+                if(is_numeric($geokey)){
+                    $geoid = $geokey;
+                } else {
+                    $sql = "select geoid from geographies where jvectormap=".safeStringSQL($geokey);
+                    $result = runQuery($sql);
+                    if($result->num_rows==1){
+                        $row = $result->fetch_assoc();
+                        $geoid = $row["geoid"];
+                    } else {
+                        $output = ["status"=>"invalid geography key"];
+                        break;
+                    }
+                }
+                getCubeSeries($output, $cubeid, $geoid);
+
+
+                //3. insert or update cache
+                $global_sql_logging = $sql_logging;  //don't log these massive inserts
+                $sql_logging = false;
+                $cache_var = safeStringSQL(json_encode($output, JSON_HEX_QUOT));
+                $sql = "insert into graphcache (ghash, createmtime, graphjson) values ($ghash_var, $currentmt, $cache_var)";
+                //two steps instead of 'on duplicate key' to void submitting massive json string twice in one SQL statement
+                runQuery("delete from graphcache where ghash=$ghash_var");
+                runQuery($sql);
+                $sql_logging = $global_sql_logging;
+
+            }
+            //4. log embedded usage
             if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
                 $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
                 $ghash_var = safeSQLFromPost("ghash");
