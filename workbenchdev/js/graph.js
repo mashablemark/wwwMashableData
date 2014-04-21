@@ -518,7 +518,7 @@ MashableData.grapher = function(){
             }
             function createGraph(graph){
                 //TODO:  get maps from https://embedservice.mashabledata.com/global/js/maps/
-                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?['/global/js/maps/'+ graph.mapFile +'.js']:[]);  //get the map too if needed
+                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?[(globals.isEmbedded?'//remote.mashabledata.com/':'/global/js/maps/')+ graph.mapFile +'.js']:[]);  //get the map too if needed
                 require(fileAssets); //non-blocking parallel load while getting db assets
                 getAssets(graph, function(){
                     require(fileAssets, function(){ //blocking check to ensure required libraries have loaded

@@ -7,18 +7,9 @@
             <title>MashableData Embedder Samples</title>
 
             <!--CSS files-->
-            <?php
-            $domain = isset($_REQUEST["full"])?"http://www.mashabledata.com":"";
-            if(strrpos ($_SERVER["REQUEST_URI"], 'test')!==FALSE){ ?>
-                <link  rel="stylesheet" href="<?=$domain?>/global/css/smoothness/jquery-ui-1.9.2.custom.css" />
-                <link rel="stylesheet" media="screen" href="<?=$domain?>/global/css/jquery-jvectormap-1.2.2.css" />
-                <link rel="stylesheet" href="<?=$domain?>/global/js/fancybox/jquery.fancybox-1.3.4.css" type="text/css" />
-                <link rel="stylesheet" href="<?=$domain?>/global/js/loadmask/jquery.loadmask.css" type="text/css" />
-                <link rel="stylesheet" href="<?=$domain?>/embedder/mashabledata_charttool.css" />
-            <?php } else { ?>
-                <link  rel="stylesheet" href="<?=$domain?>/global/css/smoothness/jquery-ui-1.9.2.custom.css" />
-                <link rel="stylesheet" href="<?=$domain?>/embedder/mashabledata_charttool.css" />
-            <?php }  ?>
+            <link  rel="stylesheet" href="<?=$domain?>/global/css/smoothness/jquery-ui-1.9.2.custom.css" />
+
+            <link rel="stylesheet" href="<?=$domain?>/embedder/mashabledata_embedtools.css" />
 
             <!--LIBRARIES-->
             <?php if($_SERVER["SERVER_NAME"]=='localhost' || isset($_REQUEST["full"])){ ?>

@@ -1,4 +1,4 @@
-/**
+/*!
  * Copyright (c) 2009 Sergiy Kovalchuk (serg472@gmail.com)
  * 
  * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php)

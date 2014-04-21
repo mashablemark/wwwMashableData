@@ -364,11 +364,12 @@ MashableData.common = {
         }
         if(!embed && params.modal!='none') mask();
         $.ajax({type: 'POST',
-            url: embed?"http://remote.mashabledata.com"+(MashableData.globals.dev||''):"api.php",
+            url: embed?"http://remote.mashabledata.com/"+(MashableData.globals.embed||''):"api.php",
             encoding:"UTF-8",
             data: data,
             dataType: 'json',
             success: function(jsoData, textStatus, jqXHR){
+                console.info(jsoData);
                 if(jsoData.status=="ok"){
                     if(!embed){
                         totalServerTime += parseFloat(jsoData.exec_time);
@@ -387,14 +388,15 @@ MashableData.common = {
                 }
             },
             error: function(jqXHR, textStatus, errorThrown){
+                console.log(textStatus);
+                console.log(jqXHR);
                 if(embed){
                     return "A system error occurred while trying to connect to the MashableData servers.  Please try again later";
                 } else {
                     unmask();
                     dialogShow(textStatus, "A system error occurred while trying to connect to the server.  Check your internet connectivity and try again later.");
                 }
-                console.log(textStatus);
-                console.log(jqXHR);}
+            }
         });
     }
 };

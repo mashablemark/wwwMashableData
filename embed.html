@@ -1,0 +1,43 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <meta http-equiv="X-UA-Compatible" content="IE=9">
+    <title>MashableData Embedder Samples</title>
+
+    <!--CSS files-->
+    <link  rel="stylesheet" href="http://www.mashabledata.com/global/css/smoothness/jquery-ui-1.9.2.custom.css" />
+    <link rel="stylesheet" href="http://www.mashabledata.com/embedder/mashabledata_embedtools.css" />
+
+    <!--JavaScript files libraries and plugins-->
+
+    <script type='text/javascript' src='http://code.jquery.com/jquery-1.8.3.js'></script>
+    <script type="text/javascript" src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+
+    <script type="text/javascript" src="http://www.mashabledata.com/global/js/highcharts/js/highcharts.3.0.8.js"></script>
+
+    <script type="text/javascript" src="http://www.mashabledata.com/embedder/mashabledata_embedtools.min.js"></script>
+</head>
+<body>
+<p>This is an plain HTML page with the MashableData embedder JavaScrip library referenced.  After the page loads, the library searches for DIV element of class="mashabledata_embed" and instantiates an interactive graph corresponding to the data attribute:</p>
+<span style="font-family: sans-serif;background-color: lightcyan;margin-bottom: 15px; padding: 5px;">&lt;div class="mashabledata_embed"  data="a09fd213e478512872f1eb26de45d0b4"&gt;&lt;/div&gt;</span>
+<select><option value="">select a different graph</option><option value="da3d58a42f7c5cf7ae7948892b1be27c">map of US unemployment rate</option><option value="26e30b38e5f9fedef1c7d1083f790366">What to Grow: Wheat or Corn?</option></select>
+<div class="mashabledata_embed"  data="a09fd213e478512872f1eb26de45d0b4" style="margin: 10px; width: 700px; height: 700px;border: thin solid black;"></div>
+
+</body>
+<script type="application/javascript">
+    $(document).ready(function(){
+        var $select = $('select');
+        $select.change(function(){
+            var graphcode = $select.val();
+            if(graphcode!=''){
+                var $div = $('.mashabledata_embed');
+                $div.attr('data', graphcode);
+                MashableData.plugin.embed($div);
+            }
+        });
+        $()
+    });
+</script>
