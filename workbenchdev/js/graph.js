@@ -1551,8 +1551,7 @@ MashableData.grapher = function(){
                             oGraph.end = null;
                             if(oGraph.intervals != parseInt($(this).val())){
                                 oGraph.intervals = parseInt($(this).val());
-                                chart = chartPanel(panelId);
-                                if(oGraph.plots) annotations.build();
+                                redraw();
                             }
                         }
                     });
@@ -2209,7 +2208,7 @@ MashableData.grapher = function(){
                             makeList($map);
                         }
                         var $graphSelected = $thisPanel.find('.mashabledata_map-graph-selected');
-                        if(Highcharts && calculatedMapData.dates>1){ //for embedded graphs, Highcharts is optional for map-only graphs
+                        if(Highcharts && calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){ //for embedded graphs, Highcharts is optional for map-only graphs
                             $graphSelected.button({icons:{secondary: 'ui-icon-image'}}).off()
                                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
                                     /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
@@ -2349,7 +2348,7 @@ MashableData.grapher = function(){
                             });  //initialize here rather than set slider value which would trigger a map redraw
 
                         var noCubeRedraw = false;
-                        if(Highcharts && calculatedMapData.startDateIndex!=calculatedMapData.startDateIndex){ //highcharts is optional for embedded maps; also very boring if only one point!
+                        if(Highcharts && calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){ //highcharts is optional for embedded maps; also very boring if only one point!
                             $thisPanel.find('.mashabledata_make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
                                 .click(function(){
                                     noCubeRedraw = true;
