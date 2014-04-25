@@ -1,5 +1,12 @@
-/*MashableData Plugin for Highcharts  Copyright 2012.  All rights reserved.  Visit MashableData.com for usage guidelines.
- jQuery.js, Highcharts.js and Highcharts' export.js must be loaded first
+/* mashabledata_embedtools.js
+
+ MashableData Plugin for Highcharts  Copyright 2012.  All rights reserved.  Visit MashableData.com for usage guidelines.
+
+ For embedded visualization, supporting libraries to be loaded before  mashabledata_embedtools.js:
+ jQuery.js (required)
+ Highcharts (optional)
+ jQuery-UI (optional)
+
  */
 
 
@@ -581,6 +588,24 @@ window.MashableData.plugin = function(){ //mashableData namespace
                 else
                     $div.html('The data attribute must be a graphcode');
             }
+        },
+        popGraph: function(quickGraph){
+            var quickChartOptions = MD.grapher.makeChartOptionsObject(quickGraph);
+            delete quickChartOptions.chart.height;
+            quickChartOptions.chart.borderWidth = 2;
+
+            quickChartOptions.chart.renderTo = 'mashabledata_quick-graph';
+            $.fancybox('<div id="mashabledata_quick-graph" style="width:'+window.innerWidth * 0.75+'px;height:'+window.innerHeight * 0.75+'px;"></div>',
+                {
+                    showCloseButton: true,
+                    autoScale: true,
+                    overlayOpacity: 0.5,
+                    hideOnOverlayClick: true,
+                    onClosed: function(){
+                        quickChart.destroy();
+                    }
+                });
+            var quickChart = new Highcharts.Chart(quickChartOptions);
         }
     };
     return plugin_obj;
