@@ -1,4 +1,6 @@
-
+/*
+ graph.js
+ */
 
 MashableData.grapher = function(){
     var MD = MashableData,
@@ -1093,6 +1095,7 @@ MashableData.grapher = function(){
         },
 
         buildGraphPanel: function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
+
             if(globals.isEmbedded){
                 buildGraphPanelCore(oGraph);
             } else {
@@ -1102,6 +1105,14 @@ MashableData.grapher = function(){
             function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
                 var title, calculatedMapData, $thisPanel;
 
+                //missing assets detect
+                var missingAssets = [];
+                eachComponent(oGraph,function(c, plot){
+                    if(!oGraph.assets[this.handle]) {
+                        missingAssets.push(this.handle);
+                        plot.components.splice(c, 1);
+                    }
+                });
                 console.time('buildGraphPanel:header');
                 if(oGraph.title.length==0){ // set title if blank and just one asset to name of asset
                     var key, assetCount=0;
@@ -1121,9 +1132,18 @@ MashableData.grapher = function(){
                 } else {
                     if(!panelId){
                         panelId = addTab(title);
-                        $("#graph-tabs li").find("[href='#" + panelId + "']").html(title)
+                        $("#graph-tabs li").find("[href='#" + panelId + "']").html(title);
                     }
                     $thisPanel = $('#' + panelId);
+                }
+                if(missingAssets.length>0){
+                    var msg = 'Unable to find data assets ('+missingAssets.join(', ')+') required by this graphs.';
+                    if(isEmbedded){
+                        $thisPanel.html(msg);
+                        return;
+                    } else {
+                        dialogShow("data error", msg);
+                    }
                 }
 
                 if(oGraph.intervals==0) oGraph.intervals = null;
@@ -1139,138 +1159,139 @@ MashableData.grapher = function(){
                 if(isEmbedded) {
                     panelHTML =
                         '<div class="mashabledata_chart-map">' +
-                        '<div class="mashabledata_chart"></div>' +
-                        '<div class="mashabledata_map" style="display:none;">' +
-                        '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
-                        '<div class="mashabledata_map-and-cub-viz">' +
-                        '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
-                        '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
-                        '</div>' +
-                        '<div class="container mashabledata_map-controls">' +
-                        '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
-                        '<button class="mashabledata_map-step-backward">step backwards</button>' +
-                        '<button class="mashabledata_map-play">play</button>' +
-                        '<button class="mashabledata_map-step-forward">step forwards</button>' +
-                        '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
-                        '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
-                        '<span class="right"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
-                        '<span class="right"><label><input type="checkbox" class="mashabledata_map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
-                        '</div>' +
-                        '</div>' +
-                        '<div class="mashabledata_graph-analysis"></div>' +
-                        '</div>';
+                            '<div class="mashabledata_chart"></div>' +
+                            '<div class="mashabledata_map" style="display:none;">' +
+                            '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
+                            '<div class="mashabledata_map-and-cub-viz">' +
+                            '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
+                            '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
+                            '</div>' +
+                            '<div class="container mashabledata_map-controls">' +
+                            '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
+                            '<button class="mashabledata_map-step-backward">step backwards</button>' +
+                            '<button class="mashabledata_map-play">play</button>' +
+                            '<button class="mashabledata_map-step-forward">step forwards</button>' +
+                            '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
+                            '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
+                            '<span class="right"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
+                            '<span class="right"><label><input type="checkbox" class="mashabledata_map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
+                            '</div>' +
+                            '</div>' +
+                            '<div class="mashabledata_graph-analysis"></div>' +
+                            '</div>';
                 } else {
                     panelHTML =
                         '<div class="graph-nav">' +
-                        '<ol class="graph-nav">' +
-                        '<li class="graph-nav-talk" data="graph-talk"></li>' +
-                        '<li class="graph-nav-data" data="graph-data"></li>' +
-                        '<li class="graph-nav-sources"  data="graph-sources"></li>' +
-                        '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
-                        '</ol>' +
-                        '</div>'+
-                        '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to enable Facebook comments.</p></div>' +
-                        '<div class="graph-data graph-subpanel" style="display: none;">' +
-                        '<div class="graph-data-inner">' +
-                        '<ul>' +
-                        '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
-                        '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
-                        '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
-                        '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-                        '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                        '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                        '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                        '</div>' +
-                        '</div>' +
-                        '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
-                        '<div class="graph-chart graph-subpanel">' +
-                        '<div class="graph_control_panel" style="font-size: 11px !important;">' +
-                        //change map selector and default
-                        '<div class="change-map">change base map ' +
-                        '<select class="change-map"></select>' +
-                        '</div>' +
-                        //default series type (line, column..)
-                        '<div class="graph-type">default graph type ' +
-                        '<select class="graph-type">' +
-                        '<option value="auto">auto (line &amp; column)</option>' +
-                        '<option value="line">line</option>' +
-                        '<option value="marker">line with markers</option>' +
-                        '<option value="column">column</option>' +
-                        '<option value="stacked-column">stacked column</option>' +
-                        '<option value="area-percent">stacked percent</option>' +
-                        '<option value="area">stacked area</option>' +
-                        '<option value="logarithmic">logarithmic</option>' +
-                        '<option value="normalized-line">normalized line</option>' +
-                        '<option value="pie">pie</option>' +
-                        '</select>' +
-                        '</div>' +
-                        '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
-                        '<table>' +
-                        '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
-                        '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
-                        '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
-                        '<div class="crop-slider"></div>' +
-                        '</td></tr>' +
-                        '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
-                        '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
-                        '</table>' +
-                        '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
-                        '</div>' +
-                        '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
-                        '<table class="annotations"></table>' +
-                        '</fieldset></div>' +
-                        '<div class="downloads">' +
-                        '<fieldset>' +
-                        '<legend>&nbsp;Download visualization&nbsp;</legend>' +
-                        '<select class="download-selector"></select> ' +
-                        'format: ' +
-                        '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
-                        //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
-                        '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
-                        '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
-                        '</fieldset>' +
-                        '</div>' +
-                        '<div class="sharing">' +
-                        '<fieldset>' +
-                        '<legend>&nbsp;Sharing&nbsp;</legend>' +
-                        '<div class="share-links">' +
-                        '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
-                        //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
-                        '<a class="graph-email">email </a> ' +
-                        '<button class="graph-link">link </button>' +
-                        //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
-                        '</div><div class="searchability">' +
-                        '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
-                        '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
-                        '</div>' +
-                        '</fieldset>' +
-                        '</div>' +
-                        '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
-                        '</div>' +
-                        '<div class="mashabledata_chart-map" style="width:70%;display:inline;float:right;">' +
-                        '<div class="mashabledata_chart"></div>' +
-                        '<div class="mashabledata_map" style="display:none;">' +
-                        '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
-                        '<div class="mashabledata_map-and-cub-viz">' +
-                        '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
-                        '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
-                        '</div>' +
-                        '<div class="container mashabledata_map-controls">' +
-                        '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
-                        '<button class="mashabledata_map-step-backward">step backwards</button>' +
-                        '<button class="mashabledata_map-play">play</button>' +
-                        '<button class="mashabledata_map-step-forward">step forwards</button>' +
-                        '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
-                        '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
-                        '<button class="merge group hidden" disabled="disabled">group</button>' +
-                        '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
-                        '<span class="right"><label><input type="checkbox" class="legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
-                        '<span class="right"><label><input type="checkbox" class="map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
-                        '</div>' +
-                        '</div>' +
-                        '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
-                        '</div>' +
-                        '</div>';
+                            '<ol class="graph-nav">' +
+                            '<li class="graph-nav-talk" data="graph-talk"></li>' +
+                            '<li class="graph-nav-data" data="graph-data"></li>' +
+                            '<li class="graph-nav-sources"  data="graph-sources"></li>' +
+                            '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
+                            '</ol>' +
+                            '</div>'+
+                            '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to enable Facebook comments.</p></div>' +
+                            '<div class="graph-data graph-subpanel" style="display: none;">' +
+                            '<div class="graph-data-inner">' +
+                            '<ul>' +
+                            '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
+                            '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
+                            '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
+                            '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
+                            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                            '</div>' +
+                            '</div>' +
+                            '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
+                            '<div class="graph-chart graph-subpanel">' +
+                            '<div class="graph_control_panel" style="font-size: 11px !important;">' +
+                            //change map selector and default
+                            '<div class="change-map">change base map ' +
+                            '<select class="change-map"></select>' +
+                            '</div>' +
+                            //default series type (line, column..)
+                            '<div class="graph-type">default graph type ' +
+                            '<select class="graph-type">' +
+                            '<option value="auto">auto (line &amp; column)</option>' +
+                            '<option value="line">line</option>' +
+                            '<option value="marker">line with markers</option>' +
+                            '<option value="column">column</option>' +
+                            '<option value="stacked-column">stacked column</option>' +
+                            '<option value="area-percent">stacked percent</option>' +
+                            '<option value="area">stacked area</option>' +
+                            '<option value="logarithmic">logarithmic</option>' +
+                            '<option value="normalized-line">normalized line</option>' +
+                            '<option value="pie">pie</option>' +
+                            '</select>' +
+                            '</div>' +
+                            '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
+                            '<table>' +
+                            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
+                            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
+                            '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
+                            '<div class="crop-slider"></div>' +
+                            '</td></tr>' +
+                            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
+                            '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+                            '</table>' +
+                            '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
+                            '</div>' +
+                            '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
+                            '<table class="annotations"></table>' +
+                            '</fieldset></div>' +
+                            '<div class="downloads">' +
+                            '<fieldset>' +
+                            '<legend>&nbsp;Download visualization&nbsp;</legend>' +
+                            '<select class="download-selector"></select> ' +
+                            'format: ' +
+                            '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
+                            //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
+                            '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
+                            '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
+                            '</fieldset>' +
+                            '</div>' +
+                            '<div class="sharing">' +
+                            '<fieldset>' +
+                            '<legend>&nbsp;Sharing&nbsp;</legend>' +
+                            '<div class="share-links">' +
+                            '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
+                            //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
+                            '<a class="graph-email">email </a> ' +
+                            '<button class="graph-link">link </button>' +
+                            '<button class="graph-embed">embed </button>' +
+                            //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
+                            '</div><div class="searchability">' +
+                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
+                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
+                            '</div>' +
+                            '</fieldset>' +
+                            '</div>' +
+                            '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
+                            '</div>' +
+                            '<div class="mashabledata_chart-map" style="width:70%;display:inline;float:right;">' +
+                            '<div class="mashabledata_chart"></div>' +
+                            '<div class="mashabledata_map" style="display:none;">' +
+                            '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
+                            '<div class="mashabledata_map-and-cub-viz">' +
+                            '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
+                            '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
+                            '</div>' +
+                            '<div class="container mashabledata_map-controls">' +
+                            '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
+                            '<button class="mashabledata_map-step-backward">step backwards</button>' +
+                            '<button class="mashabledata_map-play">play</button>' +
+                            '<button class="mashabledata_map-step-forward">step forwards</button>' +
+                            '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
+                            '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
+                            '<button class="merge group hidden" disabled="disabled">group</button>' +
+                            '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
+                            '<span class="right"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>legend</label></span>' +
+                            '<span class="right"><label><input type="checkbox" class="mashabledata_map-list" '+(oGraph.mapconfig.showList?'checked':'')+'>list</label></span>' +
+                            '</div>' +
+                            '</div>' +
+                            '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
+                            '</div>' +
+                            '</div>';
                 }
                 $thisPanel.html(panelHTML);
 
@@ -1419,7 +1440,35 @@ MashableData.grapher = function(){
 
                     $thisPanel.find('.graph-email').button({icons: {secondary: "ui-icon-mail-closed"}}).attr('href',link);
                     $thisPanel.find('.email-link').attr('href',link);
-                    $thisPanel.find('.graph-link').button({icons: {secondary: "ui-icon-link"}})
+                    $thisPanel.find('.graph-embed').button({icons: {secondary: "ui-icon-script"}})
+                        .click(function(){
+                            if(oGraph.isDirty) {
+                                dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
+                                return;
+                            }
+                            var offset = $(this).offset();  //button offset relative to document
+                            var linkDivHTML =
+                                '<div id="embed-info">' +
+                                    '<button class="right" id="embed-info-close">close</button>' +
+                                    '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
+                                    '<em>The code below will embed this visualization in a webpage.  (Requires installation of the <a target="_blank" href="/embedding">MashableData embed library</a>)</em>' +
+                                    '<textarea id="link-html">&lt;div class=&quot;mashabledata_embed&quot; data=&quot;'+oGraph.ghash+'&quot;&gt;&lt;/div&gt;</textarea>' +
+                                    '</div>';
+
+                            $.fancybox(linkDivHTML,
+                                {
+                                    width: 600,
+                                    height: 'auto',
+                                    showCloseButton: false,
+                                    autoDimensions: false,
+                                    autoScale: false,
+                                    overlayOpacity: 0
+                                });
+                            $('#embed-info-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){$.fancybox.close()});
+
+                        });
+
+                        $thisPanel.find('.graph-link').button({icons: {secondary: "ui-icon-link"}})
                         .click(function(){
                             if(oGraph.isDirty) {
                                 dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
@@ -1445,10 +1494,6 @@ MashableData.grapher = function(){
                                     autoScale: false,
                                     overlayOpacity: 0
                                 });
-                            $("#fancybox-wrap").css({
-                                'top': parseInt(offset.top + $(this).height() -30) + 'px',
-                                'left': parseInt(offset.left - 620 + $(this).width()) + 'px'
-                            });
                             $('#link-editor-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){$.fancybox.close()});
                             $('#ghash-reset').button({icons: {secondary: 'ui-icon-refresh'}}).click(function(){
                                 dialogShow("confirm link code reset",
@@ -1797,7 +1842,7 @@ MashableData.grapher = function(){
                 }
 
                 if(!isEmbedded){
-                    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button((oGraph.userid == account.info.userid) && oGraph.gid?'disable':'enable')
+                    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button('disable')
                         .click(saveThisGraph);
 
                     $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)})
@@ -2012,7 +2057,7 @@ MashableData.grapher = function(){
                                         if(calculatedMapData.regionColors){
                                             for(var dateKey in calculatedMapData.regionColors){ //only need a single valid region date key
                                                 if(typeof calculatedMapData.regionColors[dateKey][selectedRegions[i]]!='undefined'){
-                                                    $thisPanel.find('.mashabledata_map-graph-selected, .make-map').button('enable');
+                                                    $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map').button('enable');
                                                     return;
                                                 }
                                                 break;
@@ -2208,7 +2253,7 @@ MashableData.grapher = function(){
                             makeList($map);
                         }
                         var $graphSelected = $thisPanel.find('.mashabledata_map-graph-selected');
-                        if(Highcharts && calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){ //for embedded graphs, Highcharts is optional for map-only graphs
+                        if(Highcharts){ //for embedded graphs, Highcharts is optional for map-only graphs
                             $graphSelected.button({icons:{secondary: 'ui-icon-image'}}).off()
                                 .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
                                     /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
@@ -2269,29 +2314,29 @@ MashableData.grapher = function(){
                                         }
                                     }
                                     //regions (mapsets) are simpler than markers (pointsets) because there is only one
-                                    if(oGraph.mapsets && oGraph.mapsets){  //skip if not mapset
+                                    if(oGraph.mapsets){  //skip if not mapset
                                         for(i=0;i<selectedRegions.length;i++){
-                                            for(var dateSet in calculatedMapData.regionData){ //just need the first date set; break after checking for existence
-                                                if(typeof calculatedMapData.regionColors[dateSet][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
-                                                    plt = $.extend(true, {}, oGraph.mapsets);
-                                                    for(j=0;j<plt.components.length;j++){
-                                                        if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
-                                                            var mapAsset = oGraph.assets[plt.components[j].handle];
-                                                            var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
-                                                            plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
-                                                            grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
-                                                        } else {
-                                                            grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
-                                                        }
+                                            if(typeof calculatedMapData.regionColors[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
+                                                plt = $.extend(true, {}, oGraph.mapsets);
+                                                for(j=0;j<plt.components.length;j++){
+                                                    if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
+                                                        var mapAsset = oGraph.assets[plt.components[j].handle];
+                                                        var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
+                                                        plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
+                                                        grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
+                                                    } else {
+                                                        grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
                                                     }
-                                                    if(plt.name) plt.name += ' - ' + $map.getRegionName(selectedRegions[i]);
-                                                    grph.plots.push(plt);
                                                 }
-                                                break;
+                                                if(plt.name) plt.name += ' - ' + $map.getRegionName(selectedRegions[i]);
+                                                grph.plots.push(plt);
                                             }
+
                                         }
                                     }
-                                    if(grph.plots.length>0) quickGraph(grph, true);
+                                    if(grph.plots.length>0) {
+                                        if(isEmbedded) MD.plugin.popGraph(grph); else quickGraph(grph, true);
+                                    }
                                 });
                         } else {
                             $graphSelected.hide();
@@ -2348,7 +2393,7 @@ MashableData.grapher = function(){
                             });  //initialize here rather than set slider value which would trigger a map redraw
 
                         var noCubeRedraw = false;
-                        if(Highcharts && calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){ //highcharts is optional for embedded maps; also very boring if only one point!
+                        if(Highcharts){ //highcharts is optional for embedded maps
                             $thisPanel.find('.mashabledata_make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
                                 .click(function(){
                                     noCubeRedraw = true;
@@ -2539,9 +2584,10 @@ MashableData.grapher = function(){
                                     + '<input type="radio" id="'+panelId+'-map-list-order-asc" name="'+panelId+'-map-list-order" value="asc" '+(oGraph.mapconfig.listOrder!='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-asc">ascending</label>'
                                     + '<input type="radio" id="'+panelId+'-map-list-order-desc" name="'+panelId+'-map-list-order" value="desc" '+(oGraph.mapconfig.listOrder=='desc'?'checked':'')+'><label for="'+panelId+'-map-list-order-desc">descending</label>'
                                     + '</div>'
-                                    + '<button class="download-map-list">download list to Excel</button>'
+                                    + (isEmbedded?'':'<button class="download-map-list">download list to Excel</button>')
                                     + '</div>')
-                                .find('div.mashabledata_map-list .download-map-list').button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
+                                .find('div.mashabledata_map-list .download-map-list')
+                                .button({icons: {secondary: "ui-icon-calculator"}}).click(function(){
                                     var table = $thisPanel.find('div.mashabledata_map-list table').get(0);
                                     var grid = [];
                                     for(var r=0;r<table.rows.length;r++){ //header row = rank; plot name; plot units
@@ -2840,7 +2886,7 @@ MashableData.grapher = function(){
                                 if(allMergedRegions.indexOf(region) == -1 && typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][region]!='undefined'){  //this region is not part of a amerge and also has data
                                     //markerTitle = calculatedMapData.title + ' ' + region;
                                     calculatedMapData.markers[region] = {name: region, point: pnt, style: {fill: 'pink'}};
-                                    calculatedMapData.regionsColorsForBubbles[region] = regionColors[i++%regionColors.length];
+                                    calculatedMapData.regionsColorsForBubbles[region] = globals.MAP_COLORS.MID; //don't color the unmerged regions! Was: regionColors[i++%regionColors.length];
                                     for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                                         dateKey = calculatedMapData.dates[d].s;
                                         markerData[dateKey][region] = {r: calculatedMapData.regionData[dateKey][region]};
@@ -3591,7 +3637,7 @@ MashableData.grapher = function(){
                 }
 
                 function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match and then step back if weekly->monthly->annual or if monthly->annual
-        //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
+                    //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
                     while(mdDate.length>=4){
                         if(mapData[mdDate]) return mapData[mdDate];
                         mdDate = mdDate.substr(0,mdDate.length-2);
@@ -3766,29 +3812,29 @@ MashableData.grapher = function(){
 
     //define shortcuts
     var chartPanel = grapher.chartPanel,
-    intervalStartDt = grapher.intervalStartDt,
-    setCropSlider = grapher.setCropSlider,
-    dateFromMdDate = grapher.dateFromMdDate,
-    closestDate = grapher.closestDate,
-    assetNeeded = grapher.assetNeeded,
-    getAssets = grapher.getAssets,
-    fetchAssets = grapher.fetchAssets,
-    createMyGraph = grapher.createMyGraph,
-    emptyGraph = grapher.emptyGraph,
-    makeChartOptionsObject = grapher.makeChartOptionsObject,
-    createSerieFromPlot = grapher.createSerieFromPlot,
-    plotFormula = grapher.plotFormula,
-    compSymbol = grapher.compSymbol,
-    buildGraphPanel = grapher.buildGraphPanel,
-    isSummationMap = grapher.isSummationMap,
-    plotName = grapher.plotName,
-    plotUnits = grapher.plotUnits,
-    visiblePanelId = grapher.visiblePanelId,
-    formatDateByPeriod = grapher.formatDateByPeriod,
-    eachComponent = grapher.eachComponent,
-    eachPlot = grapher.eachPlot,
-    fillScalingCount = grapher.fillScalingCount,
-    areaScalingCount = grapher.areaScalingCount;
+        intervalStartDt = grapher.intervalStartDt,
+        setCropSlider = grapher.setCropSlider,
+        dateFromMdDate = grapher.dateFromMdDate,
+        closestDate = grapher.closestDate,
+        assetNeeded = grapher.assetNeeded,
+        getAssets = grapher.getAssets,
+        fetchAssets = grapher.fetchAssets,
+        createMyGraph = grapher.createMyGraph,
+        emptyGraph = grapher.emptyGraph,
+        makeChartOptionsObject = grapher.makeChartOptionsObject,
+        createSerieFromPlot = grapher.createSerieFromPlot,
+        plotFormula = grapher.plotFormula,
+        compSymbol = grapher.compSymbol,
+        buildGraphPanel = grapher.buildGraphPanel,
+        isSummationMap = grapher.isSummationMap,
+        plotName = grapher.plotName,
+        plotUnits = grapher.plotUnits,
+        visiblePanelId = grapher.visiblePanelId,
+        formatDateByPeriod = grapher.formatDateByPeriod,
+        eachComponent = grapher.eachComponent,
+        eachPlot = grapher.eachPlot,
+        fillScalingCount = grapher.fillScalingCount,
+        areaScalingCount = grapher.areaScalingCount;
 
     //STATELESS HELPER FUNCTIONS ONLY USED BY GRAPH OBJECT
 

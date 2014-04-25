@@ -1481,7 +1481,7 @@ function getGraphs($userid, $ghash){
     $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis, "
         . " g.map, g.mapconfig,  g.serieslist, "
         . " g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt, "
-        . " m.jvectormap, m.bunny, "
+        . " m.jvectormap, m.bunny, m.legend, "
         . " s.name, s.units, skey, s.src, s.freqset, s.notes, s.lat, s.lon, s.firstdt, s.lastdt, s.periodicity, s.geoid, s.mapsetid, data, "
         . " gp.plotid, gp.type as plottype, gp.options as plotoptions, gp.legendorder, pc.objtype as comptype, objid, "
         . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
@@ -1525,7 +1525,13 @@ function getGraphs($userid, $ghash){
             //if($aRow["map"]!=null){
             $output['graphs']['G' . $gid]["map"] = $aRow["map"];
             $output['graphs']['G' . $gid]["bunny"] = $aRow["bunny"];
-            $output['graphs']['G' . $gid]["mapconfig"] = $aRow["mapconfig"];
+            $mapconfig = $aRow["mapconfig"];
+            if($aRow["legend"]){
+                $json = json_decode($mapconfig, true);
+                $json["legendLocation"] = $aRow["legend"] ? $aRow["legend"] : "TR";
+                $mapconfig = json_encode($json);
+            }
+            $output['graphs']['G' . $gid]["mapconfig"] = $mapconfig;
             $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             //}
             if(strlen($ghash)>0) $output['graphs']['G' . $gid]["assets"] = array();

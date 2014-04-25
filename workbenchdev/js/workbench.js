@@ -1,13 +1,14 @@
-/**
+/** workbench.js
  * Created with JetBrains PhpStorm.
- * User: mark__000
+ * User: mark
  * Date: 2/18/13
  * Time: 9:04 PM
- * To change this template use File | Settings | File Templates.
  */
 
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
+var emptyGraph = grapher.emptyGraph, getAssets = grapher.getAssets, plotName = grapher.plotName, plotUnits = grapher.plotUnits,
+    buildGraphPanel = grapher.buildGraphPanel;
 var themeCubes = globals.themeCubes,
     iconsHMTL = globals.iconsHMTL,
     panelGraphs = globals.panelGraphs,
@@ -2111,17 +2112,17 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
 }
 
 /*
-API SERIES BROWSE FUNCTIONS
+ API SERIES BROWSE FUNCTIONS
 
-    table#cat-chains
-        tr
-            td.cat-branch[.[expandable|.expanded]]
-                div.[in-path|sibling] data=catid
-                    span[.[ui-icon.browse-rolldown|ui-icon.ui-icon-stop]]
-                    [a]cat name
-                    span[.[ui-icon.browse-right|ui-icon.browsed-right]]
+ table#cat-chains
+ tr
+ td.cat-branch[.[expandable|.expanded]]
+ div.[in-path|sibling] data=catid
+ span[.[ui-icon.browse-rolldown|ui-icon.ui-icon-stop]]
+ [a]cat name
+ span[.[ui-icon.browse-right|ui-icon.browsed-right]]
 
-*/
+ */
 
 function browseFromSeries(seriesId){ //initial chain-table build only
     callApi({command:'GetCatChains', sid: seriesId||0},function(jsoData, textStatus, jqXH){
@@ -2191,12 +2192,12 @@ function browseFromSeries(seriesId){ //initial chain-table build only
             }
             levelBranches = nextLevel;
         }
-/*        $chainTable.find('td.expandable').click(function(){
-            var $td = $(this);
-            if($td.hasClass('expandable')){
-                showSiblingCats($td.find('span.chain'));
-            }
-        });*/
+        /*        $chainTable.find('td.expandable').click(function(){
+         var $td = $(this);
+         if($td.hasClass('expandable')){
+         showSiblingCats($td.find('span.chain'));
+         }
+         });*/
         $chainTable.click(chainTableClick);
         if($('#cloud-series:visible').length==1){
             $('div#browse-api').height($('#cloud-series').height()).width($('#cloud-series').width());
@@ -2204,8 +2205,8 @@ function browseFromSeries(seriesId){ //initial chain-table build only
         $('div#browse-api')
             .empty()
             .prepend('<span style="padding:5px;">Click below to expand sibling and child categories.  Categories containing series are shown as links.  Note that a series can be in more than one category.</span>'
-            //+ '<button id="browse-reset">reset</button> '
-            + '<button id="browse-close" class="right">close</button>')
+                //+ '<button id="browse-reset">reset</button> '
+                + '<button id="browse-close" class="right">close</button>')
             .append($chainTable)
             .fadeIn();
         //$('#browse-reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}, disabled: true}).click(function(){browseFromSeries(seriesId);});
@@ -2224,9 +2225,9 @@ function showSiblingCats(node){
         .removeClass("ui-icon-stop")
         .addClass("browse-rolldown"); //revert the original cat's bullet with a roll-down
     var $tdOld = $tcat.find('td.expanded').removeClass('expanded').addClass("expandable");
-/*        .remove('span.browse-right')
-        .find('.ui-icon-stop').removeClass('ui-icon-stop')
-        .end();*/
+    /*        .remove('span.browse-right')
+     .find('.ui-icon-stop').removeClass('ui-icon-stop')
+     .end();*/
     if($tdOld.length==1 && $tdOld.html()=="") $tdOld.remove();
     if(isOpened)return; //don't fetch.  above code already removed the siblings
 
@@ -2323,12 +2324,12 @@ function showChildCats(node){
         }
         $chainTable.find('tr').append($currentTd);
         //$("button.browse-reset").button("enable");
-       /* $chainTable.find('td.expandable').click(function(){
-            var $td = $(this);
-            if($td.hasClass('expandable')){
-                showChildCats(this, $td.find('span.chain').attr('data'));
-            }
-        });*/
+        /* $chainTable.find('td.expandable').click(function(){
+         var $td = $(this);
+         if($td.hasClass('expandable')){
+         showChildCats(this, $td.find('span.chain').attr('data'));
+         }
+         });*/
     }
 
 }
