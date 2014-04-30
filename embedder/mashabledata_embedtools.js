@@ -582,6 +582,7 @@ window.MashableData.plugin = function(){ //mashableData namespace
         embed: function embed(div){
             var $div = $(div);  //div can be a DIM node, a DOM selector, or a jQuery DIV element
             if($div.length==1){
+                //$.support.cors = true;
                 var graphcode = $div.attr('data');
                 if(graphcode && graphcode.length==32 && !/[^a-f0-9]/g.test(graphcode))
                     MD.grapher.createMyGraph(graphcode);
@@ -614,8 +615,8 @@ window.MashableData.plugin = function(){ //mashableData namespace
 
 jQuery(document).ready(function(){
     //detect and build embedded MashableData graphs/visualizations
-    $('div.mashabledata_embed').each(function(){
-        var $this = $(this);
+    jQuery('div.mashabledata_embed').each(function(){
+        var $this = jQuery(this);
         MashableData.plugin.embed($this);
     });
 

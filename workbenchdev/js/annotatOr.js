@@ -114,7 +114,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
         build: function buildAnnotations( redrawAnnoTypes){
             var y, yOffset, self = this, oGraph = panelGraphs[panelId], $thisPanel = oGraph.controls.$thisPanel,
                 $annotations = $thisPanel.find('div.annotations').show().find('table');
-            if($annotations && $annotations.get(0).rows.length!=0) { //enable on all calls except initial build
+            if(!globals.isEmbedded && $annotations && $annotations.get(0).rows.length!=0) { //enable on all calls except initial build
                 $thisPanel.find('.graph-save').button("enable");
                 oGraph.isDirty = true;
             }

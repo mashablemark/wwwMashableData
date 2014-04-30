@@ -1152,7 +1152,7 @@ MashableData.grapher = function(){
                     annotations: annotations,
                     $thisPanel: $thisPanel,
                     provenance: {},
-                    redraw: redraw
+                    redraw: (typeof redraw == 'undefined'?null:redraw)
                 };
                 console.timeEnd('buildGraphPanel:header');
 
@@ -2093,54 +2093,6 @@ MashableData.grapher = function(){
                             $thisPanel.find('button.merge').show();
                         }
 
-                        //don't show if map has only a single date
-                        var $mapSlider = $thisPanel.find('.mashabledata_map-slider');
-                        if(calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){
-                            $mapSlider.show().off().slider({
-                                value: calculatedMapData.endDateIndex,
-                                min: calculatedMapData.startDateIndex,
-                                max: calculatedMapData.endDateIndex,
-                                step: 1,
-                                change: function( event, ui ) { //this event fires when the map is first loaded
-                                    val = ui.value;
-                                    setRegionsMarkersAtribute(val);
-                                }
-                            }).slider("value", calculatedMapData.endDateIndex);
-                        } else {
-                            $mapSlider.hide();
-                            setRegionsMarkersAtribute(calculatedMapData.startDateIndex);
-                        }
-                        function setRegionsMarkersAtribute(val){
-                            if(!isBubble()&&calculatedMapData.regionColors){ //don't call if pointsets only
-                                //attribute color calvulated in calcAttributes
-                                $map.series.regions[0].setAttributes(getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s));
-                                //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
-                            }
-                            if(oGraph.pointsets){
-                                if(areaScaling){
-                                    $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
-                                    $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
-                                }
-                                if(fillScaling){
-                                    $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
-                                }
-                            }
-                            if(isBubble()){
-                                $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
-                                $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
-                            }
-                            if(oGraph.plots){
-                                var timeAxis = chart.xAxis[0];
-                                timeAxis.removePlotLine('timeLine');
-                                timeAxis.addPlotLine({
-                                    value: calculatedMapData.dates[val].dt,
-                                    color: 'red',
-                                    width: 2,
-                                    id: 'timeLine'
-                                })
-                            }
-                            cubeVizFromMap();
-                        }
                         function cubeVizFromMap(code, isSelected){
                             console.time('cubeVizFromMap');
                             //this will be called multiple time from RegionOnSelect event when deselecting all
@@ -2248,6 +2200,54 @@ MashableData.grapher = function(){
                             }
                             $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.period));
                             console.timeEnd('cubeVizFromMap');
+                        }
+                        //don't show if map has only a single date
+                        function setRegionsMarkersAtribute(val){
+                            if(!isBubble()&&calculatedMapData.regionColors){ //don't call if pointsets only
+                                //attribute color calvulated in calcAttributes
+                                $map.series.regions[0].setAttributes(getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s));
+                                //value based: $map.series.regions[0].setValues(getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s));
+                            }
+                            if(oGraph.pointsets){
+                                if(areaScaling){
+                                    $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                                    $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
+                                }
+                                if(fillScaling){
+                                    $map.series.markers[1].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
+                                }
+                            }
+                            if(isBubble()){
+                                $map.series.markers[0].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.r, calculatedMapData.dates[val].s));
+                                $map.series.markers[2].setAttributes(getMapDataByContainingDate(calculatedMapData.markerAttr.stroke, calculatedMapData.dates[val].s));
+                            }
+                            if(oGraph.plots){
+                                var timeAxis = chart.xAxis[0];
+                                timeAxis.removePlotLine('timeLine');
+                                timeAxis.addPlotLine({
+                                    value: calculatedMapData.dates[val].dt,
+                                    color: 'red',
+                                    width: 2,
+                                    id: 'timeLine'
+                                })
+                            }
+                            cubeVizFromMap();
+                        }
+                        var $mapSlider = $thisPanel.find('.mashabledata_map-slider');
+                        if(calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){
+                            $mapSlider.show().off().slider({
+                                value: calculatedMapData.endDateIndex,
+                                min: calculatedMapData.startDateIndex,
+                                max: calculatedMapData.endDateIndex,
+                                step: 1,
+                                change: function( event, ui ) { //this event fires when the map is first loaded
+                                    val = ui.value;
+                                    setRegionsMarkersAtribute(val);
+                                }
+                            }).slider("value", calculatedMapData.endDateIndex);
+                        } else {
+                            $mapSlider.hide();
+                            setRegionsMarkersAtribute(calculatedMapData.startDateIndex);
                         }
                         if(oGraph.mapconfig.showList) {
                             makeList($map);

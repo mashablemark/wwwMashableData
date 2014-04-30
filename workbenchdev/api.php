@@ -304,7 +304,7 @@ switch($command){
         $output = getGraphs($user_id, '');
         break;
     case "GetPublicGraph":  //data and all: the complete protein!
-        $ghash =  $_POST['ghash'];
+        $ghash =  $_REQUEST['ghash'];
         if(strlen($ghash)>0){
             $ghash_var = safeSQLFromPost('ghash');
             $currentmt = microtime(true);

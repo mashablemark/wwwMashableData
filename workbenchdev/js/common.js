@@ -357,17 +357,20 @@ MashableData.common = {
 
     callApi: function callApi(params, callBack){ //modal waiting screen is shown by default. params.modal option can modify this behavior
         var data, embed = MashableData.globals.isEmbedded;
+        $.support.cors = true;
         if(embed){
             data = $.extend({uid: false, host: window.location.host}, params)
         } else {
             data = $.extend({uid: getUserId(), version: workbenchVersion, accessToken: account.info.accessToken}, params)
         }
         if(!embed && params.modal!='none') mask();
-        $.ajax({type: 'POST',
-            url: embed?"http://remote.mashabledata.com/"+(MashableData.globals.embed||''):"api.php",
+        $.ajax({type: embed?'GET':'POST',
+            url: embed?"//remote.mashabledata.com/":"api.php",
+            //url: embed?"/global/js/maps":"api.php",
             encoding:"UTF-8",
+            cache: false,
             data: data,
-            dataType: 'json',
+            dataType: 'json', //embed?'jsonp':'json',
             success: function(jsoData, textStatus, jqXHR){
                 console.info(jsoData);
                 if(jsoData.status=="ok"){
