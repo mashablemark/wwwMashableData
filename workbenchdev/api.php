@@ -304,9 +304,11 @@ switch($command){
         $output = getGraphs($user_id, '');
         break;
     case "GetPublicGraph":  //data and all: the complete protein!
+
+
         $ghash =  $_REQUEST['ghash'];
         if(strlen($ghash)>0){
-            $ghash_var = safeSQLFromPost('ghash');
+            $ghash_var = safeStringSQL($ghash);
             $currentmt = microtime(true);
 
             //1. check cache
@@ -483,11 +485,11 @@ switch($command){
         }
         break;
     case "GetCubeSeries":
-        if(!isset($_POST["geokey"]) || !isset($_POST["cubeid"])){
+        if(!isset($_REQUEST["geokey"]) || !isset($_REQUEST["cubeid"])){
             $output = ["status"=>"invalid cube id or geography"];
         } else {
-            $cubeid = intval($_POST["cubeid"]);
-            $geokey = $_POST["geokey"];
+            $cubeid = intval($_REQUEST["cubeid"]);
+            $geokey = $_REQUEST["geokey"];
 
             //1. check cache
             $currentmt = microtime(true);

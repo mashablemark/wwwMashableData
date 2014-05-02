@@ -8,7 +8,52 @@
  jQuery-UI (optional)
 
  */
+//jquery.ie.cors.js copyright 2013 Allen Institute for Brain Science Licensed under the Apache License
+(function( jQuery ) {
+    if ( window.XDomainRequest ) {
+        jQuery.ajaxTransport(function( s ) {
+            if ( s.crossDomain && s.async ) {
+                if ( s.timeout ) {
+                    s.xdrTimeout = s.timeout;
+                    delete s.timeout;
+                }
+                var xdr;
+                return {
+                    send: function( _, complete ) {
+                        function callback( status, statusText, responses, responseHeaders ) {
+                            xdr.onload = xdr.onerror = xdr.ontimeout = jQuery.noop;
+                            xdr = undefined;
+                            complete( status, statusText, responses, responseHeaders );
+                        }
+                        xdr = new window.XDomainRequest();
+                        xdr.onload = function() {
+                            callback( 200, "OK", { text: xdr.responseText }, "Content-Type: " + xdr.contentType );
+                        };
+                        xdr.onerror = function() {
+                            callback( 404, "Not Found" );
+                        };
+                        xdr.onprogress = function() {};
+                        if ( s.xdrTimeout ) {
+                            xdr.ontimeout = function() {
+                                callback( 0, "timeout" );
+                            };
+                            xdr.timeout = s.xdrTimeout;
+                        }
 
+                        xdr.open( s.type, s.url, true );
+                        xdr.send( ( s.hasContent && s.data ) || null );
+                    },
+                    abort: function() {
+                        if ( xdr ) {
+                            xdr.onerror = jQuery.noop();
+                            xdr.abort();
+                        }
+                    }
+                };
+            }
+        });
+    }
+})( jQuery );
 
 // Add ECMA262-5 Array methods if not supported natively
 //  indexOf not native to IE8
