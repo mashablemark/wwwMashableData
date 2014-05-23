@@ -1989,24 +1989,46 @@ MashableData.grapher = function(){
                                 ]
                             },
                             onRegionLabelShow: function(event, label, code){
-                                var i, vals=[], containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
+                                var i, vals=[], currentIndex, containingDateData = getMapDataByContainingDate(calculatedMapData.regionData,calculatedMapData.dates[val].s);
                                 if(calculatedMapData.regionColors){
                                     var containingDateColor = getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
                                     if(containingDateColor && typeof containingDateColor[code] != 'undefined'){
                                         for(i=0;i<calculatedMapData.dates.length;i++){
-                                            if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') vals.push(calculatedMapData.regionData[calculatedMapData.dates[i].s][code]);
+                                            if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') {
+                                                vals.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.regionData[calculatedMapData.dates[i].s][code]]);
+                                                if(i==val) currentIndex = vals.length-1;
+                                            }
                                         }
                                         var y = containingDateData[code];
                                         label.html(
                                             '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+'</b> '
                                                 + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
                                                 + ' ' + (calculatedMapData.mapUnits||'')
-                                                + '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>'
+                                                + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*vals.length)+'px;margin:0 5px;"></div>'
                                         ).css("z-Index",400);
-                                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true, width: Math.min(400, 10*vals.length) +"px"};
-                                        if(vals.length<10) sparkOptions.type = 'bar';
-                                        if(typeof y != 'undefined' && y!==null) sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
-                                        if(vals.length>1)$('.inlinesparkline').sparkline(vals, sparkOptions);
+
+                                        var sparkOptions = {
+                                            grid: {show: false}
+                                        };
+                                        // main series
+                                        var series = [{
+                                            data: vals,
+                                            color: '#ddddff',
+                                            lines: {lineWidth: 0.8, fill: true},
+                                            shadowSize: 0
+                                        }];
+                                        if(vals.length<10) series.bars = {show: true};
+
+                                        // colour the current point red
+                                        if(typeof currentIndex != 'undefined'){
+                                            series.push({
+                                                data: [ vals[currentIndex] ],
+                                                points: {show: true, radius: 1, fillColor: '#ff0000'},
+                                                color: '#ff0000'
+                                            });
+                                        }
+
+                                        label.find('div.inlinesparkline').plot(series, sparkOptions);  // draw the sparkline
                                     }
                                 }
                             },

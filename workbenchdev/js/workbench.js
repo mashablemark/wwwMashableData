@@ -122,19 +122,20 @@ window.fbAsyncInit = function() { //called by facebook auth library after it loa
         xfbml      : true  // parse XFBML
     });
 
+    //now that FB library is loaded and our app identified, see if user is already logged in
     FB.getLoginStatus(function(response) {
         account.signInFB(response);
-        FB.Event.subscribe('auth.login', function(response) {
+        FB.Event.subscribe('auth.login', function(response) { //react to future log ins
             account.signInFB(response);
         });
     });
 };
 
 // Load the Facebook SDK Asynchronously
-function initFacebook(){
+function initFacebook(){  //normally called when document is ready (ie. when page loads)
     var js, id = 'facebook-jssdk'; if (document.getElementById(id)) {return;}
     js = document.createElement('script'); js.id = id; js.async = true;
-    js.src = "//connect.facebook.net/en_US/all.js";
+    js.src = "//connect.facebook.net/en_US/all.js";  //calls fbAsyncInit above when loaded
     document.getElementsByTagName('head')[0].appendChild(js);
 }
 

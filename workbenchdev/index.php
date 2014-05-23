@@ -32,7 +32,9 @@
     <!--script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery-ajaxtransport-xdomainrequest/1.0.1/jquery.xdomainrequest.min.js"></script--->
 
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.9.4.js"></script><!-- latest version is 1.9.4-->
-    <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
+    <!--script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script--><!-- version 2.1-->
+    <script type="text/javascript" src="/global/js/flot/jquery.flot.min.js"></script><!-- version 0.8.3-->
+    <script type="text/javascript" src="/global/js/flot/excanvas.min.js"></script>
     <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
     <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
     <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.8.js"></script>

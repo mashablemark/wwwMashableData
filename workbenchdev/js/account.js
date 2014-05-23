@@ -372,6 +372,8 @@ account = {
     },
     signInFB: function(basicResponse){
         if (basicResponse.authResponse) {
+            if(this.signingIn) return; //insurance against double sign-in occuring during asynchronous calls
+            this.signingIn = true;
             account.info.authmode = "Facebook";  //global variable
             var accessToken = basicResponse.authResponse.accessToken; //TODO: save this in user account from //www.mashabledata.com/fb_channel.php and pass in all server requests
             expiresIn = basicResponse.authResponse.expiresIn;
@@ -382,9 +384,17 @@ account = {
                 account.info.accesstoken = accessToken;
                 account.info.name = response.name;
                 account.info.email = response.email;
-                getUserId();
+                if(response.email){
+                    getUserId();
+                    this.signingIn = false;
+                } else {
+                    FB.login();
+                    dialogShow("Email required","You must authorize Facebook to share your email with MashableData.  Mashdata requires a single validated email address and will remain confidential");
+                    this.signingIn = false;
+                }
             });
             $.fancybox.close()
+
         }
     },
     subscribe: function(password, callback){ //account.info must be populated
@@ -394,6 +404,7 @@ account = {
         FB.logout(function(response) {
             localStorage.removeItem('token');  //remove the FB token
             localStorage.removeItem('mdtoken');  //remove the MD encryted token
+            window.onbeforeunload = false;
             window.location.reload();  // user is now logged out; reload will reset everything
         });
     },
