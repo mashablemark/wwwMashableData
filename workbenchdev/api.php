@@ -1818,6 +1818,13 @@ function getCubeSeries(&$output, $cubeid, $geoid=0){
         $output["status"] = "invalid geoid $geoid";
     }
 }
+function dataSliver($data, $start, $end){ //call only if jsStart and jsEnd are valid
+    if(preg_match("/b$start|[^|].+||$end/b", $data, $matches)==1){
+        return $matches[0];
+    } else {
+        return $data;
+    }
+}
 
 function validationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}
 function emailAdminInvite($email, $name='', $adminid=0, $orgid=0){ 

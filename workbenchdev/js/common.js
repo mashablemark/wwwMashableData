@@ -11,7 +11,22 @@ MashableData.common = {
         else
             return decodeURIComponent(results[1].replace(/\+/g, " "));
     },*/
+    numberFormat: function numberFormat(number, decimals, decPoint, thousandsSep) {
+        var lang = MashableData.globals.lang,
+        // http://kevin.vanzonneveld.net/techblog/article/javascript_equivalent_for_phps_number_format/
+        n = +number || 0,
+        c = decimals === -1 ?
+            (n.toString().split('.')[1] || '').length : // preserve decimals
+            (isNaN(decimals = Math.abs(decimals)) ? 2 : decimals),
+        d = decPoint === undefined ? lang.decimalPoint : decPoint,
+        t = thousandsSep === undefined ? lang.thousandsSep : thousandsSep,
+        s = n < 0 ? "-" : "",
+        i = String(parseInt(n = Math.abs(n).toFixed(c))),
+        j = i.length > 3 ? i.length % 3 : 0;
 
+        return s + (j ? i.substr(0, j) + t : "") + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + t) +
+            (c ? d + Math.abs(n - i).toFixed(c).slice(2) : "");
+    },
     octet: function octet(s){
         s = s.toString(16);
         return (s.length==1?0:'') + s;

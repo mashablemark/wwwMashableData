@@ -1127,17 +1127,15 @@ function preview(series, showAddSeries){
 }
 
 function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
-    var quickGraph, aoSeries, i;
+    var quickGraph, aoSeries, i, someNewSeries = [], someMySeries = [];
     var hasMaps = false, seriesMaps = [], otherMaps = [], sets = [];
     var $mapSelect =  $('#quick-view-maps');
-    if($quickViewRows) $('#quick-view-delete-series').show(); else $('#quick-view-delete-series').hide();
-
     if(obj.plots){ // a graphs object was passed in
         quickGraph = obj; // everything including title should be set by caller
-        oQuickViewSeries = obj; //store in global var
-    } else {
+        oQuickViewSeries = obj; //store in global var <<BAD FORM!!
+    } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
-        oQuickViewSeries = aoSeries;
+        oQuickViewSeries = aoSeries; //aoSeries is guarented to be an array of series
         quickGraph = emptyGraph();
         quickGraph.plots = [];
         var handles = [];
@@ -1149,6 +1147,12 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     }
 
     var quickChartOptions = grapher.makeChartOptionsObject(quickGraph);
+
+    grapher.eachComponent(quickGraph, function(){
+        if(globals.MySeries[this.handle]) someMySeries.push(globals.MySeries[this.handle]);
+        if(!globals.MySeries[this.handle]) someNewSeries.push(quickGraph.assets[this.handle]);
+    });
+
     delete quickChartOptions.chart.height;
     if(aoSeries instanceof Array){
         if(aoSeries.length==1){
@@ -1173,6 +1177,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
                 + '<tr><td>Series key:</td><td>' + aoSeries[0].skey||'' + '</td></tr>'
                 + '</table>';
         }
+
         //determine whether and which maps to show in the selector
         for(i=0;i<aoSeries.length;i++){
             if((aoSeries[i].mapsetid && sets.indexOf('M'+aoSeries[i].mapsetid)==-1) || (aoSeries[i].pointsetid && sets.indexOf('X'+aoSeries[i].pointsetid)==-1)){
@@ -1190,41 +1195,46 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             }
         }
     }
+    function showHideMapSelector (){
+        var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
+        var shown = $mapSelect.css("display")!='none';
+        if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
+    }
     if(hasMaps){ //make sure we have maps to show
         seriesMaps.sort();
         otherMaps.sort();
         //$('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
         $('#quick-view-chart-or-map').show().find('input').off().click(showHideMapSelector );
         $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):''));
+        showHideMapSelector();
     } else {
         $mapSelect.hide();
         $('#quick-view-chart-or-map').hide();
     }
     $('#qv-info').html(qvNotes);
-    function showHideMapSelector (){
-        var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
-        var shown = $mapSelect.css("display")!='none';
-        if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
-    }
-    showHideMapSelector();
-    if(showAddSeries){
-        $('#quick-view-to-series').button("disable").show();
-        $('#quick-view-delete-series').hide();
+    if(showAddSeries && someNewSeries){
+        $('#quick-view-to-series').show();
     } else {
         $('#quick-view-to-series').hide();
-        $('#quick-view-delete-series').show();
     }
-
+    if(someMySeries.length>0){
+        $('#quick-view-delete-series').show();
+    } else {
+        $('#quick-view-delete-series').hide();
+    }
+    //populate the graph selector
     var graphOptions = '<option value="new">new graph</option>';
     $('div.graph-panel').each(function(){
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
     });
+    //program the "add to graph" button
     $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId())
-        .off().click(function(){
+        .off()
+        .click(function(){
             $('#quick-view-add-to-graph').find('.ui-button-text').html(($(this).val()=='new')?'create graph':'add to graph');
         })
-        .click();
+        .click(); //set the button text
     //$('#quick-view-add-to-graph').button("enable");
     $('.show-graph-link').click();
 

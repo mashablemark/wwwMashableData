@@ -18,14 +18,15 @@
             <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
             <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
 <?php }  ?>
-            <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.8.js"></script>
+            <!--[if lte IE 8]><script language="javascript" type="text/javascript" src="/global/js/flot/excanvas.min.js"></script><![endif]-->
             <!--MASHABLEDATA EMBEDDER LIBRARY-->
 <?php if(strrpos ($_SERVER["REQUEST_URI"], 'dev')!==FALSE){ ?>
             <script type="text/javascript" src="/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"></script>
-            <script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script><!-- version 2.1-->
-            <!--15kb--><script type="text/javascript" src="/global/js/require/require.2.1.1.min.js"></script>
-            <!--16kb+images--><script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
-            <!--2kb+images--><script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
+            <script type="text/javascript" src="/global/js/flot/jquery.flot.min.js"></script><!-- 52 kb; version 0.8.3-->
+            <script type="text/javascript" src="/global/js/flot/jquery.flot.time.min.js"></script><!--5kb-->
+            <script type="text/javascript" src="/global/js/require/require.2.1.1.min.js"></script><!--15kb-->
+            <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script><!--16kb+images-->
+            <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script><!--2kb+images-->
             <script type="text/javascript" src="/workbenchdev/js/globals.js"></script>
             <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/common.js"></script>
@@ -34,7 +35,8 @@
             <script type="text/javascript" src="/workbenchdev/js/shims.js"></script>
             <script type="text/javascript" src="/embedder/mashabledata_embedtools.js"></script>
 <?php } else { ?>
-            <script type="text/javascript" src="/embedder/mashabledata_embedtools.min.js"></script>
+    <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.8.js"></script>
+    <script type="text/javascript" src="/embedder/mashabledata_embedtools.min.js"></script>
 <?php }  ?>
         </head>
 <body>

@@ -108,7 +108,7 @@ jQuery.fn.sortElements = (function(){
     };
 })();
 window.MashableData.plugin = function(){ //mashableData namespace
-    var $ = jQuery, MD = MashableData;
+    var $ = jQuery, MD = MashableData, grapher = MD.grapher;
     var plugin_obj = {
         version: "0.5", //0.5 is a major upgrade, adding easily embeddable fully function MD visualizations on load
         //0.6
@@ -630,13 +630,13 @@ window.MashableData.plugin = function(){ //mashableData namespace
                 //$.support.cors = true;
                 var graphcode = $div.attr('data');
                 if(graphcode && graphcode.length==32 && !/[^a-f0-9]/g.test(graphcode))
-                    MD.grapher.createMyGraph(graphcode);
+                    grapher.createMyGraph(graphcode);
                 else
                     $div.html('The data attribute must be a graphcode');
             }
         },
         popGraph: function(quickGraph){
-            var quickChartOptions = MD.grapher.makeChartOptionsObject(quickGraph);
+            var quickChart = false, quickFlot, quickChartOptions = grapher.makeChartOptionsObject(quickGraph);
             delete quickChartOptions.chart.height;
             quickChartOptions.chart.borderWidth = 2;
 
@@ -647,11 +647,61 @@ window.MashableData.plugin = function(){ //mashableData namespace
                     autoScale: true,
                     overlayOpacity: 0.5,
                     hideOnOverlayClick: true,
-                    onClosed: function(){
-                        quickChart.destroy();
+                    onCleanup: function(){
+                        if(quickChart) {
+                            quickChart.destroy();
+                        } else {
+                            quickFlot.shutdown();
+                        }
                     }
                 });
-            var quickChart = new Highcharts.Chart(quickChartOptions);
+            if(window.Highcharts){
+                quickChart = new Highcharts.Chart(quickChartOptions);
+            } else {  //use flot
+                $('<h3>' + quickChartOptions.title.text + ' ('+quickChartOptions.yAxis[0].title.text+')</h3>').insertBefore('#mashabledata_quick-graph');
+                $.each(quickChartOptions.series, function(){
+                    this.label = this.geoname || this.name;
+                });
+                var flotOptions = {
+                    legend: {
+                        show: true,
+                        noColumns: 1,
+                        position: "nw"
+                    },
+                    xaxis: {
+                        mode: "time"
+                        //timeformat: "%Y/%m/%d"
+                    },
+                    grid: {
+                            hoverable: true,
+                            clickable: true
+                    }
+                };
+                if($('#mashabledata_flottip').length==0)
+                    $("<div id='mashabledata_flottip'></div>").css({
+                        position: "absolute",
+                        display: "none",
+                        border: "1px solid #fdd",
+                        padding: "2px",
+                        "background-color": "#fee",
+                        opacity: 0.80,
+                        "z-index": 1200
+                }).appendTo("body");
+                quickFlot = $.plot('#mashabledata_quick-graph', quickChartOptions.series, flotOptions);
+                $("#mashabledata_quick-graph").bind("plothover", function (event, pos, item) {
+                    if (item) {
+                        var x = item.datapoint[0].toFixed(2),
+                            y = item.datapoint[1].toFixed(2);
+
+                        $("#mashabledata_flottip")
+                            .html(item.series.label + ":<br>" + y + " " + quickChartOptions.yAxis[0].title.text+" in " + grapher.formatDateByPeriod(y,quickChartOptions.series[0].period))
+                            .css({top: item.pageY+5, left: item.pageX+5})
+                            .fadeIn(200);
+                    } else {
+                        $("#mashabledata_flottip").hide();
+                    }
+                });
+            }
         }
     };
     return plugin_obj;
@@ -666,7 +716,7 @@ jQuery(document).ready(function(){
     });
 
     //Highcharts mod
-    if(Highcharts){
+    if(window.Highcharts){
         var btnHeight = 20;
         var btnsWidth = 24;
         var btnsX = 10;

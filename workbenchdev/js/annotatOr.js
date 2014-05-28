@@ -684,7 +684,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             var decimalLocation = m.toString().indexOf('.');
 
             var newSeries = {
-                name:  "Linear regression of " + series.name + "<BR> (m="+Highcharts.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.period]+")",
+                name:  "Linear regression of " + series.name + "<BR> (m="+common.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.period]+")",
                 dashStyle: 'LongDash',
                 period: series.options.period,
                 lineWidth: 1,

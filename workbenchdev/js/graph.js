@@ -347,48 +347,54 @@ MashableData.grapher = function(){
         },
         setCropSlider: function setCropSlider(panelId){  //get closest point to recorded js dt
             if(globals.isEmbedded) return;  //not available for embedded graphs
-            var leftIndex, rightIndex, i, bestDelta, thisDelta;
-            var oGraph = panelGraphs[panelId];
-            var chartOptions = oGraph.controls.chart.options.chart;
-            if(oGraph.start===null){
-                leftIndex = 0;
-            } else {
-                i = chartOptions.x.indexOf(oGraph.start.toString());
-                if(i>-1){
-                    leftIndex = i;
-                } else { //start is a non-null number, but not point matches exactly.  We have to search for the closest
-                    bestDelta = null;
-                    for(i=0;i<chartOptions.x.length;i++){
-                        thisDelta = Math.abs(parseInt(chartOptions.x[i])-parseInt(oGraph.start));
-                        if(bestDelta===null || bestDelta>thisDelta){
-                            bestDelta = thisDelta;
-                            leftIndex = i;
-                        }
-                    }
-                }
-            }
 
-            if(oGraph.end===null){
-                rightIndex = chartOptions.x.length-1;
-            } else {
-                i = chartOptions.x.indexOf(oGraph.end.toString());
-                if(i>-1){
-                    rightIndex = i;
-                } else { //start is a non-null number, but not point matches exactly.  We have to search for the closest
-                    bestDelta = null;
-                    for(i=0;i<chartOptions.x.length;i++){
-                        thisDelta = Math.abs(parseInt(chartOptions.x[i])-parseInt(oGraph.end));
-                        if(bestDelta===null || bestDelta>thisDelta){
-                            bestDelta = thisDelta;
-                            rightIndex = i;
+            var leftIndex, rightIndex, maxIndex, i, bestDelta, thisDelta, chartOptions, oGraph = panelGraphs[panelId];
+            if(oGraph.controls.chart){
+                chartOptions = oGraph.controls.chart.options.chart;
+                if(oGraph.start===null){
+                    leftIndex = 0;
+                } else {
+                    i = chartOptions.x.indexOf(oGraph.start.toString());
+                    if(i>-1){
+                        leftIndex = i;
+                    } else { //start is a non-null number, but not point matches exactly.  We have to search for the closest
+                        bestDelta = null;
+                        for(i=0;i<chartOptions.x.length;i++){
+                            thisDelta = Math.abs(parseInt(chartOptions.x[i])-parseInt(oGraph.start));
+                            if(bestDelta===null || bestDelta>thisDelta){
+                                bestDelta = thisDelta;
+                                leftIndex = i;
+                            }
                         }
                     }
                 }
+                if(oGraph.end===null){
+                    rightIndex = chartOptions.x.length-1;
+                } else {
+                    i = chartOptions.x.indexOf(oGraph.end.toString());
+                    if(i>-1){
+                        rightIndex = i;
+                    } else { //start is a non-null number, but not point matches exactly.  We have to search for the closest
+                        bestDelta = null;
+                        for(i=0;i<chartOptions.x.length;i++){
+                            thisDelta = Math.abs(parseInt(chartOptions.x[i])-parseInt(oGraph.end));
+                            if(bestDelta===null || bestDelta>thisDelta){
+                                bestDelta = thisDelta;
+                                rightIndex = i;
+                            }
+                        }
+                    }
+                }
+                maxIndex  = chartOptions.x.length-1;
+            } else {
+                leftIndex = oGraph.calculatedMapData.startDateIndex;
+                rightIndex = oGraph.calculatedMapData.endDateIndex;
+                maxIndex = oGraph.calculatedMapData.dates.length - 1;
             }
 
             $('#' + panelId + ' span.interval-crop-period').html(period.units[oGraph.largestPeriod]+'s');
             $('#' + panelId + ' div.crop-slider')
-                .slider("option", "max", chartOptions.x.length-1)
+                .slider("option", "max", maxIndex)
                 .slider("option", "values", [leftIndex, rightIndex]);
         },
         dateFromMdDate: function dateFromMdDate(mddt){  //returns a data object
@@ -492,6 +498,7 @@ MashableData.grapher = function(){
         },
 
         createMyGraph: function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a ghash
+            console.time('createMyGraph');
             //1. check to see if it is a gid of a graph that is already loaded in MyGraphs
             var myGraph = oMyGraphs['G' + id];
             if(myGraph){  //graph is found!
@@ -529,6 +536,7 @@ MashableData.grapher = function(){
                     });
                 });
             }
+            console.timeEnd('createMyGraph');
         },
 
         inflateGraph: function inflateGraph(graph){
@@ -1097,10 +1105,14 @@ MashableData.grapher = function(){
         buildGraphPanel: function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
 
             if(globals.isEmbedded){
+                console.time('buildGraphPanelCore');
                 buildGraphPanelCore(oGraph);
+                console.timeEnd('buildGraphPanelCore');
             } else {
                 mask('drawing the graph'+(window.SVGAngle?'':'<br>Note: Graphs will draw 20 times faster in a modern browser such as Chrome, Firefox, Safari or Internet Exploer 9 or later'));
-                window.setTimeout(function(){buildGraphPanelCore(oGraph, panelId)}, 20);
+                window.setTimeout(function(){
+                    buildGraphPanelCore(oGraph, panelId);
+                }, 20);
             }
             function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
                 var title, calculatedMapData, $thisPanel;
@@ -1261,8 +1273,8 @@ MashableData.grapher = function(){
                             '<button class="graph-embed">embed </button>' +
                             //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
                             '</div><div class="searchability">' +
-                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">public graph</label>' +
-                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'not searchable') + '</label>' +
+                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">Public Graphs searchable</label>' +
+                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'private') + '</label>' +
                             '</div>' +
                             '</fieldset>' +
                             '</div>' +
@@ -1534,13 +1546,23 @@ MashableData.grapher = function(){
                         var values = $thisPanel.find('.crop-slider').slider('values');
                         $thisPanel.find('.rad-hard-crop').attr('checked',true);
                         oGraph.intervals = null;
-                        oGraph.start = oGraph.controls.chart.options.chart.x[values[0]];
-                        oGraph.end = oGraph.controls.chart.options.chart.x[values[1]];
+                        if(oGraph.controls.chart){
+                            oGraph.start = oGraph.controls.chart.options.chart.x[values[0]];
+                            oGraph.end = oGraph.controls.chart.options.chart.x[values[1]];
+                        } else {
+                            oGraph.start = oGraph.calculatedMapData.dates[values[0]].dt.getTime();
+                            oGraph.end = oGraph.calculatedMapData.dates[values[1]].dt.getTime()
+                        }
                         redraw();  //should be signals or a call to a local var  = function
                     };
                     var cropDates = function(slider){
                         var values = $(slider).slider("values");
-                        return formatDateByPeriod(oGraph.controls.chart.options.chart.x[values[0]],oGraph.smallestPeriod)+' - '+formatDateByPeriod(chart.options.chart.x[values[1]],oGraph.smallestPeriod);
+                        if(oGraph.controls.chart){
+                            return formatDateByPeriod(oGraph.controls.chart.options.chart.x[values[0]],oGraph.smallestPeriod)+' - '+formatDateByPeriod(chart.options.chart.x[values[1]],oGraph.smallestPeriod);
+                        } else {
+                            return formatDateByPeriod(oGraph.calculatedMapData.dates[values[0]].dt.getTime(), oGraph.calculatedMapData.period)+' - '
+                                + formatDateByPeriod(oGraph.calculatedMapData.dates[values[1]].dt.getTime(), oGraph.calculatedMapData.period);
+                        }
                     };
 
                     $thisPanel.find('div.crop-slider').slider(
@@ -1559,10 +1581,10 @@ MashableData.grapher = function(){
                             }
                         });
 
-                    $('#'+panelId+'-rad-hard-crop')
+                    /*$('#'+panelId+'-rad-hard-crop')  HANDLED ABOVE + DELETE
                         .change(function(){
                             hardCropFromSlider();
-                        });
+                        });*/
 
                     $('#'+panelId+'-rad-interval-crop').change(function(){
                         if($(this).val()=='on'){
@@ -1892,8 +1914,6 @@ MashableData.grapher = function(){
                     console.time('buildGraphPanel:build annoatations');
                     chart = chartPanel(panelId);
                     annotations.build();
-                    setCropSlider(panelId);
-
                     console.timeEnd('buildGraphPanel:build annoatations');
                     $thisPanel.find('div.highcharts-container').mousedown(function (b) {
                         if(b.which==3){}  //???
@@ -1908,6 +1928,8 @@ MashableData.grapher = function(){
                 console.time('buildGraphPanel:drawMap');
                 drawMap();
                 console.timeEnd('buildGraphPanel:drawMap');
+
+                setCropSlider(panelId); //needs to be called after the map is calculated
 
                 function drawMap(){
                     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
@@ -1926,12 +1948,19 @@ MashableData.grapher = function(){
                             $thisPanel.find('.mashabledata_cube-viz').hide();
                             $thisPanel.find('.mashabledata_jvmap').removeAttr("style");
                         }
+                        console.time('buildGraphPanel:drawMap:calcMap');
                         calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
+                        console.timeEnd('buildGraphPanel:drawMap:calcMap');
+                        console.time('buildGraphPanel:drawMap:calcAttributes');
                         calcAttributes(oGraph);
+                        console.timeEnd('buildGraphPanel:drawMap:calcAttributes');
                         if(isBubble()) bubbleCalc();
+                        console.time('buildGraphPanel:drawMap:fillScaling+Scaling');
                         var fillScaling = fillScalingCount(oGraph.pointsets);
                         var areaScaling = areaScalingCount(oGraph.pointsets);
+                        console.timeEnd('buildGraphPanel:drawMap:fillScaling+Scaling');
                         //console.info(calculatedMapData);
+                        console.time('buildGraphPanel:drawMap:jvm call');
                         var minScale = /us.._merc_en/.test(oGraph.mapFile)?0.9:1;
                         vectorMapSettings = {
                             map: oGraph.mapFile,
@@ -2002,7 +2031,7 @@ MashableData.grapher = function(){
                                         var y = containingDateData[code];
                                         label.html(
                                             '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+'</b> '
-                                                + Highcharts.numberFormat(y, (parseInt(y)==y)?0:2)
+                                                + common.numberFormat(y, (parseInt(y)==y)?0:2)
                                                 + ' ' + (calculatedMapData.mapUnits||'')
                                                 + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*vals.length)+'px;margin:0 5px;"></div>'
                                         ).css("z-Index",400);
@@ -2052,8 +2081,8 @@ MashableData.grapher = function(){
                                     } else {
                                         html = '<div><b>'+label.html()+':</b> ';
                                     }
-                                    if(containingDateData[code].r) html += Highcharts.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
-                                    if(containingDateData[code].f) html += Highcharts.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
+                                    if(containingDateData[code].r) html += common.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
+                                    if(containingDateData[code].f) html += common.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
                                     html += '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
                                     label.html(html).css("z-Index",400);
                                     var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
@@ -2069,7 +2098,7 @@ MashableData.grapher = function(){
                                 setMergablity();
                                 var selectedMarkers = $map.getSelectedMarkers();
                                 if(selectedMarkers.length>0){
-                                    $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map').button('enable');
+                                    $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
                                     return;
                                 }
                                 var selectedRegions = $map.getSelectedRegions();
@@ -2079,7 +2108,7 @@ MashableData.grapher = function(){
                                         if(calculatedMapData.regionColors){
                                             for(var dateKey in calculatedMapData.regionColors){ //only need a single valid region date key
                                                 if(typeof calculatedMapData.regionColors[dateKey][selectedRegions[i]]!='undefined'){
-                                                    $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map').button('enable');
+                                                    $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
                                                     return;
                                                 }
                                                 break;
@@ -2087,7 +2116,7 @@ MashableData.grapher = function(){
                                         }
                                     }
                                     //default if no markers selected or region that have data are selected:
-                                    $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map').button('disable');
+                                    $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('disable');
                                 }
                             },
                             onMarkerSelected: function(e, code, isSelected){
@@ -2103,6 +2132,10 @@ MashableData.grapher = function(){
 
                         $thisPanel.find('div.mashabledata_jvmap').show().height(mapHeight).vectorMap(vectorMapSettings);
                         $map = $thisPanel.find('div.mashabledata_jvmap').vectorMap('get', 'mapObject');
+
+                        console.timeEnd('buildGraphPanel:drawMap:jvm call');
+
+                        console.time('buildGraphPanel:mapControls');
                         oGraph.controls.map = $map;
                         var $mapDateDiv = $('<div class="mashabledata_map-date"></div>').prependTo($thisPanel.find('div.jvectormap-container'));
 
@@ -2257,16 +2290,19 @@ MashableData.grapher = function(){
                         }
                         var $mapSlider = $thisPanel.find('.mashabledata_map-slider');
                         if(calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){
-                            $mapSlider.show().off().slider({
-                                value: calculatedMapData.endDateIndex,
-                                min: calculatedMapData.startDateIndex,
-                                max: calculatedMapData.endDateIndex,
-                                step: 1,
-                                change: function( event, ui ) { //this event fires when the map is first loaded
-                                    val = ui.value;
-                                    setRegionsMarkersAtribute(val);
-                                }
-                            }).slider("value", calculatedMapData.endDateIndex);
+                            $mapSlider
+                                .show()
+                                .slider({  //removed .off() because slider not working when reintialized
+                                    value: calculatedMapData.endDateIndex,
+                                    min: calculatedMapData.startDateIndex,
+                                    max: calculatedMapData.endDateIndex,
+                                    step: 1,
+                                    change: function( event, ui ) { //this event fires when the map is first loaded
+                                        val = ui.value;
+                                        setRegionsMarkersAtribute(val);
+                                    }
+                                })
+                                .slider("value", calculatedMapData.endDateIndex); //needed for first draw, but double triggers on true redraw = not end of the world
                         } else {
                             $mapSlider.hide();
                             setRegionsMarkersAtribute(calculatedMapData.startDateIndex);
@@ -2275,94 +2311,92 @@ MashableData.grapher = function(){
                             makeList($map);
                         }
                         var $graphSelected = $thisPanel.find('.mashabledata_map-graph-selected');
-                        if(Highcharts){ //for embedded graphs, Highcharts is optional for map-only graphs
-                            $graphSelected.button({icons:{secondary: 'ui-icon-image'}}).off()
-                                .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
-                                    /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
-                                     If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
-                                     If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
-                                     OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
-                                     * */
+                        $graphSelected.button({icons:{secondary: 'ui-icon-image'}}).off()
+                            .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
+                                /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
+                                 If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
+                                 If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
+                                 OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
+                                 * */
 
-                                    var selectedRegions = $map.getSelectedRegions();
-                                    var selectedMarkers = $map.getSelectedMarkers();
-                                    var grph = emptyGraph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
-                                    grph.plots =[];
-                                    grph.title = 'from map of ' + oGraph.title;
-                                    for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
-                                        if(isBubble()){
-                                            //get array of regions codes
+                                var selectedRegions = $map.getSelectedRegions();
+                                var selectedMarkers = $map.getSelectedMarkers();
+                                var grph = emptyGraph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
+                                grph.plots =[];
+                                grph.title = 'from map of ' + oGraph.title;
+                                for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
+                                    if(isBubble()){
+                                        //get array of regions codes
+                                        plt = $.extend(true, {}, oGraph.mapsets);
+                                        delete plt.formula;
+                                        delete plt.options.calculatedFormula;
+                                        mapComps = plt.components;
+                                        plt.components = [];
+                                        regionCodes = selectedMarkers[i].split('+');
+                                        regionNames = [];
+                                        for(j=0;j<regionCodes.length;j++){
+                                            regionNames.push($map.getRegionName(regionCodes[j]));
+                                            for(c=0;c<mapComps.length;c++){
+                                                if(mapComps[c].handle[0]=='M'){
+                                                    asset = $.extend({units: oGraph.assets[mapComps[c].handle].units, period: oGraph.assets[mapComps[c].handle].period}, oGraph.assets[mapComps[c].handle].data[regionCodes[j]]);
+                                                    newComp = $.extend(true, {}, mapComps[c]);
+                                                    newComp.handle = asset.handle;
+                                                    grph.assets[asset.handle] = asset; //data, first/lastdt, handle & name
+                                                    plt.components.push(newComp);
+                                                } else {
+                                                    plt.components.push($.extend(true, {}, mapComps[c]));
+                                                    grph.assets[mapComps[c].handle] = oGraph.assets[mapComps[c].handle];
+                                                }
+                                            }
+                                        }
+                                        plt.options.name = plotName(oGraph, oGraph.mapsets) + " for " + regionNames.join('+');
+                                        grph.plots.push(plt);
+                                    } else {
+                                        for(X=0;X<oGraph.pointsets.length;X++){
+                                            pointset = $.extend(true, {}, oGraph.pointsets[X]);
+                                            found = false;
+                                            comps = pointset.components;
+                                            for(c=0;c<comps.length;c++){
+                                                if(comps[c].handle[0]=='X' && oGraph.assets[comps[c].handle].data[selectedMarkers[i]]){
+                                                    found = true;
+                                                    sHandle = oGraph.assets[comps[c].handle].data[selectedMarkers[i]].handle;
+                                                    grph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle].units, period: oGraph.assets[comps[c].handle].period}, oGraph.assets[comps[c].handle].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
+                                                    comps[c].handle = sHandle;
+                                                } else {
+                                                    grph.assets[comps[c].handle] = oGraph.assets[comps[c].handle];
+                                                }
+                                            }
+                                            if(found) grph.plots.push(pointset);
+                                        }
+                                    }
+                                }
+                                //regions (mapsets) are simpler than markers (pointsets) because there is only one
+                                if(oGraph.mapsets){  //skip if not mapset
+                                    for(i=0;i<selectedRegions.length;i++){
+                                        if(typeof calculatedMapData.regionColors[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
                                             plt = $.extend(true, {}, oGraph.mapsets);
-                                            delete plt.formula;
-                                            delete plt.options.calculatedFormula;
-                                            mapComps = plt.components;
-                                            plt.components = [];
-                                            regionCodes = selectedMarkers[i].split('+');
-                                            regionNames = [];
-                                            for(j=0;j<regionCodes.length;j++){
-                                                regionNames.push($map.getRegionName(regionCodes[j]));
-                                                for(c=0;c<mapComps.length;c++){
-                                                    if(mapComps[c].handle[0]=='M'){
-                                                        asset = $.extend({units: oGraph.assets[mapComps[c].handle].units, period: oGraph.assets[mapComps[c].handle].period}, oGraph.assets[mapComps[c].handle].data[regionCodes[j]]);
-                                                        newComp = $.extend(true, {}, mapComps[c]);
-                                                        newComp.handle = asset.handle;
-                                                        grph.assets[asset.handle] = asset; //data, first/lastdt, handle & name
-                                                        plt.components.push(newComp);
-                                                    } else {
-                                                        plt.components.push($.extend(true, {}, mapComps[c]));
-                                                        grph.assets[mapComps[c].handle] = oGraph.assets[mapComps[c].handle];
-                                                    }
+                                            for(j=0;j<plt.components.length;j++){
+                                                if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
+                                                    var mapAsset = oGraph.assets[plt.components[j].handle];
+                                                    var regionSeries = $.extend(true, {name: mapAsset.geoname, geocounts: mapAsset.maps, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
+                                                    plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
+                                                    grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
+                                                } else {
+                                                    grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
                                                 }
                                             }
-                                            plt.options.name = plotName(oGraph, oGraph.mapsets) + " for " + regionNames.join('+');
+                                            if(plt.name) plt.name += ' - ' + $map.getRegionName(selectedRegions[i]);
                                             grph.plots.push(plt);
-                                        } else {
-                                            for(X=0;X<oGraph.pointsets.length;X++){
-                                                pointset = $.extend(true, {}, oGraph.pointsets[X]);
-                                                found = false;
-                                                comps = pointset.components;
-                                                for(c=0;c<comps.length;c++){
-                                                    if(comps[c].handle[0]=='X' && oGraph.assets[comps[c].handle].data[selectedMarkers[i]]){
-                                                        found = true;
-                                                        sHandle = oGraph.assets[comps[c].handle].data[selectedMarkers[i]].handle;
-                                                        grph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle].units, period: oGraph.assets[comps[c].handle].period}, oGraph.assets[comps[c].handle].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
-                                                        comps[c].handle = sHandle;
-                                                    } else {
-                                                        grph.assets[comps[c].handle] = oGraph.assets[comps[c].handle];
-                                                    }
-                                                }
-                                                if(found) grph.plots.push(pointset);
-                                            }
                                         }
-                                    }
-                                    //regions (mapsets) are simpler than markers (pointsets) because there is only one
-                                    if(oGraph.mapsets){  //skip if not mapset
-                                        for(i=0;i<selectedRegions.length;i++){
-                                            if(typeof calculatedMapData.regionColors[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
-                                                plt = $.extend(true, {}, oGraph.mapsets);
-                                                for(j=0;j<plt.components.length;j++){
-                                                    if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
-                                                        var mapAsset = oGraph.assets[plt.components[j].handle];
-                                                        var regionSeries = $.extend(true, {name: mapAsset.geoname, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
-                                                        plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
-                                                        grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
-                                                    } else {
-                                                        grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
-                                                    }
-                                                }
-                                                if(plt.name) plt.name += ' - ' + $map.getRegionName(selectedRegions[i]);
-                                                grph.plots.push(plt);
-                                            }
 
-                                        }
                                     }
-                                    if(grph.plots.length>0) {
-                                        if(isEmbedded) MD.plugin.popGraph(grph); else quickGraph(grph, true);
-                                    }
-                                });
-                        } else {
-                            $graphSelected.hide();
-                        }
+                                }
+                                if(grph.plots.length>0) {
+                                    if(isEmbedded) MD.plugin.popGraph(grph); else quickGraph(grph, true);
+                                } else {
+                                    $thisPanel.find('.mashabledata_make-map').click();
+                                }
+                            });
 
                         var $play = $thisPanel.find('.mashabledata_map-play');
                         if(calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){ //don't show the map slider and play controls if there only a single date
@@ -2415,23 +2449,23 @@ MashableData.grapher = function(){
                             });  //initialize here rather than set slider value which would trigger a map redraw
 
                         var noCubeRedraw = false;
-                        if(Highcharts){ //highcharts is optional for embedded maps
-                            $thisPanel.find('.mashabledata_make-map').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
-                                .click(function(){
-                                    noCubeRedraw = true;
-                                    $map.clearSelectedMarkers();
-                                    $map.clearSelectedRegions();
-                                    noCubeRedraw = false;
-                                    if(oGraph.controls.vizChart) oGraph.controls.vizChart.redraw();
-                                    /*$map.removeAllMarkers();
-                                     $map.addMarkers(calculatedMapData.markers);
-                                     calculatedMapData  = calcMap(oGraph);
-                                     calcAttributes(oGraph);
-                                     bubbleCalc();
-                                     $mapSlider.slider("value", calculatedMapData.dates.length-1);*/
-                                    $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map').button('disable');
-                                });
-                        } else {$thisPanel.find('.mashabledata_make-map').hide();}
+                        $thisPanel.find('.mashabledata_make-map')
+                            .button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
+                            .click(function(){
+                                noCubeRedraw = true;
+                                $map.clearSelectedMarkers();
+                                $map.clearSelectedRegions();
+                                noCubeRedraw = false;
+                                if(oGraph.controls.vizChart) oGraph.controls.vizChart.redraw();
+                                /*$map.removeAllMarkers();
+                                 $map.addMarkers(calculatedMapData.markers);
+                                 calculatedMapData  = calcMap(oGraph);
+                                 calcAttributes(oGraph);
+                                 bubbleCalc();
+                                 $mapSlider.slider("value", calculatedMapData.dates.length-1);*/
+                                $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map.ui-button').button('disable');
+                            });
+
                         function setMergablity(){
                             var i, j, markerRegions;
                             mergablity = {
@@ -2595,6 +2629,7 @@ MashableData.grapher = function(){
                             }
                         });
                         if(oGraph.mapconfig.showList) makeList($map);
+                        console.timeEnd('buildGraphPanel:mapControls');
                     }
 
                     function makeList(map){
@@ -3147,38 +3182,40 @@ MashableData.grapher = function(){
 
                         //3.create slickgrid objects for REGIONS
                         //create a list of geographies sort by name
-                        var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
-                        var regionRows = []; //initialize empty grid
-                        var hasCalc = (mapset.formula.formula != 'A'); //used to skip calculated column when plot = component
-                        sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                        var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = plotName(graph, mapset), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
-                        for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
-                            //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
-                            jsDateTime = dateFromMdDate(dateKey).getTime();
-                            row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
-                            for(i=0;i<sortedGeoList.length;i++){ //first each date row, loop through geos
-                                for(j=0;j<compSymbols.length;j++){  //for each geo, loop through components
-                                    geo = sortedGeoList[i].geo;
-                                    id = compSymbols[j]+'_'+i;
-                                    asset = graph.assets[components[j].handle];
-                                    //add columns on first date key loop through
-                                    if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+((asset.maps&&asset.data[geo])?asset.data[geo].geoname:asset.geoname||'')+'<br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
-                                    if(components[j].handle[0]=='M'){
-                                        row[id] = oComponentData[dateKey][compSymbols[j]][geo];
-                                    } else {
-                                        row[id] = oComponentData[dateKey][compSymbols[j]];
+                        if(!isEmbedded){
+                            var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
+                            var regionRows = []; //initialize empty grid
+                            var hasCalc = (mapset.formula.formula != 'A'); //used to skip calculated column when plot = component
+                            sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
+                            var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = plotName(graph, mapset), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
+                            for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
+                                //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
+                                jsDateTime = dateFromMdDate(dateKey).getTime();
+                                row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
+                                for(i=0;i<sortedGeoList.length;i++){ //first each date row, loop through geos
+                                    for(j=0;j<compSymbols.length;j++){  //for each geo, loop through components
+                                        geo = sortedGeoList[i].geo;
+                                        id = compSymbols[j]+'_'+i;
+                                        asset = graph.assets[components[j].handle];
+                                        //add columns on first date key loop through
+                                        if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+((asset.maps&&asset.data[geo])?asset.data[geo].geoname:asset.geoname||'')+'<br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
+                                        if(components[j].handle[0]=='M'){
+                                            row[id] = oComponentData[dateKey][compSymbols[j]][geo];
+                                        } else {
+                                            row[id] = oComponentData[dateKey][compSymbols[j]];
+                                        }
+                                        if(typeof row[id] == 'undefined') row[id] = '-';
                                     }
-                                    if(typeof row[id] == 'undefined') row[id] = '-';
+                                    if(hasCalc){  //special
+                                        if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                                        row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
+                                    }
                                 }
-                                if(hasCalc){  //special
-                                    if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
-                                    row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
-                                }
+                                regionRows.push(row);
+                                firstDateKey = false;  //used to detect first pass through = build the columns array
                             }
-                            regionRows.push(row);
-                            firstDateKey = false;  //used to detect first pass through = build the columns array
+                            regionRows.sort(function(a,b){return b.order - a.order});  //guarentee order
                         }
-                        regionRows.sort(function(a,b){return b.order - a.order});  //guarentee order
                     }
 
                     var fillUnits, radiusUnits;
@@ -3346,56 +3383,58 @@ MashableData.grapher = function(){
                                 }
                             }
                             //C.  markerColumns and markerRows to drive slick grids in data tab (inside the pointsets loop)
-                            sortedLatlonList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                            var pointsetHasCalc = (pointset.formula.formula != 'A'); //used to skip calculated column when plot = component
+                            if(!isEmbedded){
+                                sortedLatlonList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
+                                var pointsetHasCalc = (pointset.formula.formula != 'A'); //used to skip calculated column when plot = component
 
-                            var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = plotName(graph, pointset), pointsetUnits = plotUnits(graph, pointset, false, pointset.formula);
-                            for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
-                                //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
-                                jsDateTime = dateFromMdDate(dateKey).getTime();
-                                row = {"id": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
-                                for(var ll=0;ll<sortedLatlonList.length;ll++){ //first each date row, loop through geos
-                                    for(j=0;j<compSymbols.length;j++){  //for each latlon, loop through components
-                                        latlon = sortedLatlonList[ll].latlon;
-                                        id = compSymbols[j]+'_'+ll;
-                                        asset = graph.assets[components[j].handle];
+                                var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = plotName(graph, pointset), pointsetUnits = plotUnits(graph, pointset, false, pointset.formula);
+                                for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
+                                    //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
+                                    jsDateTime = dateFromMdDate(dateKey).getTime();
+                                    row = {"id": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
+                                    for(var ll=0;ll<sortedLatlonList.length;ll++){ //first each date row, loop through geos
+                                        for(j=0;j<compSymbols.length;j++){  //for each latlon, loop through components
+                                            latlon = sortedLatlonList[ll].latlon;
+                                            id = compSymbols[j]+'_'+ll;
+                                            asset = graph.assets[components[j].handle];
 
-                                        //add columns on first date key loop through
-                                        if(firstDateKey) markerColumns.push({
-                                            id: id,
-                                            field: id,
-                                            name:        //  name | location | units | source | notes | formula
-                                                '<b>'+((asset.coordinates&&asset.data[latlon])?asset.data[latlon].name:asset.name) + '</b>'
-                                                    + '<br>'+ ((asset.coordinates&&asset.data[latlon])? latlon : asset.geoname||'')
-                                                    + '<br>' + asset.units
-                                                    + '<br>'+ asset.src
-                                                    + '<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'')
-                                                    + (hasCalc?'<br>component '+compSymbols[j]:''),
-                                            cssClass: 'grid-series-column'});
+                                            //add columns on first date key loop through
+                                            if(firstDateKey) markerColumns.push({
+                                                id: id,
+                                                field: id,
+                                                name:        //  name | location | units | source | notes | formula
+                                                    '<b>'+((asset.coordinates&&asset.data[latlon])?asset.data[latlon].name:asset.name) + '</b>'
+                                                        + '<br>'+ ((asset.coordinates&&asset.data[latlon])? latlon : asset.geoname||'')
+                                                        + '<br>' + asset.units
+                                                        + '<br>'+ asset.src
+                                                        + '<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'')
+                                                        + (hasCalc?'<br>component '+compSymbols[j]:''),
+                                                cssClass: 'grid-series-column'});
 
-                                        if(components[j].handle[0]=='X'){
-                                            row[id] = oComponentData[dateKey][compSymbols[j]][latlon];
-                                        } else {
-                                            row[id] = oComponentData[dateKey][compSymbols[j]];
+                                            if(components[j].handle[0]=='X'){
+                                                row[id] = oComponentData[dateKey][compSymbols[j]][latlon];
+                                            } else {
+                                                row[id] = oComponentData[dateKey][compSymbols[j]];
+                                            }
+                                            if(typeof row[id] == 'undefined') row[id] = '-';
                                         }
-                                        if(typeof row[id] == 'undefined') row[id] = '-';
+                                        if(pointsetHasCalc){  //special
+                                            if(firstDateKey) markerColumns.push({id: latlon+'-'+i, field: latlon+'-'+i, name: '<b>' + pointsetName + ': '+ sortedLatlonList[ll].name + '</b><br>'+pointsetUnits+'<br><br>'+(hasCalc?'<br>value = '+pointset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                                            row[latlon+'-'+i] = typeof markerData[dateKey][latlon] == 'undefined'?'-':markerData[dateKey][latlon];
+                                        }
                                     }
-                                    if(pointsetHasCalc){  //special
-                                        if(firstDateKey) markerColumns.push({id: latlon+'-'+i, field: latlon+'-'+i, name: '<b>' + pointsetName + ': '+ sortedLatlonList[ll].name + '</b><br>'+pointsetUnits+'<br><br>'+(hasCalc?'<br>value = '+pointset.formula.formula:''), cssClass: 'grid-calculated-column'});
-                                        row[latlon+'-'+i] = typeof markerData[dateKey][latlon] == 'undefined'?'-':markerData[dateKey][latlon];
+                                    for(var found=false, r=0;r<markerRows.length;r++){ //see if date row exists, else add
+                                        if(markerRows[r].id == row.id){
+                                            $.extend(markerRows[r], row);
+                                            found = true;
+                                            break;
+                                        }
                                     }
+                                    if(!found) markerRows.push(row);
+                                    firstDateKey = false;  //used to detect first pass through = build the columns array
                                 }
-                                for(var found=false, r=0;r<markerRows.length;r++){ //see if date row exists, else add
-                                    if(markerRows[r].id == row.id){
-                                        $.extend(markerRows[r], row);
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                                if(!found) markerRows.push(row);
-                                firstDateKey = false;  //used to detect first pass through = build the columns array
+                                markerRows.sort(function(a,b){return b.id - a.id});  //guaranteed order because id is the getTime() of the row date
                             }
-                            markerRows.sort(function(a,b){return b.id - a.id});  //guaranteed order because id is the getTime() of the row date
 
                         }
 
@@ -3442,15 +3481,27 @@ MashableData.grapher = function(){
                     //1.  find start and end indexes
                     calcData.regionMin = Number.MAX_VALUE;
                     calcData.regionMax = Number.MIN_VALUE;
-                    calcData.startDateIndex=calcData.dates.length-1;
-                    calcData.endDateIndex=0;
-                    for(i=0;i<calcData.dates.length;i++){
-                        if((!graph.start || parseInt(graph.start) <= calcData.dates[i].dt.getTime()) && (!graph.end || parseInt(graph.end) >= calcData.dates[i].dt.getTime())){
-                            if(calcData.startDateIndex>i)calcData.startDateIndex=i;
-                            if(calcData.endDateIndex<i)calcData.endDateIndex=i;
+                    if(graph.intervals){
+                        calcData.startDateIndex = calcData.dates.length-parseInt(graph.intervals);
+                        calcData.endDateIndex = calcData.dates.length-1;
+                        for(i=calcData.startDateIndex;i<calcData.endDateIndex+1;i++){
                             if(graph.mapsets){
                                 calcData.regionMin = Math.min(calcData.dates[i].regionMin, calcData.regionMin);
                                 calcData.regionMax = Math.max(calcData.regionMax, calcData.dates[i].regionMax);
+                            }
+                        }
+                    } else {
+                        calcData.startDateIndex = calcData.dates.length-1; //set to max
+                        calcData.endDateIndex=0; //set end to min and advance in loop below
+                        for(i=0;i<calcData.dates.length;i++){
+                            if(    (!graph.start || parseInt(graph.start)<=calcData.dates[i].dt.getTime() )
+                                && (!graph.end || parseInt(graph.end)>=calcData.dates[i].dt.getTime()) ){
+                                if(calcData.startDateIndex>i)calcData.startDateIndex=i;
+                                if(calcData.endDateIndex<i)calcData.endDateIndex=i;
+                                if(graph.mapsets){
+                                    calcData.regionMin = Math.min(calcData.dates[i].regionMin, calcData.regionMin);
+                                    calcData.regionMax = Math.max(calcData.regionMax, calcData.dates[i].regionMax);
+                                }
                             }
                         }
                     }
@@ -3980,7 +4031,7 @@ MashableData.grapher = function(){
     function formatRationalize(value){
         var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
         var y  = Math.round(value / Math.pow(10,order-2)) * Math.pow(10,order-2);
-        return Highcharts.numberFormat(y, (order>1?0:2-order))
+        return common.numberFormat(y, (order>1?0:2-order))
     }
 
     function vizualizeCube(graph, geoKey, mapDate, action){
@@ -4140,7 +4191,7 @@ MashableData.grapher = function(){
                 tooltip: {
                     formatter: function(){
                         return '<b>'+ cube.theme + '</b><br/>' + this.point.name +':<br/>'
-                            + Highcharts.numberFormat(Math.abs(this.point.y), 0) + ' ' + cube.units;
+                            + common.numberFormat(Math.abs(this.point.y), 0) + ' ' + cube.units;
                     }
                 }
             };
