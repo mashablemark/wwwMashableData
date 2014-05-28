@@ -1,0 +1,18 @@
+//master ingest list used by eurostats.php
+//hand picks datasets groups and optionally (1) corrects name, (2) sets units or indicates CL to use, (3) maps tsv header to codelist, (4) indicate total code for cubeviz
+[
+    {
+        "codes": [""],  //REQUIRED: one or more codes that will be consolidated into a single theme and a single set of mapsets
+        "name": "asdf", //overrides the TOC name.  Default is the name of codes[0] with "NUTS" references removed
+        "cl_mapping": { //provide help when
+            "tsv_shortcode1": { //one or more CL abbreviations in the first cell of the first row whose default need defining
+                "cl": "CL_NAME as in DSD",  //default = "CL_".toUpper(CL abbreviation)
+                "name":
+                "total":  "all ages", //default = "total"
+                "ex": ["85+"]  //list of codes to exclude from the cube viz and from ingestion
+            }
+        },
+        "cl_unit": "CL_NAME as in DSD",  //when a dimension is actually a units field
+        "cube": false  //defaults to true
+    }
+]
