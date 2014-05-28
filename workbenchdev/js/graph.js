@@ -514,7 +514,7 @@ MashableData.grapher = function(){
                     createGraph($.extend(true, {}, myGraph)); //create the interaction instance using a working copy
                 } else {  //not found > id assumed to be the graphcode (ghash) of a public graph
                     callApi(
-                        {command: 'GetPublicGraph', ghash: id},
+                        {command: globals.isEmbedded?'GetEmbeddedGraph':'GetPublicGraph', ghash: id},
                         function(oReturn, textStatus, jqXH){
                             for(var ghandle in oReturn.graphs){
                                 //if user wants to save, it must be saved as a copy if graph.userid <> this user (enforced in API too)

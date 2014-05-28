@@ -557,3 +557,50 @@ function decryptAcctInfo($encyptedString){
 
 }
 
+function mdDateFromUnix($iDateUnix, $period){
+    $uDate = new DateTime($iDateUnix);
+    $jsMonth = intval($uDate->format("n"))-1;
+    switch($period){
+        case "A":
+            return $uDate->format("Y");
+        case "S":
+            return $uDate->format("Y")."S".intval($jsMonth/6+1);
+        case "Q":
+            return $uDate->format("Y")."Q".intval($jsMonth/3+1);
+        case "M":
+            return $uDate->format("Y").sprintf("%02d", $jsMonth);
+        case "W":
+        case "D":
+        return $uDate->format("Y").sprintf("%02d", $jsMonth).$uDate->format("d");
+            break;
+        default:
+            return false;
+    }
+}
+
+function unixDateFromMd($mdDate){
+    $len = strlen($mdDate);
+    if($len==4) {
+        $uDate = new DateTime($mdDate."01-01");
+        return $uDate->getTimestamp();
+    }
+    if($len==6){
+        switch(substr($mdDate,4,1)){
+            case "S":
+                $uDate = new DateTime(substr($mdDate,0,4)."-0". (substr($mdDate,5,1)==1?"1":"7") ."-01");
+                return $uDate->getTimestamp();
+            case "Q":
+                $uDate = new DateTime(substr($mdDate,0,4)."-0". sprintf("%02d", intval(substr($mdDate,5,1))*3-2) ."-01");
+                return $uDate->getTimestamp();
+            default:  //month
+                $uDate = new DateTime(substr($mdDate,0,4)."-". substr($mdDate,4,2)."-01");
+                return $uDate->getTimestamp();
+        }
+    }
+    if($len==8){
+        $uDate = new DateTime(substr($mdDate,0,4)."-". substr($mdDate,4,2)."-".substr($mdDate,6,2));
+        return $uDate->getTimestamp();
+    }
+    return false;
+}
+

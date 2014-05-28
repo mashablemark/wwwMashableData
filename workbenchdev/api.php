@@ -308,6 +308,22 @@ switch($command){
 
         $ghash =  $_REQUEST['ghash'];
         if(strlen($ghash)>0){
+            //1. fetch
+            $output = getGraphs(0, $ghash);
+
+            //2. check credential
+            if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
+                requiresLogin();  //login not required, but if claiming to be the author then verify the token
+            } else {
+                $output['userid'] = null;  //cannot save graph; only save as a copy
+            }
+        } else {
+            $output = array("status"=>"The graph requested not available.  The author may have unpublished or deleted it.");
+        }
+        break;
+    case "GetEmbeddedGraph":  //data and all: the complete protein!
+        $ghash =  $_REQUEST['ghash'];
+        if(strlen($ghash)>0){
             $ghash_var = safeStringSQL($ghash);
             $currentmt = microtime(true);
 
@@ -331,6 +347,37 @@ switch($command){
             if(!isset($output)){
                 //2. fetch if not in cache or needs refreshing
                 $output = getGraphs(0, $ghash);
+                //trim data based on graph end, start and interval dates using dataSliver()
+                foreach($output["graphs"] as $ghandle => $graph){
+                    if($graph["start"] || $graph["end"] || $graph["intervals"]){
+                        foreach($graph["assets"] as $ahandle => $asset){
+                            $atype = (substr($ahandle, 0, 1));
+                            switch($atype){
+                                case "M":
+                                    foreach($asset["data"] as $geo => $series){
+                                        $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["period"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+/*                                        $output["period"]= $asset["period"];
+                                        $output["firstdt"]=$series["firstdt"];
+                                        $output["lastdt"]=$series["lastdt"];
+                                        $output["start"]=$graph["start"];
+                                        $output["end"]=$graph["end"];
+                                        $output["intervals"]=$graph["intervals"];
+                                        $output["sliver"] = $series["data"];*/
+                                    }
+                                    break;
+                                case "U":
+                                case "S":
+                                $asset["data"] = dataSliver($asset["data"], $asset["period"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                    break;
+                                case "X":
+                                    foreach($asset["data"] as $laton => $series){
+                                        $series["data"] = dataSliver($series["data"], $asset["period"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                }
 
                 //3. insert or update cache
                 $global_sql_logging = $sql_logging;  //don't log these massive inserts
@@ -1499,7 +1546,7 @@ function getGraphs($userid, $ghash){
 
     $result = runQuery($sql, "GetGraphs subfunc");
     if($result->num_rows==0){
-        die('{"status":"no graphs."}');
+        die('{"status":"No graph found. The author may have changed its code or deleted it."}');
     }
     $output = array("status"=>"ok","graphs" => array());
     $gid = 0;
@@ -1818,12 +1865,55 @@ function getCubeSeries(&$output, $cubeid, $geoid=0){
         $output["status"] = "invalid geoid $geoid";
     }
 }
-function dataSliver($data, $start, $end){ //call only if jsStart and jsEnd are valid
-    if(preg_match("/b$start|[^|].+||$end/b", $data, $matches)==1){
-        return $matches[0];
-    } else {
-        return $data;
+function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=false){ //call only if jsStart and jsEnd are valid
+    if($intervals){
+        $points = explode('||', $data);
+        $count = count($points);
+        if($count > intval($intervals)){
+            return implode("||",array_slice($points, $count-intval($intervals)));
+        } else {
+            return $data;
+        }
+    }  else {
+        if($start!==null && $firstDt<$start){
+            //trim left
+            $startFound = strpos($data, "||".mdDateFromUnix($start/1000, $period)."|");
+            if($startFound){
+                $data = substr($data, $startFound+2);
+            } else {
+                //TODO: crawl data in cases where start point is missing from sequence
+                $points = explode('||', $data);
+                for($i=0;$i<count($points);$i++){
+                    $point = explode($points[$i],"|");
+                    if(unixDateFromMd($point[0])>=$start/1000){
+                        $data = implode("||",array_slice($points, $i));
+                        break;
+                    }
+                }
+            }
+        }
+        if($end!==null && $lastDt<$end){
+            //trim right
+            $endFound = strpos($data, "||".mdDateFromUnix($end/1000, $period)."|");
+            if($endFound){
+                $next = strpos($data, "||", $endFound+2);
+                if($next){
+                    return substr($data, $endFound+2, $next - $endFound -2 );
+                } else return $data; //this should never happen
+            } else {
+                //TODO: crawl data in cases where end point is missing from sequence
+                $points = explode('||', $data);
+                for($i=count($points)-1;$i>0;$i--){
+                    $point = explode($points[$i],"|");
+                    if(unixDateFromMd($point[0])<=$end/1000){
+                        $data = implode("||",array_slice($points, 0, $i+1));
+                        break;
+                    }
+                }
+            }
+        }
     }
+    return $data;
 }
 
 function validationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}
