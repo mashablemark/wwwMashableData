@@ -51,7 +51,7 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
         if(count($bulkCategoryFilter)==0 || array_search($bulkCategoryName, $bulkCategoryFilter)!==false){
 
             printNow("checking dataset ".$datasetKey."<br>");
-            if(!$oldManifest || $datasetInfo["last_updated"]!=$oldManifest["dataset"][$datasetKey]["last_updated"]){  //only download and process the EIA bulk download file if it is newer than last ingestion
+            if(!$oldManifest || $datasetInfo["last_updated"]!=$oldManifest["dataset"][$datasetKey]["last_updated"] || !file_exists($localBulkFolder.$datasetKey.".txt")){  //only download and process the EIA bulk download file if it is newer than last ingestion
                 //3a.  get bulk file and unzip it
                 $eia_uri =  $datasetInfo["accessURL"];
                 printNow("downloading to $eia_uri<br>");
@@ -136,7 +136,13 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         //This permits single pass ingestion and creation of series records followed by category records and category-series relationship records.
         if(isset($oEIA["series_id"])){
             //4a. process series
-            if(strPos($oEIA["series_id"],"ELEC.PLANT.")===false || strpos($oEIA["name"], "All Primemovers")!==false){
+            $skip = false;
+            //skip the individual movers; all primemovers = plant total
+            if(strPos($oEIA["series_id"],"ELEC.PLANT.")===0 && strpos($oEIA["name"], "All Primemovers")===false) $skip = true;
+            //skip the individual mine to plant shipments:
+            if(strPos($oEIA["series_id"],"COAL.SHIPMENT_")===0) $skip = true;
+
+            if(!$skip){
                 insertOrUpdateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
                 if(round(++$seriesCount/1000)*1000==$seriesCount) printNow(date("H:i:s").": processed $seriesCount $datasetKey series");
             }
@@ -160,11 +166,11 @@ function ApiRunFinished($api_run){
     set_time_limit(200);
     freqSets($api_run["apiid"]);
     set_time_limit(200);
-    //prune($api_run["apiid"]);
-
+    prune($api_run["apiid"]);
 }
 
 function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
+    static $freqRegex = "#( : |, |)(Quarterly|Annual|Monthly|Weekly|Daily)#";
     try{
 
         $propsToFields = [  //maps the properties to database fields in the series table
@@ -189,25 +195,36 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
         ];
         $mapsetid = null;
         $pointsetid = null;
-
-        if(strPos($series["series_id"],"ELEC.")===0){
-            $nameSegments = explode(" : ", $series["name"]);
-            if(strPos($series["series_id"],"ELEC.PLANT.")===0){
-                $setName = "U.S. Power Plants : " . $nameSegments[0] . " : " . $nameSegments[2];
-                $series["name"] = str_replace(" : All Primemovers", "", $series["name"]);
-            } else {
-                implode(" : ", array_splice($nameSegments, count($nameSegments)-2, 1));
-                $setName = implode(" : ", $nameSegments);
-            }
-            if(isset($series["lat"]) && strlen($series["lat"])!=0){
-                //pointset
-                $pointsetid = getPointSet($setName, $apiid, $series["f"], $series["units"]);
-            } else {
-                //mapset
-                $mapsetid = getMapSet($setName, $apiid, $series["f"], $series["units"]);
+        $series["geoid"] = null;
+        $geo = null;
+        $series["name"] = preg_replace($freqRegex, "", $series["name"]); //remove frequency
+        $setName = $series["name"]; //starting point
+        if(isset($series["iso3166"])){
+            $geo = isoLookup($series["iso3166"]);  //returns null is not found
+            if($geo!==null){
+                $series["geoid"] = $geo["geoid"];
+                if(!isset($series["lat"])){
+                    $setName = preg_replace("#".$geo["regexes"]."#", "", $series["name"]);
+                    $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
+                }
             }
         }
-        $series["name"] = preg_replace("#( : |, )(Quarterly|Annual|Monthly|Weekly|Daily)#", "", $series["name"]); //that is adequately capture in the periodicity field
+
+        $nameSegments = explode(" : ", $setName);
+        if(strPos($series["series_id"],"ELEC.PLANT.")===0){ //single mover series already skipped
+            $setName = "U.S. Power Plants : " . $nameSegments[0] . " : " . $nameSegments[2];
+        } elseif(strPos($series["series_id"],"COAL.MINE.")===0){ //individual mine to plant series already skipped
+            $setName = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
+        }
+
+        //setname and map/pointsetid
+        if(isset($series["lat"]) && strlen($series["lat"])!=0){
+            //pointset
+            $pointsetid = getPointSet($setName, $apiid, $series["f"], $series["units"]);
+        } elseif($series["geoid"]) {
+            //mapset
+            $mapsetid = getMapSet($setName, $apiid, $series["f"], $series["units"]);
+        }
 
         //correct for the difference between an EIA and MD month date formats
         $mddata = [];
@@ -273,11 +290,15 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
             case "TOTAL":
                 $series["url"] = "http://www.eia.gov/totalenergy/data/browser/";
                 break;
+            case "STEO":
+                $series["url"] = "http://www.eia.gov/STEO";
+                break;
+            case "AEO":
+                $series["url"] = "http://www.eia.gov/AEO";
+                break;
             default:
                 $series["url"] = "http://www.eia.gov";
         }
-
-        $series["geoid"] = isset($series["iso3166"])?isoLookup($series["iso3166"]):null;
         /*
             //create and execute the update statement
             $fields = array();
@@ -339,7 +360,6 @@ function insertOrUpdateCategory($cat, $apirow, $job){
     }
 }
 
-
 //MOVE TO MAIN
 function safeSQL($val){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
     if($val === NULL  || $val == ''){  //removed "|| $val==''" test
@@ -356,11 +376,11 @@ function isoLookup($iso3166){
     static $isos = "null";
     if($isos=="null"){
         $isos = array();
-        $geos_sql = "select geoid, iso3166 from geographies where iso3166 is not null";
+        $geos_sql = "select geoid, iso3166, regexes from geographies where iso3166 is not null";
         $result = runQuery($geos_sql);
 
         while($row=$result->fetch_assoc()){
-            $isos[$row["iso3166"]] = $row["geoid"];
+            $isos[$row["iso3166"]] = ["geoid"=>$row["geoid"], "regexes"=>$row["regexes"]];
         }
     }
 

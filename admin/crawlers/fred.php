@@ -1,11 +1,11 @@
 <?php
 /*
  * Created by Mark Elbert 5/17/12
- * Copyright, all rights reserved MashableData.com
+ * Copyright, all rights reserved
  *
  */
 
- $event_logging = true;
+$event_logging = true;
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
  * All returns are JSON objects. Supports the standard MD API functions:
@@ -20,36 +20,11 @@
  *   since: datetime; if missing smartupdate algorythme
 */
 $fred_api_key = '975171546acb193c402f70777c4eb46d';
-
-function ApiBatchUpdate($since,$periodicity, $api_row){
-    //ignore $periodicity and uses FRED's update command to get the series with the latest rows
-    $batch_get_limit = 10;
-    $sql = 'select seriesid, skey, periodicity from series where apiid = ' . $api_row['apiid']
-        . ' and l1domain=' . safeStringSQL($api_row['l1domain'])
-        . ' and l2domain=' . safeStringSQL($api_row['l2domain'])
-        . ' and (apidt is null or apidt < ' . $since . ') ';
-    if(in_array($periodicity, array('A','M','W','D'))){
-        $sql .= ' periodicity=' . safeStringSQL($periodicity);
-    }
-    $sql .= ' LIMIT 0 , ' . $batch_get_limit;
-    $series_recordset = runQuery($sql, "FRED API: ApiBatchUpdate");
-    $skeys = array();
-    while ($serie = $series_recordset->fetch_assoc()) {
-        array_push($skeys, $serie["skey"]);
-    }
-    return ApiGet($skeys,$api_row);
-}
+$bulkFolder = "bulkfiles/fred/";
 
 
-function ApiCrawl($catid, $api_row){ //returns series and child categories.
-    if($catid==0 && $api_row["rootcatid"] !== null){
-        $catid = $api_row["rootcatid"];
-    }
-    queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$catid));
-    ApiExecuteJobs($api_row["runid"]);
-}
-
-function ApiExecuteJob($runid, $apirunjob){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($runid, $apirunjob){
+//jobs only used by category crawler getCategoryChildren()
     global $MAIL_HEADER, $db;
     $jobid = $apirunjob["jobid"];
 
@@ -58,7 +33,7 @@ function ApiExecuteJob($runid, $apirunjob){//runs all queued jobs in a single si
     $jobconfig = json_decode($apirunjob["jobjson"], true);
     switch($jobconfig["type"]){
         case "CatCrawl":
-            $status = IngestCategory($jobconfig["catid"], $apirunjob);
+            $status = getCategoryChildren($jobconfig["catid"], $apirunjob);
             break;
         default:
             die("unknown job type");
@@ -66,14 +41,131 @@ function ApiExecuteJob($runid, $apirunjob){//runs all queued jobs in a single si
     return $status;
 }
 
+function ApiBatchUpdate($since,$periodicity, $api_row){
+//uses the FRED series/updates commend to update/insert series (cats updated with full crawl)
+    global $fred_api_key;
+    $apiid = $api_row["apiid"];
+    $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
+
+    //ignore $periodicity (uses FRED's update command to get the series with the latest rows)
+    $batch_get_limit = 100;
+    $offset = 0;
+    $needUpdates = true;
+    while($needUpdates){
+        $updatedSeriesCommand = "http://api.stlouisfed.org/fred/series/updates?api_key=$fred_api_key&file_type=json&limit=$batch_get_limit&offset=$offset";
+        $updates = json_decode(httpGet($updatedSeriesCommand), true);
+        for($i=0;$i<count($updates["seriess"]);$i++){
+            $update = $updates["seriess"][$i];
+            $update["last_updated"] = substr($update["last_updated"], 0, 10);
+            $id = $update["id"];
+            $result = runQuery("select * from series where apiid=$apiid and skey='$id'");
+            if($result->num_rows==1){
+                $serie = $result->fetch_assoc();
+                if($serie["apidt"]==$update["last_updated"]){
+                    $needUpdates = false;  //all caught up!
+                    break;
+                }
+            }
+            //get data
+            $dataOffset = 0;
+            $dataLimit = 10000;
+            $data = [];
+            do{
+                $serieDataCommand = "http://api.stlouisfed.org/fred/series/observations?api_key=$fred_api_key&series_id=$id&limit=$dataLimit&offset=$dataOffset&file_type=json";
+                $serieData = json_decode(httpGet($serieDataCommand), true);
+                for($d=0;$d<count($serieData["observations"]);$d++){
+                    $ob = $serieData["observations"][$d];
+                    if($ob["value"]==".") $ob["value"] = "null";
+                    array_unshift($data, mdDateFromISO($ob["date"], $update["frequency"])."|".$ob["value"]);
+                }
+                $dataOffset += $dataLimit;
+            } while($dataOffset<$serieData["count"]);
+
+
+            $sa = $update["seasonal_adjustment_short"];
+            $seriesId = updateSeries(
+                $status,
+                $api_row["runid"],
+                $update["id"],
+                $update["title"] . ($sa=="SA" || $sa=="SSA" || $sa=="SSAR" ? " (".$update["seasonal_adjustment"].")" : ""),
+                'St. Louis Federal Reserve',
+                "http://research.stlouisfed.org/fred2/graph/?id=" . $update["id"],
+                FredPeriodToMdPeriod($update["frequency_short"]),
+                $update["units"],
+                $update["units_short"],
+                $update["notes"],
+                "",  //title field updated in catSeries call
+                $api_row["apiid"],
+                $update["last_updated"],
+                strtotime($update["observation_start"]." UTC")*1000,
+                strtotime($update["observation_end"]." UTC")*1000,
+                implode("||", $data),
+                null, null, null, null, null  //geoid, set ids, lat, & lat
+            );
+
+            /*print($serieDataCommand."<BR>");
+            print($serie["data"]."<BR>");
+            print($serie["apidt"].":".substr($update["last_updated"],0,10));
+            die();*/
+        }
+        $offset += $batch_get_limit;
+    }
+}
+
+
+function ApiCrawl($catid, $api_row){
+    global $bulkFolder;
+//1. use the bulk file to perform a complete ingestion of all series
+//2. use the API to read the entire category tree and assign cat series
+
+    //1A. get the bulk file and unzip it
+ /*   $runid = $api_row["runid"];
+    $update_run_sql = "update LOW_PRIORITY apiruns set finishdt=now() where runid = $runid";
+    $fr = fopen("http://research.stlouisfed.org/fred2/downloaddata/FRED2_txt_2.zip", 'r');
+    file_put_contents($bulkFolder."FRED.zip", $fr);
+    fclose($fr);
+
+    runQuery($update_run_sql);
+    rmdir($bulkFolder."FRED2_txt_2");
+    runQuery($update_run_sql);
+    $zip = new ZipArchive;
+    $zip->open($bulkFolder."FRED.zip");
+    $zip->extractTo('./'.$bulkFolder);
+    $zip->close();
+    runQuery($update_run_sql);
+    unlink($bulkFolder."FRED.zip");  //delete the zip file*/
+
+    //1B. process the bulk file
+    $list = new FredList();
+    $list->bulkFolderRoot = $bulkFolder;
+    $list->api_row = $api_row;
+    $list->IngestAll();
+    $added = $list->status;["added"];
+    $updated = $list->status;["updated"];
+    $failed = $list->status;["failed"];
+    runQuery("update LOW_PRIORITY apiruns set finishdt=now(), added=$added, updated = $updated, failed=$failed where runid = $runid");
+
+    //2. queue the job to process the categories
+    queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$api_row["rootcatid"]));  //ignore the $catid passed in; from root
+    //ApiExecuteJob will be launch by chron
+    return $list->status;
+}
+
 
 function ApiRunFinished($api_run){
+    global $MAIL_HEADER;
+
+    set_time_limit(600);
+    findSets($api_run["apiid"]);
+
     set_time_limit(600);
     setMapsetCounts("all", $api_run["apiid"]);
+
+    $runId = $api_run["runid"];
     $sql = <<<EOS
         select count(jobid) as jobs_executed, j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed
         from apiruns r left outer join apirunjobs j on r.runid=j.runid
-        where r.runid=".$runid." group by j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed
+        where r.runid=$runId group by j.status, r.startdt, r.finishdt, r.scanned, r.updated, r.added, r.failed
 EOS;
     $result = runQuery($sql,"FRED run summary");
     $msg="";
@@ -83,187 +175,254 @@ EOS;
     mail("admin@mashabledata.com","Fred API run report", $msg, $MAIL_HEADER);
 }
 
-function IngestCategory($catid, $api_row, $deep = true){ //ingest category's series and child categories.  If deep=true, create job for each child cat.
-    global $fred_api_key, $db;
-    set_time_limit(60);
-    $status = array("status"=>"ok", "updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-// 1. get the children of the category that we are crawling (we already have info about the parent category from previous crawl call)
-// 1A. insert the childCats and relationships as needed
-// 1B. if $deep=true, create ApiRunJobs for each childCat
-    if($catid==0 && $api_row["rootcatid"] !== null){
-        $catid = $api_row["rootcatid"];
-    }
-    $sql = "select * from categories where catid=".$catid;
-    $result = runQuery($sql);
-    if($result->num_rows!=1){ //parent record is expected to be there.  For new APIs, manually insert root cat
-        $status["status"] = "error: unable to find parent category for catid=".$catid;
-        return $status;
-    }
-    $parent = $result->fetch_assoc();
-    $xcats = simplexml_load_string(httpGet("http://api.stlouisfed.org/fred/category/children?category_id=" . $parent["apicatid"] . "&api_key=" . $fred_api_key));
-    $output = array("status"=>"ok", "catid"=> $catid, "name" => $parent["name"], "children" => array());
-    //loop through <category> tags reading the tags attributes (FRED puts all info in attributes... what a pain!)
-    foreach($xcats->category as $child){
-        //check to see if child cat is in DB, else insert
-        print("creating run for APICATID " .(string) $child["id"]." from parentid ".$parent["apicatid"]."<br>");
-        $sql = "select * from categories where apicatid=" . safeStringSQL((string) $child["id"]) . " and apiid=".$api_row["apiid"];
-        $result = runQuery($sql, "FRED API: check cat");
-        if($result->num_rows!=1){
-            $sql="insert into categories (apiid, apicatid, name) values(" . $api_row["apiid"]. "," . safeStringSQL((string) $child["id"]).",".safeStringSQL((string) $child["name"]).")";
-            if(!runQuery($sql, "FRED API: insert cat")) return array("status"=>"error: unable to insert category: ".$sql);;
-            $childid = $db->insert_id;
-        } else {
-            $row = $result->fetch_assoc();
-            $childid = $row["catid"];
+class FredList
+{
+    // property declaration
+    public $bulkFolderRoot = 'esdata/';
+    public $listFile = "README_TITLE_SORT.txt";
+    public $zipFolder = "FRED2_txt_2/";
+    public $api_row;
+    public $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
+
+    // method declaration
+    public function IngestAll($Since = false) {  //process all series in the list with LastUpdate > Since is Since is provided
+        $path = $this->bulkFolderRoot.$this->zipFolder.$this->listFile;
+        if(!file_exists($path)) return false;
+
+        $fp = fopen($path, 'r');
+        $fields = [];
+        while(!feof($fp) && count($fields)!=6){ //queue up the first line
+            $fields = fgetcsv($fp, 9999, ";", "\"");
         }
-        if($deep){
-            queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>$deep, "catid"=>$childid, "catname"=>(string) $child["name"]));
+        $this->trimFields($fields);
+        if($fields[0]=="File"){
+            $fields = fgetcsv($fp, 9999, ";", "\"");  //queue up first data line
+        } else {
+            return false;
         }
 
-        //check to see if relationship is in DB, else insert
-        $sql = "select * from catcat where parentid=" . $catid . " and childid=" . $childid;
-        $results = runQuery($sql, "FRED API: check catcat");
-        if($results->num_rows!=1){
-            if(catInChain($catid, $childid)){  //recursive check up catcat ancestor chain to make sure cat is not circular
-                $status["status"] = "error: circular category reference for API_cat=" . $child["id"] ." in parent API_cat ".$parent["apicatid"] ;
-                return $status;
+        while(!feof($fp) && count($fields)==6){ //queue up the first line
+            $this->trimFields($fields);
+            $this->processLine($fields, $Since);
+            $processed = $this->status["added"] + $this->status["updated"] + $this->status["skipped"];
+            if(intval($processed/1000)*1000==$processed) {
+                print("$processed. ". strftime ("%r")." ");
+                var_dump($fields);
+                printNow("<br>");
             }
-            $sql="insert into catcat (parentid, childid) values(" . $catid . "," . $childid .")";
-            runQuery($sql, "FRED API: insert catcat");
+            $fields = fgetcsv($fp, 9999, ";", "\"");
         }
-        array_push($output["children"], array("catid"=> $childid, "apicatid"=> (string) $child["id"], "name" => (string) $child["name"]));    //unread attribute "parent_id" is the parent cat id, which is the same for all of these children
+        fclose($fp);
     }
-// 2. get the header info of any series belonging to the crawled category (but not of the children cat, which must be the focus of a subsequent recursive crawl)
-    $xseries = simplexml_load_string(httpGet($target = "http://api.stlouisfed.org/fred/category/series?category_id=" . $parent["apicatid"] . "&api_key=" . $fred_api_key));
-/* return limit is 1000 series.  Currently highest series in any one cat is 994.  May need to incorporate pagination logic.  To check:
-    SELECT c.name, c.apicatid, COUNT( cs.seriesid )
-    FROM categories c, categoryseries cs
-    WHERE c.catid = cs.catid
-    AND cs.seriesid = cs.seriesid
-    GROUP BY c.name, c.apicatid
-    ORDER BY COUNT( cs.seriesid ) DESC
-*/
-    $seriesHeaders = array();
-    //loop through series and read header info into PHP structure.
-    //(Note: series data is not in header and require a separate FRED API call to /series/observations.)
-    foreach($xseries->series as $serie){
-        //see if we have a current series & capture (note: more efficient to have this check in getSeriesDataFromFred, but (1) ony add 1ms per series and (2) want to be able to use get series to force a read
-        $sql = "select seriesid, skey, name, title, notes, url, units, units_abbrev, src, periodicity, apidt, data, 0 as catid "
-        . " from series s "
-        . " where s.skey = " . safeStringSQL((string) $serie["id"]) .  " and apiid = " . $api_row["apiid"];
-        $result = runQuery($sql, "FRED API: check series");
-        $found = $result->num_rows;
-        if($found==0){
-            $readSeries = true;
-        } elseif($found==1){ //decide on whether to get the data based on the last_update date
-            $series_in_md = $result->fetch_assoc();
-            $apidt = (string) $serie["last_updated"];
-            $readSeries = ($apidt !=$series_in_md["apidt"]);
-        } elseif($found>1){
-            return array("status"=>"error: multiple series found API ID=".$api_row["apiid"]." for key=" . (string) $serie["id"]);
+
+    public function Update($code){
+        $path = $this->bulkFolderRoot.$this->zipFolder.$this->listFile;
+        if(!file_exists($path)) {
+            print("$path not found");
+            return false;
         }
-        if($readSeries){
-            //skey: {skey:, title:, start:, end:, periodicity: freq_short, notes:, units, units_abbrev, last_updated, catid (the API's):, ser
-            $seriesHeaders[(string) $serie["id"]] = array("skey"=>(string) $serie["id"]
-            , "name"=>(string) $serie["title"] . ((strlen((string) $serie["seasonal_adjustment"])>0) && ((string) $serie["seasonal_adjustment_short"]!="NSA") && ((string) $serie["frequency_short"]!="A")?" (".(string) $serie["seasonal_adjustment"].")":"")
-            , "start"=>(string) $serie["start"], "end"=>(string) $serie["end"], "periodicity"=>(string) $serie["frequency_short"]
-            , "notes"=>(string) $serie["notes"] . ((strlen((string) $serie["seasonal_adjustment"])>0)?" (".(string) $serie["seasonal_adjustment"].")":"")
-            , "units"=>(string) $serie["units"], "units_abbrev"=>(string) $serie["units_short"]
-            , "observation_start"=>(string) $serie["observation_start"], "observation_end"=>(string) $serie["observation_end"]
-            , "last_updated"=>(string) $serie["last_updated"], "catid"=> $catid, "title"=>$parent["name"]
-            );
+        $fp = fopen($path, 'r');
+        $fields = [];
+        while(!feof($fp) && count($fields)!=6){ //queue up the first line
+            $fields = fgetcsv($fp, 9999, ";", "\"");
+        }
+        $this->trimFields($fields);
+        if($fields[0]=="File"){
+            $fields = fgetcsv($fp, 9999, ";", "\""); //queue up first data line
         } else {
-            print("skipped ". (string) $serie["id"] . "<br>");
-            $status["skipped"] += 1;
-            catSeries($catid, $series_in_md["seriesid"]); //even if series is up to date, make sure the category relation exists
+            print(implode($fields)."no value");
+            return false;
         }
-    };
-    //3. the following function does all the data calls and series insert/updating based on the seriesHeaders array built above
-    getSeriesDataFromFred($seriesHeaders, $api_row, $status);  //header
-    return $status;
-}
 
-function ApiGet($sourcekeys, $api_row){
-    $status = array("status"=>"ok", "apiid"=>$api_row["apiid"], "count" => count($sourcekeys));
-    $in_skeys="";
-    foreach($sourcekeys as $skey) $in_skeys .= ((strlen($in_skeys)==0?"":",") . "'" . $skey . "'");
-    $sql = "select s.seriesid, skey, name, title, notes, s.url, units, units_abbrev, src, periodicity, apidt, data, 0 as catid "
-        . "from series "
-        . " where s.skey in ("
-        . $in_skeys .  ") and apiid = " . $api_row["apiid"]
-        . " order by periodicity";
-    $series_recordset = runQuery($sql, "FRED API: GetSeries");
-
-    $seriesHeaders = array();
-    while ($serie = $series_recordset->fetch_assoc()) {
-        $seriesHeaders[$serie["skey"]]=$serie;
+        while(!feof($fp) && count($fields)==6){ //queue up the first line
+            $this->trimFields($fields);
+            if(strpos($fields[0], $code)!==false){
+                $seriesId = $this->processLine($fields);
+                break;
+            }
+            $fields = fgetcsv($fp, 9999, ";", "\"");
+        }
+        fclose($fp);
+        return $seriesId;
     }
-    getSeriesDataFromFred($seriesHeaders, $api_row, $status);
-}
 
-function getSeriesDataFromFred($seriesHeaders, $api_row, &$status){
-    global $db, $user_id, $fred_api_key;
-//master loop through seriesHeaders
+    private function trimFields(&$fields){
+        for($i=0;$i<count($fields);$i++){
+            $fields[$i] = trim($fields[$i]);
+        }
+    }
 
-    foreach($seriesHeaders as $skey => $seriesHeader){
-        //get and process the observations (=data) for each series, one at a time
-        $content = httpGet("http://api.stlouisfed.org/fred/series/observations?series_id=" . $skey . "&api_key=" . $fred_api_key);
-        if(strpos($content,"Bad Request.")===false){
-            $xobservations = simplexml_load_string($content);
-            $data = "";
-            $point_count = 0;
-            foreach($xobservations->observation as $observation){
-                $date = (string) $observation["date"];
-                $y = (string) $observation["value"];
-                if($y==".")$y="null";
-                switch(FredPeriodToMdPeriod($seriesHeader["periodicity"])){
-                    case "A":
-                        $x = date_format(new DateTime($date), 'Y');
-                        break;
-                    case "Q":
-                    case "M":
-                    case "SA":
-                        $x = date_format(new DateTime($date), 'Y') . sprintf ("%02d",date_format(new DateTime($date), 'm')-1);
-                        break;
-                    case "D":
-                    case "W":
-                        $x = date_format(new DateTime($date), 'Y') . sprintf ("%02d",date_format(new DateTime($date), 'm')-1) . date_format(new DateTime($date), 'd');
-                        break;
+    private function processLine($trimFields, $Since = false){
+        $fieldNames = ["File"=>0, "Title"=>1, "Units"=>2, "Frequency"=>3,"Seasonal Adjustment"=>4,"Last Updated"=>5];
+        if(strpos($trimFields[$fieldNames["Title"]], "DISCONTINUED SERIES")) {
+            $this->status["failed"] =+ 1;
+            return false;
+        }
+        $fpText = fopen($this->bulkFolderRoot.$this->zipFolder."data/".str_replace("\\", "/", $trimFields[$fieldNames["File"]]), 'r');
+        $headers = ["Title:","Series ID:","Source:","Release:","Seasonal Adjustment:","Frequency:","Units:","Date Range:","Last Updated:","Notes:","DATE"];
+        $series = [];
+        $line = fgets($fpText);
+        for($i=0;$i<count($headers);$i++){
+            if(strpos($line,$headers[$i])!==0) {
+                return false;
+            }
+            if($headers[$i]=="DATE") {
+                break;
+            }  //queue up the date (DATE - VALUES) section perfectly
+            $series[$headers[$i]] = trim(substr($line, strlen($headers[$i])));
+
+            do{
+                $line = fgets($fpText);
+                if(strpos($line," ")===0)  $series[$headers[$i]] .= " " . trim($line);
+            } while(strlen($line)<=2 || strpos($line," ")===0);
+            //print($i.$headers[$i].$series[$headers[$i]]."<BR>");
+        }
+        $data = [];
+        try{
+            while(!feof($fpText)){
+                $line = fgets($fpText);
+                if(strlen($line)>5){
+                    if(strpos($line," ")===0)  $series[$headers[$i]] .= " " . trim($line);
+                    $DATE_LEN = 10;
+                    $date = mdDateFromISO(substr($line, 0, $DATE_LEN), $series["Frequency:"]);
+                    $value = trim(substr($line, $DATE_LEN));
+                    if($value=="."  || !is_numeric($value)) $value = "null";
+                    array_unshift($data, $date."|".$value);
                 }
-                //echo $x.",".$y.":".$data."<br>";
-                $data .= (($data=="")?"":"||") . $x . "|" . $y;
-                $point_count++;
             }
-            $seriesId = updateSeries($status,
-                $api_row["jobid"],
-                $seriesHeader["skey"],
-                $seriesHeader["name"],
-                'St. Louis Federal Reserve',
-                "http://research.stlouisfed.org/fred2/graph/?id=" . $skey,
-                FredPeriodToMdPeriod($seriesHeader["periodicity"]),
-                $seriesHeader["units"],
-                $seriesHeader["units_abbrev"],
-                $seriesHeader["notes"],
-                $seriesHeader["title"],  //title field updated in catSeries call
-                $api_row["apiid"],
-                $seriesHeader["last_updated"],
-                strtotime($seriesHeader["observation_start"]." UTC")*1000,
-                strtotime($seriesHeader["observation_end"]." UTC")*1000,
-                $data,
-                null, null, null, null, null  //geoid, set ids, lat, & lat
-            );
-            catSeries($seriesHeader["catid"], $seriesId); //make sure the category relation exists and the titles field is up to date
-        } else {
-            $sql = "update series set apifailures=apifailures+1 where skey=".$seriesHeader["skey"]." and apidid = " . $api_row["apiid"];
-            runQuery($sql, "FRED API: update series for failure");
-            $status["failed"]++;
+        } catch (Exception $ex){
+            print($ex->getMessage());
+            die($trimFields[$fieldNames["File"]]);
         }
+        $series["data"] = implode("||", $data);
+        fclose($fpText);
+
+        $sa = $trimFields[$fieldNames["Seasonal Adjustment"]];
+        $dateRange = $series["Date Range:"];
+        $firstLast = explode(" to ", $dateRange);
+
+        $skey = $series["Series ID:"];
+        $seriesId = updateSeries(
+            $this->status,
+            $this->api_row["runid"],
+            $skey,
+            $trimFields[$fieldNames["Title"]] . ($sa=="SA" || $sa=="SSA" || $sa=="SSAR" ? " (".$series["Seasonal Adjustment:"].")" : ""),
+            'St. Louis Federal Reserve',
+            "http://research.stlouisfed.org/fred2/graph/?id=" . $skey,
+            FredPeriodToMdPeriod($series["Frequency:"]),
+            $series["Units:"],
+            $trimFields[$fieldNames["Units"]],
+            $series["Notes:"],
+            "",  //title field updated in catSeries call
+            $this->api_row["apiid"],
+            substr($series["Last Updated:"], 0, 10), //date part ony because FRED varies the rest
+            strtotime($firstLast[0]." UTC")*1000,
+            strtotime($firstLast[1]." UTC")*1000,
+            $series["data"],
+            null, null, null, null, null  //geoid, set ids, lat, & lat
+        );
+
+        return $seriesId;
     }
 }
+
+function mdDateFromISO($isoDate, $frequency){
+//isoDate = "YYY-MM-DD"
+    $date = substr($isoDate,0,4);
+    switch(substr($frequency,0,1)){
+        case "Annual":
+        case "A":
+            break;
+        case "Semiannual":
+        case "S":
+            $date .= "S". (substr($isoDate,5,2)=="01"?"1":"2");
+            break;
+        case "Quarterly":
+        case "Q":
+            $date .= "Q". sprintf("d", intval((intval(substr($isoDate,5,2))-1)/3)+1);
+            break;
+        case "Monthly":
+        case "M":
+            $date .= sprintf("%02d", intval(substr($isoDate,5,2))-1);
+            break;
+        case "Bi-Weekly":
+        case "B":
+        case "Weekly":
+        case "W":
+        case "Daily":
+        case "D":
+        case "Not Applicable":
+        case "NA":
+            $date .= sprintf("%02d", intval(substr($isoDate,5,2))-1);
+            $date .= substr($isoDate,8,2);
+            break;
+        default:
+            throw new Exception("unrecongized frequency: $frequency");
+    }
+    return $date;
+}
+
+function getCategoryChildren($api_row, $job_row){
+    global $fred_api_key;
+    static $count = 0;
+
+    $apiid = $api_row["apiid"];
+    $job_config = json_decode($job_row["jobjson"]);
+    $deep = $job_config ["deep"];
+    $catid = $job_config ["catid"];
+
+    //1. fetch apicatid from db (assumes the current apicat exist in MD)
+    $result = runQuery("select apicatid from categories where apiid=$apiid and catid=$catid");
+    if($result->num_rows==0) {
+        runQuery("update apirunjobs set status='F' where jobid=".$job_row["jobid"]);
+        return false;
+    }
+    $row = $result->fetch_assoc();
+    $apicatid = $row["apicatid"];
+
+    //2. fetch children series from FRED
+    $offset = 0;
+    do{
+        $catSeriesCommand = "http://api.stlouisfed.org/fred/category/series?category_id=$apicatid&api_key=$fred_api_key&file_type=json&limit=1000&offset=$offset";
+        $catSeries = json_decode(httpGet($catSeriesCommand), true);
+        $offset += 1000;
+        for($i=0; $i<count($catSeries["seriess"]);$i++){
+            $count++;
+            $sourceKey = $catSeries["seriess"][$i]["id"];
+
+            $sql = "insert into categoryseries (catid, seriesid) (select $catid, seriesid from series where apiid=$apiid and key='$sourceKey') on duplicate key update catid = $catid ";
+            $result = runQuery($sql);
+            if($result===false) {
+                runQuery("update apirunjobs set status='F' where jobid=".$job_row["jobid"]);
+                return false;
+            }
+        }
+    } while($catSeries["count"]>$offset);
+
+    //3. fetch children categories from FRED
+    $catChildrenCommand = "http://api.stlouisfed.org/fred/category/children?category_id=$apicatid&api_key=$fred_api_key&file_type=json";
+    $childCats = json_decode(httpGet($catChildrenCommand), true);
+    for($i=0; $i<count($childCats["categories"]);$i++){ //no limit on the returned cat children (therefor no offset or do loop needed)
+        $name = $childCats["categories"][$i]["name"];
+        $sqlName = safeStringSQL($name);
+        $apichildid = $childCats["categories"][$i]["id"];
+        $sql = "insert in categories (name, apicatid, apiid) values ($sqlName, '$apichildid', $apiid) on duplicate key update name = $sqlName";
+        runQuery($sql);
+        $childId = setCategoryById($apiid, $apichildid, $name, $apicatid);
+        if($deep) {
+            queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$childId));  //ignore the $catid passed in; from root
+        }
+    }
+    return ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>$count];
+}
+
 
 function FredPeriodToMdPeriod($FredPeriodicity){
-    $MdPeriod = strtoupper($FredPeriodicity);
-    return  (strpos($MdPeriod, "W")===false)?$MdPeriod:"W";
+    if($FredPeriodicity=="NA" || $FredPeriodicity=="Not Applicable"){
+        return "D";
+    } else {
+        return substr(strtoupper($FredPeriodicity), 0, 1);
+    }
 }
 
 ?>

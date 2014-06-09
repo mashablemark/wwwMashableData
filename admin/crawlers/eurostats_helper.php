@@ -2,10 +2,17 @@
 
 //$thisFolder = dirname(__FILE__);
 $dataFolder = "bulkfiles/eurostat/";
+$dsdFolder = "bulkfiles/eurostat/dsd/";
+$tsvFolder = "bulkfiles/eurostat/tsv/";
 $tocFile = "table_of_contents.xml";
 $tocURL = "http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?sort=1&file=".$tocFile;
 $dsdRootUrl = "http://ec.europa.eu/eurostat/SDMX/diss-web/rest/datastructure/ESTAT/DSD_";
 $apiid = "undefined";
+$processedCodes = [];
+$explicitUnitCount = 0;
+$clUnitsCount = 0;
+$currencyUnitsCount = 0;
+$geoCount = 0;
 
 
 //get TOC
@@ -22,66 +29,105 @@ $xmlTOC = simplexml_load_string($fileString);
 if(!isset($_REQUEST["codes"])){
     //download all DSDd and TSVs
     $allCodeLists = [];  //keep track of unique codelists by id (and by dataset code, because codelist id are shared between similarly themed code lists!!)
-
+    $uniqueCodes = 0;
     $allLeaves = $xmlTOC->xpath("branch[code='data']//leaf/code");
+    $eurostatSeriesEstimate = 0;
     for($i=0; $i < count($allLeaves);$i++){
         $code = (string) $allLeaves[$i];
-        //get DSD (must use CURL because of headers/redirect confuses fopen and related functions
-        if(!file_exists($dataFolder.$code.".dsd.xml")){
-            getDsd($code);
-        }
-        //READ DSD'S DIMENSIONS AND PARSE CODELISTS
-        $fileArray = file($dataFolder.$code.".dsd.xml");
-        $dsdString = implode("\n", $fileArray);
-        if(strpos($dsdString,"Error code: ")===0  || strpos($dsdString,"Not Found")===0 ||  strpos($dsdString,"<big>Access Denied </big><br><br>")!==false){
-            unlink($dataFolder.$code.".dsd.xml");
-            print("Error loading $i. <a href=\"$dsdRootUrl$code\">$code</a><br>: $dsdString<br>");
+        $title = (string) $allLeaves[$i]->xpath("../title[@language='en']")[0];
+        $unit = trim((string) $allLeaves[$i]->xpath("../unit[@language='en']")[0]);
+        if(isset($processedCodes[$code])){
+            if($processedCodes[$code]!= $title) print("mismatched title in repeated code: $processedCodes[$code] != $title<br>");
         } else {
-            print($dataFolder.$code.".dsd.xml".strpos($dsdString,"Error code: ").strpos($dsdString,"Not Found"));
-            print("loading $i. <a href=\"?codes=$code\" target=\"$code\">$code</a><br>");
-            if(simplexml_load_string(implode("\n", $fileArray))===false){ //download once again if unable to parse
+            //get DSD (must use CURL because of headers/redirect confuses fopen and related functions
+            if(!file_exists($dsdFolder.$code.".dsd.xml")){
                 getDsd($code);
-                $fileArray = file($dataFolder.$code.".dsd.xml");
             }
-            $dsdString = str_replace("</str:","</", str_replace("<str:","<",implode("\n", $fileArray)));
-            $dsdString = str_replace("</mes:","</", str_replace("<mes:","<",$dsdString));
-            $dsdString = str_replace("</com:","</", str_replace("<com:","<",$dsdString));
-            $dsdString = str_replace("xml:lang","lang", $dsdString);
-            $xmlDsd = simplexml_load_string($dsdString);
-            $dimensions = $xmlDsd->xpath("//Dimension");
-            for($k=0;$k<count($dimensions);$k++){
-                $dimension = $dimensions[$k]->attributes()["id"];
-                if($dimension!="GEO" && $dimension!="FREQ"){
-                    $refNode = $dimensions[$k]->xpath("LocalRepresentation/Enumeration/Ref")[0];
-                    $codeListId = (string) $refNode->attributes()["id"];
-                    $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
-                    $codePairs = [];
-                    for($j=0;$j<count($listCodes);$j++){
-                        $listCode = (string) $listCodes[$j]->attributes()["id"];
-                        $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
-                        //print("$listCode => $name<br>");
-                        $codePairs[$listCode] = $name;
-                    }
-                    $jsonCodeList = json_encode($codePairs);
+            //READ DSD'S DIMENSIONS AND PARSE CODELISTS
+            $fileArray = file($dsdFolder.$code.".dsd.xml");
+            $dsdString = implode("\n", $fileArray);
+            if(strpos($dsdString,"Error code: ")===0  || strpos($dsdString,"Not Found")===0 ||  strpos($dsdString,"<big>Access Denied </big><br><br>")!==false){
+                unlink($dsdFolder.$code.".dsd.xml");
+                print("Error loading $i. <a href=\"$dsdRootUrl$code\">$code</a><br>: $dsdString<br>");
+            } else {
+                //print($dsdFolder.$code.".dsd.xml".strpos($dsdString,"Error code: ").strpos($dsdString,"Not Found"));
+                $uniqueCodes++;
+                if($unit!="") $explicitUnitCount++;
+                print("<b>$uniqueCodes. $title <a href=\"?codes=$code\" target=\"$code\">$code</a></b><br>");
+                if(simplexml_load_string(implode("\n", $fileArray))===false){ //download once again if unable to parse
+                    getDsd($code);
+                    $fileArray = file($dsdFolder.$code.".dsd.xml");
+                }
+                $dsdString = str_replace("</str:","</", str_replace("<str:","<",implode("\n", $fileArray)));
+                $dsdString = str_replace("</mes:","</", str_replace("<mes:","<",$dsdString));
+                $dsdString = str_replace("</com:","</", str_replace("<com:","<",$dsdString));
+                $dsdString = str_replace("xml:lang","lang", $dsdString);
+                $xmlDsd = simplexml_load_string($dsdString);
+                $dimensions = $xmlDsd->xpath("//Dimension");
+                $setSeriesCount = 1;
+                for($k=0;$k<count($dimensions);$k++){
+                    $dimension = $dimensions[$k]->attributes()["id"];
+                    if($dimension!="FREQ"){
+                        $refNode = $dimensions[$k]->xpath("LocalRepresentation/Enumeration/Ref")[0];
+                        $codeListId = (string) $refNode->attributes()["id"];
+                        $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
+                        $setSeriesCount *= count($listCodes);
+                        if($dimension=="UNIT" && $unit=="") $clUnitsCount++;
+                        if($dimension=="CURRENCY" && $unit=="") $currencyUnitsCount++;
 
-                    $found = false;
-                    if(isset($allCodeLists[$codeListId])){
-                        foreach ($allCodeLists[$codeListId] as $refCode => $refJson) {
-                            if($refJson==$jsonCodeList){
-                                $found = true;
-                                break;
+                        if($dimension=="GEO"){
+                            print("$codeListId enumerating ".count($listCodes)." geographies<br>");
+                        } else {
+                            $codePairs = [];
+                            for($j=0;$j<count($listCodes);$j++){
+                                $listCode = (string) $listCodes[$j]->attributes()["id"];
+                                $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
+                                //print("$listCode => $name<br>");
+                                $codePairs[$listCode] = $name;
+                            }
+                            $jsonCodeList = json_encode($codePairs);
+
+                            $found = false;
+                            if(isset($allCodeLists[$codeListId])){
+                                foreach ($allCodeLists[$codeListId] as $refCode => $refJson) {
+                                    if($refJson==$jsonCodeList){
+                                        print("$codeListId (same as $refCode)<br>");
+                                        $found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if(!isset($allCodeLists[$codeListId]) || !$found) {
+                                if(!isset($allCodeLists[$codeListId])) $allCodeLists[$codeListId] = [];
+                                $allCodeLists[$codeListId][$code] = $jsonCodeList;
+                                print("$i. $codeListId ($code) = $jsonCodeList <br>");
                             }
                         }
                     }
-                    if(!isset($allCodeLists[$codeListId]) || !$found) {
-                        if(!isset($allCodeLists[$codeListId])) $allCodeLists[$codeListId] = [];
-                        $allCodeLists[$codeListId][$code] = $jsonCodeList;
-                        print("$i. $codeListId ($code) = $jsonCodeList <br>");
-                    }
                 }
+                getTSV($code);
+                $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
+                $first_line = gzgets($gz);
+                $tsvLineCount = 0;
+                //print out the first ten lines for review
+                while($gz && !gzeof($gz)){
+                    gzgets($gz);
+                    $tsvLineCount++;
+                }
+                gzclose($gz);
+                print("estimated series in set v. actual: $setSeriesCount v. $tsvLineCount<br>");
             }
+            $eurostatSeriesEstimate += $tsvLineCount;
+            ob_flush();
+            flush();
         }
+
     }
+    print("Eurostats total tsv count: $eurostatSeriesEstimate<br>");
+    print("Set count with explicit unit value: $explicitUnitCount<br>");
+    print("Set count with CL_UNIT dimension: $clUnitsCount<br>");
+    print("Set count with CL_CURRENCY dimension: $currencyUnitsCount<br>");
+
 } else {
     print("<h2>".($_REQUEST["codes"])."</h2>");
     $codes = explode(",", $_REQUEST["codes"]);
@@ -121,10 +167,8 @@ if(!isset($_REQUEST["codes"])){
 
             }
 
-            //GET TSV DATA FILE
-            set_time_limit(300);
-            file_put_contents($dataFolder. $code.".tsv.gz", fopen($tsvLink[0], 'r'));
-            $gz = gzopen($dataFolder. $code.".tsv.gz", "r");
+            getTSV($code);
+            $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
             $first_line = gzgets($gz);
 /*  output JSON:
     {
@@ -160,12 +204,12 @@ if(!isset($_REQUEST["codes"])){
             gzclose($gz);
 
             //GET DSD AS NEEDED (MUST USE CURL BECAUSE URL RETURNS FILE INSTEAD OF CONTENTS)
-            if(!file_exists($dataFolder.$code.".dsd.xml")){
+            if(!file_exists($dsdFolder.$code.".dsd.xml")){
                 getDsd($code);
             }
 
             //READ DSD'S DIMENSIONS AND PARSE CODELISTS
-            $fileArray = file($dataFolder.$code.".dsd.xml");
+            $fileArray = file($dsdFolder.$code.".dsd.xml");
             $dsdString = str_replace("</str:","</", str_replace("<str:","<",implode("\n", $fileArray)));
             $dsdString = str_replace("</mes:","</", str_replace("<mes:","<",$dsdString));
             $dsdString = str_replace("</com:","</", str_replace("<com:","<",$dsdString));
@@ -200,10 +244,20 @@ if(!isset($_REQUEST["codes"])){
     }
 }
 
+function getTSV($code, $force = false){
+    global $tsvFolder;
+//GET TSV DATA FILE
+    if($force || !file_exists($tsvFolder.$code.".tsv.gz")){
+        set_time_limit(300);
+        file_put_contents($tsvFolder . $code.".tsv.gz", fopen("http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?file=data/$code.tsv.gz", 'r'));
+    }
+}
+
+
 function getDsd($code){
-    global $dataFolder, $dsdRootUrl;
+    global $dsdFolder, $dsdRootUrl;
     set_time_limit(300); // unlimited max execution time
-    $fp = fopen($dataFolder.$code.".dsd.xml", "w");
+    $fp = fopen($dsdFolder.$code.".dsd.xml", "w");
     $options = array(
         CURLOPT_FILE    => $fp, //output to to window if not defined
         CURLOPT_TIMEOUT =>  200, // set this to 8 hours so we dont timeout on big files
