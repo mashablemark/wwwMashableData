@@ -495,10 +495,11 @@ switch($command){
 
     */
 
-        $sql = "select * from maps order by name";
+        $sql = "select * from maps where map<>name order by map";
         $result = runQuery($sql,"GetMapsList");
         $output = array("status"=>"ok", "maps"=>array());
         while($row = $result->fetch_assoc()){
+            $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying bandaid, not a global solution
             $output["maps"][$row['map']]= $row;
         }
         break;
@@ -611,7 +612,7 @@ switch($command){
             $sid = substr($bunny,1); //remove the leading U or S
             $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
                 . "s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
-                . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ms.counts as geocounts "
+                . "lastdt, hash as datahash, ms.counts as geocounts "
                 . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid "
                 . " WHERE s.pointsetid is null and s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
             $result = runQuery($sql, "ChangeMaps: get series");
@@ -639,7 +640,7 @@ switch($command){
         for($i=0;$i<count($mapsetids);$i++){
             $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
             . "s.title as graph, s.src, s.url, s.units, s.data, periodicity as period, 'S' as save, 'datetime' as type, firstdt, "
-            . "lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount "
+            . "lastdt, hash as datahash "
             . " FROM series s "
             . " where mapsetid = " . intval($mapsetids[$i]) . " and pointsetid is null and geoid = " . $geoid;
             $result = runQuery($sql,"GetBunnySeries");
@@ -995,17 +996,21 @@ EOS;
         }
 
         //insert mapset and component records
-        if(isset($_POST['mapsets']['components'])){
-            $sql = "insert into graphplots (graphid, type, options, legendorder) "
-                . " values (".$gid.",'M',".safeStringSQL($_POST['mapsets']["options"]).",1)"; //only 1 mapset per graph
-            runQuery($sql, "ManageMyGraphs: mapsets into graphplots");
-            $thisPlotId = $db->insert_id;
-            for($j=0;$j<count($_POST['mapsets']["components"]);$j++){
-                $component = $_POST['mapsets']["components"][$j];
-                $sql="insert into plotcomponents (plotid, comporder, objtype, objid, options) values "
-                    . "(".$thisPlotId.",".($j+1).",'".substr($component["handle"],0,1)."',"
-                    . intval(substr($component["handle"],1)).",".safeStringSQL($component["options"]).")";
-                runQuery($sql,"ManageMyGraphs: mapset into plotcomponents");
+        if(isset($_POST['mapsets'])){
+            $mapsets = $_POST['mapsets'];
+            for($i=0;$i<count($mapsets);$i++){
+                $mapset = $mapsets[$i];
+                $sql = "insert into graphplots (graphid, type, options, legendorder) "
+                    . " values (".$gid.",'M',".safeStringSQL($mapset["options"]).",".($i+1).")";
+                runQuery($sql, "ManageMyGraphs: mapsets into graphplots");
+                $thisPlotId = $db->insert_id;
+                for($j=0;$j<count($mapset["components"]);$j++){
+                    $component = $mapset["components"][$j];
+                    $sql="insert into plotcomponents (plotid, comporder, objtype, objid, options) values "
+                        . "(".$thisPlotId.",".($j+1).",'".substr($component["handle"],0,1)."',"
+                        . intval(substr($component["handle"],1)).",".safeStringSQL($component["options"]).")";
+                    runQuery($sql,"ManageMyGraphs: insert plotcomponents record");
+                }
             }
         }
         //insert pointsets and component records
@@ -1384,7 +1389,7 @@ EOS;
             $sql = "
             SELECT s.name, s.mapsetid, s.pointsetid, coalesce(ms.themeid, ps.themeid) as themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid,
             s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt,
-            lastdt, hash as datahash, myseriescount, s.privategraphcount + s.publicgraphcount as graphcount, ifnull(ms.counts, ps.counts) as geocounts
+            lastdt, hash as datahash, ifnull(ms.counts, ps.counts) as geocounts
             FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid
             WHERE s.seriesid in (" . implode($clean_seriesids,",") .") and (s.userid is null or s.userid = $user_id or orgid=$orgid)";
             $result = runQuery($sql, "GetMashableData series");
@@ -1608,17 +1613,22 @@ function getGraphs($userid, $ghash){
             case 'M':  //regions plot (map set)
                 if($plotid!=$aRow['plotid']){
                     $plotid =  $aRow['plotid'];
-                    $output['graphs']['G' . $gid]["mapsets"] = array(
+                    if(!isset($output['graphs']['G' . $gid]["mapsets"] )) $output['graphs']['G' . $gid]["mapsets"]=[];
+
+
+                    array_push($output['graphs']['G' . $gid]["mapsets"], array(
                         "handle"=>"P".$plotid,
                         "options"=> $aRow["plotoptions"],
                         "components" => array()
-                    );
+                    ));
                 }
-                array_push($output['graphs']['G' . $gid]["mapsets"]["components"], array(
+                $thisSetIndex = count($output['graphs']['G' . $gid]["mapsets"])-1;
+                array_push($output['graphs']['G' . $gid]["mapsets"][$thisSetIndex]["components"], array(
                     "handle"=> $aRow["comptype"].$aRow["objid"],
                     "options"=> $aRow["componentoptions"]
                     )
                 );
+
                 break;
             case 'X':  //marker plot (point set)
                  if($plotid!=$aRow['plotid']){

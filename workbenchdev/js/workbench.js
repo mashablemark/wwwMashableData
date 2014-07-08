@@ -681,7 +681,7 @@ function setupMyGraphsTable(){
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
-                    return (obj.mapsets?(obj.mapsets.options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
+                    return (obj.mapsets?(obj.mapsets[0].options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
                         + (obj.pointsets?iconsHMTL.hasMarkerMap:'')
                         + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(value)
@@ -1172,8 +1172,8 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             //this are the series info added to the quickView panel.  Could be more complete & styled
             qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph||'' + '</td></tr>'
                 + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes||'' + '</td></tr>'
-                + '<tr><td>My Series count:</td><td>' + aoSeries[0].myseriescount||'' + '</td></tr>'
-                + '<tr><td>Graphs (including unpublished) count:</td><td>' + aoSeries[0].graphcount||'' + '</td></tr>'
+                + '<tr><td>API notes:</td><td>need to fetch</td></tr>'
+                + '<tr><td>Theme notes:</td><td>need to fetch</td></tr>'
                 + '<tr><td>Series key:</td><td>' + aoSeries[0].skey||'' + '</td></tr>'
                 + '</table>';
         }
@@ -1309,7 +1309,7 @@ function quickViewToMap(){
             && panelGraphs[panelId].map
             && (
             panelGraphs[panelId].map!=map
-                || (panelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].mapsets.components[0].handle].period)
+                || (panelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].mapsets[0].components[0].handle].period)
                 ||(panelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].pointsets[0].components[0].handle].period)
             )
         ){
@@ -1338,9 +1338,9 @@ function quickViewToMap(){
         oGraph.plots.push({options:{}, components:[{handle: serie.handle, options: {k:1.0, op:'+'}}]});  //always plot the series in addition to any map
         if(serie.geocounts && serie.geocounts[map]){
             if(!isNaN(serie.mapsetid) && serie.mapsetid>0 && !hasMapset(serie.mapsetid)){
-                if(!oGraph.mapsets) oGraph.mapsets = {options:{}, components:[]};
+                if(!oGraph.mapsets) oGraph.mapsets = [{options:{}, components:[]}];
                 addedHandle = 'M'+serie.mapsetid;
-                oGraph.mapsets.components.push({handle: addedHandle, options:{k:1.0, op:(oGraph.mapsets.components.length==0?'+':'/')}});
+                oGraph.mapsets[0].components.push({handle: addedHandle, options:{k:1.0, op:(oGraph.mapsets[0].components.length==0?'+':'/')}});
             }
             if(!isNaN(serie.pointsetid) && serie.pointsetid>0 && !hasPointset(serie.pointsetid)){
                 if(!oGraph.pointsets) oGraph.pointsets = [];
@@ -1398,8 +1398,8 @@ function quickViewToMap(){
     }
     function hasMapset(mapsetid){
         if(oGraph.mapsets){
-            for(var c=0;c<oGraph.mapsets.components.length;c++){
-                if(oGraph.mapsets.components.handle=='M'+mapsetid) return true;
+            for(var c=0;c<oGraph.mapsets[0].components.length;c++){
+                if(oGraph.mapsets[0].components.handle=='M'+mapsetid) return true;
             }
         }
         return false;
@@ -1418,7 +1418,7 @@ function quickViewToMap(){
         getAssets(oGraph, function(){
             require(['/global/js/maps/' + oGraph.mapFile + '.js'],function(){
                 if(oGraph.title===null || oGraph.title==''){
-                    oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets):plotName(oGraph, oGraph.pointsets[0]);
+                    oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets[0]):plotName(oGraph, oGraph.pointsets[0]);
                 }
                 if(panelId=="new"){
                     buildGraphPanel(oGraph);
@@ -2503,6 +2503,7 @@ function getMySeries(){
         }
     );
 }
+
 function saveGraph(oGraph, callback) {
 //first save to db and than to dtMyGraphs and oMyGraphs once we have a gid
     if(oGraph.gid){
@@ -2514,7 +2515,6 @@ function saveGraph(oGraph, callback) {
     oGraph.serieslist = [];
     grapher.eachComponent(oGraph, function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
     oGraph.serieslist = oGraph.serieslist.join('; ');
-
 
     var assets = oGraph.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
     var calculatedMapData = oGraph.calculatedMapData; //ditto

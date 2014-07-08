@@ -78,14 +78,12 @@ function safePostVar($key){
     }
     return $val;
 }
-function safeStringSQL($val){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
-/*    var_dump($val);
-    debug_print_backtrace();
-    print("<br>");*/
-    if(($val == NULL  || $val === NULL) && $val != ''){  //removed "|| $val==''" test
+
+function safeStringSQL($val, $nullable = true){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
+    if($nullable && (strtoupper($val) == "NULL"  || $val === NULL || $val == '')){  //removed "|| $val==''" test
         return 'NULL';
     } else {
-        return "'" . str_replace("'", "''", $val) . "'";
+        return "'" . str_replace("'", "''", ($val===null?"":$val)) . "'";
     }
 }
 
@@ -293,6 +291,23 @@ function setThemeByName($apiid, $themeName){
     }
 }
 
+function getTheme($apiid, $themeName, $meta = null, $apivar = null){
+    global $db;
+    $sql = "select * from themes where apiid=$apiid and ";
+    if($apivar) $sql .= "code='$apivar'"; else $sql .= "name='$themeName'";
+    $result = runQuery($sql, "theme fetch");
+    if($result->num_rows==0){
+        $sql = "insert into themes (apiid, name, meta, apivar)
+        values($apiid,'$themeName',".safeStringSQL($meta).",".safeStringSQL($apivar).")";
+        if(!runQuery($sql, "insert theme"))
+            throw new Exception("error: unable to insert theme $themeName for apiid $apiid");
+        return ["name"=> $themeName, "themeid"=>$db->insert_id, "meta"=>$meta, "apivar"=> $apivar, "apidt"=>null];
+    } else {
+        $row = $result->fetch_assoc();
+        return $row;
+    }
+}
+
 function setCubeByDimensions($themeid, $cubeDimensions, $units){
     //save the cube and its dimensions if DNE
     //return an assc array with cube name and id
@@ -343,16 +358,62 @@ function updateSeries(&$status, $jobid, $key, $name, $src, $url, $period, $units
     $result = runQuery($sql);
     if($result->num_rows==1){
         $series = $result->fetch_assoc();
+
+        //is data a subset? if so, don't shrink the series!
+        if(strpos($series["data"], $data)){
+            $data = $series["data"];
+            $firstdt = $series["firstdt"];
+            $lastdt = $series["lastdt"];
+        }
+
+        //point level update check
+        if($series["periodicity"]==$period && !($firstdt <= $series["firstdt"] && $lastdt >= $series["lastdt"])){
+            //old has dates new does not = do a point level update
+            //background:  FAO has same series in different bulk download files with different start / end dates
+
+            $dataNew = explode("||", $data);
+            $dataOld = explode("||", $series["data"]);
+            $dataCombined = [];
+            $newI = count($dataNew)-1;
+            $oldI = count($dataOld)-1;
+            while($newI>=0 || $oldI>=0){
+                if($newI<0){
+                    array_unshift($dataCombined, $dataOld[$oldI]);
+                    $oldI--;
+                } elseif($oldI<0) {
+                    array_unshift($dataCombined, $dataNew[$newI]);
+                    $newI--;
+                } else {
+                    $newPoint = explode("|",$dataNew[$newI]);
+                    $oldPoint = explode("|",$dataOld[$oldI]);
+                    if($newPoint[0]==$oldPoint[0]){
+                        array_unshift($dataCombined, $dataNew[$newI]);
+                        $newI--;
+                        $oldI--;
+                    } elseif($newPoint[0]>$oldPoint[0]) {
+                        array_unshift($dataCombined, $dataOld[$oldI]);
+                        $oldI--;
+                    } else {
+                        array_unshift($dataCombined, $dataNew[$newI]);
+                        $newI--;
+                    }
+                }
+            }
+            $data = implode("||", $dataCombined);
+        }
+
         if($series["units"]!=$units
             || $series["periodicity"]!=$period
             || $series["notes"]!=$notes
             || $series["name"]!=$name
             || $series["data"]!=$data
-            || ($geoid != null && is_numeric ($geoid) && $geoid != $series["geoid"])
+            || ($geoid != null && is_numeric($geoid) && $geoid != $series["geoid"])
             || ($mapsetid != null && is_numeric($mapsetid) && $series["mapsetid"]!=$mapsetid)
             || ($pointsetid != null && is_numeric($pointsetid) && $series["pointsetid"]!=$pointsetid)
         ){
             archiveSeries($series);
+
+
             $sql = "update series set "
                 ."skey=".safeStringSQL($key).","
                 ."name=".safeStringSQL($name).","
