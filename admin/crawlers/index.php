@@ -473,3 +473,41 @@ function setCatSeries($catid, $seriesid){ //insert catSeries record if DNE
 }
 
 
+function isoLookup($iso3166, $set = "ALL"){
+    static $isos = "null";
+    if($isos=="null"){
+        $isos = array();
+        $geos_sql = "select geoid, iso3166, regexes from geographies where iso3166 is not null";
+        $result = runQuery($geos_sql);
+
+        while($row=$result->fetch_assoc()){
+            $isos[$row["iso3166"]] = ["geoid"=>$row["geoid"], "regexes"=>$row["regexes"]];
+        }
+    }
+
+    if(isset($isos[$iso3166])){
+        return $isos[$iso3166];
+    } else {
+        return null;
+    }
+}
+
+//MOVE TO MAIN
+function jvmCodeLookup($jVectorMapCode, $set = "ALL"){
+    static $geos = "null";
+    if($geos=="null"){
+        $geos = array();
+        $geos_sql = "select geoid, name, jvectormap, regexes from geographies where jvectormap is not null";
+        $result = runQuery($geos_sql);
+
+        while($row=$result->fetch_assoc()){
+            $geos[$row["jvectormap"]] = ["name"=>$row["name"], "geoid"=>$row["geoid"], "regexes"=>$row["regexes"]];
+        }
+    }
+
+    if(isset($geos[$jVectorMapCode])){
+        return $geos[$jVectorMapCode];
+    } else {
+        return null;
+    }
+}

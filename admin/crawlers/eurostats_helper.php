@@ -14,6 +14,15 @@ $clUnitsCount = 0;
 $currencyUnitsCount = 0;
 $geoCount = 0;
 
+//get the ingest config file = list of ingested and skipped code used to color / strike-through the text
+include_once("es_config.php");
+$ingest_codes = [];
+for($i=0;$i<count($ingest);$i++){
+    $codes = $ingest[$i]["codes"];
+    for($j=0;$j<count($codes);$j++){
+        array_push($ingest_codes, $codes[$j]);
+    }
+}
 
 //get TOC
 if(!file_exists($dataFolder.$tocFile) || isset($_REQUEST["refresh"])){
@@ -39,6 +48,7 @@ if(!isset($_REQUEST["codes"])){
         if(isset($processedCodes[$code])){
             if($processedCodes[$code]!= $title) print("mismatched title in repeated code: $processedCodes[$code] != $title<br>");
         } else {
+            $processedCodes[$code] = $title;
             //get DSD (must use CURL because of headers/redirect confuses fopen and related functions
             if(!file_exists($dsdFolder.$code.".dsd.xml")){
                 getDsd($code);
@@ -53,6 +63,15 @@ if(!isset($_REQUEST["codes"])){
                 //print($dsdFolder.$code.".dsd.xml".strpos($dsdString,"Error code: ").strpos($dsdString,"Not Found"));
                 $uniqueCodes++;
                 if($unit!="") $explicitUnitCount++;
+                if(in_array($code, $ingest_codes)){
+                    print("<font color=\"green\">CONFIGURED FOR INGEST: ");
+                    $font = "ingest";
+                } elseif(in_array($code, $skip_codes)){
+                    print("<font color=\"red\">");
+                    $font = "skip";
+                } else {
+                    $font = false;
+                }
                 print("<b>$uniqueCodes. $title <a href=\"?codes=$code\" target=\"$code\">$code</a></b><br>");
                 if(simplexml_load_string(implode("\n", $fileArray))===false){ //download once again if unable to parse
                     getDsd($code);
@@ -91,7 +110,7 @@ if(!isset($_REQUEST["codes"])){
                             if(isset($allCodeLists[$codeListId])){
                                 foreach ($allCodeLists[$codeListId] as $refCode => $refJson) {
                                     if($refJson==$jsonCodeList){
-                                        print("$codeListId (same as $refCode)<br>");
+                                        print("$codeListId ($refCode)<br>");
                                         $found = true;
                                         break;
                                     }
@@ -100,14 +119,15 @@ if(!isset($_REQUEST["codes"])){
                             if(!isset($allCodeLists[$codeListId]) || !$found) {
                                 if(!isset($allCodeLists[$codeListId])) $allCodeLists[$codeListId] = [];
                                 $allCodeLists[$codeListId][$code] = $jsonCodeList;
-                                print("$i. $codeListId ($code) = $jsonCodeList <br>");
+                                print("$i. $codeListId ($code) " . ($font==="skip" ? "" : "= $jsonCodeList") . "<br>");
                             }
                         }
                     }
                 }
                 getTSV($code);
                 $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
-                $first_line = gzgets($gz);
+                $header_array = str_getcsv(gzgets($gz),"\t", "");
+                print($header_array[0]."<br>");
                 $tsvLineCount = 0;
                 //print out the first ten lines for review
                 while($gz && !gzeof($gz)){
@@ -118,10 +138,22 @@ if(!isset($_REQUEST["codes"])){
                 print("estimated series in set v. actual: $setSeriesCount v. $tsvLineCount<br>");
             }
             $eurostatSeriesEstimate += $tsvLineCount;
+            if($font) print("</font>");
             ob_flush();
             flush();
         }
 
+    }
+    if(isset($_REQUEST["cl"]) && isset($allCodeLists[$_REQUEST["cl"]])){
+        $cl = $_REQUEST["cl"];
+        print("<h3>$cl</h3>");
+        foreach($allCodeLists[$cl] as $dataset => $json_list){
+            print("<b>$dataset</b><br>");
+            $list = json_decode($json_list, true);
+            foreach($list as $code => $val){
+                print("$code = $val<br>");
+            }
+        }
     }
     print("Eurostats total tsv count: $eurostatSeriesEstimate<br>");
     print("Set count with explicit unit value: $explicitUnitCount<br>");
@@ -189,8 +221,6 @@ if(!isset($_REQUEST["codes"])){
             print("{<br>");
             print("    \"codes\": [\"$code\"]<br>");
             print("    \"name\": \"".$title[0]."\"<br>");
-            print("    \"cl_mapping\": {\"".$title[0]."\"]<br>");
-
             print("    \"units\": \"".$units[0]."\"<br>");
 
 
@@ -219,17 +249,18 @@ if(!isset($_REQUEST["codes"])){
             $dimensions = $xmlDsd->xpath("//Dimension");
             for($k=0;$k<count($dimensions);$k++){
                 $dimension = $dimensions[$k]->attributes()["id"];
-                print($dimension.": ");
+                print("<b>$dimension:</b><br>");
                 $refNode = $dimensions[$k]->xpath("LocalRepresentation/Enumeration/Ref")[0];
                 $codeList = $refNode->attributes()["id"];
-                print ("$codeList<br>");
+                print ("\"$codeList\" => [<br>\"hierarchy\" => [<br>");
                 $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeList']/Code");
                 for($j=0;$j<count($listCodes);$j++){
                     $code = $listCodes[$j]->attributes()["id"];
 
                     $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
-                    print(" - $code: $name<br>");
+                    print(" \"$code\", //$name<br>");
                 }
+                print("]<br><br>");
             }
 
             //PARSE TSV

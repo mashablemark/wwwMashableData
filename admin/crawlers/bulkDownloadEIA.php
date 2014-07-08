@@ -348,46 +348,21 @@ function insertOrUpdateCategory($cat, $apirow, $job){
     $catid = setCategoryById($apirow["apiid"], $cat["category_id"], $cat["name"], $cat["parent_category_id"]);
     //loop through children series and add them
     for($i=0;$i<count($cat["childseries"]);$i++){
-        $result = runQuery("select seriesid from series where apiid=".$apirow["apiid"]." and skey=".safeStringSQL($cat["childseries"][$i]));
+        $series_id = $cat["childseries"][$i];
+        $result = runQuery("select seriesid from series where apiid=".$apirow["apiid"]." and skey=".safeStringSQL($series_id));
         if($result->num_rows==1){
             $row = $result->fetch_assoc();
             $sid = $row["seriesid"];
             runQuery("insert ignore into categoryseries value($catid, $sid)");
-        } elseif($cat["childseries"][$i]["series_id"]!="TOTAL..A" && $cat["childseries"][$i]["series_id"]!="TOTAL..M") {
-            printNow("unable to find series for skey=". $cat["childseries"][$i]["series_id"]);
-            logEvent("error", "unable to find series for EIA skey=". $cat["childseries"][$i]["series_id"]);
+        } elseif(
+            $series_id!="TOTAL..A"
+            && $series_id != "TOTAL..M"
+            && !(strPos($series_id,"ELEC.PLANT.")===0 && strPos($series_id,"-ALL.")!==false)
+            && !(strPos($series_id,"COAL.SHIPMENT_")===0)
+        ) {
+            printNow("unable to find series for skey=". $series_id);
+            logEvent("error", "unable to find series for EIA skey=". $series_id);
         }
-    }
-}
-
-//MOVE TO MAIN
-function safeSQL($val){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
-    if($val === NULL  || $val == ''){  //removed "|| $val==''" test
-        return "NULL";
-    } elseif(is_int($val)){
-        return $val;
-    } else {
-        return "'" . str_replace("'", "''", $val) . "'";
-    }
-}
-
-//MOVE TO MAIN
-function isoLookup($iso3166){
-    static $isos = "null";
-    if($isos=="null"){
-        $isos = array();
-        $geos_sql = "select geoid, iso3166, regexes from geographies where iso3166 is not null";
-        $result = runQuery($geos_sql);
-
-        while($row=$result->fetch_assoc()){
-            $isos[$row["iso3166"]] = ["geoid"=>$row["geoid"], "regexes"=>$row["regexes"]];
-        }
-    }
-
-    if(isset($isos[$iso3166])){
-        return $isos[$iso3166];
-    } else {
-        return null;
     }
 }
 

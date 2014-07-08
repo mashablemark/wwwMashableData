@@ -85,8 +85,8 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     $ROOT_FAO_CATID = $api_row["rootcatid"];
     $baseCats = json_decode($treeJson, true);
     //first build the base categories:
-    $insertIntialRun = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now())";
-    $result = runQuery($insertIntialRun);
+    $insertInitialRun = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now())";
+    $result = runQuery($insertInitialRun);
     $jobid = $db->insert_id;
 
     foreach($baseCats as $primeCategory=>$subTree){

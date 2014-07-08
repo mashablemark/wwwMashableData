@@ -6,6 +6,8 @@
  */
 
 $event_logging = true;
+$sql_logging = false;
+
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
  * All returns are JSON objects. Supports the standard MD API functions:
