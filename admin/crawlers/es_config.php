@@ -7,9 +7,9 @@
     "mapping"=> [ //help with code list if needed.  Dimensionality follows order below or cell[0,0} if this section is missing
         "CL_AGE"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
             "name"=> "English name override",  //
-            "total" =>  "T",  //default total code determined if name (not code!) = "total" (case insensitive exact match)
+            "rootCode" =>  "T",  //default CL total code is "TOTAL" if exists
             "ex"=> ["85+"],  //list of codes to exclude from the cube viz, but still ingested
-            "hierarchy" => [ //overrides "total" and "exclude" values; cubes made from hierarchies (>1 and <50)
+            "hierarchy" => [ //overrides "rootCode" and "exclude" values; cubes made from hierarchies (>1 and <50)
                 "R patents" => ["a","b","c"],
                 "D type patents" => ["x","y","z"]
             ],
@@ -323,15 +323,15 @@ $cl_config = [
         ]
     ],
     "CL_IPC:pat_ep_ntec"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
-        "total"=> "HT", //High tech - total
+        "rootCode"=> "HT", //High tech - total
     ],
     "CL_IPC:pat_ep_nbio"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
 
     ],
     "CL_IPC:pat_ep_nict" => [
-        "total"=> "ICT", //Information and communication technology (ICT) - total
+        "rootCode"=> "ICT", //Information and communication technology (ICT) - total
     ],
-    "CL_IPC:pat_ep_nnano" => ["total" => "B82", ], //B82 = nanotechnology
+    "CL_IPC:pat_ep_nnano" => ["rootCode" => "B82", ], //B82 = nanotechnology
 ];
 
 $skip_codes =[

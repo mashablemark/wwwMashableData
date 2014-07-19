@@ -110,7 +110,8 @@ if(!isset($_REQUEST["codes"])){
                             if(isset($allCodeLists[$codeListId])){
                                 foreach ($allCodeLists[$codeListId] as $refCode => $refJson) {
                                     if($refJson==$jsonCodeList){
-                                        print("$codeListId ($refCode)<br>");
+                                        if(isset($cl_config[$codeListId])||isset($cl_config[$codeListId.":".$refCode])) $cl="blue"; else $cl="black";
+                                        print("<font color=\"$cl\">$codeListId ($refCode)</font><br>");
                                         $found = true;
                                         break;
                                     }
@@ -119,7 +120,9 @@ if(!isset($_REQUEST["codes"])){
                             if(!isset($allCodeLists[$codeListId]) || !$found) {
                                 if(!isset($allCodeLists[$codeListId])) $allCodeLists[$codeListId] = [];
                                 $allCodeLists[$codeListId][$code] = $jsonCodeList;
-                                print("$i. $codeListId ($code) " . ($font==="skip" ? "" : "= $jsonCodeList") . "<br>");
+                                if(isset($cl_config[$codeListId])||isset($cl_config[$codeListId.":".$code])) $cl="blue"; else $cl="black";
+
+                                print("<font color=\"$cl\">$i. $codeListId ($code) " . ($font==="skip" ? "" : "= $jsonCodeList") . "</font><br>");
                             }
                         }
                     }

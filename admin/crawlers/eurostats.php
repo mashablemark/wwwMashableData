@@ -1,4 +1,5 @@
 <?php
+include_once("common.php");
 
 $fetchNew = false; //if local file exists, do not fetch latest from Eurostat again
 $dataFolder = "bulkfiles/eurostat/";
@@ -37,8 +38,13 @@ function ApiCrawl($catid, $api_row){
 
 }
 function ApiBatchUpdate($since, $periodicity, $api_row, $code = false, $settings = false){
-    global $ingest;
-    global $xmlTOC, $fetchNew, $dsdFolder, $tsvFolder;
+    global $ingest, $xmlTOC, $fetchNew, $dsdFolder, $tsvFolder;
+
+    $mapsets = []; //mskey => [name, units] : build as we ingest to avoid creating mapsets that do not need to exist
+    $series = []; //INGESTED ASSOC ARRAY: skey => [seriesname, keys (array), geoid, mskey, units, data (MD formatted string)]
+    $code_lists = []; //ingested from config files and/or DSD.  CL_code is main key.  Each code list is an assoc array with name, total, hierachy, widest
+    $dsdCodeLists = [];  //association array built over all the code's DSD with [code][list][val] stucture
+
     $apiid = $api_row["apiid"];
     //1. determine code
     if(isset($_REQUEST["code"])){ //allow a single variable group to be ingested from the command line
@@ -47,20 +53,23 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $code = false, $settings
     if($code === false) return false;
 
     //1. find configuration in $ingest
-    $setConfig = false;
+    $themeConfig = false;
     for($i=0;$i<count($ingest);$i++){
         if(in_array($code, $ingest[$i]["codes"])){
-            $setConfig = $ingest[$i];
+            $themeConfig = $ingest[$i];
             break;
         }
     }
-    if($setConfig === false) return false;
+    if($themeConfig === false) return false;
+
+    //get / set the themeid
+    $themeName = isset($themeConfig["theme_name"])?$themeConfig["theme_name"]:$title;
+    $tKey = implode("+", $themeConfig["codes"]);
+    $themePeriod = false;
+    $theme = getTheme($apiid, $themeName, "For complete metadata, see <a target=\"_blank\" href=\"$metadataLink\">$metadataLink</a>",$tKey);
 
     //2. loop through codes
-    $mapsets = []; //key = name+units : build as we ingest to avoid creating mapsets that do not need to exist
-    $data = []; //INGESTED ASSOC ARRAY: [seriesname, keys (array), geoid, mapsetid, unit, data (MD formatted string)
-    $dsdCodeLists = [];
-    for($i=0;$i<count($setConfig["codes"]);$i++){
+    for($i=0;$i<count($themeConfig["codes"]);$i++){
         //2a. get the code leaf in TOC
         $leaves = $xmlTOC->xpath("//leaf[code='$code']");
         if(count($leaves)===0){
@@ -71,20 +80,16 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $code = false, $settings
         $title = $leaf->xpath("title[@language='en']")[0];
         $metadataLink = $leaf->xpath("metadata[@format='html']")[0];
         $tsvLink = $leaf->xpath("downloadLink[@format='tsv']")[0];
-        $units = $leaf->xpath("unit[@language='en']")[0];
+        $tocUnits = $leaf->xpath("unit[@language='en']")[0];
+        $unit = (isset($themeConfig["units"])&&!is_array($themeConfig["units"]))?$themeConfig["units"]:$tocUnits;  //unit logic priority: 1. explicit settings, 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
 
-
-        $themeName = isset($setConfig["theme_name"])?$setConfig["theme_name"]:$title;
-        getTheme($apiid, $themeName, "<a href=\"$metadataLink\">$metadataLink</a>",implode("+", $setConfig["codes"]));
 
         //2b. get the DSD = DIMENSIONS AND PARSE CODELISTS
         if($fetchNew || !file_exists($dsdFolder.$code.".dsd.xml")){
             getDsd($code);
         }
-        //READ DSD'S DIMENSIONS AND PARSE CODELISTS
-        if($fetchNew || !file_exists($dsdFolder.$code.".dsd.xml")){
-            getDsd($code);
-        }
+
+        //remove pesky namespaces and parse DSD XML
         $fileArray = file($dsdFolder.$code.".dsd.xml");
         $dsdString = implode("\n", $fileArray);
         $dsdString = str_replace("</str:","</", str_replace("<str:","<",$dsdString));
@@ -96,6 +101,25 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $code = false, $settings
             print("unable to parse DSD file");
             return false;
         }
+
+        //load the dataset's dimensions (code lists) from the DSD into a single associative array $dsdCodeLists
+        $dimensions = $xmlDsd->xpath("//Dimension");
+        for($d=0;$d<count($dimensions);$d++){
+            $dimension = $dimensions[$d]->attributes()["id"];
+            if($dimension!="FREQ"){
+                $refNode = $dimensions[$d]->xpath("LocalRepresentation/Enumeration/Ref")[0];
+                $codeListId = (string) $refNode->attributes()["id"];
+                $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
+
+                if(!isset($dsdCodeLists[$dimension])) $dsdCodeLists[$dimension] = ["allCodes"=>[]]; //acculuate codes (such as partial sex lists) across grouped datasets
+                for($j=0;$j<count($listCodes);$j++){
+                    $listCode = (string) $listCodes[$j]->attributes()["id"];
+                    $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
+                    $dsdCodeLists[$dimension]["allCodes"][$listCode] = $name;
+                }
+            }
+        }
+
         //2c. get the TSV data file and detect the codelist order across and down
         getTSV($code, $fetchNew);
         $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
@@ -104,389 +128,152 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $code = false, $settings
         $headerFields = explode("\t", $headerLine);
         $cellA1 = strtoupper($headerFields[0]);
         $sideAndTop = explode("\\", $cellA1);  // \\ = escaped \
+
+        //set tsv dimensions and index variables
         $topDim = $sideAndTop[1]; //mostly "time" and "geo", but could be any list
         $sideDims = explode(",", $sideAndTop[0]);
-        $tsvDims = $sideDims;
-        array_push($tsvDims, $topDim);
+        $tsvDims = $sideDims; array_push($tsvDims, $topDim);
         if(!in_array("TIME", $tsvDims)){
             print("$code does not have a time dimension<br>");
             return false;
         }
-        $indexTime = array_search("TIME", $tsvDims);
-        $indexGeo = array_search("GEO", $tsvDims);
-
-        //load the dataset's dimensions (code lists) from the DSD into a single associative array $dsdCodeLists
-        $dimensions = $xmlDsd->xpath("//Dimension");
-        for($k=0;$k<count($dimensions);$k++){
-            $dimension = $dimensions[$k]->attributes()["id"];
-            if($dimension!="FREQ"){
-                $refNode = $dimensions[$k]->xpath("LocalRepresentation/Enumeration/Ref")[0];
-                $codeListId = (string) $refNode->attributes()["id"];
-                $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
-
-                if(!isset($dsdCodeLists[$dimension])) $dsdCodeLists[$dimension] = []; //acculuate codes (such as partial sex lists) across grouped datasets
-                for($j=0;$j<count($listCodes);$j++){
-                    $listCode = (string) $listCodes[$j]->attributes()["id"];
-                    $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
-                    $dsdCodeLists[$dimension][$listCode] = $name;
-                }
-            }
+        //index of geo, freq, and lookup table
+        $timeIndex = array_search("TIME", $tsvDims);
+        $geoIndex = array_search("GEO", $tsvDims);
+        $unitIndex = null;
+        $dimIndexLookup = [];
+        for($j=0;$j<count($tsvDims);$j++){
+            $dimIndexLookup[$tsvDims[$j]] = $j;
         }
 
-        //2d.  parse the TSV into the $data array of codes[], points[] (detect /geo or /time)
+        //2d.  parse the TSV into the $series array of skeys => [name, data, mskey]
         while($gz && !gzeof($gz)){  //loop through the non-header rows and ingest the series
-
             $dataLine = gzgets($gz);
             $dataFields = explode("\t", $dataLine);
             $lineCodes = explode(",", $dataFields[0]);
             for($c=1;$c<count($dataFields);$c++){
-                $pointCodes = $lineCodes;
-                array_push($pointCodes, $headerFields[$c]);
+                //point codes = all tsv codes (side & top) that uniquely determine the point (includes TIME code)
+                $pointCodes = $lineCodes; array_push($pointCodes, $headerFields[$c]);
+
+                //determine the unique facet and codes for this series and mapset.  When TIME is not the dimension across the page, this must be done for each point
                 if($c==1 || $topDim!="TIME"){
-                    //determine the unique codelist code of this series = at start and for each point when time is not the dimension across the page
-                    $mapsetCodes = [];
-                    $seriesCodes = [];
+                    //codes are more permissive, including unit codes
+                    $seriesCodes = $pointCodes; array_slice($seriesCodes, $timeIndex, 1);
+                    $mapsetCodes = $seriesCodes;
+                    if($geoIndex!==false) array_slice($mapsetCodes, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
+                    //facets are the english language equivalents, and exclude units (since units has its own special field and display)
                     $setFacets = [];
                     $seriesFacets = [];
-                    //unit logic priority: CL_UNIT, explicit settings, CL_CURRENCY
-                    $unit = (isset($setConfig["units"])&&!is_array($setConfig["units"]))?$setConfig["units"]:"";
+
                     for($index=0;$index<count($tsvDims);$index++){
-                        if($index!==$indexTime){ //skip time
-                            if($index===$indexGeo){
+                        if($index!==$timeIndex){ //skip time
+                            if($index===$geoIndex){
                                 $geo = geoLookup($pointCodes[$index]);
+                                $geoName = $geo["name"];
+                                $geoId = $geo["id"]; //either int or "null" (string)
                             } else {
-                                array_push($mapsetCodes, $pointCodes[$index]);
-                                //unit logic priority: CL_UNIT, then explicit settings, then CL_CURRENCY
-                                if($tsvDims[$index]=="UNIT") {
-                                    $unit =  $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]];
-                                } elseif(!in_array("UNIT", $tsvDims)) {
-                                    if(isset($setConfig["units"])){
-                                        if(is_array($setConfig["units"]) && isset($setConfig["units"][$pointCodes[$index]])) $unit = $setConfig["units"][$pointCodes[$index]];
-                                    } elseif($tsvDims[$index]=="CURRENCY") {
+                                //unit logic priority (continued): 1. explicit settings, 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
+                                if(isset($themeConfig["units"])){  //note:  if $themeConfig["units"] is a string, it has already been set
+                                    if(is_array($themeConfig["units"]) && isset($themeConfig["units"][$pointCodes[$index]])){
+                                        $unit = $themeConfig["units"][$pointCodes[$index]];
+                                    }
+                                } elseif(in_array("UNIT", $tsvDims)){
+                                    if($tsvDims[$index]=="UNIT"){
+                                        $unitIndex = $index;
+                                        $unit = $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]];
+                                    }
+                                } elseif(in_array("CURRENCY", $tsvDims)){
+                                    if($tsvDims[$index]=="CURRENCY"){
+                                        $unitIndex = $index;
                                         $unit = $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]];
                                     }
                                 }
-                                array_push($seriesFacets, $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]]);
-                                array_push($setFacets, $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]]);
+                                //mapset's name excludes GEO and units (series name = set name with geoname appended
+                                if($unitIndex!==$index) array_push($setFacets, $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]]);
                             }
-                            array_push($seriesCodes, $tsvDims[$index]);
+                            //set name excludes units and geo
+                            //if($geoIndex!==false) array_push($seriesFacets, geoLookup($pointCodes[$geoIndex]));
                         }
-                        if($indexGeo!==false) array_push($seriesFacets, geoLookup($pointCodes[$indexGeo]));
                         $seriesCodesPart = implode(",", $seriesCodes);
-                        $themeCodesPart = implode("+", $setConfig["codes"]);
-                        if(!isset($data[$seriesCodesPart])){
-                            //this is a new series: determine name, mapsetname, units, mapsetid
-                            $data[$seriesCodesPart] = ["data" => ""];
-                            $data[$seriesCodesPart]["seriesname"] = $themeName . ": " . implode(", ", $seriesFacets);
-                            $data[$seriesCodesPart]["setname"] = $themeName . ": " . implode(", ", $setFacets);
-                            $data[$seriesCodesPart]["skey"] = $themeCodesPart . ":" . $seriesCodesPart;
-                            $data[$seriesCodesPart]["setid"] = $themeCodesPart . ":" . implode(",", $mapsetCodes);
+                        $sKey = $tKey . ":" . $seriesCodesPart;
+                        if(!isset($series[$sKey])){
+                            $series[$sKey] = [
+                                "name" =>  $themeName.": ".implode("; ", $setFacets),
+                                "units" => $unit,
+                                "data"=>"",
+                                "geo" => null
+                            ]; //firstdt, lastdt will be added as the points are appended to data
+                            //add geo specific properties and modifiers to series + add mapset is not set
+                            if($geoIndex!==false){
+                                $msKey = $tKey.":".implode(",", $mapsetCodes);
+                                $series[$sKey]["name"] .= " - " . $geoName;
+                                $series[$sKey]["mskey"] = $msKey;
+                                $series[$sKey]["geoid"] = $geoId;
+                                if(!isset($mapsets[$msKey])){
+                                    $mapsets[$msKey] = [
+                                        "name" => $themeName.": ".implode("; ", $setFacets),
+                                        "units" => $unit
+                                    ];  //mapsetid added after entire tsv parsed into series and mapsets
+                                }
+                            }
                         }
-
-
-
-                $pointCodes = $lineCodes; //copy the line codes array
-                array_push($pointCodes, $headerFields[$c]); //append the top (line 0) code from the collumn header
-                $time = $pointCodes[$indexTime];
-                array_slice($pointCodes, $indexTime, 1); //ditch the TIME code...
-                $seriesCodesPart = implode(",", $pointCodes); //...to get the series Codes
-                if(!isset($data[$seriesCodesPart])){
-
-                    $data[$seriesCodesPart]["name"] = $themeName . "";
-                    if($indexGeo!==false){
-                        $mapsetCodes = $pointCodes;
-                        array_slice($mapsetCodes, $indexGeo>$indexTime?$indexGeo-1:$indexGeo, 1);
-
-
-
-
-
-
-
-
-
                     }
-
                 }
-                $skey = $code."-".implode($pointCodes);
-            array_chunk()
-                $seriesName
-            }
-            //2d-1.  save/get the mapsetids into the array structure for lookup
-
-            //2d-2.  save/update the series (with mapsetid)
-
-            //2d-3.  save/update the theme
-
-            //2d-4.  save/update the cubes and cube-components
-
-        }
-
-
-
-
-
-
-
-
-
-        $leaves = $xmlTOC->xpath("//leaf[code='$code']");
-
-
-
-
-        $title = $leaf->xpath("title[@language='en']")[0];
-        $metadataLink = $leaf->xpath("metadata[@format='html']")[0];
-        $tsvLink = $leaf->xpath("downloadLink[@format='tsv']")[0];
-        $units = $leaf->xpath("unit[@language='en']")[0];
-        //fetch/make theme and last update date
-        $esUpdateDate = $leaf->xpath("last_updated")[0];
-        $theme = getTheme($code, $apiid);
-        if($theme["updatedt"]===$esUpdateDate) return $status;
-
-        /
-        //load the dataset's dimension (code lists) from the DSD into a single associative array $codeLists
-        $codeLists = [];
-        $dimensions = $xmlDsd->xpath("//Dimension");
-        for($k=0;$k<count($dimensions);$k++){
-            $dimension = $dimensions[$k]->attributes()["id"];
-            if($dimension!="FREQ"){
-                $refNode = $dimensions[$k]->xpath("LocalRepresentation/Enumeration/Ref")[0];
-                $codeListId = (string) $refNode->attributes()["id"];
-                $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
-
-                //alternative units coding (only 1 out of 4,853 datasets have a non-blank <unit> in their DSD!!!
-                //if($dimension=="CURRENCY" && $units=="") $currencyUnitsCount++; //128 out of 4,853 datasets = 2.6%
-                //if($dimension=="UNIT" && $units=="") $clUnitsCount++;  //2,930 out of 4,853 datasets = 60.4%
-
-                if($dimension=="GEO"){
-                    print("$codeListId enumerating ".count($listCodes)." geographies<br>");
-                }
-
-                $codePairs = [];
-                for($j=0;$j<count($listCodes);$j++){
-                    $listCode = (string) $listCodes[$j]->attributes()["id"];
-                    $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
-                    //print("$listCode => $name<br>");
-                    $codePairs[$listCode] = $name;
-                }
-                $codeLists[$dimension] = $codePairs;
-            }
-        }
-        $hasBy = strrpos($title, " by ");
-        $baseName = $hasBy?substr($title, 0, $hasBy+1):$title;
-
-        //open the data file
-        getTSV($code, $fetchNew);
-        $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
-        //fetch the first row and decode the dimension
-        $headerLine = gzgets($gz);
-        $headerFields = explode("\t", $headerLine);
-        $cellA1 = str_replace("/time", "", strtoupper($headerFields[0]));
-        if($cellA1==$headerFields[0]){
-            //if time is not the row across, what is?
-            print("unknown x dimension: $cellA1<BR>");
-            return false;
-        }
-        $tsvDims = explode(",", $cellA1);
-        //loop through the non-header rows and ingest the series
-        while($gz && !gzeof($gz)){
-            $seriesUnits = $units;
-            $seriesName = $baseName;
-            $mapsetName = $baseName;
-            $seriesGeoId = null;
-            $dataLine = gzgets($gz);
-            $dataFields = explode("\t", $dataLine);
-            $seriesCodes = explode(",", $dataFields[0]);
-            $skey = $code."-".trim($dataFields[0]);
-            $data = [];
-            $freq = null;
-            for($d=0;$d<count($seriesCodes);$d++){
-                if($tsvDims[$d]=="GEO"){
-                    //geo is a special cube dimension
-                    $geo = jvmCodeLookup($seriesCodes[$d]);
-                    if($geo !== null){
-                        $seriesName .= ", " . $geo["name"];
-                        $seriesGeoId = $geo["geoid"];
-                    } else {
-                        print("geo code ". $seriesCodes[$d]." not found<br>");
-                        $seriesName .= ", " . $codeLists[$tsvDims[$d]][$seriesCodes[$d]];
-                    }
-                } elseif($tsvDims[$d]=="UNIT" || $tsvDims[$d]=="CURRENCY") {
-                    //these are ersatz units dimensions
-                    $newUnits = $codeLists[$tsvDims[$d]][$seriesCodes[$d]];
-                    if($seriesUnits=="") {
-                        $seriesUnits = $newUnits;
-                    } else {
-                        print("conflicting units: $seriesUnits vs. $newUnits");
-                        $seriesUnits .= ", $newUnits";
-                    }
+                //process point
+                $time = $pointCodes[$timeIndex];
+                if(!$themePeriod) $themePeriod = mdFreqFromEsDate($time);
+                $mdDate = mdDateFromEsDate($time, $themePeriod);
+                $unixDate = unixDateFromMd($mdDate);
+                if(!isset($series[$sKey]["firstdt"])){
+                    $series[$sKey]["firstdt"] = $unixDate * 1000;
                 } else {
-                    //normal cube dimension
-                    $seriesName .= ", " . $codeLists[$tsvDims[$d]][$seriesCodes[$d]];
-                    $mapsetName .= ", " . $codeLists[$tsvDims[$d]][$seriesCodes[$d]];
+                    $series[$sKey]["data"] .= "||";
                 }
-                for($i=1;$i<count($dataFields);$i++){
-                    if(is_numeric($dataFields[$i])){
-                        $esDate = $headerFields[$i];
-                        if($freq) $freq = mdFreqFromEsDate($esDate);
-                        $mdDate = mdDateFromEsDate($esDate, $freq);
-                        array_unshift($data, $mdDate."|".$dataFields[$i]);
-                    }
-                }
-                updateSeries(
-                    $status,
-                    $api_row["runid"],
-                    $skey,
-                    $seriesName,
-                    "Eurostats",
-                    $tsvLink,
-                    $freq,
-                    $seriesUnits,
-                    $seriesUnits,
-                    "",  //no series notes; all eurostats metadata at the theme level
-                    $title,
-                    $apiid,
-
-
-
-
-
-                )
+                $series[$sKey]["data"] .= $mdDate."|".$dataFields[$c];
+                $series[$sKey]["lastdt"] = $unixDate * 1000;
             }
         }
-        gzclose($gz);
-
-
-        print("estimated series in set v. actual: $setSeriesCount v. $tsvLineCount<br>");
+        //3.  save/get the mapsetids into the array structure for lookup
+        foreach($mapsets as $msKey => $mapset){
+            $mapsetid = getMapSet($mapset["name"], $apiid, $themePeriod, $mapset["units"], null, $theme["themeid"], $mapset["msKey"]);
+            $mapsets[$msKey]["mapsetid"] = $mapsetid;
+        }
+        //4.  save/update the series (with mapsetid)
+        foreach($series as $sKey => $serie){
+            updateSeries(
+                $status,
+                $jobid,
+                $serie["mskey"],
+                $serie["name"],
+                "Eurostats",
+                "", //url
+                $themePeriod,
+                $serie["units"],
+                $serie["units"],
+                "",  //notes
+                $themeName,
+                $apiid,
+                themeDate,
+                $serie["firstdt"],
+                $serie["lastdt"],
+                $serie["data"],
+                $serie["geoid"],
+                isset($serie["mskey"])?$mapsets[$serie["mskey"]]["mapsetid"]:null,
+                null, null, null, //pointsetid, lat, lon
+                $theme["themeid"]
+            );
+        }
     }
+    mergeConfig($themeConfig, $dimensions)
+    //5.  save/update the cubes and cube-components
+    //note: when a theme has multiple codes, each of the TSVs should have the same dimensions, such as when Eurostats split the geography nuts levels or male,female/total across several codes
+
+    //5a. get the list of potential cube dims = TSV dims excluding time & geo
+    array_splice($tsvDims, $timeIndex, 1);
+    if($geoIndex!==false) array_slice($tsvDims, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
 
 }
 
-
-
-
-
-    print("Eurostats total tsv count: $eurostatSeriesEstimate<br>");
-    print("Set count with explicit unit value: $explicitUnitCount<br>");
-    print("Set count with CL_UNIT dimension: $clUnitsCount<br>");
-    print("Set count with CL_CURRENCY dimension: $currencyUnitsCount<br>");
-
-} else {
-    print("<h2>".($_REQUEST["codes"])."</h2>");
-    $codes = explode(",", $_REQUEST["codes"]);
-    for($i=0; $i < count($codes);$i++){
-        $code = $codes[$i];
-        $leaves = $xmlTOC->xpath("//leaf[code='$code']");
-        if(count($leaves)===0){
-            print("$code not found");
-        } else {
-            $title = [];
-            $metadataLink = [];
-            $tsvLink = [];
-            $units = [];
-            print("DSD: <a href=\"$dsdRootUrl$code\">$dsdRootUrl$code</a><br>");
-            for($j=0;$j<count($leaves);$j++){  //multiple leaves can have same code = multihoming!
-                //GET METADATA
-                $title[$j] = $leaves[$j]->xpath("title[@language='en']")[0];
-                $metadataLink[$j] = $leaves[$j]->xpath("metadata[@format='html']")[0];
-                $tsvLink[$j] = $leaves[$j]->xpath("downloadLink[@format='tsv']")[0];
-                $units[$j] = $leaves[$j]->xpath("unit[@language='en']")[0];
-
-                //SHOW HEADER INFO
-                if($j==0){
-                    print("title: ".$title[0]."<br>");
-                    print("metadataLink: ".$metadataLink[0]."<br>");
-                    print("<iframe src=\"".$metadataLink[0]."\" style=\"width:100%;height: 300px;\"></iframe><br>");
-                    print("tsvLink: ".$tsvLink[0]."<br>");
-                } else {
-                    if($title[0]!=$title[$j])print("title match "); else print("MISMATCH: ".$title[$j]."<br>");
-                    if($metadataLink[0]!=$metadataLink[$j])print("metadataLink match "); else print("MISMATCH: ".$metadataLink[$j]."<br>");
-                    if($tsvLink[0]!=$tsvLink[$j])print("tsvLink match <br>"); else print("MISMATCH: ".$tsvLink[$j]."<br>");
-                }
-
-                print("category hierarchy: ");
-                getCatId($leaves[$j]);
-                print("<BR>");
-
-            }
-
-            getTSV($code);
-            $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
-            $first_line = gzgets($gz);
-            /*  output JSON:
-                {
-                    "codes": [""],  //REQUIRED: one or more codes that will be consolidated into a single theme and a single set of mapsets
-                    "name": "asdf", //overrides the TOC name.  Default is the name of codes[0] with "NUTS" references removed
-                    "cl_mapping": { //provide help when
-                            "tsv_shortcode1": { //one or more CL abbreviations in the first cell of the first row whose default need defining
-                                "cl": "CL_NAME as in DSD",  //default = "CL_".toUpper(CL abbreviation)
-                            "total":  "all ages", //default = "total"
-                            "ex": ["85+"]  //list of codes to exclude from the cube viz and from ingestion
-                        }
-                    },
-                    "cl_unit": "CL_NAME as in DSD",  //when a dimension is actually a units field
-                    "units": "unit overrides all"
-                    "cube": false  //defaults to true
-                }
-            */
-            print("{<br>");
-            print("    \"codes\": [\"$code\"]<br>");
-            print("    \"name\": \"".$title[0]."\"<br>");
-            print("    \"cl_mapping\": {\"".$title[0]."\"]<br>");
-
-            print("    \"units\": \"".$units[0]."\"<br>");
-
-
-
-            print($first_line."<br>");
-            $lineCount = 0;
-            //print out the first ten lines for review
-            while($gz && !gzeof($gz)&&$lineCount++<10){
-                print(gzgets($gz)."<br>");
-            }
-            gzclose($gz);
-
-            //GET DSD AS NEEDED (MUST USE CURL BECAUSE URL RETURNS FILE INSTEAD OF CONTENTS)
-            if(!file_exists($dsdFolder.$code.".dsd.xml")){
-                getDsd($code);
-            }
-
-            //READ DSD'S DIMENSIONS AND PARSE CODELISTS
-            $fileArray = file($dsdFolder.$code.".dsd.xml");
-            $dsdString = str_replace("</str:","</", str_replace("<str:","<",implode("\n", $fileArray)));
-            $dsdString = str_replace("</mes:","</", str_replace("<mes:","<",$dsdString));
-            $dsdString = str_replace("</com:","</", str_replace("<com:","<",$dsdString));
-            $dsdString = str_replace("xml:lang","lang", $dsdString);
-
-            $xmlDsd = simplexml_load_string($dsdString);
-            $dimensions = $xmlDsd->xpath("//Dimension");
-            for($k=0;$k<count($dimensions);$k++){
-                $dimension = $dimensions[$k]->attributes()["id"];
-                print($dimension.": ");
-                $refNode = $dimensions[$k]->xpath("LocalRepresentation/Enumeration/Ref")[0];
-                $codeList = $refNode->attributes()["id"];
-                print ("$codeList<br>");
-                $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeList']/Code");
-                for($j=0;$j<count($listCodes);$j++){
-                    $code = $listCodes[$j]->attributes()["id"];
-
-                    $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
-                    print(" - $code: $name<br>");
-                }
-            }
-
-            //PARSE TSV
-
-
-            //THEME NAME
-
-
-            //LIST CUBES: NAME AND CONDITIONS
-
-        }
-    }
-}
 
 function getTSV($code, $force = false){
     global $tsvFolder;
@@ -561,6 +348,7 @@ function fetchCat($apiid, $code, $title=false, $parentCatid=false){
 
 function mdFreqFromEsDate($esDate){
     if(strlen($esDate)==4 && is_numeric($esDate)) return "A";
+    if(strlen($esDate)==9 && substr($esDate, 4, 1)=="-") return "A"; //range of years
     if(strlen($esDate)==7 && substr($esDate, 4, 1)=="M") return "M";
     if(strlen($esDate)==6 && substr($esDate, 4, 1)=="Q") return "Q";
     if(strlen($esDate)==6 && substr($esDate, 4, 1)=="H") return "S";
@@ -584,4 +372,86 @@ function mdDateFromEsDate($esDate, $freq){
         default:  //"D"
             return substr(trim($esDate), 0, 4) . sprintf("%20d", intval(substr($esDate, 5, 2))-1). sprintf("%20d", intval(substr($esDate, 5, 2)));
     }
+}
+
+function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, searches for total…
+    global $cl_config;
+    $themeConfig["candidates"] = ["barOnly"=>[], "barStack"=>[]];
+    foreach($dimensions as $cl_name => $cl){
+        //1.check $themeConfig
+        if(isset($themeConfig["mapping"][$cl_name])){
+            if(is_array($themeConfig["mapping"][$cl_name])){
+                //1a. inline configuration
+                foreach($themeConfig["mapping"][$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+            } else {
+                //1b. version to lookup in $cl_config
+                $clVersion =  $cl_name.":".$themeConfig["mapping"][$cl_name];
+                foreach($cl_config[$clVersion] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+            }
+        } elseif(isset($cl_config[$cl_name])){ //3. check for generic cl_config
+            foreach($cl_config[$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+        }
+        //check for rootCode if not already defined in (1) hierarchy or (2) as TOTAL code
+        if(!isset($dimensions[$cl_name]["rootCode"])){
+            if(isset($dimensions[$cl_name]["hierarchy"]) && count($dimensions[$cl_name]["hierarchy"])==1){
+                foreach($dimensions[$cl_name]["hierarchy"] as $rootCode => $h2){
+                    $dimensions[$cl_name]["rootCode"] = $rootCode;
+                }
+            } elseif(in_array("TOTAL",$dimensions[$cl_name]["allCodes"])) {
+                $dimensions[$cl_name]["rootCode"] = "TOTAL";
+            }
+        }
+        if(!isset($dimensions[$cl_name]["rootCode"])) $dimensions[$cl_name]["rootCode"] = null;
+
+        //make hierarchy if DNE
+        if(!isset($dimensions[$cl_name]["hierarchy"])){
+            if(isset($dimensions[$cl_name]["rootCode"])){
+                $dimensions[$cl_name]["hierarchy"] = [$dimensions[$cl_name]["rootCode"] => [] ];
+                $list =& $dimensions[$cl_name]["hierarchy"][0][$dimensions[$cl_name]["rootCode"]];
+            } else {
+                $dimensions[$cl_name]["hierarchy"] = [];
+                $list =& $dimensions[$cl_name]["hierarchy"];
+            }
+            for($i=0;$i<count($dimensions[$cl_name]["allCodes"]);$i++){
+                $code = $dimensions[$cl_name]["allCodes"][$i];
+                if(!(isset($dimensions[$cl_name]["ex"])&&in_array($code, $dimensions[$cl_name]["ex"]) || $dimensions[$cl_name]["rootCode"]==$code)){
+                    array_push($list, $code);
+                }
+            }
+        }
+        //bar or stack?
+        if($dimensions[$cl_name]["rootCode"]!==null){
+            if(count($dimensions[$cl_name]["hierarchy"][0][$dimensions[$cl_name]["rootCode"]])>1)  array_push($themeConfig["candidates"]["barStack"], $cl_name);
+        } else {
+            if(count($dimensions[$cl_name]["hierarchy"])) array_push($themeConfig["candidates"]["barOnly"], $cl_name);
+        }
+    }
+    if(count($themeConfig["candidates"]["barOnly"])>1 || count($themeConfig["candidates"]["barOnly"])+count($themeConfig["candidates"]["barStack"])>0 ) $themeConfig["cubable"] = false;
+    $themeConfig["cubes"] = [];
+    if(isset($mergedCL["CL_SEX"])){
+        $themeConfig["sexTotal"] = in_array("T", $mergedCL["CL_SEX"]["allCodes"]);
+        $themeConfig["sexMF"] = in_array("M", $mergedCL["CL_SEX"]["allCodes"]) && in_array("F", $mergedCL["CL_SEX"]["allCodes"]);
+    } else {
+        $themeConfig["sexTotal"] = false;
+        $themeConfig["sexMF"] = false;
+    }
+}
+
+function addCubes(&$themeConfig, &$dimensions, $barListName, $stackListName, $barParentCode = false) {  //adds a cube and/or sexed-cube with components array of msKeys to cubes array be cKey for each branch of the bar
+    if(!$barParentCode){
+        if($dimensions[$barListName][])
+
+    } else {
+        $barCodes = $dimensions[$barListName];
+    }
+
+}
+function addCube(){
+    $tsvDims = $themeConfig["tsv"];
+
+}
+
+function widestSet(&$mergedDsdCL, $CL){}  // ⇐ needed given NextLevel?
+function nextLevel(&$mergedDsdCL, $CL, $parentCode=false) {  //ignores total code and excluded, returning array of codes or false
+
 }
