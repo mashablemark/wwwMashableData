@@ -80,8 +80,8 @@ function safePostVar($key){
 }
 
 function safeStringSQL($val, $nullable = true){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
-    if($nullable && (strtoupper($val) == "NULL"  || $val === NULL || $val == '')){  //removed "|| $val==''" test
-        return 'NULL';
+    if($nullable && ($val === NULL || strtoupper($val) == "NULL"  || $val == '')){  //removed "|| $val==''" test
+        return "NULL";
     } else {
         return "'" . str_replace("'", "''", ($val===null?"":$val)) . "'";
     }
@@ -203,16 +203,22 @@ function cleanIdArray($dirtyIds){
     return $cleanIds;
 }
 
-function getMapSet($name, $apiid, $periodicity, $units){ //get a mapset id, creating a record if necessary
+function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=null, $msKey=null){ //get a mapset id, creating a record if necessary
     global $db;
-    $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
-        ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
+    if($msKey){
+        $sql = "select mapsetid  from mapsets where apiid=$apiid and mskey=".safeStringSQL($msKey);
+    } else {
+        $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
+            ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
+    }
     $result = runQuery($sql, "getMapSet select");
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
         return $row["mapsetid"];
     } else {
-        $sql = "insert into mapsets set name='".$db->escape_string($name)."', periodicity='".$db->escape_string($periodicity)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
+        $sql = "insert into mapsets set name='".$db->escape_string($name)."', periodicity='".$db->escape_string($periodicity)
+            ."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid
+            .", meta=".safeStringSQL($meta).", themeid=".safeStringSQL($themeid).", mskey=".safeStringSQL($msKey);
         $result = runQuery($sql, "getMapSet insert");
         if($result!==false){
             $mapSetId = $db->insert_id;
