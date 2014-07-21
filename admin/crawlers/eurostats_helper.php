@@ -159,6 +159,7 @@ if(!isset($_REQUEST["codes"])){
         }
     }
     print("Eurostats total tsv count: $eurostatSeriesEstimate<br>");
+    print("Distinct code list count: ".count($allCodeLists)."<br>");
     print("Set count with explicit unit value: $explicitUnitCount<br>");
     print("Set count with CL_UNIT dimension: $clUnitsCount<br>");
     print("Set count with CL_CURRENCY dimension: $currencyUnitsCount<br>");
