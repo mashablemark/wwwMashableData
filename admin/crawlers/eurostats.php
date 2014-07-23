@@ -452,9 +452,9 @@ function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListC
         //have cube: add it (and sexy cube if theme.sexMF)!
         $cKey = $themeConfig["tKey"].":".$barListCode.($barParentCode?"~".$barParentCode:"").($stackListCode?",".$stackListCode:"").",";
         $cubeName = "by ".$dimensions[$barListCode]["name"].($stackListCode?" by ".$dimensions[$stackListCode]["name"]:"");
-        $themeConfig["cubes"][$cKey] = ["cKey"=>$cKey, "name"=> $cubeName, "components"=>[] ];
+        $themeConfig["cubes"][$cKey] = ["cKey"=>$cKey, "name"=> $cubeName, "components"=>[], "dimnames"=>["bar"=>[],"stack"=>[], "side"=>[]] ];
         if($themeConfig["sexMF"]){
-            $themeConfig["cubes"][$cKey."sex"] = ["cKey"=>$cKey."sex", "name"=> $cubeName." by sex", "components"=>[] ];
+            $themeConfig["cubes"][$cKey."sex"] = ["cKey"=>$cKey."sex", "name"=> $cubeName." by sex", "components"=>[], "dimnames"=>["bar"=>[],"stack"=>[], "side"=>[]] ];
         }
         //prep the mapset codes with rootCodes; bar and stack will be filled in / overwritten for each cube component
         $tsvDims = $themeConfig["tsvDims"];
@@ -479,6 +479,14 @@ function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListC
             $barCode = is_array($val)?$index:$val;  //code may be the or the value in a hierarchy
             //figure out the mapset codes (in order) to derive the msKey for binding the cube-component
             $msCodesTemplate[$barIndex] = $barCode;
+            $barName = trim(preg_replace("\(.+\)" , "", $dimensions[$barListCode]["allCodes"][$barCode]));
+
+            $themeConfig["cubes"][$cKey]["dimnames"]["bar"][$barOrder]= $barName;
+            if($themeConfig["cubes"][$cKey."sex"]){
+                $themeConfig["cubes"][$cKey."sex"]["dimnames"]["bar"][$barOrder]= $dimensions[$barListCode]["allCodes"][$barCode];
+                $themeConfig["cubes"][$cKey."sex"]["dimnames"]["side"][0]= $dimensions["CL_SEX"]["allCodes"]["M"];
+                $themeConfig["cubes"][$cKey."sex"]["dimnames"]["side"][1]= $dimensions["CL_SEX"]["allCodes"]["F"];
+            }
             if($stackListCode){
                 $stackOrder = 0;
                 $stackChildren =& $dimensions[$stackListCode]["hierarchy"][$dimensions[$stackListCode]["rootCode"]];
@@ -486,13 +494,16 @@ function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListC
 
                     $stackCode = is_array($stackVal)? $stackKey : $stackVal;
                     $msCodesTemplate[$stackIndex] = $stackCode;
+                    $themeConfig["cubes"][$cKey]["dimnames"]["bar"][$stackOrder]= $dimensions[$stackListCode]["allCodes"][$stackCode];
+                    if($themeConfig["cubes"][$cKey."sex"])$themeConfig["cubes"][$cKey."sex"]["dimnames"]["bar"][$stackOrder]= $dimensions[$stackListCode]["allCodes"][$stackCode];
+
                     addComponent($themeConfig, $cKey, $msCodesTemplate, $barOrder, $stackOrder, null);
                     if($themeConfig["sexMF"]){ //add sexy stacked cube components (M & F)
-                        $msSexyCodes = $msCodesTemplate;
+                        $msSexyCodes = $msCodesTemplate; //make a copy
                         $msSexyCodes[$sexIndex] = "M";
-                        addComponent($themeConfig, $cKey, $msSexyCodes, $barOrder, $stackOrder, "L");
+                        addComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, $stackOrder, 0);
                         $msSexyCodes[$sexIndex] = "F";
-                        addComponent($themeConfig, $cKey, $msSexyCodes, $barOrder, $stackOrder, "R");
+                        addComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, $stackOrder, 1);
                     }
                     $stackOrder++;
                 }
@@ -500,11 +511,11 @@ function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListC
                 //bar cube
                 addComponent($themeConfig, $cKey, $msCodesTemplate, $barOrder);
                 if($themeConfig["sexMF"]){ //add sexy bar cube components (M & F)
-                    $msSexyCodes = $msCodesTemplate;
+                    $msSexyCodes = $msCodesTemplate; //make a copy
                     $msSexyCodes[$sexIndex] = "M";
-                    addComponent($themeConfig, $cKey, $msSexyCodes, $barOrder, null, "L");
+                    addComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, null, "L");
                     $msSexyCodes[$sexIndex] = "F";
-                    addComponent($themeConfig, $cKey, $msSexyCodes, $barOrder, null, "R");
+                    addComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, null, "R");
                 }
             }
             $barOrder++;
