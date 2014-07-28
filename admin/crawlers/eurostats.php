@@ -47,7 +47,7 @@ function ApiCrawl($catid, $api_row){
             return false;
         }
         $leaf = $leaves[0];
-        $apiDate = $leaf->xpath("lastModified")[0];
+        $apiDate = (string) $leaf->xpath("lastModified")[0];
 
         //3.  if theme doe not exist or apidate is different, create a queued job
         if(!$themeRow || $themeRow["apidt"]!=$apiDate){
@@ -81,10 +81,10 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     }
     if($themeCodes === false) return "no theme code(s) found"; //error msg
 
-    //1. find configuration in $ingest (master assoc arrry set in es_config.php)
+    //1. find configuration in $ingest (master assoc array set in es_config.php)
     $themeConfig = false;
     for($i=0;$i<count($ingest);$i++){
-        if(in_array($code, $ingest[$i]["codes"])){
+        if(in_array($themeCodes[0], $ingest[$i]["codes"])){
             $themeConfig = $ingest[$i];
             break;
         }
@@ -95,12 +95,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     $themeConfig["series"] = []; $series =& $themeConfig["series"];  //INGESTED ASSOC ARRAY: skey => [seriesname, keys (array), geoid, mskey, units, data (MD formatted string)]
     $dsdCodeLists = [];  //association array built over all the code's DSD with [code][list][val] stucture
 
-    //get / set the themeid
-    $themeName = isset($themeConfig["theme_name"])?$themeConfig["theme_name"]: $title;
     $tKey = implode("+", $themeConfig["codes"]); $themeConfig["tKey"] = $tKey;
     $themePeriod = false;
-    $theme = getTheme($apiid, $themeName, "For complete metadata, see <a target=\"_blank\" href=\"$metadataLink\">$metadataLink</a>",$tKey);
-    $themeid = $theme["themeid"];
 
     //2. loop through codes
     for($i=0;$i<count($themeConfig["codes"]);$i++){
@@ -111,13 +107,16 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             return false;
         }
         $leaf = $leaves[0];
-        $lastModified = $leaf->xpath("lastModified")[0];
-        $title = $leaf->xpath("title[@language='en']")[0];
-        $metadataLink = $leaf->xpath("metadata[@format='html']")[0];
-        $tsvLink = $leaf->xpath("downloadLink[@format='tsv']")[0];
-        $tocUnits = $leaf->xpath("unit[@language='en']")[0];
-        $unit = (isset($themeConfig["units"])&&!is_array($themeConfig["units"]))?$themeConfig["units"]:$tocUnits;  //unit logic priority: 1. explicit settings, 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
+        $lastModifiedDate = (string) $leaf->xpath("lastModified")[0];
+        $title = (string) $leaf->xpath("title[@language='en']")[0];
+        $metadataLink = (string) $leaf->xpath("metadata[@format='html']")[0];
+        $tsvLink = (string) $leaf->xpath("downloadLink[@format='tsv']")[0];
+        $tocUnits = (string) $leaf->xpath("unit[@language='en']")[0];
 
+        //get / set the themeid
+        $themeName = isset($themeConfig["theme_name"])?$themeConfig["theme_name"]: $title;
+        $theme = getTheme($apiid, $themeName, "For complete metadata, see <a target=\"_blank\" href=\"$metadataLink\">$metadataLink</a>", $tKey);
+        $themeid = $theme["themeid"];
 
         //2b. get the DSD = DIMENSIONS AND PARSE CODELISTS
         if($fetchNew || !file_exists($dsdFolder.$code.".dsd.xml")){
@@ -139,10 +138,10 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         //load the dataset's dimensions (code lists) from the DSD into a single associative array $dsdCodeLists
         $xDimensions = $xmlDsd->xpath("//Dimension");
         for($d=0;$d<count($xDimensions);$d++){
-            $dimension = $xDimensions[$d]->attributes()["id"];
+            $dimension = $xDimensions[$d]->attributes()["id"];  //uppercase listname without "CL_" prefix (e.g. "SEX")
             if($dimension!="FREQ"){
                 $refNode = $xDimensions[$d]->xpath("LocalRepresentation/Enumeration/Ref")[0];
-                $codeListId = (string) $refNode->attributes()["id"];
+                $codeListId = (string) $refNode->attributes()["id"];  //uppercase listname with "CL_" prefex (e.g. "CL_SEX")
                 $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
 
                 if(!isset($dsdCodeLists[$dimension])) $dsdCodeLists[$dimension] = ["allCodes"=>[]]; //accumulate codes (such as partial sex lists) across grouped datasets
@@ -171,15 +170,37 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         if(!in_array("TIME", $tsvDims)){
             return "$code does not have a time dimension<br>";
         }
-        //index of geo, freq, and lookup table
+        //index of geo, freq, units, and lookup table
         $timeIndex = array_search("TIME", $tsvDims);
-        $geoIndex = array_search("GEO", $tsvDims);
         $themeConfig["timeIndex"] = $timeIndex;
+        $geoIndex = array_search("GEO", $tsvDims);
         $themeConfig["geoIndex"] = $geoIndex;
-        $themeConfig["unitIndex"] = null;
-        $dimIndexLookup = [];
-        for($j=0;$j<count($tsvDims);$j++){
-            $dimIndexLookup[$tsvDims[$j]] = $j;
+
+        //units logic priority: 1. explicit settings (either fixed string or array of codes and codelist), 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
+        $fixedUnits = (isset($themeConfig["units"])&&!is_array($themeConfig["units"]))?$themeConfig["units"]:$tocUnits;
+        $themeConfig["unitList"] = false;
+        $unitIndex = false;
+        if(!$fixedUnits && !isset($themeConfig["units"])){
+            if(array_key_exists("UNIT", $dsdCodeLists)){
+                if(in_array("UNIT", $tsvDims)){
+                    $unitIndex = array_search("UNIT", $tsvDims);
+                    $themeConfig["timeIndex"] = $timeIndex;
+                } else {
+                    if(count($dsdCodeLists["UNIT"])!=1) return "UNIT codelist is not a TSV dimension, but has more than one code";
+                }
+                $themeConfig["unitListName"] = "UNIT";
+            } elseif(array_key_exists("CURRENCY", $dsdCodeLists)){
+                if(in_array("CURRENCY", $tsvDims)){
+                    $unitIndex = array_search("CURRENCY", $tsvDims);
+                    $themeConfig["timeIndex"] = $timeIndex;
+                } else {
+                    if(count($dsdCodeLists["CURRENCY"])!=1) return "CURRENCY codelist is not a TSV dimension, but has more than one code";
+                }
+                $themeConfig["unitListName"] = "CURRENCY";
+            }
+            if(isset($themeConfig["unitListName"]) && count($dsdCodeLists[$themeConfig["unitListName"]])==1) {
+                foreach($dsdCodeLists[$themeConfig["unitListName"]] as $listCode=>$val) $fixedUnits = $val; //simply treat as fixed units
+            }
         }
 
         //2d.  parse the TSV into the $series array of skeys => [name, data, mskey]
@@ -201,6 +222,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                     $setFacets = [];
                     $seriesFacets = [];
 
+                    $unit = $fixedUnits;
                     for($index=0;$index<count($tsvDims);$index++){
                         if($index!==$timeIndex){ //skip time
                             if($index===$geoIndex){
@@ -214,25 +236,12 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                                     $geoName = $dsdCodeLists["GEO"]["allCodes"][$iso2];
                                     $geoId = null;
                                 }
-                            } else {
+                            } elseif ($index===$unitIndex && !$fixedUnits) {
                                 //unit logic priority (continued): 1. explicit settings, 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
-                                if(isset($themeConfig["units"])){  //note:  if $themeConfig["units"] is a string, it has already been set
-                                    if(is_array($themeConfig["units"]) && isset($themeConfig["units"][$pointCodes[$index]])){
-                                        $unit = $themeConfig["units"][$pointCodes[$index]];
-                                    }
-                                } elseif(in_array("UNIT", $tsvDims)){
-                                    if($tsvDims[$index]=="UNIT"){
-                                        $themeConfig["unitIndex"] = $index;
-                                        $unit = $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]];
-                                    }
-                                } elseif(in_array("CURRENCY", $tsvDims)){
-                                    if($tsvDims[$index]=="CURRENCY"){
-                                        $themeConfig["unitIndex"] = $index;
-                                        $unit = $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]];
-                                    }
-                                }
+                                $unit = $dsdCodeLists[$tsvDims[$index]]["allCodes"][$pointCodes[$index]];
+                            } else {
                                 //mapset's name excludes GEO and units (series name = set name with geoname appended
-                                if($themeConfig["unitIndex"]!==$index) array_push($setFacets, $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]]);
+                                array_push($setFacets, $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]]);
                             }
                             //set name excludes units and geo
                             //if($geoIndex!==false) array_push($seriesFacets, geoLookup($pointCodes[$geoIndex]));
@@ -288,7 +297,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         $seriesid = updateSeries(
             $status,
             $jobid,
-            $serie["mskey"],
+            $sKey,
             $serie["name"],
             "Eurostats",
             "", //url
@@ -298,7 +307,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             "",  //notes
             $themeName,
             $apiid,
-            $themeDate,
+            $lastModifiedDate,
             $serie["firstdt"],
             $serie["lastdt"],
             $serie["data"],
@@ -328,7 +337,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     //5.  make the cubes and cube-components
     if($themeConfig["cubable"]){  //set in master $config or calculated in mergeConfig
         if(count($themeConfig["candidates"]["barOnly"])==1){ //note: there cannot be more than 1 and still be cubable
-            addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0]);  //1D cube
+            addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], null, false, );  //1D cube
             for($s=0;$s<count($themeConfig["candidates"]["barStack"]);$s++){
                 addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], $themeConfig["candidates"]["barStack"][$s]); //2D cube
             }
@@ -351,6 +360,10 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     return $status;
 }
 
+function ApiRunFinished($api_run){
+    setMapsetCounts("all", $api_run["apiid"]);
+    //freqSets($api_run["apiid"]);
+}
 
 function getTSV($code, $force = false){
     global $tsvFolder;
@@ -408,6 +421,7 @@ function mdDateFromEsDate($esDate, $freq){
 function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, searches for total…
     global $cl_config;
     $themeConfig["candidates"] = ["barOnly"=>[], "barStack"=>[]];
+    $tsvDims = $themeConfig["tsvDims"];
     foreach($dimensions as $cl_name => $cl){
         //1.check $themeConfig
         if(isset($themeConfig["mapping"][$cl_name])){
@@ -453,16 +467,19 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, 
                 }
             }
         }
-        //is this dimensio a bar or a stack candidate?
-        if($themeConfig["unitIndex"]!==$dimensions[$cl_name]){  //
-            if($dimensions[$cl_name]["rootCode"]!==null){
-                if(count($dimensions[$cl_name]["hierarchy"][$dimensions[$cl_name]["rootCode"]])>1)  array_push($themeConfig["candidates"]["barStack"], $cl_name);
-            } else {
-                if(count($dimensions[$cl_name]["hierarchy"])>4) array_push($themeConfig["candidates"]["barOnly"], $cl_name);
+        //is this dimension a bar or a stack candidate?
+        if(in_array($cl_name,$tsvDims) && $cl_name!="TIME"){ //lots of weird unused code lists in the DSD
+            $index = array_search($cl_name,$tsvDims);
+            if($themeConfig["unitIndex"]!==$index){  //
+                if($dimensions[$cl_name]["rootCode"]!==null){
+                    if(count($dimensions[$cl_name]["hierarchy"][$dimensions[$cl_name]["rootCode"]])>1)  array_push($themeConfig["candidates"]["barStack"], $cl_name);
+                } else {
+                    if(count($dimensions[$cl_name]["hierarchy"])>4) array_push($themeConfig["candidates"]["barOnly"], $cl_name);
+                }
             }
         }
-
     }
+
     if(count($themeConfig["candidates"]["barOnly"])>1 || count($themeConfig["candidates"]["barOnly"])+count($themeConfig["candidates"]["barStack"])>0 ) {
         $themeConfig["cubable"] = false;  //overrides if user set to true
     } else {
@@ -476,7 +493,7 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, 
         $themeConfig["sexTotal"] = false;
         $themeConfig["sexMF"] = false;
     }
-}
+} 
 
 function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListCode = null, &$barBranch = false, $barParentCode = false, $units = null, $unitsCodeListName = null) {
 //Adds cubes and/or sexed-cube to cubes array by cKey for bar/stack combination and for each branch of the bar.  Cube components are created as an associative sub-array of msKeys, shortname, and ordering info
@@ -567,12 +584,13 @@ function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListC
 }
 
 function shortenName($code_name){
-    $code_name = preg_replace("#\(.+\)#" , "", $code_name);
-    $code_name = preg_replace("#(\d) to (\d)#i" , "$1 - $2", $code_name);
-    $code_name = preg_replace("#greater than .+ equal[ to]#i" , "&#8805;", $code_name);
-    $code_name = preg_replace("#greater than" , "&gt;#i", $code_name);
-    $code_name = preg_replace("#lesser than .+ equal[ to]#i" , "&#8804;", $code_name);
-    $code_name = trim(preg_replace("#lesser than#" , "&lt;", $code_name));
+    $code_name = preg_replace("#\(.+\)#" , "", $code_name);  //all parentheticals
+    $code_name = preg_replace("#(from)? (\d+) to (\d+)#i" , "$1 - $2", $code_name);
+    $code_name = preg_replace("#greater than .+ equal[ to](\d+)#i" , "&#8805;$1", $code_name);
+    $code_name = preg_replace("#greater than (\d+)#i", "&gt;$1", $code_name);
+    $code_name = preg_replace("#less(er)? than .+ equal[ to] (\d+)#i" , "&#8804;$1", $code_name);
+    $code_name = preg_replace("#(\d+)( \S+) or over#i", "&#8804;$1", $code_name);
+    $code_name = trim(preg_replace("#less(er)? than (\d+)#" , "&lt;$1", $code_name));
     return $code_name;
 }
 
