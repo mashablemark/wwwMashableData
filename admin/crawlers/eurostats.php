@@ -495,7 +495,7 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, 
     }
 }
 
-function addCubes(&$themeConfig, $units, &$dimensions, $barListCode, $stackListCode = null, &$barBranch = false, $barParentCode = false, $units = null, $unitsCodeListName = null) {
+function addCubes(&$themeConfig, &$dimensions, $barListCode, $stackListCode = null, &$barBranch = false, $barParentCode = false, $units = null, $unitsCodeListName = null) {
 //Adds cubes and/or sexed-cube to cubes array by cKey for bar/stack combination and for each branch of the bar.  Cube components are created as an associative sub-array of msKeys, shortname, and ordering info
 //note:  $units is a string that either represents code list name or the actual units string
     if(!$barParentCode){ //starting from the bottom
