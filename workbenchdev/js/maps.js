@@ -1,7 +1,7 @@
 /**
  * Created by mark__000 on 7/6/14.
  */
-function makeMapDiv(){
+(function makeMapDiv(){
     var mapList = [
         {"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":1},
         {"map":"africa","name":"Africa","geographycount":"57","bunny":"3837","jvectormap":"africa_mill_en","legend":"BL","level":1},
@@ -15,8 +15,8 @@ function makeMapDiv(){
         {"map":"at_nuts3","name":"Austria/Österreich NUTS3 regions","geographycount":"35","bunny":"16","jvectormap":"at_nuts3_mill_en","legend":"BR","level":2},
         {"map":"be_nuts2","name":"Belgium/Belgique-België NUTS2 regions","geographycount":"11","bunny":"19","jvectormap":"be_nuts2_mill_en","legend":"BR","level":2},
         {"map":"be_nuts3","name":"Belgium/Belgique-België NUTS3 regions","geographycount":"44","bunny":"19","jvectormap":"be_nuts3_mill_en","legend":"BR","level":2},
-        {"map":"bg_nuts2","name":"Bulgaria/???????? NUTS2 regions","geographycount":"6","bunny":"24","jvectormap":"bg_nuts2_mill_en","legend":"BR","level":2},
-        {"map":"bg_nuts3","name":"Bulgaria/???????? NUTS3 regions","geographycount":"28","bunny":"24","jvectormap":"bg_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"bg_nuts2","name":"Bulgaria NUTS2 regions","geographycount":"6","bunny":"24","jvectormap":"bg_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"bg_nuts3","name":"Bulgaria NUTS3 regions","geographycount":"28","bunny":"24","jvectormap":"bg_nuts3_mill_en","legend":"BR","level":2},
         {"map":"ch_nuts2","name":"Switzerland/Suisse-Schweiz NUTS2 regions","geographycount":"7","bunny":"42","jvectormap":"ch_nuts2_mill_en","legend":"BR","level":2},
         {"map":"ch_nuts3","name":"Switzerland/Suisse/Schweiz NUTS3 regions","geographycount":"26","bunny":"42","jvectormap":"ch_nuts3_mill_en","legend":"BR","level":2},
         {"map":"cz_nuts2","name":"Czech/?eská Republika NUTS2 regions","geographycount":"8","bunny":"59","jvectormap":"cz_nuts2_mill_en","legend":"BR","level":2},
@@ -26,8 +26,8 @@ function makeMapDiv(){
         {"map":"de_nuts3","name":"Germany/Deutschland NUTS3 regions","geographycount":"413","bunny":"60","jvectormap":"de_nuts3_mill_en","legend":"BR","level":2},
         {"map":"dk_nuts2","name":"Denmark/Danmark NUTS2 regions","geographycount":"5","bunny":"63","jvectormap":"dk_nuts2_mill_en","legend":"BR","level":2},
         {"map":"dk_nuts3","name":"Denmark/Danmark NUTS3 regions","geographycount":"11","bunny":"63","jvectormap":"dk_nuts3_mill_en","legend":"BR","level":2},
-        {"map":"el_nuts2","name":"Greece/??????/Ellada NUTS2 regions","geographycount":"13","bunny":"90","jvectormap":"el_nuts2_mill_en","legend":"BR","level":2},
-        {"map":"el_nuts3","name":"Greece/??????/Ellada NUTS3 regions","geographycount":"51","bunny":"90","jvectormap":"el_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"el_nuts2","name":"Greece/Ellada NUTS2 regions","geographycount":"13","bunny":"90","jvectormap":"el_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"el_nuts3","name":"Greece/Ellada NUTS3 regions","geographycount":"51","bunny":"90","jvectormap":"el_nuts3_mill_en","legend":"BR","level":2},
         {"map":"es_nuts2","name":"Spain/España NUTS2 regions","geographycount":"19","bunny":"70","jvectormap":"es_nuts2_mill_en","legend":"BR","level":2},
         {"map":"es_nuts3","name":"Spain/España NUTS3 regions","geographycount":"59","bunny":"70","jvectormap":"es_nuts3_mill_en","legend":"BR","level":2},
         {"map":"fi_nuts2","name":"Finland/Suomi NUTS2 regions","geographycount":"5","bunny":"73","jvectormap":"fi_nuts2_mill_en","legend":"BR","level":2},
@@ -130,7 +130,7 @@ function makeMapDiv(){
         MashableData.globals.maps[map.map] = map;
     }
     MashableData.globals.$mapDiv = $('<ul class="map-list">'+html+'</ul>');
-}
+})();
 
 
 

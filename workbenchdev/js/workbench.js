@@ -360,7 +360,7 @@ function parseHash(newHash, oldHash){
                 searchCatId == oH.cat||0;
                 $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
                 $('#series_search_source').val(oH.api||'all'); //search executes on API change
-                $('#public-mapset-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
+                $('#public-settype-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
                 if(searchCatId!=0){
                     $search.val("category: " + browsedCats[searchCatId].name);
                     seriesCloudSearch();
@@ -563,13 +563,13 @@ function setupPublicSeriesTable(){
         "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public series"},
         "fnServerData": function ( sSource, aoData, fnCallback ) {
             var thisSearch =  $("#tblPublicSeries_filter input").val();
-            aoData.push({name: "command", value: "SearchSeries"});
+            aoData.push({name: "command", value: "NewSearchSeries"});
             aoData.push({name: "uid", value: getUserId()});
             aoData.push({name: "accessToken", value: account.info.accessToken});
             aoData.push({name: "periodicity", value: $("#series_search_periodicity").val()});
             aoData.push({name: "apiid", value: $("#series_search_source").val()});
             aoData.push({name: "catid", value: searchCatId});
-            aoData.push({name: "mapset", value: $("input:radio[name=public-mapset-radio]:checked").val()});
+            aoData.push({name: "settype", value: $("input:radio[name=public-settype-radio]:checked").val()});
             aoData.push({name: "lastSearch", value: lastSeriesSearch});
             aoData.push({name: "search", value: thisSearch});
             if(lastSeriesSearch!=thisSearch) {
@@ -577,14 +577,15 @@ function setupPublicSeriesTable(){
                 dtPublicSeries.fnSort([]);   //this clear sort order and triggers a fnServerData call
                 return;  //the server call trigger by the previous line will correctly load the data, therefore abort
             }
+            var startSearchTime = new Date();
             $.ajax( {
                 "dataType": 'json',
                 "type": "POST",
                 "url": "api.php",
                 "data": aoData,
                 "success": function(data, textStatus, jqXHR){
-                    totalServerTime += parseFloat(data.exec_time);
-                    console.log(data.command+" ("+data.search+"): "+data.exec_time+' ('+totalServerTime+'ms)');
+                    var endSearchTime = new Date();
+                    console.log(data.command+" ("+data.search+"): "+data.exec_time+' ('+(endSearchTime.getTime()-startSearchTime.getTime()) +'ms)');
                     if(data.status=='ok') fnCallback(data, textStatus, jqXHR); else dialogShow('server error', data.status);
                 },
                 "error": function(results){
@@ -619,7 +620,7 @@ function setupPublicSeriesTable(){
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
-            { "mData":"title", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
+            { "mData":"titles", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
                         return '<span class="ui-icon browse-right">browse similar series</span> ' + spanWithTitle(value);
@@ -649,7 +650,7 @@ function setupPublicSeriesTable(){
         });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
-    $('#public-mapset-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
+    $('#public-settype-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
 
     $('#series_search_text')
         .val('enter search keywords (-keyword to exclude)')
@@ -2795,7 +2796,7 @@ function panelHash(){
                 return encodeURI('t=cs&cat='+searchCatId);
             } else {
                 $search = $('#series_search_text');
-                return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val()+'&f='+$('#series_search_periodicity').val())+'&api='+$('#series_search_source').val()+'&sets='+$('#public-mapset-radio').find('input:checked').val());
+                return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val()+'&f='+$('#series_search_periodicity').val())+'&api='+$('#series_search_source').val()+'&sets='+$('#public-settype-radio').find('input:checked').val());
             }
         case '#myGraphs':
             $search = $('#my_graphs_table_filter input');

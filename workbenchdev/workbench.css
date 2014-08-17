@@ -439,7 +439,7 @@
 /*!  Copyright MashableData 2014
     may be freely redistributed and used with MashableData embedder graph & chart tools
 
- 
+
 */
 /*Mashable data style to support embedded graphs*/
 /*//TODO:  use less obvious name */
@@ -905,28 +905,13 @@ a {
 .mdspacer {
   padding-top: 6px !important;
 }
-/*  THE FOLLLOWING COMMENTED OUT STYLES ARE UNUSED
-.md-charttools {
-	display:block;
-	margin-top:24px !important;
-	margin-top:17px !important;
-	height:20px;
-
+.map-level1,
+.map-level2 {
+  list-style-type: none;
 }
-.md-charttools select {
-	margin-left:5px;
-	border: 1px solid #a8acaf;
-	height:20px;
-	width:222px;;
-	padding-left:8px;
-	font-size:11px;
+.map-level2 {
+  margin-left: 10px;
 }
-#md-DS_tble {
-	border: 1px solid #afafaf;
-	overflow:auto;
-	height: 20px;
-}
-*/
 .ui-button-text {
   /*prevents slection of text, but does not solve the mouse sensitivity issue */
   -moz-user-select: -moz-none;
@@ -1809,7 +1794,7 @@ li.component {
 .ui-icon-triangle-1-e {
   display: inline-block;
 }
-#public-mapset-radio {
+#public-settype-radio {
   display: inline-block;
   position: relative;
   top: -2px;
