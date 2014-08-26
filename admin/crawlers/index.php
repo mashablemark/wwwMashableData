@@ -511,3 +511,6 @@ function jvmCodeLookup($jVectorMapCode, $set = "ALL"){
         return null;
     }
 }
+
+
+//TODO: MOVE TO INDEX and add © to search on ghandles and mhandles
