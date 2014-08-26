@@ -1,627 +1,480 @@
 <?php
-/**
- * Created by JetBrains PhpStorm.
- * User: mark
- * Date: 8/25/12
- * Time: 7:17 AM
- * To change this template use File | Settings | File Templates.
- */
-
 $event_logging = true;
-/* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
- * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
- * All returns are JSON objects. Supports the standard MD API functions:
- *
- * command: Get | Update | Crawl
- *   search
- *   periodicity
- * command: Crawl
- *   exhaustive crawl starting at cat_id=0
- * command:  Update
- *   periodicity:  D|M|A|ALL.  If missing, smartupdate  algorithm
- *   since: datetime; if missing smartupdate algorithm
-*/
-
-/*to start a run or queued jobs
-http://www.mashabledata.com/admin/crawlers/start_apirun.php?apiid=3&uid=1&command=ExecuteJobs&runid=396
-*/
-
-/* clear db for retry
-delete from catcat where parentid>=5507 or childid>=5507 or parentid=5505;
-truncate eventlog;
-truncate apirunjobs;
-truncate mapsets;
-delete from categories where catid>=5507;
-delete from series where seriesid>173120;
-
-*/
-$indicators = array();
-$topics = array();
-$iso2to3 = array();
-$threadjobid="null";  //used to track of execution thread
-
-function ApiCrawl($catid, $api_row){ //initiates a WB crawl
-    global $db, $indicators, $topics, $iso2to3, $threadjobid;
-    set_time_limit(60); //
-    try{
-        $countriesAdded = 0;
-        $incomeLevelsAdded = 0;
-        $regionsAdded = 0;
-
-        // 1. create a job record
-        $runid = $api_row["runid"];
-        $config = array("runid"=>$runid, "apiid"=>$api_row["apiid"]);
-        //create job record
-        $sql = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values (".$runid.",'".json_encode($config)."',1,'R',now())";
-        runQuery($sql);
-        $jobid  = $db->insert_id;
-        $threadjobid = $jobid;
-        //GET config
-
-//1. TOPICS
-        //$indicators is a global variable
-        //$xRaw = new SimpleXMLElement(httpGet("http://api.worldbank.org/topics?per_page=1000"));
-        $topics["ALL"] = array("id"=>"ALL", "name"=>"All indicators", "description"=>"");
-        $xRaw = simplexml_load_string(httpGet("http://api.worldbank.org/topics?per_page=1000"));
-        $xTopics = $xRaw->children("wb", true);
-        foreach($xTopics->topic as $xTopic){
-            $att = $xTopic->attributes();
-            $apicatid = "T".  (string) $att["id"];
-            $name = (string) $xTopic->value;
-            $description = (string) $xTopic->sourceNote;
-            $topics[$apicatid] = array("id"=>$apicatid, "name"=>$name, "description"=>$description);
-        }
-        $config["topics"] = $topics;
-        //var_dump(($config));
-        //update the job id record as we go
-        $sql = "update apirunjobs set jobjson='".$db->escape_string(json_encode($config))."' where jobid=".$jobid;
-        //var_dump(($sql));
-        runQuery($sql);
-//2. INDICATORS
-        //$indicators is a global variable
-        $xRaw = new SimpleXMLElement(httpGet("http://api.worldbank.org/indicators?per_page=10000"));  //10seconds to get but perhaps too big to process
-        $xIndicators = $xRaw->children("wb", true);
-        foreach($xIndicators->indicator as $xIndicator){
-            $name = (string) $xIndicator->name;
-            $att = $xIndicator->attributes();
-            $id = (string)$att["id"];
-            //print($name.": ".$id." <br>");
-            if(preg_match("(^\d+\.)", $name)==0){  //skip the sectional indicator which do not return valid results
-                $matches = array();
-                preg_match("#(.+) \(([^\(]+)\)$#",trim($name),$matches);
-                if(count($matches)==3){
-                    $name = trim($matches[1]);
-                    $units = $matches[2];
-                } else {
-                    $units = null;
-                }
-
-                $description = (string) $xIndicator->sourceNote;
-                $topicIds = array("ALL");
-                foreach($xIndicator->topics->topic as $topic){
-                    $att = $topic->attributes();
-                    array_push($topicIds, "T" . (string) $att["id"]);
-                }
-                array_push($indicators, array("id"=>$id, "name"=>$name, "units"=> $units, "description"=>$description, "topics"=>$topicIds));
-            }
-        }
-        $config["indicators"] = $indicators;
-        //update the job id record as we go
-        $sql = "update apirunjobs set jobjson='".$db->escape_string(json_encode($config))."' where jobid=".$jobid;
-        runQuery($sql);
+$sql_logging = false;
+$downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
 
 
-//3. REGIONS
-        $regions = array();
-        //ROOT "REGIONS" CATEGORY
-        $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'regions','Regions')";
-        $result = runQuery($sql);
-        if($result!==false){
-            $newCatId  = $db->insert_id;
-            $sql = "insert into catcat values (". $api_row["rootcatid"] .",".$newCatId.")";
-            runQuery($sql);
-        }
-        //REGION LOOP
-        $xRaw = new SimpleXMLElement(httpGet("http://api.worldbank.org/regions?per_page=1000"));
-        $xRegions = $xRaw->children("wb", true);
-        foreach($xRegions->region as $xRegion){
-            $name = (string)$xRegion->name;
-            $iso3166 = (string)$xRegion->code;
-            //GEOGRAPHY insert
-            $sql = "insert into geographies (name, iso3166, regexes) values (".safeStringSQL($name).", ".safeStringSQL($iso3166). ",".safeStringSQL($name).")";
-            runQuery($sql);
-            //REGION insert
-            $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'".$iso3166."',".safeStringSQL($name).")";
-            $result = runQuery($sql);
-            if($result!==false){
-                $newCatId  = $db->insert_id;
-                $regionsAdded++;
-                $sql = "insert into catcat  (parentid, childid)  "
-                    . "(select pc.catid,".$newCatId." from categories pc where pc.apicatid='regions' and pc.apiid=".$api_row["apiid"].")";
-                runQuery($sql);
-            }
-            //Create "region-countries" category.  (Region-topic categories will be created as region job is run)
-            $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'".$iso3166."-countries','Countries')";
-            $result = runQuery($sql);
-            if($result!==false){
-                $newCatId  = $db->insert_id;
-                $sql = "insert into catcat  (parentid, childid)  "
-                    . "(select pc.catid,".$newCatId." from categories pc where pc.apicatid='".$iso3166."' and pc.apiid=".$api_row["apiid"].")";
-                runQuery($sql);
-            }
-            //ADD REGIONS TOPIC SUB-CATEGORIES
-            insertTopicCats($iso3166, $name, $api_row["apiid"]);
-            array_push($regions, array("name"=>$name, "iso3166"=>$iso3166));
-        }
-
-//4.incomeLevels
-        $incomeLevels = array();
-        //ROOT CATEGORY
-        $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'incomeLevels','Income Levels')";
-        $result = runQuery($sql);
-        if($result!==false){
-            $newCatId  = $db->insert_id;
-            $sql = "insert into catcat values (". $api_row["rootcatid"] .",".$newCatId.")";
-            runQuery($sql);
-        }
-        $xRaw = new SimpleXMLElement(httpGet("http://api.worldbank.org/incomeLevels?per_page=1000"));
-        $xIncomeLevels = $xRaw->children("wb", true);
-        foreach($xIncomeLevels->incomeLevel as $xIncomeLevel){
-            $name = (string)$xIncomeLevel;
-            $att = $xIncomeLevel->attributes();
-            $iso3166 = (string)$att["id"];
-
-            //GEOGRAPHY
-            $sql = "insert into geographies (name, iso3166, regexes) values (".safeStringSQL($name).", ".safeStringSQL($iso3166). ",".safeStringSQL($name).")";
-            runQuery($sql);
-            //INCOME LEVEL category insert
-            $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'".$iso3166."',".safeStringSQL($name).")";
-            $result = runQuery($sql);
-            if($result!==false){
-                $incomeLevelsAdded++;
-                $newCatId  = $db->insert_id;
-                $sql = "insert into catcat  (parentid, childid)  "
-                    . "(select pc.catid,".$newCatId." from categories pc where pc.apicatid='incomeLevels' and pc.apiid=".$api_row["apiid"].")";
-                runQuery($sql);
-            }
-            //Create "incomeLevels-countries" category.  (incomeLevels-topic categories will be created as region job is run)
-            $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'".$iso3166."-countries','Countries')";
-            $result = runQuery($sql);
-            if($result!==false){
-                $newCatId  = $db->insert_id;
-                $sql = "insert into catcat  (parentid, childid) "
-                    . "(select pc.catid,".$newCatId." from categories pc where pc.apicatid='".$iso3166."' and pc.apiid=".$api_row["apiid"].")";
-                runQuery($sql);
-            }
-            //ADD incomeLevels TOPIC SUB-CATEGORIES
-            insertTopicCats($iso3166, $name, $api_row["apiid"]);
-            array_push($incomeLevels, array("name"=>$name, "iso3166"=>$iso3166));
-        }
-
-//5. countries
-        $countries = array();
-        //$iso2to3 is a global array
-        //ROOT CATEGORY
-        $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'countries','All Countries')";
-        $result = runQuery($sql);
-        if($result!==false){
-            $newCatId  = $db->insert_id;
-            $sql = "insert into catcat values (". $api_row["rootcatid"] .",".$newCatId.")";
-            runQuery($sql);
-        }
-
-        $xRaw = new SimpleXMLElement(httpGet("http://api.worldbank.org/countries?per_page=1000"));
-        $xcountries = $xRaw->children("wb", true);
-        foreach($xcountries->country as $xcountry){
-            $name = (string)$xcountry->name;
-            $att = $xcountry->attributes();
-            $iso3166 = (string)$att["id"];
-            $iso2Code = (string)$xcountry->iso2Code;
-            $iso2to3[$iso2Code] = array("iso3166" => $iso3166, "name" => $name);
-            if((string)$xcountry->region!="Aggregates"){ //WLD will be loaded in regions
-
-                //print($name." <br>");
-                //GEOGRAPHY
-                $sql = "insert into geographies (name, iso3166, regexes) values (".safeStringSQL($name).", ".safeStringSQL($iso3166). ",".safeStringSQL($name).")";
-                runQuery($sql);
-                //COUNTRY category insert
-                $sql = "insert into categories (apiid, apicatid, name) values (".$api_row["apiid"].",'".$iso3166."',".safeStringSQL($name).")";
-                $result = runQuery($sql);
-                if($result!==false)$countriesAdded++;
-                //PRIMARY CATCAT
-                $sql = "insert into catcat (parentid, childid) "
-                    . "(select pc.catid, cc.catid from categories pc, categories cc where pc.apicatid='countries'"
-                    . " and cc.apicatid='". $iso3166."' and pc.apiid=".$api_row["apiid"]." and cc.apiid=".$api_row["apiid"].")";
-                runQuery($sql);
-                //REGION: SECOND COUNTRY HOME:
-                $att =  $xcountry->region->attributes();
-                $sql = "insert into catcat (parentid, childid) "
-                    . "(select pc.catid, cc.catid from categories pc, categories cc where pc.apicatid='".(string)$att["id"]."-countries'"
-                    ." and cc.apicatid='". $iso3166 . "' and pc.apiid=".$api_row["apiid"]." and cc.apiid=".$api_row["apiid"].")";
-                $result = runQuery($sql);
-                //if($result!==false)$regionsAdded++;
-                //INCOMELEVEL: THIRD COUNTRY HOME:
-                $att =  $xcountry->incomeLevel->attributes();
-                $sql = "insert into catcat (parentid, childid) "
-                    . "(select pc.catid, cc.catid from categories pc, categories cc where pc.apicatid='".(string)$att["id"]."-countries'"
-                    . " and cc.apicatid='". $iso3166 ."' and pc.apiid=".$api_row["apiid"]." and cc.apiid=".$api_row["apiid"].")";
-                runQuery($sql);
-                //ADMIREGION: FOURTH COUNTRY HOME:
-                $att =  $xcountry->adminregion->attributes();
-                if(strlen((string)$att["id"])==3){
-                    //ADMIREGION: FOURTH COUNTRY HOME:
-                    $sql = "insert into catcat (parentid, childid) "
-                        . "(select pc.catid, cc.catid from categories pc, categories cc where pc.apicatid='".(string)$att["id"]."-countries'"
-                        . " and  cc.apicatid='" . $iso3166 ."' and pc.apiid=".$api_row["apiid"]." and cc.apiid=".$api_row["apiid"].")";
-                    runQuery($sql);
-                }
-                //ADD COUNTRY TOPIC SUB-CATEGORIES
-                insertTopicCats($iso3166, $name, $api_row["apiid"]);
-                array_push($countries, array("name"=>$name, "iso3166"=>$iso3166));
-            }
-        }
-
-        $config["iso2to3"] = $iso2to3;
-        //update the job id record as we go
-        $sql = "update apirunjobs set jobjson='".$db->escape_string(json_encode($config))."' where jobid=".$jobid;
-        runQuery($sql);
-
-//CREATE ~7000 JOBS (for each indicator)
-        set_time_limit(60);
-        foreach($indicators as $indicator){
-            $run_config = array("basejobid"=> $jobid,"runid"=>$runid, "apiid"=>$api_row["apiid"], "skey"=>$indicator["id"]
-            , "name"=>$indicator["name"],"units"=> $indicator["units"], "description"=>$indicator["description"]
-            , "topicsIds"=>$indicator["topics"], "type"=>"Indicator");
-            $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$runid.",".safeStringSQL(json_encode($run_config)).",0,'Q')";
-            runQuery($sql);
-        }
-        /* OLD:  CREATE ~290 RUN JOBS (for each country, region & incomeLevel)
-        foreach($countries as $country){
-            $run_config = array("basejobid"=> $jobid,"runid"=>$runid, "apiid"=>$api_row["apiid"], "name"=>$country["name"], "iso3166" => $country["iso3166"], "entity"=>"country", "type"=>"E");
-            $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$runid.",".safeStringSQL(json_encode($run_config)).",0,'Q')";
-            runQuery($sql);
-        }
-        foreach($regions as $region){
-            $run_config = array("basejobid"=> $jobid,"runid"=>$runid, "apiid"=>$api_row["apiid"], "name"=>$region["name"], "iso3166" => $region["iso3166"], "entity"=>"region", "type"=>"E");
-            $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$runid.",".safeStringSQL(json_encode($run_config)).",0,'Q')";
-            runQuery($sql);
-        }
-        foreach($incomeLevels as $incomeLevel){
-            $run_config = array("basejobid"=> $jobid,"runid"=>$runid, "apiid"=>$api_row["apiid"], "name"=>$incomeLevel["name"], "iso3166" => $incomeLevel["iso3166"], "entity"=>"incomeLevel", "type"=>"E");
-            $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$runid.",".safeStringSQL(json_encode($run_config)).",0,'Q')";
-            runQuery($sql);
-        }*/
-        //CLOSE THE BASEJOB
-        $sql="update apirunjobs set status='S', threadjobid=".$threadjobid.", enddt=now() where jobid".$jobid;
-        runQuery($sql);
-        //START THE RUNS
-        return ApiExecuteJobs($runid);
-    }  catch(Exception $e){
-        logEvent(($e->getMessage().": line ".$e->getLine()),$sql);
-        return array("status"=>"fail", "error"=>$e->getMessage());
-    }
-}
-
-function insertTopicCats($iso3166, $name, $apiid){
-    global $topics, $db;
-    foreach($topics as $topic){
-        $sql = "insert into categories (apiid, apicatid, name, description) values (".$apiid.",'".$iso3166."-".$topic["id"]."'"
-            . ",'".$topic["name"].(($topic["id"]=="ALL")?" for ":" in ").$db->escape_string($name)."'"
-            .",".safeStringSQL($topic["description"]).")";
-        runQuery($sql);
-        $sql = "insert into catcat (parentid, childid) "
-            . "(select pc.catid, cc.catid from categories pc, categories cc where pc.apicatid='".$iso3166."'"
-            . " and cc.apicatid='" .$iso3166."-".$topic["id"]."' and pc.apiid=".$apiid." and cc.apiid=".$apiid.")";
-        runQuery($sql);
-    }
-}
-
-function getGeoId($iso3166){
+function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
+    global $downloadFiles;
     global $db;
-    $sql = "select geoid from geographies where iso3166='".$iso3166."'";
-    $result = runQuery($sql);
-    if($result->num_rows==1){
-        $row = $result->fetch_assoc();
-        return $row["geoid"];
-    }
-    return "null";
-}
 
-function ApiExecuteJobs($runid, $jobid="ALL"){//runs all queued jobs in a single single api run until no more
-    global $db, $indicators, $topics, $iso2to3, $threadjobid;
-    $sql="SELECT a.name, a.l1domain, a.l2domain, r.* , j.jobid, j.jobjson"
-        . " FROM apis a, apiruns r, apirunjobs j"
-        . " WHERE a.apiid = r.apiid AND r.runid = j.runid AND r.runid=".$runid
-        . " AND " . ($jobid=="ALL"?"STATUS =  'Q'":"jobid=".$jobid)
-        . " LIMIT 0 , 1";
-    $result = runQuery($sql);
-    if($result === false || mysqli_num_rows($result)==0){
-        return(array("status"=>"unable to find queued jobs for run ".$runid));
-    } else {
-        $api_row = $result->fetch_assoc();
-    }
+    $catalogURL = "http://api.worldbank.org/v2/datacatalog?format=json&per_page=250";
+    $catalogRaw = json_decode(file_get_contents($catalogURL), true)["datacatalog"];
+    $catalog = [];
 
-    if(count($indicators)==0){  //if this routine has been started by a chron (rather than ApiCrawl), need to fetch indicators and topics objects
-        $job_config = json_decode($api_row["jobjson"],true);
-        $sql = "select jobjson from apirunjobs where jobid=" . $job_config["basejobid"];
-        $result = runQuery($sql);
-        if($result === false || mysqli_num_rows($result)!=1){
-            return(array("status"=>"unable to find base job for job ".$api_row["jobid"]));
-        } else {
-            $base_job_row = $result->fetch_assoc(); //there better be 1 and only 1 row returned!
-            $base_config = json_decode($base_job_row["jobjson"],true);
-            $topics = $base_config["topics"];
-            $indicators = $base_config["indicators"];
-            $iso2to3 = $base_config["iso2to3"];
+    $datasets = [
+        "WDI"=>[  //data file headers always Country_Name_attr,Country__attrCode,Indicator_Name,Indicator_Code, years
+            "filePrefix"=>"WDI",
+            "CountrySeriesSuffix"=>"_CS_Notes",
+            "setKey"=>"Series Code",
+            "name"=>"Indicator Name",
+            "metaData"=>["Short definition","Long definition","Source","Other notes","Derivation method","Aggregation method","Limitations and exceptions","Notes from original source","General comments","Statistical concept and methodology"],
+            "subcategories"=>"Topic",
+        ],
+        "ADI"=>[
+            "filePrefix" => "ADI",
+            "CountrySeriesSuffix" => false,
+            "setKey" => "SeriesCode",
+            "name" => "Indicator Name",
+            "metaData" => ["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
+            "subcategories" => "Topic",
+        ],
+        "EdStats"=>[
+            "filePrefix"=>"EdStats",
+            "CountrySeriesSuffix"=>"_Country-Series",
+            "setKey"=>"Series Code",
+            "name"=>"Indicator Name",  //if split(":").length>1, first part = category
+            "metaData"=>["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
+            "subcategories"=>"Topic", //blank for over a thousand series
+            //"periodicity"=>"Periodicity",  blank for edstats, but data is annual + projected to 2050
+        ],
+        "GenderStats"=>[
+            "filePrefix"=>"Gender",
+            "CountrySeriesSuffix"=>"_Country-Series",
+            "setKey"=>"Series Code",
+            "name"=>"Indicator Name",
+            "metaData"=>["Short definition","Long definition","Source","Derivation method","Aggregation method","Limitations and exceptions","Notes from original source","General comments"],
+            "subcategories"=>"Topic",
+        ],
+        "IDS"=>[
+            "filePrefix"=>"IDS",
+            "CountrySeriesSuffix"=>"_Country-Series",
+            "setKey"=>"SeriesCode",
+            "name"=>"Indicator Name",
+            "metaData"=>["Short definition","Long definition","Source","General comments"],
+            "subcategories"=>"Topic",
+        ],
+        "Health Stats"=>[
+            "filePrefix"=>"HPN",
+            "CountrySeriesSuffix"=>"_Country-Series",
+            "setKey"=>"SeriesCode",
+            "name"=>"Indicator Name",
+            "metaData"=>["Short definition","Long definition","Source","Notes from original source","Limitations and exceptions","General comments"],
+            "subcategories"=>"Topic",
+        ]
+    ];
+    $acronyms = array_keys($datasets);
+    for($i=0;$i<count($catalogRaw);$i++){
+        $newDataSet = [];
+        for($j=0;$j<count($catalogRaw[$i]["metatype"]);$j++){
+            //var_dump($catalogRaw[$i]["metatype"][$j]["id"]);
+            $newDataSet[(string) $catalogRaw[$i]["metatype"][$j]["id"]] = $catalogRaw[$i]["metatype"][$j]["value"];
+        }
+        if(isset($newDataSet["acronym"])){
+            $acronym = $newDataSet["acronym"];
+            if(in_array($acronym, $acronyms)){
+                $datasets[$acronym]["acronym"] = $acronym;
+                $datasets[$acronym]["datasetName"] = $newDataSet["name"];
+                $datasets[$acronym]["url"] = $newDataSet["url"];
+                $datasets[$acronym]["periodicity"] = substr($newDataSet["periodicity"], 0, 1);
+                preg_match("#http:\S+csv\.zip#i",  $newDataSet["bulkdownload"], $matches);
+                $datasets[$acronym]["bulkdownload"] = $matches[0];
+                $datasets[$acronym]["category"] = $newDataSet["name"];
+                $datasets[$acronym]["themeMetadata"] = $newDataSet["description"];
+            }
         }
     }
+
+    //first build the base categories:
+    $insertInitialRun = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now())";
+    $result = runQuery($insertInitialRun);
+    $jobid = $db->insert_id;
+
+    foreach($datasets as $acronym=>$dataset){
+
+        set_time_limit(300);
+
+        //$branchInfo["catid"] = $catid;
+        //$branchInfo["name"] = $branchName;
+
+
+        $url = $dataset["bulkdownload"];
+        $parts = explode("/", $url);
+        $fileName =  $parts[count($parts)-1];
+        if($downloadFiles || !file_exists("bulkfiles/wb/".$acronym."_Series.csv") || !file_exists("bulkfiles/wb/".$acronym."_Data.csv")){
+            printNow("downloading ".$url." to bulkfiles/wb/".$acronym.".zip<br>");
+            $fr = fopen($url, 'r');
+            file_put_contents("bulkfiles/wb/".$acronym.".zip", $fr);
+            fclose($fr);
+            print('unzipping '.$acronym.'.zip<br>');
+            $zip = new ZipArchive;
+            $zip->open("bulkfiles/wb/".$acronym.".zip");
+            $zip->extractTo('./bulkfiles/wb/');
+            $zip->close();
+            unlink("bulkfiles/wb/".$acronym.".zip");  //delete the zip file
+            print('downloaded '.$acronym.'.zip<br>');
+        }
+        if(file_exists("bulkfiles/wb/".$acronym."_Data.csv")){
+            $jobJSON = json_encode($dataset);
+            printNow("creating job for ".$acronym.": ".$jobJSON."<br>");
+            //queue the job after the file is downloaded and unzipped
+            $sql = "insert into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL($jobJSON).",0,'Q')";
+            runQuery($sql);
+        }
+        runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
+        runQuery("update apirunjobs set enddt=now() where jobid=".$jobid);
+    }
+    runQuery("update apirunjobs set status='S' where jobid=".$jobid);
+}
+
+//2. write execute jobs to
+//  (c) create dataset root cat
+
+
+function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a single single api run until no more
+    $apidt = date("Y-m-d");
+    global $MAIL_HEADER, $db;
+    $jobid = $job_row["jobid"];
+    $runid = $api_run_row["runid"];
+    $apiid = $api_run_row["apiid"];
+    $src = $api_run_row["name"];
+    $DataFile_CountryCodeColumn=1;  //column B
+    $DataFile_SeriesCodeColumn=3;  //column D
+    $DataFile_DataColumn=4;  //column E
+
+    $CountrySeriesFile_CountryCodeColumn=0;  //column A
+    $CountrySeriesFile_SetCodeColumn=1;  //column B
+    $CountrySeriesFile_SetDataMetaData=2;  //column C
+
+
+//  (a) create dataset root_cat
+    $ROOT_WB_CATID = $api_run_row["rootcatid"];
+    $datasetInfo = json_decode($job_row['jobjson'], true);
+    $acronym = $datasetInfo["acronym"];
+    $datasetRootCatId = setCategoryById($api_run_row['apiid'], $acronym, $datasetInfo["category"], $ROOT_WB_CATID);
+
+
+//  (b) create theme
+    $themeId = getTheme($apiid, $datasetInfo["datasetName"], $datasetInfo["themeMetadata"], $acronym);
 
     //reusable SQL statements
-    $next_job_sql = "select * from apirunjobs where status='Q' and runid =".$runid." limit 0,1";
-    $update_run_sql = "update apiruns set finishdt=now() where runid = " . $runid;
+    $updateRunSql = "update apiruns set finishdt=now() where runid=".$runid;
+    $updateJobSql = "update apirunjobs set status = 'R', enddt=now() where jobid=$jobid";
 
     //UPDATE THE RUN'S FINISH DATE
-    runQuery($update_run_sql);
+    runQuery($updateRunSql);
 
-    //MASTER LOOP
-    $check = true;
-    $job_count = 0;
-    while($check){
-        if($jobid!="ALL"){
-            $result = runQuery($next_job_sql);
-        }  else {
-            $result = runQuery($next_job_sql);
-        }
-        if($result===false || mysqli_num_rows($result)!=1){
-            $check = false;
-        } else {
-            set_time_limit(60);
-            $job = $result->fetch_assoc();
-            if($threadjobid=="null") $threadjobid=$job["jobid"];
-            $sql = "update apirunjobs set startdt=now(), tries=tries+1, threadjobid=".$threadjobid.", status='R' where jobid =".$job["jobid"];   //closed in ExecuteJob
-            runQuery($sql);
-            $api_row["jobjson"] = $job["jobjson"];
-            $api_row["jobid"] = $job["jobid"];
-            print("job ".$job["jobid"]. ": ".$job["jobjson"]);
-            ExecuteJob($api_row);
-            runQuery($update_run_sql);
-            $job_count++;
-        }
-        if($jobid!="ALL") $check = false; //call parameters either specify a single jobid or none, whereby jobid defaults ot "ALL"
-    }
-    $output = array("status"=>"ok", "runid"=>$runid, "jobs_executed"=> $job_count);
-    return $output;
-}
+//  (c) loop through series and create sets, cats, and catsets
 
+    //$result is a pointer to the job to run
+    set_time_limit(60);
 
-function ExecuteJob($api_row){ //$api_row contains the joined apid, apiruns, and apirunjobs record
-    global $db, $indicators, $iso2to3, $topics, $threadjobid;
-    $frequencies = array("default", "M", "Q", "Y"); //WorldBank uses Y for yearly (MashableData uses "A" for annual)
-    //get config
-    try{
-        $job_config = json_decode($api_row["jobjson"],true);
-        $runid = $job_config["runid"];
-        $job_status="S";  //success unless failure detected
-        switch($job_config["type"]){
-            case "Indicator":
-                $indicator = $job_config["skey"];
-                //print("<br/>".$job_config["name"]."<br>");
-                //var_dump($indicator);
-                $gotAnnual = false; //WB api returns annual data when monthly data is requested and monthly DNE
-                $gotQuarterly = false;
-                $gotMonthly = false;
-                foreach($frequencies as $frequency){
-                    set_time_limit(100); //
-                    if($frequency=="default"||($frequency=="Y"&&!$gotAnnual)||($frequency=="Q"&&!$gotQuarterly)||($frequency=="M"&&!$gotMonthly)){
-                        $detectedFrequency = "";
-                        $page=0;
-                        $pages=1;  //set again once we know
-                        $iso3=""; //when this changes, we have a new series
-                        $geoName="";
-                        $first_date_js=null;
-                        $last_date_js=null;
-                        $point_count = 0;
-                        $mashableData = "";
-                        while($page!=$pages){  //$pages is read in the loop from the returned and the loop is immediately broken if "pages"=0
-                            $page++;
-                            if($frequency=="default"){
-                                $url = "http://api.worldbank.org/countries/all/indicators/".$indicator."?per_page=10000&page=".$page;
-                            } else {
-                                $url = "http://api.worldbank.org/countries/all/indicators/".$indicator."?MRV=1000&frequency=".$frequency."&per_page=10000&page=".$page;
-                            }
-                            logEvent("world bank fetch", $url);
-                            $get = httpGet($url);
-                            if($get===false) {
-                                //TERMINATE CURRENT JOB
-                                throw new Exception("unable to get ". $url);
-                            }
-                            $xRaw = new SimpleXMLElement($get);
-                            $att =  $xRaw->attributes();
-                            $pages = intval((string) $att["pages"]);
-                            //var_dump($att);
-                            //print "pages: ".$pages."<br>";
-                            if($pages==0)break;
-                            $xDatas = $xRaw->children("wb", true);
-                            foreach($xDatas as $xData){
-                                $date= trim((string)$xData->date);
-                                $att = $xData->country->attributes();
-                                $iso2 = trim((string) $att["id"]);
-                                if(isset($iso2to3[$iso2])){  //WorldBank kicks out a bunch of series for uncovered aggregates without iso codes
-                                    if($iso3!=$iso2to3[$iso2]["iso3166"]&&$mashableData!=""){
-                                        saveWB($mashableData, $detectedFrequency, $first_date_js, $last_date_js, $point_count, $geoName, $iso3, $job_config, $api_row, $url);
-                                        print $iso3 . "-" . $point_count .  ";";
-                                        $mashableData = "";
-                                        $point_count = 0;
-                                        $first_date_js=null;
-                                        $last_date_js=null;
-                                    }
-                                    $iso3=$iso2to3[$iso2]["iso3166"];
-                                    $geoName=$iso2to3[$iso2]["name"];
-                                    $value = trim((string)$xData->value);
-                                    if(strlen($value)>0){  //WorldBank also kicks out a ton of points with no values
-                                        //if($detectedFrequency==""){  //assumption: all the point in a given call will have the same frequency format
-                                        //first point in XML = last date
-                                        if(strpos($date,"M")!==false){
-                                            $detectedFrequency = "M";
-                                            $date_js = strtotime(str_replace("M","-",$date)."-01 UTC")*1000;
-                                            $gotMonthly = true;
-                                        } elseif(strpos($date,"Q")!==false){
-                                            $detectedFrequency = "Q";
-                                            $date_js = strtotime(substr($date,0,4)."-".sprintf("%02d",(intval(substr($date,5,1))-1)*3+1) . "-01 UTC")*1000;
-                                            $gotQuarterly = true;
-                                        } else {
-                                            $detectedFrequency = "A";  //MashableData uses "A" for annual
-                                            $date_js = strtotime(trim($date)."-01-01 UTC")*1000;
-                                            $gotAnnual = true;
-                                        }
-                                        if($first_date_js==null || $first_date_js>$date_js) $first_date_js=$date_js;
-                                        if($last_date_js==null || $last_date_js<$date_js) $last_date_js=$date_js;
+    $setName = $datasetInfo['name'];
+    $sets = []; //used to store set headers in memory until data file ingested to solve LCU series problem
+    print("STARTING WB : $setName (job $jobid)<br>\r\n");
 
-                                        if($detectedFrequency=="M"){ //Annual and Quarterly dates are good, but monthly needs a minor ajustment
-                                            $date = substr($date,0,4).sprintf("%02d",intval(substr($date,5,2))-1);
-                                        }
-                                        //print $iso2.":[".$date.",".$value."]<br>";
-
-                                        if(is_numeric($value)){
-                                            $value = floatval($value);
-                                        } else {
-                                            $value = "null";
-                                        }
-
-                                        $mashableData = $mashableData . (($mashableData=="")?"":"||") . $date . "|" . $value;
-                                        $point_count++;
-                                    }
-                                }
-                            }
-                        }
-                        if($mashableData!=""){//final save
-                            saveWB($mashableData, $detectedFrequency, $first_date_js, $last_date_js, $point_count, $geoName, $iso3, $job_config, $api_row,$url);
-                            print $iso3 . "-" . $point_count;
-                        }
-                        print "<br>";
-                    }
+    $csv=fopen("bulkfiles/wb/".$datasetInfo["filePrefix"]."_Series.csv","r");
+    $columns = fgetcsv($csv);  //header line
+    $initial = true;
+    while(!feof($csv)){
+        $values = fgetcsv($csv);
+        if(count($values)>5){  //don't try to injest blank line(s) at bottom of file
+            $catId = $datasetRootCatId;
+            $subCats =    explode(":", $values[array_search($datasetInfo["subcategories"], $columns)]);
+            foreach($subCats as $cat){
+                if(strlen(trim($cat))>0){
+                    $catId = setCategoryByName($apiid, $cat, $catId);
                 }
-                if(!$gotAnnual&&!$gotMonthly&&!$gotQuarterly){
-                    $job_config["processed"]="none";
-                } else {
-                    $job_config["processed"]=($gotAnnual?"A":"").($gotQuarterly?"Q":"").($gotMonthly?"M":"");
-                }
-                $job_config["threadjobid"]= $threadjobid;
-                $job_config["jobid"]= $api_row["jobid"];
-
-
-                //GLOBAL STATUS (TEMPORARILY INSIDE THE LOOP TO SEE WHAT'S GOING ON)
-                $esc_config = $db->escape_string( json_encode($job_config));
-                $sql = "update globalstatus set status='".$esc_config."', modifieddt=now() where statuskey = 'apirun'";
-                runQuery($sql);
-
-                //TERMINATE CURRENT JOB
-                $sql = "update apirunjobs set enddt=now(), status='".$job_status."', jobjson='".$esc_config."' where jobid = " . $api_row["jobid"];
-                runQuery($sql);
-                //die("here");
-                break;
-            case "E":  //type = "E" for entity
-                //type country, region or incomeLevel -> create indicator jobs in groups of 50
-                //TOPICS SUB-CATEGORIES
-                $count=1;
-                $indicatorsConfig = array("basejobid"=> $job_config["basejobid"],"runid"=>$runid, "apiid"=>$api_row["apiid"], "indicators"=>array(), "iso3166" => $job_config["iso3166"], "name"=> $job_config["name"], "entity"=>"country", "type"=>"I");
-                foreach($indicators as $indicator){
-                    if($count/10==intval($count/10)){ //cut 7000+ indicators into job of 10 at a time
-                        $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$runid .",".safeStringSQL(json_encode($indicatorsConfig)).",0,'Q')";
-                        runQuery($sql);
-                        $count = 1;
-                        $indicatorsConfig["indicators"] = array();
-                    } else {
-                        $count+=1;
-                    }
-                    array_push($indicatorsConfig["indicators"], $indicator);
-                }
-                $sql = "insert DELAYED into apirunjobs (runid, jobjson, tries, status) values(".$runid.",".safeStringSQL(json_encode($indicatorsConfig)).",0,'Q')";
-                runQuery($sql);
-                //TERMINATE CURRENT JOB
-                $sql = "update apirunjobs set enddt=now(), status='".$job_status."' where jobid = " . $api_row["jobid"];
-                runQuery($sql);
-                break;
-        }
-        return array("status"=>"ok", "jobid"=>$api_row["jobid"]);
-    }  catch(Exception $e){
-        //GLOBAL STATUS (TEMPORARILY INSIDE THE LOOP TO SEE WHAT'S GOING ON)
-        $job_config["error"] =  $e->getMessage();
-        $esc_config = $db->escape_string(json_encode($job_config));
-        $sql = "update globalstatus set status='".$esc_config."', modifieddt=now() where statuskey = 'apirun'";
-        runQuery($sql);
-        //TERMINATE CURRENT JOB
-        $sql = "update apirunjobs set enddt=now(), status='F', jobjson='".$esc_config."' where jobid = " . $api_row["jobid"];
-        runQuery($sql);
-        return array("status"=>"fail", "error"=>$e->getMessage());
-    }
-}
-
-function saveWB($mashableData, $detectedFrequency, $first_date_js, $last_date_js, $point_count, $geography, $iso3, $job_config, $api_row,$url){
-    global $db, $indicators, $topics;
-    if($point_count>0){
-        $skey = $job_config["skey"]."-".$iso3."-".$detectedFrequency;
-        $sql = "select * from series where skey=".safeStringSQL($skey)." and apiid=".$api_row["apiid"];
-        $result = runQuery($sql);
-        if(mysqli_num_rows($result)==1){
-            $row = $result->fetch_assoc();
-            $sql = "update series set data=".safeStringSQL($mashableData)
-                . ", hash=" . safeStringSQL(sha1($mashableData))
-                . ", firstdt=". $first_date_js
-                . ", lastdt=". $last_date_js
-                . ", updatedt=now()"
-                . " where seriesid =" . $row["seriesid"];;
-            runQuery($sql);
-        } else {
-            $mapsetid = getMapSet($job_config["name"],$api_row["apiid"],$detectedFrequency, $job_config["units"]);
-            $geoid = getGeoId($iso3);
-            $sql = "insert into series (name, namelen, src, url, units, units_abbrev, periodicity, skey, title, notes, apiid, geoid, mapsetid, l1domain, l2domain, data, hash, firstdt, lastdt) values ("
-                . safeStringSQL($job_config["name"] . ": ".$geography) . ","
-                . strlen( $job_config["name"] . ": ".$geography). ","
-                . safeStringSQL($api_row["name"]). ","
-                . safeStringSQL(str_replace("&page=","&p",str_replace("/all/","/".$iso3."/", $url))). ","
-                . (($job_config["units"]==null)?"NULL":safeStringSQL( $job_config["units"])) . ","  //World Bank does does not provide units for many series.  "null" will be used for now.
-                . "null," //World Bank does not provide units abbrev.  will need manual effort
-                . safeStringSQL($detectedFrequency) . ","
-                . safeStringSQL($skey) . ","
-                . "null,"  //title will be set below to category name
-                . safeStringSQL($job_config["description"]) . ","
-                . $api_row["apiid"] . ","
-                . $geoid . ","
-                . $mapsetid . ","
-                . safeStringSQL($api_row["l1domain"]) . ","
-                . safeStringSQL($api_row["l2domain"]) . ","
-                . "'" . $mashableData . "',"
-                . "'" . sha1($mashableData) . "',"
-                . $first_date_js . ","
-                . $last_date_js . ")";
-            $result = runQuery($sql);
-            if($result===false) die("<br><br>Bad query.  check event log");
-            $seriesid =$db->insert_id;
-            //create cat-series link records
-            $topicId = null;
-            foreach($job_config["topicsIds"] as $topicId){
-                $sql="select catid, name from categories where apicatid='". $iso3 ."-".$topicId."' and apiid=". $api_row["apiid"];
-                $result = runQuery($sql);
-                $category = $result->fetch_assoc();
-                $sql="insert into categoryseries (catid,seriesid) values (".$category["catid"].",".$seriesid.")";
-                runQuery($sql);
             }
-            $sql="update series set title=". safeStringSQL($category["name"])." where seriesid=".$seriesid;  // set the title to the last topic
-            runQuery($sql);
+            $setKey = $acronym.":".$values[0];
+            $setName = $values[array_search($datasetInfo["name"], $columns)];
+            $metaColumns = $datasetInfo["metaData"];
+            $setMeta = "";
+            foreach($metaColumns as $metaColumn){
+                $meta = $values[array_search($metaColumn, $columns)];
+                if(strlen(trim($meta))>0 && strpos($setMeta, trim($meta))===false) $setMeta .= " ".$meta;
+            }
+            $setMeta = trim($setMeta);
+            if(preg_match_all("#\([^\)]+\)#", $setName, $matches)>0){
+                $setUnits = $matches[1][count($matches[1]-1)];  //last match, exclusive of parentheses
+                $setName = str_replace($matches[0][count($matches[0]-1)], "", $setName);
+                //remove sources conflated with units and cleanup
+                $setUnits = str_replace("FAO, ","", $setUnits);
+                $setUnits = str_replace("metric tons","metric tonnes", $setUnits);
 
+            } else {
+                $setUnits = "";
+            }
+            if(strpos($setUnits, "LCU")===false){
+                $setId = updateSetMetadata($apiid, $setKey, $setName, $setUnits, $src, $datasetInfo["url"], $setMeta, $apidt);
+                $sets[$setKey] = ["setid"=>$setId];
+                setCatSet($catId, $setId);
+                $sets[$setKey] = [
+                    "setid"=>$setId
+                ];
+            } else {
+                $sets[$setKey] = [
+                    "name"=>$setName,
+                    "units"=>$setUnits,
+                    "src"=>$src,
+                    "meta"=>$setMeta,
+                    "catid"=>$catId
+                ];
+            }
         }
+    }
+    fclose($csv);
+
+//  (e) loop through series data and create / update setdata records
+
+    print("INGEST WB DATA : $setName (job $jobid)<br>\r\n");
+    $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
+    $csv = fopen("bulkfiles/wb/".$datasetInfo["filePrefix"]."_Data.csv","r");
+    $columns = fgetcsv($csv);  //header line
+    while(!feof($csv)){
+        $values = fgetcsv($csv);
+        $countyCode = $values[$DataFile_CountryCodeColumn];
+        $setKey = $acronym . ":" . $values[$DataFile_SeriesCodeColumn];
+        $data = [];
+        for($c=$DataFile_DataColumn;$c<count($values);$c++){
+            if($values[$c]){
+                $data[] = $columns[$c].":".$values[$c];
+            }
+        }
+        if(count($data)>0){
+            $geo = isoLookup($countyCode);
+            $geoId = $geo["geoid"];
+            if(isset($sets[$setKey]["setid"])){
+                $setId = $sets[$setKey]["setid"];
+            } else {
+                //LCU
+                $lcuSetKey = $setKey . ":" . $geo["currency"];
+                if(isset($sets[$lcuSetKey])){
+                    $setId = $sets[$lcuSetKey]["setid"];
+                } else {
+                    $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
+                    $setId = updateSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt);
+                    setCatSet($sets[$setKey]["catid"], $setId);
+                    $sets[$lcuSetKey]["setid"] = $setId;
+                }
+            }
+            saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+        }
+    }
+    fclose($csv);
+//  (f) if exists, loop through country-series and update setdata.metadata
+
+    if($datasetInfo["CountrySeriesSuffix"] && file_exists("bulkfiles/wb/".$acronym.$datasetInfo["CountrySeriesSuffix"])){
+        $countrySeries_csv = fopen("bulkfiles/wb/".$acronym.$datasetInfo["CountrySeriesSuffix"].".csv","r");
+        $columns = fgetcsv($countrySeries_csv);  //header line
+        while(!feof($countrySeries_csv)){
+            $values = fgetcsv($countrySeries_csv);
+            $CountrySeriesFile_CountryCodeColumn=0;  //column A
+            $CountrySeriesFile_SetCodeColumn=1;  //column B
+            $CountrySeriesFile_SetDataMetaData=2;  //column C
+            $setKey = $acronym . ":" . $values[$CountrySeriesFile_SetCodeColumn];
+            $countyCode = $values[            $CountrySeriesFile_CountryCodeColumn];
+            $geo = isoLookup($countyCode);
+            $geoId = $geo["geoid"];
+            if(isset($set[$setKey]["setid"])){
+                saveSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+            } elseif(isset($set[$setKey.":".$geo["currency"]]["setid"])){
+                saveSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+            }
+        }
+        fclose($countrySeries_csv);
+    }
+
+
+    $updatedJobJson = json_encode(array_merge($datasetInfo, $status));
+    runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
+    runQuery($updateRunSql);
+    runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
+        .", added=added+".$status["added"]
+        .", updated=updated+".$status["updated"]
+        .", failed=failed+".$status["failed"]
+        ." where runid=$runid");
+
+    print("ENDING WB $setName: ".$datasetInfo["file"]." (job $jobid)<br>\r\n");
+    return $status;
+}
+
+function ApiRunFinished($api_run){
+    set_time_limit(200);
+    setGhandlesPeriodicities($api_run["apiid"]);
+    set_time_limit(200);
+    setMapsetCounts("all", $api_run["apiid"]);
+    freqSets($api_run["apiid"]);
+/*    set_time_limit(200);
+    pruneSets($api_run["apiid"]);*/
+}
+
+
+//TODO: MOVE TO INDEX and add © to search on ghandles and mhandles
+function setCatSet($catid, $setid, $geoid = 0){
+    if($catid==0 || $setid==0) return false;
+    $sql = "select setid from categorysets where setid=$setid and catid = $catid and geoid=$geoid";
+    $temp= runQuery($sql, "check for CatSets relationship");
+    if($temp->num_rows==0){
+        $sql = "insert into categorysets (catid, setid, geoid) values ($catid, $setid, $geoid)";
+        runQuery($sql, "create CatSets relationship");
+        $sql = "UPDATE sets s, (SELECT setid, GROUP_CONCAT(distinct c.name ) AS category
+            FROM categorysets cs INNER JOIN categories c ON cs.catid = c.catid
+            where setid=$setid and cs.geoid=$geoid) cat
+            SET s.titles = cat.category WHERE s.setid = cat.setid  ";
+        runQuery($sql, "set sets.title");
+    }
+
+    /*    to update all sets titles:     (run nightly!!!)
+        UPDATE sets s,
+            (SELECT setid, GROUP_CONCAT( c.name separator "; " ) AS category
+            FROM categorysets cs INNER JOIN categories c ON cs.catid = c.catid
+        group by setid) cats
+        set s.title= category
+        where cats.setid=s.setid
+    */
+    return true;
+}
+
+function setGhandlesPeriodicities($apiid = "all"){
+    runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
+    runQuery("truncate temp;","setGhandles");
+    $sql = "insert into temp (id1, text1, text2) select mapsetid, group_concat(concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity))
+    from setdata sd inner join sets s
+    where ". ($apiid == "all"?"":" apiid=$apiid and "). //set the Periodicities for single series too, so don't " sd.geoid <> 0
+        "group by s.setid;";
+    runQuery($sql, "setGhandlesPeriodicities");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2;", "setGhandlesPeriodicities");
+}
+
+function setMapsetCounts($setid="all", $apiid = "all"){
+    //1.  update set.maps of all mapsets
+    runQuery("truncate temp;","setMapsetCounts");
+    runQuery("SET SESSION group_concat_max_len = 8000;");
+    $subQuery = "select setid, concat('\"M_',mg.map, '\":',count(distinct s.geoid)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
+    if($apiid != "all") {
+        $subQuery .= " inner join sets s on s.setid=sd.setid and s.geoid=sd.geoid where 1 ";
+        if($apiid != "all") $subQuery .= " and apiid=".$apiid;
+    } else {
+        $subQuery .= " where sd.latlon='' ";
+    }
+    if($setid != "all") $subQuery .= " and setid=".$setid;
+    $subQuery .= " and map <>'worldx' group by setid, map";
+
+
+    runQuery("insert into temp (id1, text1) select setid, group_concat(mapcount) from ($subQuery) mc group by setid;","setMapsetCounts");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.counts=t.text1;","setMapsetCounts");
+    runQuery("truncate temp;","setMapsetCounts");
+
+}
+
+function setPointsetCounts($setid="all", $apiid = "all"){
+    //update mastersets
+    runQuery("truncate temp;","setPointsetCounts");
+    runQuery("SET SESSION group_concat_max_len = 4000;","setPointsetCounts");
+
+    //find maps for which points' geoids is a component (e.g. USA)
+    $subQuery1 = "select setid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
+    if($apiid != "all") {
+        $subFilter = " inner join sets s on s.setid=sd.setid where sd.latlon<>'' and s.latlon<>'' and apiid=".$apiid;
+    } else {
+        $subFilter = " where sd.latlon<>'' ";
+    }
+    if($setid != "all") $subFilter .= " and setid=".$setid;
+    $subFilter .= " and map <>'worldx' group by setid, map";
+
+    //find maps whose bunny = points' geoids (e.g. Virginia)
+    $subQuery2 = "select setid, concat('\"M_',m.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join maps m on sd.geoid=m.bunny ";
+
+    runQuery("insert into temp (id1, text1) select setid, group_concat(mapcount) from ($subQuery1 $subFilter UNION $subQuery2 $subFilter) mc group by setid;","setPointsetCounts");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;", "setPointsetCounts");
+    runQuery("truncate temp;","setPointsetCounts");
+
+    //update the points' maps
+
+    $subQuery1 = "select setid, geoid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
+    $subQuery2 = "select setid, geoid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join maps m on sd.geoid=m.bunny ";
+    runQuery("insert into temp (id1, id2, text1) select setid, geoid, group_concat(mapcount) from ($subQuery1 $subFilter, geoid UNION $subQuery2 $subFilter, geoid) mc group by setid, geoid;","setPointsetCounts");
+    runQuery("update temp t join setdata sd on t.id1=sd.setid and t.id2=sd.geoid join sets s on s.mastersetid=t.id1 and sd.latlon=s.latlon  set s.maps=t.text1;", "setPointsetCounts");
+    runQuery("truncate temp;","setPointsetCounts");
+}
+
+
+function updateSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $adpidt='', $themeid='null', $latlon='', $lasthistoricaldt=null){ //get a mapset id, creating a record if necessary
+    global $db;
+
+    if($setKey){
+        $sql = "select * from sets where apiid=$apiid and setkey=".safeStringSQL($setKey);
+    } else {
+        $sql = "select * from sets where name=".safeStringSQL($name)." and apiid=".$apiid
+            ." and units ".safeStringSQL($units);
+    }
+    $result = runQuery($sql, "getSet select");
+    if($result->num_rows==1){
+        $row = $result->fetch_assoc();
+        if($row["name"]!=$name || $row["adpidt"]!=$adpidt || $row["units"]!=$units || $row["latlon"]!=$$latlon
+            || $row["lasthistoricaldt"]!=$lasthistoricaldt || $row["themeid"]!=$themeid || $row["metadata"]!=$metadata || $row["src"]!=$src  || $row["url"]!=$url ){
+            $sql = "update sets set name = " .  safeStringSQL($name)
+                . ", set adpidt = " .  safeStringSQL($adpidt)
+                . ", set units = " .  safeStringSQL($units)
+                . ", set latlon = " .  safeStringSQL($latlon)
+                . ", set lasthistoricaldt = " .  safeStringSQL($lasthistoricaldt)
+                . ", set themeid = " .  $themeid
+                . ", set metadata = " .  safeStringSQL($metadata)
+                . ", set src = " .  safeStringSQL($src)
+                . ", set url = " .  safeStringSQL($url)
+                . " where setid=". $row["setid"];
+            runQuery($sql, "getSet update");
+        }
+        return $row["setid"];
+    } else {
+        $sql = "insert into sets (apiid, setkey, name, apidt, units, latlon, lasthistoricaldt, themeid, metadata, src, url) VALUES ("
+            . $apiid.",".safeStringSQL($setKey)
+            . ", " .  safeStringSQL($name)
+            . ", " .  safeStringSQL($adpidt)
+            . ", " .  safeStringSQL($units)
+            . ", " .  safeStringSQL($latlon)
+            . ", " .  safeStringSQL($lasthistoricaldt)
+            . ", " .  $themeid
+            . ", " .  safeStringSQL($metadata)
+            . ", " .  safeStringSQL($src)
+            . ", " .  safeStringSQL($url);
+
+        $result = runQuery($sql, "getSet insert");
+        if($result!==false){
+            $setId = $db->insert_id;
+            return $setId;
+        }
+        return false;
     }
 }
 
-function ApiGet($sourcekeys, $api_row){
-    $return = array("status"=>"error: upsupported call for WorldBack", "apiid"=>$api_row["apiid"], "count" => 0);
-    return $return;
+function saveSetData(&$status, $setid, $periodicity, $geoid=0, $latlon="", $arrayData, $metadata= false, $logAs="save / update setdata", $apidt=null){
+    if(!$apidt) $apidt =  date("Ymd");
+    $firstMdDate = explode(":", $arrayData[0]);
+    $lastMdDate = explode(":", $arrayData[count($arrayData)-1]);
+    $firstDate100k = unixDateFromMd($firstMdDate)/100;
+    $lastDate100k = unixDateFromMd($firstMdDate)/100;
+    $data = implode("|", $arrayData);
+    $result = runQuery("select data from setdata where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon=$latlon");
+    if($result->num_rows==0){
+        $status["added"]++;
+    } else {
+        $row = $result->fetch_assoc();
+        if($row["data"]==$data){
+            $status["skipped"]++;
+        } else {
+            $status["updated"]++;
+        }
+    }
+    $sql = "insert into setdata (setid, periodicity, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt)"
+        ." values($setid, '$periodicity', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, 'Sapidt')"
+        ." on duplicate key update set data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt'");
+    return runQuery($sql, $logAs);
 }
 
-function getSeriesDataFromWorldBank($seriesHeaders, $api_row ){
-    global $db, $user_id, $fred_api_key;
-    //move get operation to her
+function saveSetdataMetadata($setid, $periodicity, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
+    $sql = "update setdata set metadata = ".  safeStringSQL($metadata)
+    ." where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon='$latlon'";
+    return runQuery($sql, $logAs);
 }
-?>
-

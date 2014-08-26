@@ -477,11 +477,11 @@ function isoLookup($iso3166, $set = "ALL"){
     static $isos = "null";
     if($isos=="null"){
         $isos = array();
-        $geos_sql = "select geoid, iso3166, regexes from geographies where iso3166 is not null";
+        $geos_sql = "select geoid, iso3166, regexes, currency from geographies where iso3166 is not null";
         $result = runQuery($geos_sql);
 
         while($row=$result->fetch_assoc()){
-            $isos[$row["iso3166"]] = ["geoid"=>$row["geoid"], "regexes"=>$row["regexes"]];
+            $isos[$row["iso3166"]] = ["geoid"=>$row["geoid"], "regexes"=>$row["regexes"], "currency"=>$row["currency"]];
         }
     }
 
