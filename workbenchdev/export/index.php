@@ -63,7 +63,7 @@ if (isset($typeString)) {
 	
 	// do the conversion (from some reason, cannot convert to JPG on new server with Batik 1.7)
     //$cmd = "/usr/java/bin/java -jar ". BATIK_PATH ." $typeString -d $outfile -q 0.999 $width temp/$tempName.svg";
-    $cmd = "java -jar /etc/batik/batik-1.7/". BATIK_PATH ." $typeString -d /var/www/vhosts/www.mashabledata.info/httpdocs/workbench/export/temp/$tempName.$ext $width /var/www/vhosts/www.mashabledata.info/httpdocs/workbench/export/temp/$tempName.svg";
+    $cmd = "java -jar /etc/batik/batik-1.7/". BATIK_PATH ." $typeString -d /var/www/vhosts/mashabledata.com/httpdocs/workbench/export/temp/$tempName.$ext $width /var/www/vhosts/mashabledata.com/httpdocs/workbench/export/temp/$tempName.svg";
     //echo $cmd;
     $output = shell_exec($cmd);
 	

@@ -253,7 +253,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                     $setId = $sets[$lcuSetKey]["setid"];
                 } else {
                     $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
-                    $setId = updateSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt);
+                    $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt);
                     setCatSet($sets[$setKey]["catid"], $setId);
                     $sets[$lcuSetKey]["setid"] = $setId;
                 }
@@ -301,7 +301,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
 function ApiRunFinished($api_run){
     set_time_limit(200);
-    setGhandlesPeriodicities($api_run["apiid"]);
+    setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
     freqSets($api_run["apiid"]);

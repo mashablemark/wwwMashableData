@@ -163,6 +163,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
     $branchInfo = json_decode($job_row['jobjson'], true);
     $branchName = $branchInfo['name'];
+    $catid  = $branchInfo['catid'];
     print("STARTING FAO : $branchName (job $jobid)<br>\r\n");
 
     $csv=fopen("bulkfiles/fao".$branchInfo["file"],"r");
@@ -176,7 +177,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
             if(count($line)==11){
                 if($line[$colItem]!=$series_header[$colItem] || $line[$colCountry]!=$series_header[$colCountry] || $line[$colElement]!=$series_header[$colElement]){ //series
                     if(!$initial){
-                        $seriesid = saveSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $data);
+                        saveFaoSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $aryData);
                         runQuery($updateJobSql);
                     } else {
                         $initial = false;
@@ -185,22 +186,22 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                     set_time_limit(60);
                     $series_header = $line;
                     $lastLine = $line;
-                    $data = $line[$colYear]."|".$line[$colValue];
+                    $aryData = [$line[$colYear].":".$line[$colValue]];
                 } else { //another point in current series
-                    $data .= "||".$line[$colYear]."|".$line[$colValue];
+                    $aryData[] = $line[$colYear].":".$line[$colValue];
                     $lastLine = $line;
                 }
             }
         }
-        saveSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $data);
+        saveFaoSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $aryData);
         $updatedJobJson = json_encode(array_merge($branchInfo, $status));
         runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
-        runQuery($updateRunSql);
-        runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
+        /* runQuery($updateRunSql);
+       runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
             .", added=added+".$status["added"]
             .", updated=updated+".$status["updated"]
             .", failed=failed+".$status["failed"]
-            ." where runid=$runid");
+            ." where runid=$runid");*/
 
     } else { //unknown file format
         print("mismatch between file header format and expected format<br>".$header."X<br>");
@@ -211,16 +212,18 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     print("ENDING FAO $branchName: ".$branchInfo["file"]." (job $jobid)<br>\r\n");
     return $status;
 }
+
 function ApiRunFinished($api_run){
+    set_time_limit(200);
+    setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
+    set_time_limit(200);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
     set_time_limit(200);
-    freqSets($api_run["apiid"]);
-    set_time_limit(200);
-    prune($api_run["apiid"]);
-
+    pruneSets($api_run["apiid"]);
 }
-function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $line, $data){
+
+function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $line, $aryData){
     $colCountryCode = 0;
     $colCountry = 1;
     $colItemCode = 2;
@@ -236,8 +239,13 @@ function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $li
     $thisCatId = setCategoryByName($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
     $geoid = countryLookup($series_header[$colCountry]);
     $setName = $series_header[$colElement] .": ". $series_header[$colItem];
-    $mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
-    $skey = $series_header[$colCountryCode]."-".$series_header[$colElementCode]."-".$series_header[$colItemCode];
+    $setkey = $series_header[$colElementCode]."-".$series_header[$colItemCode]."-". $series_header[$colUnit];
+    $setId = saveSet($api_row["apiid"], null, $setName, $series_header[$colUnit], "UNFAO","http://faostat3.fao.org/home/index.html");
+    //$mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
+
+    $skey = $setkey .":".$series_header[$colCountryCode];
+        saveSetData();
+
     $seriesid = updateSeries(
         $status,
         $jobid,
@@ -253,7 +261,7 @@ function saveSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $li
         $branchInfo["updated"],
         strtotime($series_header[$colYear]."-01-01 UTC")*1000,
         strtotime($line[$colYear]."-01-01 UTC")*1000,
-        $data,
+        $aryData,
         $geoid,
         $mapSetId,
         null, null, null);

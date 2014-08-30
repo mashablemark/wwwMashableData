@@ -1,7 +1,7 @@
 <?php
 $event_logging = true;
 $sql_logging = true;
-$web_root = "/var/www/vhosts/www.mashabledata.info/httpdocs";
+$web_root = "/var/www/vhosts/mashabledata.com/httpdocs";
 $cache_TTL = 60; //public_graph and cube cache TTL in minutes
 include_once($web_root . "/global/php/common_functions.php");
 date_default_timezone_set('UTC');
@@ -109,7 +109,7 @@ switch($command){
 
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         concat(left(s.settype,1), s.setid, ifnull(concat('L',s.latlon), '')) as handle,
-        s.setid, s.mastersetid, s.userid, s.name, s.units, s.periodicity as period, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
+        s.setid, s.mastersetid, s.userid, s.name, s.units, s.periodicities as period, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
         s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, s.maps, ghandles
         FROM sets s left outer join apis a on s.apiid=a.apiid";  //left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
@@ -165,7 +165,7 @@ switch($command){
                     $geoSearchWords  = $geoSearchDetails["seachWords"];
                     $mainBooleanSearch .= " OR ($geoSearchWords +$ghandle)";
                 }
-                $sql .= " AND match(s.name,s.titles,s.units, s.ghandles) against ('$mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
+                $sql .= " AND match(s.name,s.units,s.titles,s.ghandles,s.maps,s.settype,s.periodicities) against ('$mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
             }
             if(is_numeric($apiid)) {
                 $sql .= " AND s.apiid = " . intval($apiid);
@@ -182,7 +182,7 @@ switch($command){
             }
         }
         if($periodicity != "all") {
-            $sql = $sql . " AND periodicity='" . $periodicity . "'";
+            $sql = $sql . " AND periodicities='" . $periodicity . "'";
         };
 
         //type of set detection = done by additional field

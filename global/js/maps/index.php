@@ -7,7 +7,7 @@
  */
 if(!isset($_REQUEST["command"])||!isset($_REQUEST["host"])) die("no fishing");
 $command = $_REQUEST["command"];
-$web_root = "/var/www/vhosts/www.mashabledata.info/httpdocs";
+$web_root = "/var/www/vhosts/mashabledata.com/httpdocs";
 
 if(strpos("|GetPublicGraph|GetCubeSeries|GetMashableData|GetEmbeddedGraph|", $command)===false) die("unknown/invalid command");
 //note: $_SERVER['HTTP_ORIGIN'] is supported only by Chrome

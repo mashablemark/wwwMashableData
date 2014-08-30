@@ -6,7 +6,6 @@
  * Time: 12:10 PM
  * To change this template use File | Settings | File Templates.
  */
-
 $laptop = (strpos($_SERVER["SERVER_NAME"],"mashabledata.")===false);
 $db = getConnection(); //establishes a db connection as a global variable on include
 date_default_timezone_set("UTC");
@@ -92,10 +91,16 @@ function getConnection(){
     if($laptop){
         $db = new mysqli("localhost","root","");
     }else{
-        $db = new mysqli("localhost","mashabledata","UxH3XERJ");
+        if(isset($_REQUEST["db"]) && $_REQUEST["db"]=="dev"){  //allow testing of crawlers in alternate DB
+            $db = new mysqli("localhost","mashabledatadev","wbuserg4bmyLl890e0");
+            if (!$db) die("status: 'db connection error'");
+            $db->select_db("workbenchdev");
+        } else {
+            $db = new mysqli("localhost","mashabledata","wbuserg4bmyLl890e0");
+            if (!$db) die("status: 'db connection error'");
+            $db->select_db("mashabledata");
+        }
     }
-    if (!$db) die("status: 'db connection error'");
-    $db->select_db("melbert_mashabledata");
     //$db->query("SET NAMES 'utf8'");
     return $db;
 }
@@ -307,7 +312,9 @@ function getTheme($apiid, $themeName, $meta = null, $apivar = null){
         values($apiid,'$themeName',".safeStringSQL($meta).",".safeStringSQL($apivar).")";
         if(!runQuery($sql, "insert theme"))
             throw new Exception("error: unable to insert theme $themeName for apiid $apiid");
-        return ["name"=> $themeName, "themeid"=>$db->insert_id, "meta"=>$meta, "apivar"=> $apivar, "apidt"=>null];
+        $themeid= $db->insert_id;
+        $synthetic_row = ["name"=> $themeName, "themeid"=>$themeid, "meta"=>$meta, "apivar"=> $apivar, "apidt"=>null];
+        return $synthetic_row;
     } else {
         $row = $result->fetch_assoc();
         return $row;
@@ -444,15 +451,19 @@ function setCatSet($catid, $setid, $geoid = 0){
     return true;
 }
 
-function setGhandlesPeriodicities($apiid = "all"){
+function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
+    //TODO: add temp.int1 and temp.int2 columns
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
-    $sql = "insert into temp (id1, text1, text2) select mapsetid, group_concat(concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity))
-    from setdata sd inner join sets s
-    where ". ($apiid == "all"?"":" apiid=$apiid and "). //set the Periodicities for single series too, so don't " sd.geoid <> 0
-        "group by s.setid;";
-    runQuery($sql, "setGhandlesPeriodicities");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2;", "setGhandlesPeriodicities");
+    $sql = "insert into temp (id1, text1, text2, int1, int2) select mapsetid, group_concat(concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity)), min(sd.firstdt100k), max(sd.lastdt100k)
+    from setdata sd ";
+    if($apiid == "all"){
+        $sql .=" group by s.setid;";
+    } else {
+        $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid group by s.setid;";
+    }
+    runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2, s.firstdt100k = t.int1, s.lastdt100k = t.int2;", "setGhandlesPeriodicities");
 }
 
 function setMapsetCounts($setid="all", $apiid = "all"){
@@ -508,7 +519,7 @@ function setPointsetCounts($setid="all", $apiid = "all"){
 }
 
 
-function updateSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $adpidt='', $themeid='null', $latlon='', $lasthistoricaldt=null){ //get a mapset id, creating a record if necessary
+function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $adpidt='', $themeid='null', $latlon='', $lasthistoricaldt=null){ //get a mapset id, creating a record if necessary
     global $db;
 
     if($setKey){

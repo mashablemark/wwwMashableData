@@ -5,14 +5,15 @@
 <title>PHP Configuration</title>
 </head>
 <?php
-
 $event_logging = true;
 $sql_logging = true;
-include_once("./global/php/common_functions.php");
+/*include_once("./global/php/common_functions.php");*/
 date_default_timezone_set('UTC');
-$con = getConnection();
 
-closeConnection();
+/*$con = getConnection();
+closeConnection();*/
+$web_root = dirname( __FILE__ ); //"/var/www/vhosts/mashabledata.com/httpdocs";
+//include_once("global/php/common_functions.php");
 
 phpinfo();
 

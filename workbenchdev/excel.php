@@ -9,7 +9,7 @@ error_reporting(E_ALL);
 
 /** Include path **/
 //failed because of odd initial path of ".:" -> ini_set('include_path', ini_get('include_path').';../classes/');
-ini_set('include_path', '../classes/');
+ini_set('include_path', '../global/classes/');
 
 /** PHPExcel */
 include 'PHPExcel.php';
