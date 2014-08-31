@@ -302,18 +302,18 @@ function setThemeByName($apiid, $themeName){
     }
 }
 
-function getTheme($apiid, $themeName, $meta = null, $apivar = null){
+function getTheme($apiid, $themeName, $meta = null, $tkey = null){
     global $db;
     $sql = "select * from themes where apiid=$apiid and ";
-    if($apivar) $sql .= "code='$apivar'"; else $sql .= "name='$themeName'";
+    if($tkey) $sql .= "tkey='$tkey'"; else $sql .= "name='$themeName'";
     $result = runQuery($sql, "theme fetch");
     if($result->num_rows==0){
-        $sql = "insert into themes (apiid, name, meta, apivar)
-        values($apiid,'$themeName',".safeStringSQL($meta).",".safeStringSQL($apivar).")";
+        $sql = "insert into themes (apiid, name, meta, tkey)
+        values($apiid,'$themeName',".safeStringSQL($meta).",".safeStringSQL($tkey).")";
         if(!runQuery($sql, "insert theme"))
             throw new Exception("error: unable to insert theme $themeName for apiid $apiid");
         $themeid= $db->insert_id;
-        $synthetic_row = ["name"=> $themeName, "themeid"=>$themeid, "meta"=>$meta, "apivar"=> $apivar, "apidt"=>null];
+        $synthetic_row = ["name"=> $themeName, "themeid"=>$themeid, "meta"=>$meta, "tkey"=> $tkey, "apidt"=>null];
         return $synthetic_row;
     } else {
         $row = $result->fetch_assoc();

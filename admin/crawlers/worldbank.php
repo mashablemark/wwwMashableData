@@ -1,7 +1,7 @@
 <?php
 $event_logging = true;
 $sql_logging = false;
-$downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
+$downloadFiles = false;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
 
 
 function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
@@ -30,8 +30,9 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "subcategories" => "Topic",
         ],
         "EdStats"=>[
-            "filePrefix"=>"EdStats",
+            "filePrefix"=>"EDStats",
             "CountrySeriesSuffix"=>"_Country-Series",
+            "dataFile" => "Edstat_Data",
             "setKey"=>"Series Code",
             "name"=>"Indicator Name",  //if split(":").length>1, first part = category
             "metaData"=>["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
@@ -54,8 +55,8 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "metaData"=>["Short definition","Long definition","Source","General comments"],
             "subcategories"=>"Topic",
         ],
-        "Health Stats"=>[
-            "filePrefix"=>"HPN",
+        "HNP Stats"=>[
+            "filePrefix"=>"HNP",
             "CountrySeriesSuffix"=>"_Country-Series",
             "setKey"=>"SeriesCode",
             "name"=>"Indicator Name",
@@ -81,8 +82,16 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
                 $datasets[$acronym]["bulkdownload"] = $matches[0];
                 $datasets[$acronym]["category"] = $newDataSet["name"];
                 $datasets[$acronym]["themeMetadata"] = $newDataSet["description"];
-            }
+                $datasets[$acronym]["lastrevisiondate"] = $newDataSet["lastrevisiondate"];
+                $index = array_search($acronym, $acronyms);
+                array_splice($acronyms, $index, 1);
+            };
         }
+    }
+    if(count($acronyms)>0){
+        $msg = "unable to find (".implode(",",$acronyms).") in data catalog.";
+        logEvent("World Bank ingest error", $msg);
+        print($msg."<br>");
     }
 
     //first build the base categories:
@@ -97,32 +106,36 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         //$branchInfo["catid"] = $catid;
         //$branchInfo["name"] = $branchName;
 
+        $theme = getTheme($api_row["apiid"], $dataset["datasetName"], $dataset["themeMetadata"], $acronym);
+        if($theme["apidt"] !== $dataset["lastrevisiondate"]){ //create a job iff new lastrevisiondate
+            $url = $dataset["bulkdownload"];
+            $parts = explode("/", $url);
+            $fileName =  $parts[count($parts)-1];
+            if($downloadFiles || !file_exists("bulkfiles/wb/".$dataset["filePrefix"]."_Series.csv")){
+                printNow("downloading ".$url." to bulkfiles/wb/".$dataset["filePrefix"].".zip<br>");
+                $fr = fopen($url, 'r');
+                file_put_contents("bulkfiles/wb/".$dataset["filePrefix"].".zip", $fr);
+                fclose($fr);
+                print('unzipping '.$dataset["filePrefix"].'.zip<br>');
+                $zip = new ZipArchive;
+                $zip->open("bulkfiles/wb/".$dataset["filePrefix"].".zip");
+                $zip->extractTo('./bulkfiles/wb/');
+                $zip->close();
+                unlink("bulkfiles/wb/".$dataset["filePrefix"].".zip");  //delete the zip file
+                print('downloaded '.$dataset["filePrefix"].'.zip<br>');
+            }
+            if(file_exists("bulkfiles/wb/".$dataset["filePrefix"]."_Data.csv")){
+                $jobJSON = json_encode($dataset);
+                printNow("creating job for ".$acronym.": ".$jobJSON."<br>");
+                //queue the job after the file is downloaded and unzipped
+                $sql = "insert into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL($jobJSON).",0,'Q')";
+                runQuery($sql);
+            }
+            runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
+            runQuery("update apirunjobs set enddt=now() where jobid=".$jobid);
+        }
 
-        $url = $dataset["bulkdownload"];
-        $parts = explode("/", $url);
-        $fileName =  $parts[count($parts)-1];
-        if($downloadFiles || !file_exists("bulkfiles/wb/".$acronym."_Series.csv") || !file_exists("bulkfiles/wb/".$acronym."_Data.csv")){
-            printNow("downloading ".$url." to bulkfiles/wb/".$acronym.".zip<br>");
-            $fr = fopen($url, 'r');
-            file_put_contents("bulkfiles/wb/".$acronym.".zip", $fr);
-            fclose($fr);
-            print('unzipping '.$acronym.'.zip<br>');
-            $zip = new ZipArchive;
-            $zip->open("bulkfiles/wb/".$acronym.".zip");
-            $zip->extractTo('./bulkfiles/wb/');
-            $zip->close();
-            unlink("bulkfiles/wb/".$acronym.".zip");  //delete the zip file
-            print('downloaded '.$acronym.'.zip<br>');
-        }
-        if(file_exists("bulkfiles/wb/".$acronym."_Data.csv")){
-            $jobJSON = json_encode($dataset);
-            printNow("creating job for ".$acronym.": ".$jobJSON."<br>");
-            //queue the job after the file is downloaded and unzipped
-            $sql = "insert into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL($jobJSON).",0,'Q')";
-            runQuery($sql);
-        }
-        runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
-        runQuery("update apirunjobs set enddt=now() where jobid=".$jobid);
+
     }
     runQuery("update apirunjobs set status='S' where jobid=".$jobid);
 }
@@ -229,7 +242,8 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
     print("INGEST WB DATA : $setName (job $jobid)<br>\r\n");
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $csv = fopen("bulkfiles/wb/".$datasetInfo["filePrefix"]."_Data.csv","r");
+    $dataFilePath = isset($datasetInfo["dataFile"])?$datasetInfo["dataFile"]:"bulkfiles/wb/".$datasetInfo["filePrefix"]."_Data.csv";
+    $csv = fopen($dataFilePath, "r");
     $columns = fgetcsv($csv);  //header line
     while(!feof($csv)){
         $values = fgetcsv($csv);
