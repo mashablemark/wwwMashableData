@@ -78,7 +78,7 @@ function ApiBatchUpdate($since,$periodicity, $api_row){
                 for($d=0;$d<count($serieData["observations"]);$d++){
                     $ob = $serieData["observations"][$d];
                     if($ob["value"]==".") $ob["value"] = "null";
-                    array_unshift($data, mdDateFromISO($ob["date"], $update["frequency"])."|".$ob["value"]);
+                    array_unshift($data, mdDateFromISO($ob["date"], $update["frequency"]).':'.$ob["value"]);
                 }
                 $dataOffset += $dataLimit;
             } while($dataOffset<$serieData["count"]);
@@ -101,7 +101,7 @@ function ApiBatchUpdate($since,$periodicity, $api_row){
                 $update["last_updated"],
                 strtotime($update["observation_start"]." UTC")*1000,
                 strtotime($update["observation_end"]." UTC")*1000,
-                implode("||", $data),
+                implode("|", $data),
                 null, null, null, null, null  //geoid, set ids, lat, & lat
             );
 
@@ -289,14 +289,14 @@ class FredList
                     $date = mdDateFromISO(substr($line, 0, $DATE_LEN), $series["Frequency:"]);
                     $value = trim(substr($line, $DATE_LEN));
                     if($value=="."  || !is_numeric($value)) $value = "null";
-                    array_unshift($data, $date."|".$value);
+                    array_unshift($data, $date.":".$value);
                 }
             }
         } catch (Exception $ex){
             print($ex->getMessage());
             die($trimFields[$fieldNames["File"]]);
         }
-        $series["data"] = implode("||", $data);
+        $series["data"] = implode("|", $data);
         fclose($fpText);
 
         $sa = $trimFields[$fieldNames["Seasonal Adjustment"]];

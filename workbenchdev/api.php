@@ -2058,26 +2058,26 @@ function getCubeSeries(&$output, $cubeid, $geoid=0){
 }
 function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=false){ //call only if jsStart and jsEnd are valid
     if($intervals){
-        $points = explode('||', $data);
+        $points = explode('|', $data);
         $count = count($points);
         if($count > intval($intervals)){
-            return implode("||",array_slice($points, $count-intval($intervals)));
+            return implode("|",array_slice($points, $count-intval($intervals)));
         } else {
             return $data;
         }
     }  else {
         if($start!==null && $firstDt<$start){
             //trim left
-            $startFound = strpos($data, "||".mdDateFromUnix($start/1000, $period)."|");
+            $startFound = strpos($data, "|".mdDateFromUnix($start/1000, $period).":");
             if($startFound){
                 $data = substr($data, $startFound+2);
             } else {
                 //TODO: crawl data in cases where start point is missing from sequence
-                $points = explode('||', $data);
+                $points = explode('|', $data);
                 for($i=0;$i<count($points);$i++){
-                    $point = explode($points[$i],"|");
+                    $point = explode($points[$i],":");
                     if(unixDateFromMd($point[0])>=$start/1000){
-                        $data = implode("||",array_slice($points, $i));
+                        $data = implode("|",array_slice($points, $i));
                         break;
                     }
                 }
@@ -2085,19 +2085,19 @@ function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=
         }
         if($end!==null && $lastDt<$end){
             //trim right
-            $endFound = strpos($data, "||".mdDateFromUnix($end/1000, $period)."|");
+            $endFound = strpos($data, "|".mdDateFromUnix($end/1000, $period).":");
             if($endFound){
-                $next = strpos($data, "||", $endFound+2);
+                $next = strpos($data, "|", $endFound+1);
                 if($next){
-                    return substr($data, $endFound+2, $next - $endFound -2 );
+                    return substr($data, $endFound+1, $next - $endFound -1 );
                 } else return $data; //this should never happen
             } else {
                 //TODO: crawl data in cases where end point is missing from sequence
-                $points = explode('||', $data);
+                $points = explode('|', $data);
                 for($i=count($points)-1;$i>0;$i--){
-                    $point = explode($points[$i],"|");
+                    $point = explode($points[$i],":");
                     if(unixDateFromMd($point[0])<=$end/1000){
-                        $data = implode("||",array_slice($points, 0, $i+1));
+                        $data = implode("|",array_slice($points, 0, $i+1));
                         break;
                     }
                 }

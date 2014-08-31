@@ -191,14 +191,14 @@ END;
         $captures = runQuery($sql);
         $updated=0;
         while ($capture = $captures->fetch_assoc()) {
-            $points = explode("||",$capture["data"]);
+            $points = explode("|",$capture["data"]);
             // echo $capture["data"] . "<br>";
             $first_point = $points[0];
-            $first_point_ary =  explode("|",$first_point);
+            $first_point_ary =  explode(":",$first_point);
             $first_dt = $first_point_ary[0];
 
             $last_point = $points[(count($points)-1)];
-            $last_point_ary =  explode("|",$last_point);
+            $last_point_ary =  explode(":",$last_point);
             $last_dt = $last_point_ary[0];
 
 

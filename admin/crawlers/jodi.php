@@ -187,7 +187,7 @@ function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off b
                     }
                     //start series
                     $series_header = $aryLine;
-                    $data = $mdDate."|".($aryLine[$COL_VALUE]==""?"null":$aryLine[$COL_VALUE]);
+                    $data = $mdDate.":".($aryLine[$COL_VALUE]==""?"null":$aryLine[$COL_VALUE]);
                 } else { //another point in current series
                     $data .= "," . $mdDate .":".($aryLine[$COL_VALUE]==""?"null":$aryLine[$COL_VALUE]);
                 }
@@ -231,7 +231,7 @@ function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off b
 
             $aryData = explode(",", $aRow["data"]);
             sort($aryData);
-            /*$data = implode("|", $aryData);
+            /*$data = implode(":", $aryData);
             $aryFirstPoint= explode(":", $aryData[0]);
             $aryLastPoint= explode(":", $aryData[count($aryData)-1]);
             $firstDate100k = strtotime(substr($aryFirstPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")/100;

@@ -229,19 +229,19 @@ window.MashableData.plugin = function(){ //mashableData namespace
                          var xDate = new Date(thisSeries.data[datapoint].x);
                          switch(seriesInfo.periodicity){
                          case 'A':
-                         dataPortion += ("||" + xDate.getUTCFullYear() + "|" + thisSeries.data[datapoint].y);
+                         dataPortion += ("|" + xDate.getUTCFullYear() + ":" + thisSeries.data[datapoint].y);
                          break;
                          case 'W':
                          case 'D':
-                         dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + "|" + thisSeries.data[datapoint].y);
+                         dataPortion += ("|" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + ":" + thisSeries.data[datapoint].y);
                          break;
                          case 'M':
                          case 'Q':
                          case 'SA':
-                         dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + "|" + thisSeries.data[datapoint].y);
+                         dataPortion += ("|" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ":" + thisSeries.data[datapoint].y);
                          break;
                          case 'N':
-                         dataPortion += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + "|" + thisSeries.data[datapoint].y);
+                         dataPortion += ("|" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + ":" + thisSeries.data[datapoint].y);
                          break;
                          }
                          }*/

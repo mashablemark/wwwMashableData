@@ -914,10 +914,10 @@ MashableData.grapher = function(){
                 if(plot.options.fdown && plot.options.fdown!=oGraph.assets[components[i].handle].period){
                     data = common.downShiftData(oGraph.assets[components[i].handle], plot.options.fdown, plot.options.algorithm, plot.options.missing);
                 } else {
-                    data = oGraph.assets[components[i].handle].data.split("||");
+                    data = oGraph.assets[components[i].handle].data.split('|');
                 }
                 for(j=0; j<data.length; j++){
-                    point = data[j].split("|");
+                    point = data[j].split(':');
                     if(!oComponentData[point[0].toString()]){
                         oComponentData[point[0].toString()] = {};
                     }
@@ -3034,9 +3034,9 @@ MashableData.grapher = function(){
                                         geos[geo]=true;
                                         sortedGeoList.push({geo: geo, name: graph.assets[components[i].handle].geoname});
                                     }
-                                    data = graph.assets[components[i].handle].data[geo].data.split("||");
+                                    data = graph.assets[components[i].handle].data[geo].data.split('|');
                                     for(j=0; j<data.length; j++){
-                                        point = data[j].split("|");
+                                        point = data[j].split(':');
                                         if(!oComponentData[point[0].toString()]){
                                             oComponentData[point[0].toString()] = {};
                                         }
@@ -3047,9 +3047,9 @@ MashableData.grapher = function(){
                                     }
                                 }
                             } else {
-                                data = graph.assets[components[i].handle].data.split("||");
+                                data = graph.assets[components[i].handle].data.split('|');
                                 for(j=0; j<data.length; j++){
-                                    point = data[j].split("|");
+                                    point = data[j].split(':');
                                     if(!oComponentData[point[0].toString()]){
                                         oComponentData[point[0].toString()] = {};
                                     }
@@ -3219,9 +3219,9 @@ MashableData.grapher = function(){
                                             markers[latlon].latLng[0] = parseFloat(markers[latlon].latLng[0]); //TODO:  test if this is really necessary
                                             markers[latlon].latLng[1] = parseFloat(markers[latlon].latLng[1]);
                                         }
-                                        data = Xdata[latlon].data.split("||");
+                                        data = Xdata[latlon].data.split('|');
                                         for(k=0; k<data.length; k++){
-                                            point = data[k].split("|");
+                                            point = data[k].split(':');
                                             if(!oComponentData[point[0].toString()]){
                                                 oComponentData[point[0].toString()] = {};
                                             }
@@ -3232,9 +3232,9 @@ MashableData.grapher = function(){
                                         }
                                     }
                                 } else {
-                                    data = graph.assets[components[j].handle].data.split("||");
+                                    data = graph.assets[components[j].handle].data.split('|');
                                     for(k=0; k<data.length; k++){
-                                        point = data[k].split("|");
+                                        point = data[k].split(':');
                                         if(!oComponentData[point[0].toString()]){
                                             oComponentData[point[0].toString()] = {};
                                         }
@@ -4247,9 +4247,9 @@ MashableData.grapher = function(){
 
     function seriesValue(mdData, mdDate){
         if(!mdData) return null;
-        var point, data = mdData.split('||');
+        var point, data = mdData.split('|');
         for(var i=0;i<data.length;i++){
-            point = data[i].split('|');
+            point = data[i].split(':');
             if(point[0]==mdDate) {
                 if(point[1]=='null') return null; else return parseFloat(point[1]);
             }

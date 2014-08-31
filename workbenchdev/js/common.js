@@ -38,9 +38,9 @@ MashableData.common = {
             return serie.data;
         } else {
             for (i = 0; i < serie.data.length; i++) {
-                points.push( mashableDate(serie.data[i][0], serie.period) + '|' + (isNaN(serie.data[i][1])||serie.data[i][1]===null? 'null' : serie.data[i][1]));
+                points.push( mashableDate(serie.data[i][0], serie.period) + ':' + (isNaN(serie.data[i][1])||serie.data[i][1]===null? 'null' : serie.data[i][1]));
             }
-            return points.join('||');
+            return points.join('|');
         }
     },
 
@@ -123,7 +123,7 @@ MashableData.common = {
                     jsStart.setUTCMonth(jsStart.getUTCMonth() - 119);
                 }
                 while(jsStart <= jsEnd){
-                    data += (data?'||':'') + mashableDate(jsStart.getTime(), 'M') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay);
+                    data += (data?'|':'') + mashableDate(jsStart.getTime(), 'M') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay);
                 }
                 break;
             case "DAYSPERQUARTER":  //seriesid = 5258276
@@ -139,7 +139,7 @@ MashableData.common = {
                     jsStart.setUTCMonth(jsStart.getUTCMonth() - 119);
                 }
                 while(jsStart <= jsEnd){
-                    data += (data?'||':'') + mashableDate(jsStart.getTime(), 'Q') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay);
+                    data += (data?'|':'') + mashableDate(jsStart.getTime(), 'Q') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay);
                 }
                 break;
             case "DAYSPERYEAR":  //seriesid = 5258275
@@ -157,7 +157,7 @@ MashableData.common = {
                     jsStart = new Date((jsEnd.getUTCFullYear() - 20)  + '-01-01 UTC');
                 }
                 while(jsStart <= jsEnd){
-                    data += (data?'||':'') + mashableDate(jsStart.getTime(), 'A') + '|' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCFullYear(jsStart.getUTCFullYear()+1))/period.value.D);
+                    data += (data?'|':'') + mashableDate(jsStart.getTime(), 'A') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCFullYear(jsStart.getUTCFullYear()+1))/period.value.D);
                 }
                 break;
         }
@@ -224,14 +224,14 @@ MashableData.common = {
         //real down-shift work begins...
 
         //1.  chunk input into output period sized arrays
-        var aData = asset.data.split('||'), newData=[], bin=[],
+        var aData = asset.data.split('|'), newData=[], bin=[],
             lengthInMonths = (fdown=='Q'?3:12),  //can downshift to only annual or quarterly
             lengthAssetPeriod = asset.period=='M'?1:3, //can downshift from only monthly or quarterly
             periodsStartDate=false,
             mdDate, point, pointDate;
 
         for(var i=0;i<aData.length;i++){
-            point = aData[i].split('|');
+            point = aData[i].split(':');
             pointDate = this.dateFromMdDate(point[0]);
             //old new interval check: if(pointDate.getUTCMonth()%lengthInMonths==0){
             if(periodsStartDate===false
@@ -280,7 +280,7 @@ MashableData.common = {
                 }
             }
             if(missingDays!=0 && newY != 'null') newY = newY*(valueDays+missingDays)/valueDays; //IMPUTATION
-            return mdDate + '|' + (algorithm=='wavg'?newY/valueDays:newY);
+            return mdDate + ':' + (algorithm=='wavg'?newY/valueDays:newY);
         }
     },
 

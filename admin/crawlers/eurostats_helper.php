@@ -57,6 +57,8 @@ if(!isset($_REQUEST["codes"])){
             $fileArray = file($dsdFolder.$code.".dsd.xml");
             $dsdString = implode("\n", $fileArray);
             if(strpos($dsdString,"Error code: ")===0  || strpos($dsdString,"Not Found")===0 ||  strpos($dsdString,"<big>Access Denied </big><br><br>")!==false){
+                print($dsdString);
+                die("bad ".$dsdFolder.$code.".dsd.xml");
                 unlink($dsdFolder.$code.".dsd.xml");
                 print("Error loading $i. <a href=\"$dsdRootUrl$code\">$code</a><br>: $dsdString<br>");
             } else {
@@ -127,6 +129,7 @@ if(!isset($_REQUEST["codes"])){
                         }
                     }
                 }
+                die("before getTSV");
                 getTSV($code);
                 $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
                 $header_array = str_getcsv(gzgets($gz),"\t", "");
@@ -282,6 +285,7 @@ if(!isset($_REQUEST["codes"])){
 function getTSV($code, $force = false){
     global $tsvFolder;
 //GET TSV DATA FILE
+    die("tyring to download http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?file=data/$code.tsv.gz<BR>");
     if($force || !file_exists($tsvFolder.$code.".tsv.gz")){
         set_time_limit(300);
         file_put_contents($tsvFolder . $code.".tsv.gz", fopen("http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?file=data/$code.tsv.gz", 'r'));
@@ -295,13 +299,14 @@ function getDsd($code){
     $fp = fopen($dsdFolder.$code.".dsd.xml", "w");
     $options = array(
         CURLOPT_FILE    => $fp, //output to to window if not defined
-        CURLOPT_TIMEOUT =>  200, // set this to 8 hours so we dont timeout on big files
+        CURLOPT_TIMEOUT =>  200, // set this to 8 hours so we don't timeout on big files
         CURLOPT_URL     => $dsdRootUrl.$code
     );
 
     $ch = curl_init();
     curl_setopt_array($ch, $options);
     curl_exec($ch);
+    //die("tyring to CURL ".$dsdRootUrl.$code."<BR>");
 }
 
 function getCatId($node){

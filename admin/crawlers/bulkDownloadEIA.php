@@ -233,7 +233,7 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
                 $d = $series["data"][$i][0];
                 $series["data"][$i][0] = substr($d,0,4).sprintf("%02d", intval(substr($d,4,2))-1).(strlen($d)==8?substr($d,6,2):"");
             }
-            array_push($mddata, $series["data"][$i][0]."|".(is_numeric($series["data"][$i][1])?floatval($series["data"][$i][1]):"null"));
+            array_push($mddata, $series["data"][$i][0].':'.(is_numeric($series["data"][$i][1])?floatval($series["data"][$i][1]):"null"));
         }
         $mddata = array_reverse($mddata);
 
@@ -329,7 +329,7 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
             $series["last_updated"],  // $apidt,
             $series["start"], //  $firstdt,
             $series["end"],   //$lastdt,
-            implode("||", $mddata),  //  $data,
+            implode("|", $mddata),  //  $data,
             $series["geoid"],  //  $geoid,
             $mapsetid,
             $pointsetid,

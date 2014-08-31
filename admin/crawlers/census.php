@@ -291,7 +291,7 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
             $geoid = $geographies[$locationCode]["geoid"];
             $mdData = [];
             for($j=0;$j<count($dataArray);$j++){
-                array_push($mdData, implode($dataArray[$j],"|"));
+                array_push($mdData, implode($dataArray[$j],':'));
             }
             //printNow("$locationCode $geoname($geoid): $j");
 
@@ -300,7 +300,7 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
                 "US Census Bureau","http://www.census.gov/developers/data/","A",
                 $units,"null","null",$setName,
                 $apiid, "",
-                $firstDate,$lastDate,implode($mdData,"||"), $geoid, $mapsetid, null, null, null, $themeid);
+                $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);
 
             //insert cubeseries
             runQuery("insert ignore into cubeseries (cubeid, geoid, seriesid) values($cubeid, $geoid, $sid)");

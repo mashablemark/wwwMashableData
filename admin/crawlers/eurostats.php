@@ -279,9 +279,9 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                 if(!isset($series[$sKey]["firstdt"])){
                     $series[$sKey]["firstdt"] = $unixDate * 1000;
                 } else {
-                    $series[$sKey]["data"] .= "||";
+                    $series[$sKey]["data"] .= "|";
                 }
-                $series[$sKey]["data"] .= $mdDate."|".$dataFields[$c];
+                $series[$sKey]["data"] .= $mdDate.':'.$dataFields[$c];
                 $series[$sKey]["lastdt"] = $unixDate * 1000;
             }
         }

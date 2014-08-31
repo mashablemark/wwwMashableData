@@ -1463,13 +1463,13 @@ function editSeries(series){//array of series to edit
             var key, mapOptions='', $select = $panel.find('select').html('').show().click(function(){$panel.find('input:radio').removeAttr('checked').filter('[value="set"]').attr('checked','checked')});
             if(serie.geocounts){
                 for(key in serie.geocounts){
-                    mapOptions+='<option value="'+key+'|'+mapsList[key].jvectormap+'">'+key+' ('+serie.geocounts[key].set+')</option>';
+                    mapOptions+='<option value="'+key+':'+mapsList[key].jvectormap+'">'+key+' ('+serie.geocounts[key].set+')</option>';
                 }
                 $select.html(mapOptions);
             } else {
                 callApi({command: "GetAvailableMaps", mapsetid: serie.mapsetid, pointsetid: serie.pointsetid, geoid: serie.geoid}, function(jsoData, textStatus, jqXH){
                     for(var i=0;i<jsoData.maps.length;i++){
-                        mapOptions+='<option value="'+jsoData.maps[i].name+'|'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
+                        mapOptions+='<option value="'+jsoData.maps[i].name+':'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
                     }
                     $select.html(mapOptions);
                 });
@@ -1514,7 +1514,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         require(requireModules); //loading the require JS modules during the API call;
         if(toEdit[0]=='M'){ //MAPSET EDIT
             set = toEdit;
-            callApi({command: 'GetSet', mapsetid: parseInt(set.substr(1)), map: map.split('|')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
+            callApi({command: 'GetSet', mapsetid: parseInt(set.substr(1)), map: map.split(':')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
                 require(requireModules,function(){userMapSet(jsoData.setData)});
             });
             function userMapSet(setData){
@@ -1533,10 +1533,10 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                      }*/
                     row = rows.M.header+1;  //first data row
                     if(setData.geographies[i].data){
-                        seriesData = setData.geographies[i].data.split('||');
+                        seriesData = setData.geographies[i].data.split('|');
                         seriesData.sort(); //this should not be necessary is series were properly ordered
                         for(j=0;j<seriesData.length;j++){
-                            point = seriesData[j].split('|');
+                            point = seriesData[j].split(':');
                             while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
                             if(row==grid.length){
                                 grid.push(makeRow());
@@ -1568,7 +1568,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         }
         if(toEdit[0]=='X'){ //MARKER SET EDIT
             set = toEdit;
-            callApi({command: 'GetPointSets', pointsetids: [parseInt(set.substr(1))], map: map.split('|')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
+            callApi({command: 'GetPointSets', pointsetids: [parseInt(set.substr(1))], map: map.split(':')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
                 require(requireModules,function(){userMarkerSet(jsoData.pointsets[set])});
             });
             function userMarkerSet(setData){
@@ -1583,10 +1583,10 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     grid[rows.X.header].push(setData.data[latlon].name.replace(setData.name,'').trim());
                     row = rows.X.header+1;  //first data row
                     if(setData.data[latlon].data){
-                        seriesData = setData.data[latlon].data.split('||');
+                        seriesData = setData.data[latlon].data.split('|');
                         seriesData.sort(); //this should not be necessary is series were properly ordered
                         for(j=0;j<seriesData.length;j++){
-                            point = seriesData[j].split('|');
+                            point = seriesData[j].split(':');
                             while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
                             if(row==grid.length){
                                 grid.push(makeRow());
@@ -1791,9 +1791,9 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                 case 'S':
                     periodOfEdits = oSerie.period;
                     if(oSerie.data){
-                        data = oSerie.data.split("||").sort();
+                        data = oSerie.data.split('|').sort();
                         for(i=0;i<data.length;i++){
-                            data[i] = data[i].split("|");
+                            data[i] = data[i].split(':');
                             data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(), oSerie.period);
                         }
                         data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
@@ -1807,9 +1807,9 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                                 //showSeriesInEditor()
                                 oSerie.data = jsoData.series[handle].data;
                                 oSerie.notes = jsoData.series[handle].notes;
-                                var data = jsoData.series[handle].data.split("||").sort();
+                                var data = jsoData.series[handle].data.split('|').sort();
                                 for(var i=0;i<data.length;i++){
-                                    data[i] = data[i].split("|");
+                                    data[i] = data[i].split(':');
                                     data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
                                 }
                                 data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
@@ -1839,9 +1839,9 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                  if(mapset.data[jsoData.geographies[i].code]){ //map code matched one of the mapset's series
                  var j, k=0, serie = mapset.data[jsoData.geographies[i].code], point;
                  data[rows.M.handle][i+1] = serie.handle;
-                 var serieData = serie.data.split('||');
+                 var serieData = serie.data.split('|');
                  for(j=0;j<mapDates.length;j++){
-                 point = serieData[k].split(['|']);
+                 point = serieData[k].split([':']);
                  if(k<serieData.length && point[0]==mapDates[j].s){
                  data[rows.M.header + j + 1].push(point[1]);
                  k++;
@@ -1862,9 +1862,9 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                  }
                  );
                  for(jvmCode in mapset.data){  //compute Mapdates while fetching GetMapGeographies
-                 data = mapset.data[jvmCode].data.split('||');
+                 data = mapset.data[jvmCode].data.split('|');
                  for(i=0;i<data.length;i++){
-                 oDates[data[i].split('|')[0]] = true;
+                 oDates[data[i].split(':')[0]] = true;
                  }
                  }
                  for(mapDate in oDates){
@@ -2052,19 +2052,19 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     var xDate = new Date(pointArray[datapoint].x);
                     switch(seriesInfo.period){
                         case 'A':
-                            mdata += ("||" + xDate.getUTCFullYear() + "|" + pointArray[datapoint].y);
+                            mdata += ('|' + xDate.getUTCFullYear() + ':' + pointArray[datapoint].y);
                             break;
                         case 'W':
                         case 'D':
-                            mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + "|" + pointArray[datapoint].y);
+                            mdata += ('|' + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + ':' + pointArray[datapoint].y);
                             break;
                         case 'M':
                         case 'Q':
                         case 'SA':
-                            mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + "|" + pointArray[datapoint].y);
+                            mdata += ('|' + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ':' + pointArray[datapoint].y);
                             break;
                         case 'N':
-                            mdata += ("||" + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + "|" + pointArray[datapoint].y);
+                            mdata += ('|' + xDate.getUTCFullYear() + ((xDate.getUTCMonth()<=9)?"0":"") + xDate.getUTCMonth() + ((xDate.getUTCDate()<=9)?"0":"") + xDate.getUTCDate() + " " + xDate.getUTCHours() + ":" + xDate.getUTCHours() + ":" + xDate.getUTCMinutes() + ':' + pointArray[datapoint].y);
                             break;
                     }
                 }
@@ -3010,9 +3010,9 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
 
 
             //loop through the data, adding rows for new dates as needed and then setting the column values
-            compData = component.data.split('||');
+            compData = component.data.split('|');
             for(d=0;d<compData.length;d++){
-                mdPoint = compData[d].split('|');
+                mdPoint = compData[d].split(':');
                 jsdt = dateFromMdDate( mdPoint[0]);
                 readableDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
                 if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
