@@ -145,6 +145,36 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 
 
 function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a single single api run until no more
+    $skipCountries = [
+        "ARB"=>"Arab World",
+        "CSS"=>"Caribbean small states",
+        "EAP"=>"East Asia & Pacific (developing only)",
+        //"EAS"=>"East Asia & Pacific (all income levels)",
+        "ECA"=>"Europe & Central Asia (developing only)",
+        //"ECS"=>"Europe & Central Asia (all income levels)",
+        "ECA"=>"Europe & Central Asia (developing only)",
+        "EMU"=>"Euro area",
+        //"EUU"=>"European Union"  < should be EUR
+        "LAC"=>"Latin America & Caribbean (developing only)",
+        //"LCN"=>"Latin America & Caribbean (all income levels)",
+        "LDC"=>"Least developed countries: UN classification",
+        //"MEA"=>"Middle East & North Africa (all income levels)",
+        "MNA"=>"Middle East & North Africa (developing only)",
+        //"NAC"=>"North America",
+        //"OED"=>"OECD members",
+        "OSS"=>"Other small states",
+        "PSS"=>"Pacific island small states",
+        //"SAS"=>"South Asia",
+        "SSA"=>"Sub-Saharan Africa (developing only)",
+        //"SSF"=>"Sub-Saharan Africa (all income levels)",
+        "SST"=>"Small states",
+        "HIC"=>"High income",
+        "HPC"=>"Heavily indebted poor countries (HIPC)",
+        "INX"=>"Not classified",
+        "MIC"=>"Middle income",
+        "LMY"=>"Low & middle income"
+    ];
+
     $apidt = date("Y-m-d");
     global $MAIL_HEADER, $db;
     $jobid = $job_row["jobid"];
@@ -256,52 +286,63 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $dataFilePath = isset($datasetInfo["dataFile"])?$datasetInfo["dataFile"]:"bulkfiles/wb/".$datasetInfo["filePrefix"]."_Data.csv";
     $dataFilePointer = fopen($dataFilePath, "r");
     $columns = fgetcsv($dataFilePointer);  //header line
+    $loggedCountryCodes = [];
     while(!feof($dataFilePointer)){
         $opCount++;
         if($opCount = intval($opCount/100)*100){ //don't update every time = too much unnecessary overhead
             runQuery($updateRunSql);
             runQuery($updateJobSql);
         }
+
         $values = fgetcsv($dataFilePointer);
         $countyCode = $values[$DataFile_CountryCodeColumn];
-        if($countyCode=="ADO" && $values[$DataFile_CountryNameColumn]=="Andorra") $countyCode = "AND";  //Andorra's ISO code is wrong in
-        $setKey = $acronym . ":" . $values[$DataFile_SeriesCodeColumn];
-        $data = [];
-        for($c=$DataFile_DataColumn;$c<count($values);$c++){
-            if($values[$c]){
-                $data[] = $columns[$c].":". floatval($values[$c]);  //TODO: monthly data may require formatting $column values
+
+        if(!array_key_exists($countyCode, $skipCountries)){
+            if($countyCode=="ADO" && $values[$DataFile_CountryNameColumn]=="Andorra") $countyCode = "AND";  //Andorra's ISO code is wrong in
+            //TODO: CEB, ZAR, FCS, IMY, ROM, TMP, WBG
+
+            $setKey = $acronym . ":" . $values[$DataFile_SeriesCodeColumn];
+            $data = [];
+            for($c=$DataFile_DataColumn;$c<count($values);$c++){
+                if($values[$c]){
+                    $data[] = $columns[$c].":". floatval($values[$c]);  //TODO: monthly data may require formatting $column values
+                }
             }
-        }
-        if(count($data)>0){
-            $geo = isoLookup($countyCode);
-            if($geo){
-                $geoId = $geo["geoid"];
-                if($sets[$setKey]["setid"]){
-                    $setId = $sets[$setKey]["setid"];
-                } else {
-                    //LCU
-                    $lcuSetKey = $setKey . ":" . $geo["currency"];
-                    if(isset($sets[$lcuSetKey])){
-                        $setId = $sets[$lcuSetKey]["setid"];
+            if(count($data)>0){
+                $geo = isoLookup($countyCode);
+                if($geo){
+                    $geoId = $geo["geoid"];
+                    if($sets[$setKey]["setid"]){
+                        $setId = $sets[$setKey]["setid"];
                     } else {
-                        $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
-                        $setName = $sets[$setKey]["name"];
-                        $setMeta = $sets[$setKey]["meta"];
-                        $src = $sets[$setKey]["src"];
-                        $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
-                        setCatSet($sets[$setKey]["catid"], $setId);
-                        $sets[$lcuSetKey]["setid"] = $setId;
+                        //LCU
+                        $lcuSetKey = $setKey . ":" . $geo["currency"];
+                        if(isset($sets[$lcuSetKey])){
+                            $setId = $sets[$lcuSetKey]["setid"];
+                        } else {
+                            $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
+                            $setName = $sets[$setKey]["name"];
+                            $setMeta = $sets[$setKey]["meta"];
+                            $src = $sets[$setKey]["src"];
+                            $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
+                            setCatSet($sets[$setKey]["catid"], $setId);
+                            $sets[$lcuSetKey]["setid"] = $setId;
+                        }
+                    }
+                    if(!$setId) {
+                        var_dump($values);
+                        die($setKey);
+                    }
+                    saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+                } else {
+                    if(array_search($countyCode, $loggedCountryCodes)===false){
+                        array_push($loggedCountryCodes, $countyCode);
+                        logEvent("WB ingest warning", $countyCode." is not a recognized country code");
                     }
                 }
-                if(!$setId) {
-                    var_dump($values);
-                    die($setKey);
-                }
-                saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
-            } else {
-                logEvent("WB ingest warning", $countyCode." is not a recognized country code");
             }
         }
+
     }
     fclose($dataFilePointer);
 //  (f) if exists, loop through country-series and update setdata.metadata
@@ -330,7 +371,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     }
 
     $updatedJobJson = json_encode(array_merge($datasetInfo, $status));
-    runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
+    runQuery("update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
     runQuery($updateRunSql);
     /*runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
         .", added=added+".$status["added"]
