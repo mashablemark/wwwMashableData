@@ -151,6 +151,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $runid = $api_run_row["runid"];
     $apiid = $api_run_row["apiid"];
     $src = $api_run_row["name"];
+    $DataFile_CountryNameColumn = 0;
     $DataFile_CountryCodeColumn=1;  //column B
     $DataFile_SeriesCodeColumn=3;  //column D
     $DataFile_DataColumn=4;  //column E
@@ -168,8 +169,8 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
 
 //  (b) create theme
-    $themeId = getTheme($apiid, $datasetInfo["datasetName"], $datasetInfo["themeMetadata"], $acronym);
-
+    $theme = getTheme($apiid, $datasetInfo["datasetName"], $datasetInfo["themeMetadata"], $acronym);
+    $themeId = $theme["themeid"];
     //reusable SQL statements
     $updateRunSql = "update apiruns set finishdt=now() where runid=".$runid;
     $updateJobSql = "update apirunjobs set status = 'R', enddt=now() where jobid=$jobid";
@@ -182,15 +183,21 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     //$result is a pointer to the job to run
     set_time_limit(60);
 
-    $setName = $datasetInfo['name'];
+    $datasetName = $datasetInfo['datasetName'];
     $sets = []; //used to store set headers in memory until data file ingested to solve LCU series problem
-    print("STARTING WB : $setName (job $jobid)<br>\r\n");
+    print("STARTING WB : $datasetName (job $jobid)<br>\r\n");
 
-    $csv=fopen("bulkfiles/wb/".$datasetInfo["filePrefix"]."_Series.csv","r");
-    $columns = fgetcsv($csv);  //header line
+    $seriesFilePointer=fopen("bulkfiles/wb/".$datasetInfo["filePrefix"]."_Series.csv","r");
+    $columns = fgetcsv($seriesFilePointer);  //header line
     $initial = true;
-    while(!feof($csv)){
-        $values = fgetcsv($csv);
+    $opCount = 0;
+    while(!feof($seriesFilePointer)){
+        $opCount++;
+        if($opCount = intval($opCount/100)*100){
+            runQuery($updateRunSql);
+            runQuery($updateJobSql);
+        }
+        $values = fgetcsv($seriesFilePointer);
         if(count($values)>5){  //don't try to injest blank line(s) at bottom of file
             $catId = $datasetRootCatId;
             $subCats =    explode(":", $values[array_search($datasetInfo["subcategories"], $columns)]);
@@ -204,13 +211,15 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
             $metaColumns = $datasetInfo["metaData"];
             $setMeta = "";
             foreach($metaColumns as $metaColumn){
-                $meta = $values[array_search($metaColumn, $columns)];
-                if(strlen(trim($meta))>0 && strpos($setMeta, trim($meta))===false) $setMeta .= " ".$meta;
+                $metaPart = $values[array_search($metaColumn, $columns)];
+                if(strlen(trim($metaPart))>0 && strpos($setMeta, trim($metaPart))===false) $setMeta .= " ".$metaPart;
             }
             $setMeta = trim($setMeta);
-            if(preg_match_all("#\([^\)]+\)#", $setName, $matches)>0){
-                $setUnits = $matches[1][count($matches[1]-1)];  //last match, exclusive of parentheses
-                $setName = str_replace($matches[0][count($matches[0]-1)], "", $setName);
+            preg_match_all("#\(([^\)]+)\)#", $setName, $matches);
+            if(count($matches[0])>0){
+                //var_dump($matches);
+                $setUnits = $matches[1][count($matches[1])-1];  //last match, exclusive of parentheses
+                $setName = str_replace($matches[0][count($matches[0])-1], "", $setName);
                 //remove sources conflated with units and cleanup
                 $setUnits = str_replace("FAO, ","", $setUnits);
                 $setUnits = str_replace("metric tons","metric tonnes", $setUnits);
@@ -219,67 +228,86 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                 $setUnits = "";
             }
             if(strpos($setUnits, "LCU")===false){
-                $setId = updateSetMetadata($apiid, $setKey, $setName, $setUnits, $src, $datasetInfo["url"], $setMeta, $apidt);
+                $setId = saveSet($apiid, $setKey, $setName, $setUnits, $src, $datasetInfo["url"], $setMeta, $apidt, $themeId);
                 $sets[$setKey] = ["setid"=>$setId];
                 setCatSet($catId, $setId);
                 $sets[$setKey] = [
                     "setid"=>$setId
                 ];
+                //printNow("$setId ($setKey): $setName");
             } else {
                 $sets[$setKey] = [
                     "name"=>$setName,
                     "units"=>$setUnits,
                     "src"=>$src,
                     "meta"=>$setMeta,
-                    "catid"=>$catId
+                    "catid"=>$catId,
+                    "setid"=> false
                 ];
             }
         }
     }
-    fclose($csv);
+    fclose($seriesFilePointer);
 
 //  (e) loop through series data and create / update setdata records
 
-    print("INGEST WB DATA : $setName (job $jobid)<br>\r\n");
+    print("INGEST WB DATA : $datasetName (job $jobid)<br>\r\n");
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
     $dataFilePath = isset($datasetInfo["dataFile"])?$datasetInfo["dataFile"]:"bulkfiles/wb/".$datasetInfo["filePrefix"]."_Data.csv";
-    $csv = fopen($dataFilePath, "r");
-    $columns = fgetcsv($csv);  //header line
-    while(!feof($csv)){
-        $values = fgetcsv($csv);
+    $dataFilePointer = fopen($dataFilePath, "r");
+    $columns = fgetcsv($dataFilePointer);  //header line
+    while(!feof($dataFilePointer)){
+        $opCount++;
+        if($opCount = intval($opCount/100)*100){ //don't update every time = too much unnecessary overhead
+            runQuery($updateRunSql);
+            runQuery($updateJobSql);
+        }
+        $values = fgetcsv($dataFilePointer);
         $countyCode = $values[$DataFile_CountryCodeColumn];
+        if($countyCode=="ADO" && $values[$DataFile_CountryNameColumn]=="Andorra") $countyCode = "AND";  //Andorra's ISO code is wrong in
         $setKey = $acronym . ":" . $values[$DataFile_SeriesCodeColumn];
         $data = [];
         for($c=$DataFile_DataColumn;$c<count($values);$c++){
             if($values[$c]){
-                $data[] = $columns[$c].":".$values[$c];
+                $data[] = $columns[$c].":". floatval($values[$c]);  //TODO: monthly data may require formatting $column values
             }
         }
         if(count($data)>0){
             $geo = isoLookup($countyCode);
-            $geoId = $geo["geoid"];
-            if(isset($sets[$setKey]["setid"])){
-                $setId = $sets[$setKey]["setid"];
-            } else {
-                //LCU
-                $lcuSetKey = $setKey . ":" . $geo["currency"];
-                if(isset($sets[$lcuSetKey])){
-                    $setId = $sets[$lcuSetKey]["setid"];
+            if($geo){
+                $geoId = $geo["geoid"];
+                if($sets[$setKey]["setid"]){
+                    $setId = $sets[$setKey]["setid"];
                 } else {
-                    $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
-                    $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt);
-                    setCatSet($sets[$setKey]["catid"], $setId);
-                    $sets[$lcuSetKey]["setid"] = $setId;
+                    //LCU
+                    $lcuSetKey = $setKey . ":" . $geo["currency"];
+                    if(isset($sets[$lcuSetKey])){
+                        $setId = $sets[$lcuSetKey]["setid"];
+                    } else {
+                        $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
+                        $setName = $sets[$setKey]["name"];
+                        $setMeta = $sets[$setKey]["meta"];
+                        $src = $sets[$setKey]["src"];
+                        $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
+                        setCatSet($sets[$setKey]["catid"], $setId);
+                        $sets[$lcuSetKey]["setid"] = $setId;
+                    }
                 }
+                if(!$setId) {
+                    var_dump($values);
+                    die($setKey);
+                }
+                saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+            } else {
+                logEvent("WB ingest warning", $countyCode." is not a recognized country code");
             }
-            saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
         }
     }
-    fclose($csv);
+    fclose($dataFilePointer);
 //  (f) if exists, loop through country-series and update setdata.metadata
 
-    if($datasetInfo["CountrySeriesSuffix"] && file_exists("bulkfiles/wb/".$acronym.$datasetInfo["CountrySeriesSuffix"])){
-        $countrySeries_csv = fopen("bulkfiles/wb/".$acronym.$datasetInfo["CountrySeriesSuffix"].".csv","r");
+    if($datasetInfo["CountrySeriesSuffix"] && file_exists("bulkfiles/wb/".$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"])){
+        $countrySeries_csv = fopen("bulkfiles/wb/".$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"].".csv","r");
         $columns = fgetcsv($countrySeries_csv);  //header line
         while(!feof($countrySeries_csv)){
             $values = fgetcsv($countrySeries_csv);
@@ -287,27 +315,28 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
             $CountrySeriesFile_SetCodeColumn=1;  //column B
             $CountrySeriesFile_SetDataMetaData=2;  //column C
             $setKey = $acronym . ":" . $values[$CountrySeriesFile_SetCodeColumn];
-            $countyCode = $values[            $CountrySeriesFile_CountryCodeColumn];
+            $countyCode = $values[$CountrySeriesFile_CountryCodeColumn];
             $geo = isoLookup($countyCode);
-            $geoId = $geo["geoid"];
-            if(isset($set[$setKey]["setid"])){
-                saveSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
-            } elseif(isset($set[$setKey.":".$geo["currency"]]["setid"])){
-                saveSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+            if($geo){
+                $geoId = $geo["geoid"];
+                if(isset($set[$setKey]["setid"])){
+                    updateSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+                } elseif(isset($set[$setKey.":".$geo["currency"]]["setid"])){
+                    updateSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+                }
             }
         }
         fclose($countrySeries_csv);
     }
 
-
     $updatedJobJson = json_encode(array_merge($datasetInfo, $status));
     runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
     runQuery($updateRunSql);
-    runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
+    /*runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
         .", added=added+".$status["added"]
         .", updated=updated+".$status["updated"]
         .", failed=failed+".$status["failed"]
-        ." where runid=$runid");
+        ." where runid=$runid");*/
 
     print("ENDING WB $setName: ".$datasetInfo["file"]." (job $jobid)<br>\r\n");
     return $status;
@@ -318,7 +347,7 @@ function ApiRunFinished($api_run){
     setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
-    freqSets($api_run["apiid"]);
+    //freqSets($api_run["apiid"]);
 /*    set_time_limit(200);
     pruneSets($api_run["apiid"]);*/
 }

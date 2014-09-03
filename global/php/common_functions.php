@@ -402,7 +402,7 @@ function mdDateFromUnix($iDateUnix, $period){
 function unixDateFromMd($mdDate){
     $len = strlen($mdDate);
     if($len==4) {
-        $uDate = new DateTime($mdDate."01-01");
+        $uDate = new DateTime($mdDate."-01-01");
         return $uDate->getTimestamp();
     }
     if($len==6){
@@ -519,46 +519,57 @@ function setPointsetCounts($setid="all", $apiid = "all"){
 }
 
 
-function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $adpidt='', $themeid='null', $latlon='', $lasthistoricaldt=null){ //get a mapset id, creating a record if necessary
+function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null){ //get a mapset id, creating a record if necessary
     global $db;
 
     if($setKey){
         $sql = "select * from sets where apiid=$apiid and setkey=".safeStringSQL($setKey);
     } else {
         $sql = "select * from sets where name=".safeStringSQL($name)." and apiid=".$apiid
-            ." and units ".safeStringSQL($units);
+            ." and units ".safeStringSQL($units,false);
     }
     $result = runQuery($sql, "getSet select");
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
-        if($row["name"]!=$name || $row["adpidt"]!=$adpidt || $row["units"]!=$units || $row["latlon"]!=$$latlon
+        if($row["name"]!=$name || $row["apidt"]!=$apidt || $row["units"]!=$units || $row["latlon"]!=$latlon
             || $row["lasthistoricaldt"]!=$lasthistoricaldt || $row["themeid"]!=$themeid || $row["metadata"]!=$metadata || $row["src"]!=$src  || $row["url"]!=$url ){
             $sql = "update sets set name = " .  safeStringSQL($name)
-                . ", set adpidt = " .  safeStringSQL($adpidt)
-                . ", set units = " .  safeStringSQL($units)
-                . ", set latlon = " .  safeStringSQL($latlon)
-                . ", set lasthistoricaldt = " .  safeStringSQL($lasthistoricaldt)
-                . ", set themeid = " .  $themeid
-                . ", set metadata = " .  safeStringSQL($metadata)
-                . ", set src = " .  safeStringSQL($src)
-                . ", set url = " .  safeStringSQL($url)
+                . ", apidt = " .  safeStringSQL($apidt)
+                . ", units = " .  safeStringSQL($units, false)
+                . ", latlon = " .  safeStringSQL($latlon, false)
+                . ", lasthistoricaldt = " .  safeStringSQL($lasthistoricaldt)
+                . ", themeid = " .  $themeid
+                . ", metadata = " .  safeStringSQL($metadata)
+                . ", src = " .  safeStringSQL($src)
+                . ", url = " .  safeStringSQL($url)
                 . " where setid=". $row["setid"];
             runQuery($sql, "getSet update");
         }
         return $row["setid"];
     } else {
+/*        printNow(safeStringSQL($apiid));
+        printNow(safeStringSQL($setKey));
+        printNow(safeStringSQL($name));
+        printNow(safeStringSQL($apidt));
+        printNow(safeStringSQL($units));
+        printNow(safeStringSQL($latlon));
+        printNow(safeStringSQL($lasthistoricaldt));
+        printNow(safeStringSQL($metadata));
+        printNow(safeStringSQL($src));
+        printNow(safeStringSQL($url));*/
         $sql = "insert into sets (apiid, setkey, name, apidt, units, latlon, lasthistoricaldt, themeid, metadata, src, url) VALUES ("
-            . $apiid.",".safeStringSQL($setKey)
-            . ", " .  safeStringSQL($name)
-            . ", " .  safeStringSQL($adpidt)
-            . ", " .  safeStringSQL($units)
-            . ", " .  safeStringSQL($latlon)
-            . ", " .  safeStringSQL($lasthistoricaldt)
-            . ", " .  $themeid
-            . ", " .  safeStringSQL($metadata)
-            . ", " .  safeStringSQL($src)
-            . ", " .  safeStringSQL($url);
-
+            . $apiid
+            . ", " . safeStringSQL($setKey)
+            . ", " . safeStringSQL($name)
+            . ", " . safeStringSQL($apidt)
+            . ", " . safeStringSQL($units, false)
+            . ", " . safeStringSQL($latlon, false)
+            . ", " . safeStringSQL($lasthistoricaldt)
+            . ", " . $themeid
+            . ", " . safeStringSQL($metadata)
+            . ", " . safeStringSQL($src)
+            . ", " . safeStringSQL($url)
+            . ")";
         $result = runQuery($sql, "getSet insert");
         if($result!==false){
             $setId = $db->insert_id;
@@ -570,12 +581,12 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
 
 function saveSetData(&$status, $setid, $periodicity, $geoid=0, $latlon="", $arrayData, $metadata= false, $logAs="save / update setdata", $apidt=null){
     if(!$apidt) $apidt =  date("Ymd");
-    $firstMdDate = explode(":", $arrayData[0]);
-    $lastMdDate = explode(":", $arrayData[count($arrayData)-1]);
-    $firstDate100k = unixDateFromMd($firstMdDate)/100;
-    $lastDate100k = unixDateFromMd($firstMdDate)/100;
+    $firstPoint = explode(":", $arrayData[0]);
+    $lastPoint = explode(":", $arrayData[count($arrayData)-1]);
+    $firstDate100k = unixDateFromMd($firstPoint[0])/100;
+    $lastDate100k = unixDateFromMd($lastPoint[0])/100;
     $data = implode("|", $arrayData);
-    $result = runQuery("select data from setdata where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon=$latlon");
+    $result = runQuery("select data from setdata where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
     if($result->num_rows==0){
         $status["added"]++;
     } else {
@@ -587,12 +598,12 @@ function saveSetData(&$status, $setid, $periodicity, $geoid=0, $latlon="", $arra
         }
     }
     $sql = "insert into setdata (setid, periodicity, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt)"
-        ." values($setid, '$periodicity', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, 'Sapidt')"
-        ." on duplicate key update set data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt'");
+        ." values($setid, '$periodicity', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, '$apidt')"
+        ." on duplicate key update data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt'");
     return runQuery($sql, $logAs);
 }
 
-function saveSetdataMetadata($setid, $periodicity, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
+function updateSetdataMetadata($setid, $periodicity, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
     $sql = "update setdata set metadata = ".  safeStringSQL($metadata)
         ." where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon='$latlon'";
     return runQuery($sql, $logAs);
