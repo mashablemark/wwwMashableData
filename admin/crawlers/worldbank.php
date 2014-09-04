@@ -145,34 +145,46 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 
 
 function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a single single api run until no more
-    $skipCountries = [
+    $skipCountries = [  //all regional WB aggregates shown; commented out = ingest!
         "ARB"=>"Arab World",
         "CSS"=>"Caribbean small states",
-        "EAP"=>"East Asia & Pacific (developing only)",
+        "CEB"=>"Central Europe and the Baltics",
         //"EAS"=>"East Asia & Pacific (all income levels)",
-        "ECA"=>"Europe & Central Asia (developing only)",
+        "EAP"=>"East Asia & Pacific (developing only)",
+        "CEA"=>"East Asia and the Pacific (IFC classification)",
+        "EMU"=>"Euro area",
         //"ECS"=>"Europe & Central Asia (all income levels)",
         "ECA"=>"Europe & Central Asia (developing only)",
-        "EMU"=>"Euro area",
-        //"EUU"=>"European Union"  < should be EUR
-        "LAC"=>"Latin America & Caribbean (developing only)",
+        "CEU"=>"Europe and Central Asia (IFC classification)",
+        //"EUU"=>"European Union",
+        "FCS"=>"Fragile and conflict affected situations",
+        "HPC"=>"Heavily indebted poor countries (HIPC)",
+        "HIC"=>"High income",
+        //"NOC"=>"High income: nonOECD",
+        //"OEC"=>"High income: OECD",
         //"LCN"=>"Latin America & Caribbean (all income levels)",
+        "LAC"=>"Latin America & Caribbean (developing only)",
+        "CLA"=>"Latin America and the Caribbean (IFC classification)",
         "LDC"=>"Least developed countries: UN classification",
+        "LMY"=>"Low & middle income",
+        //"LIC"=>"Low income",
+        "LMC"=>"Lower middle income",
         //"MEA"=>"Middle East & North Africa (all income levels)",
         "MNA"=>"Middle East & North Africa (developing only)",
+        "CME"=>"Middle East and North Africa (IFC classification)",
+        "MIC"=>"Middle income",
         //"NAC"=>"North America",
         //"OED"=>"OECD members",
         "OSS"=>"Other small states",
         "PSS"=>"Pacific island small states",
-        //"SAS"=>"South Asia",
-        "SSA"=>"Sub-Saharan Africa (developing only)",
-        //"SSF"=>"Sub-Saharan Africa (all income levels)",
         "SST"=>"Small states",
-        "HIC"=>"High income",
-        "HPC"=>"Heavily indebted poor countries (HIPC)",
-        "INX"=>"Not classified",
-        "MIC"=>"Middle income",
-        "LMY"=>"Low & middle income"
+        //"SAS"=>"South Asia",
+        "CSA"=>"South Asia (IFC classification)",
+        //"SSF"=>"Sub-Saharan Africa (all income levels)",
+        "SSA"=>"Sub-Saharan Africa (developing only)",
+        "CAA"=>"Sub-Saharan Africa (IFC classification)",
+        //"UMC"=>"Upper middle income",
+        //"WLD"=>"World",
     ];
 
     $apidt = date("Y-m-d");
@@ -389,7 +401,6 @@ function ApiRunFinished($api_run){
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
     //freqSets($api_run["apiid"]);
-/*    set_time_limit(200);
-    pruneSets($api_run["apiid"]);*/
+    /*    set_time_limit(200);
+        pruneSets($api_run["apiid"]);*/
 }
-
