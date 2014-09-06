@@ -324,6 +324,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $dataFilePointer = fopen($dataFilePath, "r");
     $columns = fgetcsv($dataFilePointer);  //header line
     $loggedCountryCodes = [];
+    $loggedSetKeys = [];
     while(!feof($dataFilePointer)){
         $opCount++;
         if($opCount == intval($opCount/100)*100){ //don't update every time = too much unnecessary overhead
@@ -354,32 +355,39 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
             if(count($data)>0){
                 $geo = isoLookup($countyCode);
                 if($geo){
-                    $geoId = $geo["geoid"];
-                    if($sets[$setKey]["setid"]){
-                        $setId = $sets[$setKey]["setid"];
-                    } else {
-                        //LCU
-                        $lcuSetKey = $setKey . ":" . $geo["currency"];
-                        if(isset($sets[$lcuSetKey])){
-                            $setId = $sets[$lcuSetKey]["setid"];
+                    if(isset($sets[$setKey])){
+                        $geoId = $geo["geoid"];
+                        if($sets[$setKey]["setid"]){
+                            $setId = $sets[$setKey]["setid"];
                         } else {
-                            $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
-                            $setName = $sets[$setKey]["name"];
-                            $setMeta = $sets[$setKey]["meta"];
-                            $src = $sets[$setKey]["src"];
-                            $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
-                            if($setId){
-                                setCatSet($sets[$setKey]["catid"], $setId);
-                                $sets[$lcuSetKey]["setid"] = $setId;
+                            //LCU
+                            $lcuSetKey = $setKey . ":" . $geo["currency"];
+                            if(isset($sets[$lcuSetKey])){
+                                $setId = $sets[$lcuSetKey]["setid"];
+                            } else {
+                                $lcuSetUnits = str_replace("LCU", $geo["currency"], $sets[$setKey]["units"]);
+                                $setName = $sets[$setKey]["name"];
+                                $setMeta = $sets[$setKey]["meta"];
+                                $src = $sets[$setKey]["src"];
+                                $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
+                                if($setId){
+                                    setCatSet($sets[$setKey]["catid"], $setId);
+                                    $sets[$lcuSetKey]["setid"] = $setId;
+                                }
                             }
                         }
-                    }
-                    if($setId) {
-                        saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+                        if($setId) {
+                            saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+                        } else {
+                            print("unable to insert data for:  ");
+                            var_dump($values);
+                            logEvent("WB ingest warning", "unable to find/insert World Bank Series for setkey $setKey in $acronym");
+                        }
                     } else {
-                        print("unable to inset data for:  ");
-                        var_dump($values);
-                        logEvent("WB ingest warning", "unable to find/insert World Bank Series for setkey $setKey in $acronym");
+                        if(array_search($setKey, $loggedSetKeys)===false){
+                            array_push($loggedSetKeys, $setKey);
+                            logEvent("WB ingest warning", "missing series header for $setKey");
+                        }
                     }
                 } else {
                     if(array_search($countyCode, $loggedCountryCodes)===false){
