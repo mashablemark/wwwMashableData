@@ -238,6 +238,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
         if($opCount = intval($opCount/100)*100){
             runQuery($updateRunSql);
             runQuery($updateJobSql);
+            set_time_limit(60);
         }
         $values = fgetcsv($seriesFilePointer);
         if(count($values)>5){  //don't try to injest blank line(s) at bottom of file
@@ -311,7 +312,11 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
         if(!array_key_exists($countyCode, $skipCountries)){
             if($countyCode=="ADO" && $values[$DataFile_CountryNameColumn]=="Andorra") $countyCode = "AND";  //Andorra's ISO code is wrong in
-            //TODO: CEB, ZAR, FCS, IMY, ROM, TMP, WBG
+            if($countyCode=="ZAR" && $values[$DataFile_CountryNameColumn]=="Dem. Rep. Congo") $countyCode = "COD";  //WB still using old Zaire code
+            if($countyCode=="IMY" && $values[$DataFile_CountryNameColumn]=="Isle of Man") $countyCode = "IMN";  //proposed ISO
+            if($countyCode=="ROM" && $values[$DataFile_CountryNameColumn]=="Romania") $countyCode = "ROU";  //not sure why WB had wrong code...
+            if($countyCode=="TMP" && $values[$DataFile_CountryNameColumn]=="Timor-Leste") $countyCode = "TLS";  //Andorra's ISO code is wrong in
+            if($countyCode=="WBG" && $values[$DataFile_CountryNameColumn]=="West Bank and Gaza") $countyCode = "PSE";  //WB prob under pressure not to recognize Palestine ISO
 
             $setKey = $acronym . ":" . $values[$DataFile_SeriesCodeColumn];
             $data = [];
@@ -324,7 +329,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                 $geo = isoLookup($countyCode);
                 if($geo){
                     $geoId = $geo["geoid"];
-                    if($sets[$setKey]["setid"]){
+                    if(isset($sets[$setKey]["setid"])){
                         $setId = $sets[$setKey]["setid"];
                     } else {
                         //LCU

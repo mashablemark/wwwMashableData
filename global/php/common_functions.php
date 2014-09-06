@@ -94,7 +94,8 @@ function getConnection(){
         if(isset($_REQUEST["db"]) && $_REQUEST["db"]=="dev"){  //allow testing of crawlers in alternate DB
             $db = new mysqli("localhost","mashabledatadev","wbuserg4bmyLl890e0");
             if (!$db) die("status: 'db connection error'");
-            $db->select_db("workbenchdev");
+            $selectSuccess = $db->select_db("mashabledatadev");
+            if(!$selectSuccess) die("database selection failed");
         } else {
             $db = new mysqli("localhost","mashabledata","wbuserg4bmyLl890e0");
             if (!$db) die("status: 'db connection error'");

@@ -100,6 +100,8 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
                 $branchInfo["name"] = $branchName;
                 $fileName = substr_replace(substr($branchInfo["link"], strrpos($branchInfo["link"],"/")),"",-4);
                 $branchInfo["file"] = $fileName.'.csv';
+                $branchInfo["primeCategory"] = $primeCategory;
+                $branchInfo["branchName"] = $branchName;
                 if($downloadFiles || !file_exists("bulkfiles/fao/".$fileName.".csv")){
                     print('downloading '.$branchInfo["link"].' to '."bulkfiles/fao/".$fileName.".zip".'<br>');
                     flush();
@@ -137,7 +139,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $runid = $api_run_row["runid"];
 
     //reusable SQL statements
-    $updateRunSql = "update apiruns set finishdt=now() where runid=".$runid;
+    $updateRunSql = "update apiruns set finishdt=now() where runid=$runid";
     $updateJobSql = "update apirunjobs set status = 'R', enddt=now() where jobid=$jobid";
 
     //UPDATE THE RUN'S FINISH DATE
@@ -236,44 +238,75 @@ function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, 
     $colValue = 9;
     $colFlag = 10;
 
+    static $unknownGeographies = [];
+    static $setIds = [];
     $thisCatId = setCategoryByName($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
-    $geoid = countryLookup($series_header[$colCountry]);
-    $setName = $series_header[$colElement] .": ". $series_header[$colItem];
-    $setkey = $series_header[$colElementCode]."-".$series_header[$colItemCode]."-". $series_header[$colUnit];
-    $setId = saveSet($api_row["apiid"], null, $setName, $series_header[$colUnit], "UNFAO","http://faostat3.fao.org/home/index.html");
-    //$mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
+    $geo = countryLookup($series_header[$colCountry]);
+    if($geo){
+        $geoid = $geo["geoid"];
+        $setName = $series_header[$colElement] .": ". $series_header[$colItem];
+        $setkey = $series_header[$colElementCode]."-".$series_header[$colItemCode]."-". $series_header[$colUnit];
+        if(str_search("LCU", $series_header[$colUnit])!==false){
+            $setkey .= $geo["currency"];
+            $setName = preg_replace("LCU",$geo["currency"], $setName);
+        }
+        if(isset($setIds[$setkey])){
+            $setId = $setIds[$setkey];
+        } else {
+            $setId = saveSet(
+                $api_row["apiid"],
+                $setkey,
+                $setName,
+                $series_header[$colUnit],
+                "UNFAO",
+                "http://faostat3.fao.org/home/index.html"
+            );
+            //TODO move url and note to api.url and api.metadata
+            $setIds[$setkey] = $setId;
 
-    $skey = $setkey .":".$series_header[$colCountryCode];
-        saveSetData();
+            //TODO: move into apis.metadata
+            "For methodology, classification, local currency units, and abbreviations visit http://faostat3.fao.org/home/index.html#METADATA_METHODOLOGY. Data from ".$branchInfo["link"],
+        }
+        //$mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
 
-    $seriesid = updateSeries(
-        $status,
-        $jobid,
-        $skey,
-        $setName.": ".$series_header[$colCountry],
-        "FAO","http://faostat3.fao.org/home/index.html",
-        "A",
-        $series_header[$colUnit],
-        $series_header[$colUnit],
-        "For methodology, classification, local currency units, and abreviations visit http://faostat3.fao.org/home/index.html#METADATA_METHODOLOGY. Data from ".$branchInfo["link"],
-        $branchInfo["name"],
-        $api_row["apiid"],
-        $branchInfo["updated"],
-        strtotime($series_header[$colYear]."-01-01 UTC")*1000,
-        strtotime($line[$colYear]."-01-01 UTC")*1000,
-        $aryData,
-        $geoid,
-        $mapSetId,
-        null, null, null);
-    catSeries($thisCatId, $seriesid);
-    return $seriesid;
+        $skey = $setkey .":".$series_header[$colCountryCode];
+        saveSetData($status, $setId, "A", $geoid, "", $aryData, false, false, date("yyyymdd"));
+/*        $seriesid = updateSeries(
+            $status,
+            $jobid,
+            $skey,
+            $setName.": ".$series_header[$colCountry],
+            "FAO",
+            "http://faostat3.fao.org/home/index.html",
+            "A",
+            $series_header[$colUnit],
+            $series_header[$colUnit],
+            "For methodology, classification, local currency units, and abbreviations visit http://faostat3.fao.org/home/index.html#METADATA_METHODOLOGY. Data from ".$branchInfo["link"],
+            $branchInfo["name"],
+            $api_row["apiid"],
+            $branchInfo["updated"],
+            strtotime($series_header[$colYear]."-01-01 UTC")*1000,
+            strtotime($line[$colYear]."-01-01 UTC")*1000,
+            $aryData,
+            $geoid,
+            $mapSetId,
+            null, null, null);
+        catSeries($thisCatId, $seriesid);*/
+        return ["setid"=>$setId, "periocitity"=>"A", "geoid"=>$geoid, "latlon"=>""];
+    } else {
+        if(array_search($series_header[$colCountry], $unknownGeographies)===false){
+            $unknownGeographies[] = $series_header[$colCountry];
+            logEvent("unknown FAO geography", $series_header[$colCountry]." in ". $branchInfo["file"]);
+        }
+        return false;
+    }
 }
 
 function countryLookup($country){
     static $countries = "null";
     if($countries=="null"){
         $countries = array();
-        $result = runQuery("select geoid, name, regexes, exceptex from geographies where geoset='all'");
+        $result = runQuery("select geoid, name, currency, regexes, exceptex from geographies where geoset='all'");
         while($row=$result->fetch_assoc()){
             array_push($countries, $row);
         }
@@ -284,7 +317,7 @@ function countryLookup($country){
         if(preg_match($regex, $country, $matches)==1){
             $exceptex = $countries[$i]["exceptex"];
             if($exceptex==null || preg_match($exceptex, $country, $matches)==0){
-                return $countries[$i]["geoid"];
+                return $countries[$i];
             }
         }
     }
