@@ -102,7 +102,7 @@ function getConnection(){
             $db->select_db("mashabledata");
         }
     }
-    //$db->query("SET NAMES 'utf8'");
+    $db->query("SET NAMES 'utf8'");
     return $db;
 }
 function closeConnection(){
@@ -456,7 +456,7 @@ function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
     //TODO: add temp.int1 and temp.int2 columns
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
-    $sql = "insert into temp (id1, text1, text2, int1, int2) select mapsetid, group_concat(concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity)), min(sd.firstdt100k), max(sd.lastdt100k)
+    $sql = "insert into temp (id1, text1, text2, `int1`, `int2`) select s.setid, group_concat(concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity)), min(sd.firstdt100k), max(sd.lastdt100k)
     from setdata sd ";
     if($apiid == "all"){
         $sql .=" group by s.setid;";
@@ -464,28 +464,21 @@ function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
         $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid group by s.setid;";
     }
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2, s.firstdt100k = t.int1, s.lastdt100k = t.int2;", "setGhandlesPeriodicities");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
 }
 
-function setMapsetCounts($setid="all", $apiid = "all"){
+function setMapsetCounts($setid="all", $apiid){
     //1.  update set.maps of all mapsets
     runQuery("truncate temp;","setMapsetCounts");
     runQuery("SET SESSION group_concat_max_len = 8000;");
-    $subQuery = "select setid, concat('\"M_',mg.map, '\":',count(distinct s.geoid)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
-    if($apiid != "all") {
-        $subQuery .= " inner join sets s on s.setid=sd.setid and s.geoid=sd.geoid where 1 ";
-        if($apiid != "all") $subQuery .= " and apiid=".$apiid;
-    } else {
-        $subQuery .= " where sd.latlon='' ";
-    }
-    if($setid != "all") $subQuery .= " and setid=".$setid;
-    $subQuery .= " and map <>'worldx' group by setid, map";
-
+    $subQuery = "select s.setid, concat('\"M©',mg.map, '\":', count(distinct sd.geoid)) as mapcount FROM sets s join setdata sd on  s.setid=sd.setid join mapgeographies mg on sd.geoid=mg.geoid where sd.latlon='' and sd.geoid<>0 ";
+    if($apiid != "all") $subQuery .= " and s.apiid=".$apiid;
+    if($setid != "all") $subQuery .= " and sd.setid=".$setid;
+    $subQuery .= " and map <>'worldx' group by s.setid, map";
 
     runQuery("insert into temp (id1, text1) select setid, group_concat(mapcount) from ($subQuery) mc group by setid;","setMapsetCounts");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.counts=t.text1;","setMapsetCounts");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;","setMapsetCounts");
     runQuery("truncate temp;","setMapsetCounts");
-
 }
 
 function setPointsetCounts($setid="all", $apiid = "all"){
@@ -494,26 +487,22 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     runQuery("SET SESSION group_concat_max_len = 4000;","setPointsetCounts");
 
     //find maps for which points' geoids is a component (e.g. USA)
-    $subQuery1 = "select setid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
-    if($apiid != "all") {
-        $subFilter = " inner join sets s on s.setid=sd.setid where sd.latlon<>'' and s.latlon<>'' and apiid=".$apiid;
-    } else {
-        $subFilter = " where sd.latlon<>'' ";
-    }
-    if($setid != "all") $subFilter .= " and setid=".$setid;
-    $subFilter .= " and map <>'worldx' group by setid, map";
+    $subQuery1 = "select setid, concat('\"M©',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM sets s join setdata sd on s.setid=sd.setid join mapgeographies mg on sd.geoid=mg.geoid  where sd.latlon<>'' ";
+    if($apiid != "all") $subQuery1 .= " and apiid=".$apiid;
+    if($setid != "all") $subQuery1 .= " and setid=".$setid;
+    $subQuery1 .= " and map <>'worldx' group by setid, map";
 
     //find maps whose bunny = points' geoids (e.g. Virginia)
-    $subQuery2 = "select setid, concat('\"M_',m.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join maps m on sd.geoid=m.bunny ";
+    $subQuery2 = "select sd.setid, concat('\"M©',m.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM sets s join setdata sd on s.setid=sd.setid join sd join maps m on sd.geoid=m.bunny ";
 
-    runQuery("insert into temp (id1, text1) select setid, group_concat(mapcount) from ($subQuery1 $subFilter UNION $subQuery2 $subFilter) mc group by setid;","setPointsetCounts");
+    runQuery("insert into temp (id1, text1) select setid, group_concat(mapcount) from ($subQuery1 UNION $subQuery2 $subFilter) mc group by setid;","setPointsetCounts");
     runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;", "setPointsetCounts");
     runQuery("truncate temp;","setPointsetCounts");
 
     //update the points' maps
 
-    $subQuery1 = "select setid, geoid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
-    $subQuery2 = "select setid, geoid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join maps m on sd.geoid=m.bunny ";
+    $subQuery1 = "select setid, geoid, concat('\"M©',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
+    $subQuery2 = "select setid, geoid, concat('\"M©',mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount FROM setdata sd join maps m on sd.geoid=m.bunny ";
     runQuery("insert into temp (id1, id2, text1) select setid, geoid, group_concat(mapcount) from ($subQuery1 $subFilter, geoid UNION $subQuery2 $subFilter, geoid) mc group by setid, geoid;","setPointsetCounts");
     runQuery("update temp t join setdata sd on t.id1=sd.setid and t.id2=sd.geoid join sets s on s.mastersetid=t.id1 and sd.latlon=s.latlon  set s.maps=t.text1;", "setPointsetCounts");
     runQuery("truncate temp;","setPointsetCounts");

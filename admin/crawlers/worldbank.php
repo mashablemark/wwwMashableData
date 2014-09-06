@@ -20,6 +20,10 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","Other notes","Derivation method","Aggregation method","Limitations and exceptions","Notes from original source","General comments","Statistical concept and methodology"],
             "subcategories"=>"Topic",
+            "DataFile_CountryNameColumn" => 0,
+            "DataFile_CountryCodeColumn" => 1,
+            "DataFile_SeriesCodeColumn" => 3,
+            "DataFile_DataColumn" => 4,
         ],
         "ADI"=>[
             "filePrefix" => "ADI",
@@ -28,6 +32,10 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "name" => "Indicator Name",
             "metaData" => ["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
             "subcategories" => "Topic",
+            "DataFile_CountryNameColumn" => 0,
+            "DataFile_CountryCodeColumn" => 1,
+            "DataFile_SeriesCodeColumn" => 3,
+            "DataFile_DataColumn" => 4,
         ],
         "EdStats"=>[
             "filePrefix"=>"EDStats",
@@ -38,6 +46,10 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "metaData"=>["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
             "subcategories"=>"Topic", //blank for over a thousand series
             //"periodicity"=>"Periodicity",  blank for edstats, but data is annual + projected to 2050
+            "DataFile_CountryNameColumn" => 0,
+            "DataFile_CountryCodeColumn" => 1,
+            "DataFile_SeriesCodeColumn" => 3,
+            "DataFile_DataColumn" => 4,
         ],
         "GenderStats"=>[
             "filePrefix"=>"Gender",
@@ -46,14 +58,22 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","Derivation method","Aggregation method","Limitations and exceptions","Notes from original source","General comments"],
             "subcategories"=>"Topic",
+            "DataFile_CountryNameColumn" => 0,
+            "DataFile_CountryCodeColumn" => 1,
+            "DataFile_SeriesCodeColumn" => 3,
+            "DataFile_DataColumn" => 4,
         ],
-        "IDS"=>[
+        "IDS"=>[ //
             "filePrefix"=>"IDS",
             "CountrySeriesSuffix"=>"_Country-Series",
             "setKey"=>"SeriesCode",
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","General comments"],
             "subcategories"=>"Topic",
+            "DataFile_CountryNameColumn" => 1,
+            "DataFile_CountryCodeColumn" => 2,
+            "DataFile_SeriesCodeColumn" => 7,
+            "DataFile_DataColumn" => 8
         ],
         "HNP Stats"=>[
             "filePrefix"=>"HNP",
@@ -62,6 +82,10 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","Notes from original source","Limitations and exceptions","General comments"],
             "subcategories"=>"Topic",
+            "DataFile_CountryNameColumn" => 0,
+            "DataFile_CountryCodeColumn" => 1,
+            "DataFile_SeriesCodeColumn" => 3,
+            "DataFile_DataColumn" => 4,
         ]
     ];
     $acronyms = array_keys($datasets);
@@ -193,10 +217,6 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $runid = $api_run_row["runid"];
     $apiid = $api_run_row["apiid"];
     $src = $api_run_row["name"];
-    $DataFile_CountryNameColumn = 0;
-    $DataFile_CountryCodeColumn=1;  //column B
-    $DataFile_SeriesCodeColumn=3;  //column D
-    $DataFile_DataColumn=4;  //column E
 
     $CountrySeriesFile_CountryCodeColumn=0;  //column A
     $CountrySeriesFile_SetCodeColumn=1;  //column B
@@ -209,6 +229,10 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $acronym = $datasetInfo["acronym"];
     $datasetRootCatId = setCategoryById($api_run_row['apiid'], $acronym, $datasetInfo["category"], $ROOT_WB_CATID);
 
+    $DataFile_CountryNameColumn = $datasetInfo["DataFile_CountryNameColumn"];
+    $DataFile_CountryCodeColumn = $datasetInfo["DataFile_CountryCodeColumn"];
+    $DataFile_SeriesCodeColumn = $datasetInfo["DataFile_SeriesCodeColumn"];
+    $DataFile_DataColumn = $datasetInfo["DataFile_DataColumn"];
 
 //  (b) create theme
     $theme = getTheme($apiid, $datasetInfo["datasetName"], $datasetInfo["themeMetadata"], $acronym);
@@ -235,7 +259,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $opCount = 0;
     while(!feof($seriesFilePointer)){
         $opCount++;
-        if($opCount = intval($opCount/100)*100){
+        if($opCount == intval($opCount/100)*100){
             runQuery($updateRunSql);
             runQuery($updateJobSql);
             set_time_limit(60);
@@ -249,7 +273,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                     $catId = setCategoryByName($apiid, $cat, $catId);
                 }
             }
-            $setKey = $acronym.":".$values[0];
+            $setKey = $acronym.":".$values[$CountrySeriesFile_CountryCodeColumn];
             $setName = $values[array_search($datasetInfo["name"], $columns)];
             $metaColumns = $datasetInfo["metaData"];
             $setMeta = "";
@@ -302,34 +326,36 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $loggedCountryCodes = [];
     while(!feof($dataFilePointer)){
         $opCount++;
-        if($opCount = intval($opCount/100)*100){ //don't update every time = too much unnecessary overhead
+        if($opCount == intval($opCount/100)*100){ //don't update every time = too much unnecessary overhead
             runQuery($updateRunSql);
             runQuery($updateJobSql);
         }
 
         $values = fgetcsv($dataFilePointer);
         $countyCode = $values[$DataFile_CountryCodeColumn];
-
+        $wbCountryName = $values[$DataFile_CountryNameColumn];
         if(!array_key_exists($countyCode, $skipCountries)){
-            if($countyCode=="ADO" && $values[$DataFile_CountryNameColumn]=="Andorra") $countyCode = "AND";  //Andorra's ISO code is wrong in
-            if($countyCode=="ZAR" && $values[$DataFile_CountryNameColumn]=="Dem. Rep. Congo") $countyCode = "COD";  //WB still using old Zaire code
-            if($countyCode=="IMY" && $values[$DataFile_CountryNameColumn]=="Isle of Man") $countyCode = "IMN";  //proposed ISO
-            if($countyCode=="ROM" && $values[$DataFile_CountryNameColumn]=="Romania") $countyCode = "ROU";  //not sure why WB had wrong code...
-            if($countyCode=="TMP" && $values[$DataFile_CountryNameColumn]=="Timor-Leste") $countyCode = "TLS";  //Andorra's ISO code is wrong in
-            if($countyCode=="WBG" && $values[$DataFile_CountryNameColumn]=="West Bank and Gaza") $countyCode = "PSE";  //WB prob under pressure not to recognize Palestine ISO
+            if($countyCode=="ADO" && $wbCountryName=="Andorra") $countyCode = "AND";  //Andorra's ISO code is wrong in
+            if($countyCode=="ZAR" && ($wbCountryName=="Dem. Rep. Congo" || $wbCountryName=="Congo, Dem. Rep.")) $countyCode = "COD";  //WB still using old Zaire code
+            if($countyCode=="IMY" && $wbCountryName=="Isle of Man") $countyCode = "IMN";  //proposed ISO
+            if($countyCode=="ROM" && $wbCountryName=="Romania") $countyCode = "ROU";  //not sure why WB had wrong code...
+            if($countyCode=="TMP" && $wbCountryName=="Timor-Leste") $countyCode = "TLS";  //Andorra's ISO code is wrong in
+            if($countyCode=="WBG" && $wbCountryName=="West Bank and Gaza") $countyCode = "PSE";  //WB prob under pressure not to recognize Palestine ISO
 
             $setKey = $acronym . ":" . $values[$DataFile_SeriesCodeColumn];
             $data = [];
             for($c=$DataFile_DataColumn;$c<count($values);$c++){
-                if($values[$c]){
-                    $data[] = $columns[$c].":". floatval($values[$c]);  //TODO: monthly data may require formatting $column values
+                if(is_numeric($values[$c])){
+                    $yearMatches = [];
+                    preg_match("#\d{4}#", $columns[$c], $yearMatches);
+                    $data[] = $yearMatches[0] .":". floatval($values[$c]);  //TODO: monthly data may require formatting $column values
                 }
             }
             if(count($data)>0){
                 $geo = isoLookup($countyCode);
                 if($geo){
                     $geoId = $geo["geoid"];
-                    if(isset($sets[$setKey]["setid"])){
+                    if($sets[$setKey]["setid"]){
                         $setId = $sets[$setKey]["setid"];
                     } else {
                         //LCU
@@ -342,19 +368,23 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                             $setMeta = $sets[$setKey]["meta"];
                             $src = $sets[$setKey]["src"];
                             $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
-                            setCatSet($sets[$setKey]["catid"], $setId);
-                            $sets[$lcuSetKey]["setid"] = $setId;
+                            if($setId){
+                                setCatSet($sets[$setKey]["catid"], $setId);
+                                $sets[$lcuSetKey]["setid"] = $setId;
+                            }
                         }
                     }
-                    if(!$setId) {
+                    if($setId) {
+                        saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+                    } else {
+                        print("unable to inset data for:  ");
                         var_dump($values);
-                        die($setKey);
+                        logEvent("WB ingest warning", "unable to find/insert World Bank Series for setkey $setKey in $acronym");
                     }
-                    saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
                 } else {
                     if(array_search($countyCode, $loggedCountryCodes)===false){
                         array_push($loggedCountryCodes, $countyCode);
-                        logEvent("WB ingest warning", $countyCode." is not a recognized country code");
+                        logEvent("WB ingest warning", "$countyCode ($wbCountryName) is not a recognized country code in $acronym");
                     }
                 }
             }
@@ -396,7 +426,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
         .", failed=failed+".$status["failed"]
         ." where runid=$runid");*/
 
-    print("ENDING WB $setName: ".$datasetInfo["file"]." (job $jobid)<br>\r\n");
+    print("ENDING WB: file="."bulkfiles/wb/".$datasetInfo["filePrefix"]."_Series.csv"." (job $jobid)<br>\r\n");
     return $status;
 }
 
