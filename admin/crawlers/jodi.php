@@ -16,66 +16,100 @@ rerunning import... Jun 2013
 
 $JODI_FILES = array(
     "secondary petroleum products" => array(
-        "url" => "http://www.jodidata.org/_resources/files/downloads/data/world_secondary_csv1.zip",
+        "url" => "https://www.jodidata.org/_resources/files/downloads/oil-data/world_primary_csv.zip",
+        //"url" => "http://www.jodidata.org/_resources/files/downloads/data/world_secondary_csv1.zip",
         "filename" => "world_Secondary_CSV",
         "filenum"=> 2
 
     ),
     "primary petroleum products" => array(
-        "url" => "http://www.jodidata.org/_resources/files/downloads/data/world_primary_csv1.zip",
+        "url" => "https://www.jodidata.org/_resources/files/downloads/oil-data/world_secondary_csv.zip",
+        //"url" => "http://www.jodidata.org/_resources/files/downloads/data/world_primary_csv1.zip",
         "filename" => "world_Primary_CSV",
         "filenum"=> 1
     )
 );
+//JODI_Gas_world_CSV20140826.csv header in jodi-gas_csv.zip = "Country,Product,Flow,Date,Quantity,Code"
+
+/*JODI GAS
+file = JODI_Gas_world_CSV20140826.csv in jodi-gas_csv.zip
+csv header = "Country,Product,Flow,Date,Quantity,Code"
+
+JODI gas product codes:
+    "LNGMT" =>["name"=>"Natural Gas (in form of LNG) in 1000 metric tons", "meta"=> "Natural gas is defined as a mixture of gaseous hydrocarbons, primarily methane, but generally also including ethane, propane and higher hydrocarbons in much smaller amounts and some non-combustible gases such as nitrogen and carbon dioxide. It includes both non-associated gas and associated gas. Colliery gas, coal seam gas and shale gas are included while manufactured gas and biogas are excluded except when blended with natural gas for final consumption. Natural gas liquids are excluded.<BR>When natural gas is liquefied and traded, the default unit of measurement is often the metric ton. In order to allow countries to report any LNG trade data in this unit, the JODI-Gas Questionnaire provides the option of reporting LNG trade data (and only LNG trade data) in metric tons."],
+    "NATGASCM" =>["name"=>"Natural Gas in Million m3", "meta"=> "Natural gas is defined as a mixture of gaseous hydrocarbons, primarily methane, but generally also including ethane, propane and higher hydrocarbons in much smaller amounts and some non-combustible gases such as nitrogen and carbon dioxide. It includes both non-associated gas and associated gas. Colliery gas, coal seam gas and shale gas are included while manufactured gas and biogas are excluded except when blended with natural gas for final consumption. Natural gas liquids are excluded."],
+    "NATGASTJ =>["name"=>"Natural Gas in Terajoules", "meta"=> "Natural gas is defined as a mixture of gaseous hydrocarbons, primarily methane, but generally also including ethane, propane and higher hydrocarbons in much smaller amounts and some non-combustible gases such as nitrogen and carbon dioxide. It includes both non-associated gas and associated gas. Colliery gas, coal seam gas and shale gas are included while manufactured gas and biogas are excluded except when blended with natural gas for final consumption. Natural gas liquids are excluded."],
+
+JODI gas flow codes:
+    "INDPROD" =>["name"=>"Production", "meta"=> "Dry marketable production within national boundaries, including offshore production, measured after purification and extraction of NGL and sulphur. Production does not include quantities reinjected, extraction losses or quantities vented or fl ared. It should include quantities used within the natural gas industry, in gas extraction, pipeline systems and processing plants."],
+    "OTHSOURCES" =>["name"=>"Receipts from Other Sources", "meta"=> "Gas from energy products that have been already accounted for in the production of other energy products. Examples include petroleum gases or biogases that have been blended with natural gas."],
+    "TOTIMPSB" =>["name"=>"total imports", "meta"=> "Amounts are considered imported or exported when they have crossed the physical boundaries of the country, whether customs clearance has taken place or not. Goods in transit and goods temporarily admitted/withdrawn are excluded but re-imports, that is domestic goods exported but subsequently readmitted, are included (same for reexports). Deliveries for international bunkers should be excluded."],
+    "IMPLNG" =>["name"=>"liquefied natural gas (LNG) imports", "meta"=> "The import/export of  natural gas (LNG) through ocean tankers, to be reported in TJ, million cubic metres or metric tons (always on a re-gasified equivalent basis)."],
+    "IMPPIP" =>["name"=>"Pipeline Imports", "meta"=> "The import/export of gaseous natural gas through pipelines, to be reported in TJ and million cubic metres."],
+    "TOTEXPSB" =>["name"=>"total natural gas exports", "meta"=> "Amounts are considered imported or exported when they have crossed the physical boundaries of the country, whether customs clearance has taken place or not. Goods in transit and goods temporarily admitted/withdrawn are excluded but re-imports, that is domestic goods exported but subsequently readmitted, are included (same for reexports). Deliveries for international bunkers should be excluded."],
+    "EXPLNG" =>["name"=>"liquefied natural gas (LNG) exports", "meta"=> "The import/export of liquefied natural gas (LNG) through ocean tankers, to be reported in TJ, million cubic metres or metric tons (always on a re-gasified equivalent basis)."],
+    "EXPPIP" =>["name"=>"natural gas exports via pipeline", "meta"=> "The import/export of gaseous natural gas through pipelines, to be reported in TJ and million cubic metres."],
+    "STCHANAT" =>["name"=>"stock change", "meta"=> "Stock Change should reflect the difference between the closing stock level and the opening stock level of recoverable gas, already extracted.<br>A stock build is shown as a positive number, and a stock draw as a negative number."],
+    "GDINCTRO" =>["name"=>"Gross Inland Deliveries (calculated)", "meta"=> "This is defined as: Production + Receipts from Other Sources + Imports - Exports - Stock Change."],
+    "STATDIFF" =>["name"=>"Statistical Difference (Calculated)", "meta"=> "This is the difference between the Calculated and Observed Gross Inland Deliveries."],
+    "DEMAND" =>["name"=>"Gross Inland Deliveries (observed)", "meta"=> "This category represents deliveries of marketable gas to the inland market, including gas used by the gas industry for heating and operation of their equipment (i.e. consumption in gas extraction, in the pipeline system and in processing plants). Losses in distribution should also be included. Deliveries to international marine and aviation bunkers should be included."],
+    "POWERGEN" =>["name"=>"Of which: Electricity and Heat Generation", "meta"=> "This covers the deliveries of natural gas for the generation of electricity and heat in power plants. Both main-activity and autoproducer plants are included."],
+    "CSNATTER" =>["name"=>"closing stocks", "meta"=> "Closing Stocks refer to the stock level held on the national territory on the last day of the reference month."],
+*/
+
+
+
+
 
 $jodi_codes = array(
     "primary petroleum products"=> array(
         //products
-        "CRUDEOIL" => "Crude oil",
-        "NGL" =>"Natural Gas Liquids (NGL)",
-        "OTHERCRUDE" =>"other crude",
-        "TOTCRUDE" =>"total Crude",
+        "CRUDEOIL" =>["name"=> "Crude oil",  "meta"=> "Including lease condensate"],
+        "NGL" =>["name"=>"Natural Gas Liquids (NGL)",  "meta"=> "Liquid or liquefied hydrocarbons recovered from gas separation plants and gas processing facilities"],
+        "OTHERCRUDE" =>["name"=>"other crude", "meta"=> "Refinery feedstocks + additives/oxygenates + other hydrocarbons"],
+        "TOTCRUDE" =>["name"=>"total Crude", "meta"=> "Total = Crude oil + NGL + Other"],
         //flows
-        "PRODREFOUT" => "Production",
-        "OTHSOURCES" => "From other sources",
-        "TOTIMPSB" => "Imports",
-        "TOTEXPSB" => "Exports",
-        "PTRANSFBF" => "Products transferred",
-        "DIRECTUSE" => "Direct use",
-        "STCHANAT" => "Stock change STCHANAT Stock change",
-        "STATDIFF" => "Statistical difference STATDIFF Statistical difference",
-        "REFOBSDEM" => "Refinery intake",
-        "CSNATTER" => "Closing Stocks"
+        "PRODREFOUT" =>["name"=> "Production",  "meta"=> "Production of Crude Oil only. Production: Crude Oil - Indigenous Production<br>Marketed production, after removal of impurities but including quantities consumed by the producer in the production process."],
+        "OTHSOURCES" =>["name"=> "From other sources", "meta"=> "Inputs of additives, biofuels and other hydrocarbons that are produced from non-oil sources such as: coal, natural gas or renewables"],
+        "TOTIMPSB" =>["name"=> "Imports", "meta"=> "Goods having physically crossed the national boundaries excluding transit trade, international marine and aviation bunkers."],
+        "TOTEXPSB" =>["name"=> "Exports", "meta"=> "Goods having physically crossed the national boundaries excluding transit trade, international marine and aviation bunkers.<br>Exports should exclude international marine and aviation bunkers."],
+        "PTRANSFBF" =>["name"=> "Products transferred", "meta"=> "Sum of Products transferred and Backflows from the petrochemical industry"],
+        "DIRECTUSE" =>["name"=> "Direct use", "meta"=> "Refers to crude oil, NGL and Other which are used directly, without being processed in oil refineries, for example: crude oil burned for electricity generation"],
+        "STCHANAT" =>["name"=> "Stock change", "meta"=> "Closing stock level (end of month) minus opening stock level (start of month). A positive number corresponds to a stock build, a negative number corresponds to a stock draw."],
+        "STATDIFF" =>["name"=> "Statistical difference", "meta"=> "Differences between observed supply flows and Refinery intake or Demand"],
+        "REFOBSDEM" =>["name"=> "Refinery intake", "meta"=> "Observed refinery throughputs."],
+        "CSNATTER" =>["name"=> "Closing Stocks", "meta"=> "Represents the primary stock level at the end of the month within national territories. This includes stocks held by importers, refiners, stock holding organisations and governments."],
         ),
     "secondary petroleum products"=> array( //secondary = refined
         //products
-        "LPG" => "LPG (Liquefied petroleum gases)",
-        "NAPHTHA" => "Naphtha",
-        "GASOLINE" => "Motor and aviation gasoline",
-        "KEROSENE" => "Kerosene (all)",
-        "JETKERO" => "kerosene, jet fuel type",
-        "GASDIES" => "Gas/Diesel Oil",
-        "RESFUEL" => "Fuel oil",
-        "ONONSPEC" => "Other oil products",
-        "TOTPRODSC" => "Total oil products",
-        //flow
-        "PRODREFOUT" => "Refinery output",
-        "PRECEIPTS" => "Receipts",
-        "TOTIMPSB" => "Imports",
-        "TOTEXPSB" => "Exports",
-        "TRANSF" => "Products transferred/Backflows",
-        "INTPRODTRANSF" => "Interproduct transfers",
-        "STCHANAT" => "Stock change STCHANAT Stock change",
-        "STATDIFF" => "Statistical difference STATDIFF Statistical difference",
-        "REFOBSDEM" => "Refinery intake",
-        "CSNATTER" => "Closing Stocks"
+        "LPG" =>["name"=> "LPG (Liquefied petroleum gases)", "meta"=> "Comprises propane and butane"],
+        "NAPHTHA" =>["name"=> "Naphtha", "meta"=> "Comprises naphtha used as feedstocks for producing high octane gasoline and also as feedstock for the chemical/petrochemical industries"],
+        "GASOLINE" =>["name"=> "Motor and aviation gasoline", "meta"=> "Comprises motor gasoline and aviation gasoline.  OLADE includes Naphtha propotion in Motor and aviation gasoline prior to use of extended JODI Oil questionnaire format."],
+        "KEROSENE" =>["name"=> "Kerosene (all)", "meta"=> "Comprises kerosene type jet kerosene and other kerosene"],
+        "JETKERO" =>["name"=> "kerosene, jet fuel type", "meta"=> "Aviation fuel used for aviation turbine power units. This amount is a subset of the amount reported under Kerosenes"],
+
+        "GASDIES" =>["name"=> "Gas/Diesel Oil", "meta"=> "For automotive and other purposes"],
+        "RESFUEL" =>["name"=> "Fuel oil", "meta"=> "Heavy residual oil/boiler oil, including bunker oil"],
+        "ONONSPEC" =>["name"=> "Other oil products", "meta"=> "Refinery gas, ethane, petroleum coke, lubricants, white spirit & SPB, bitumen, paraffin waxes and other oil products Demand for Total products includes direct use of Crude oil, NGL and Other. Demand for Total oil products includes direct use of crude oil, NGL and Other.<br>Other products before January 2009 includes Naphtha. Other products before January 2009 is set to be N/A due to the definitional differences. Other products can be calculated by: Total oil products - sum of LPG, Motor and aviation gasoline, Kerosenes, Gas/diesel oil and Fuel oil."],
+        "TOTPRODSC" =>["name"=> "Total oil products", "meta"=> "Sum of LPG, Naphtha, Motor and aviation gasoline, Kerosenes, Gas/Diesel Oil, Fuel oil, and Other oil products."],
+        //flows
+        "PRODREFOUT" =>["name"=> "Refinery output", "meta"=> "Gross Refinery Output of Finished Products only (including refinery fuel)."],
+        "PRECEIPTS" =>["name"=> "Receipts", "meta"=> "Primary product receipts (quantities of oil used directly without processing in a refinery) + recycled products receipts for Other oil products include direct use of crude oil and NGL"],
+        "TOTIMPSB" =>["name"=> "Imports", "meta"=> "Goods having physically crossed the national boundaries, excluding transit trade, international marine and aviation bunkers."],
+        "TOTEXPSB" =>["name"=> "Exports", "meta"=> "Goods having physically crossed the national boundaries, excluding transit trade, international marine and aviation bunkers."],
+        "TRANSF" =>["name"=> "Products transferred/Backflows", "meta"=> false],
+        "INTPRODTRANSF" =>["name"=> "Interproduct transfers", "meta"=> "Imported petroleum products which are reclassified as feedstocks for further processing in the refinery, without delivery to final consumers"],
+        "STCHANAT" =>["name"=> "Stock change STCHANAT Stock change", "meta"=> "Closing stock level (end of month) minus opening stock level (start of month). A positive number corresponds to a stock build, a negative number corresponds to a stock draw."],
+        "STATDIFF" =>["name"=> "Statistical difference", "meta"=> "Differences between observed supply flows and Refinery intake or Demand"],
+        "REFOBSDEM" =>["name"=> "demand (refinery intake)", "meta"=> "Demand of finished products: Deliveries or sales to the inland market (domestic consumption) plus Refinery Fuel plus International Marine and Aviation Bunkers.  Demand for Other oil products includes direct use of Crude oil, NGL, and Other."],
+        "CSNATTER" =>["name"=> "Closing Stocks", "meta"=> "Represents the primary stock level at the end of the month within national territories.  This includes stocks held by importers, refiners, stock holding organisations and governments."]
         ),
     "unit" => array(
-        "KBD" => ["full"=>"Thousand Barrels per day", "short"=>"kb/d"],
-        "KBBL" => ["full"=>"Thousand Barrels", "short"=>"kbbl"],
-        "KL" => ["full"=>"Thousand Kilolitres", "short"=>"kl"],
-        "TONS" => ["full"=>"Thousand Metric Tons", "short"=>"kmt"],
-        "CONVBBL" => ["full"=>"Conversion factor barrels/ktons", "short"=>""]
+        "KBD" => ["full"=> "Thousand Barrels per day", "short"=> "kb/d", "meta"=> "Data collected by OLADE and OPEC are in thousand barrels. Data for APEC is made available in thousand kilolitres and has been converted to thousand barrels using 6.2898 as conversion factor. Data of IEA/OECD, Eurostat, and UNSD are originally collected in thousand metric tons and converted into thousand barrels using general conversion factors by country (see dimension element 'Conversion factor barrels/ktons')."],
+        "KBBL" => ["full"=>"Thousand Barrels", "short"=>"kbbl", "meta"=> "Data collected by OLADE and OPEC are in thousand barrels. Data for APEC is made available in thousand kilolitres and has been converted to thousand barrels using 6.2898 as conversion factor. Data of IEA/OECD, Eurostat, and UNSD are originally collected in thousand metric tons and converted into thousand barrels using general conversion factors by country (see dimension element 'Conversion factor barrels/ktons')."],
+        "KL" => ["full"=>"Thousand Kilolitres", "short"=>"kl", "meta"=> "Data for APEC is made available in thousand kilolitres. All other organisation's data in thousand kilolitres have been converted from thousand barrels using a conversion factor of 6.2898."],
+        "TONS" => ["full"=>"Thousand Metric Tons", "short"=>"kmt", "meta"=> "Data collected by IEA/OECD, Eurostat, and UNSD are in thousand tons. Data for APEC is made available in thousand kilolitres, and data collected by OLADE and OPEC are in thousand barrels. These have been converted into thousand metric tons using general conversion factors by country (see dimension element 'Conversion factor barrels/ktons')."],
+        "CONVBBL" => ["full"=>"Conversion factor barrels/ktons", "short"=>"", "meta"=> "Data collected by IEA/OECD, Eurostat, and UNSD are in mass units (thousand tons), while data for OLADE, OPEC and APEC are collected in volume units (thousand barrels or thousand kilolitres). In order to convert between mass and volume, the shown general conversion factors are used. For volume units, the following formula is used to convert barrels into kilolitres: 1 kilolitre = 6.2898 barrels."],
         ),
     "code" => array(
         "1" => "Results of the assessment show reasonable levels of comparability",
@@ -102,9 +136,9 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
     $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST JODI FILES; ELSE USE PREVIOUSLY DOWNLOADED FILES TO DEBUG
     $ROOT_JODI_CATID = $api_row["rootcatid"];
     //first build the two base categories and download and unzip the associated csv files:
-    $sql = "insert into apirunjobs (runid, jobjson, startdt, tries, status) values(".$api_row["runid"] .",'{\"crawl\": \"download JODI files\"',now(),1,'C')";
+    $sql = "insert into apirunjobs (runid, jobjson, startdt, tries, status) values(".$api_row["runid"] .",'{\"crawl\": \"download JODI files\"}',now(),1,'R')";
     $result = runQuery($sql);
-    $thisRunId = $db->insert_id;
+    $thisJobId = $db->insert_id;
     foreach($JODI_FILES as $primeCategory=>$jobInfo){
         $fileCatid = setCategoryByName($api_row['apiid'], $primeCategory, $ROOT_JODI_CATID);
         $jobInfo["catid"] = $fileCatid;
@@ -128,11 +162,11 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
         runQuery($sql);
         runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
     }
-    runQuery("update apirunjobs set enddt=now(), status='S' where jobid =$thisRunId");
+    $result = runQuery("update apirunjobs set endt=now(), status='S' where jobid=$thisJobId)");
 }
 
 
-function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off by api queue master
+function ApiExecuteJob($api_run_row, $job_row){//runs one queued job as kicked off by api queue master
 
     global $jodi_codes, $HEADER, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
     static $MONTHS = array(
@@ -149,18 +183,21 @@ function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off b
         "NOV"=>"11",
         "DEC"=>"12"
     );
+    $unrecognized = [];
     global $MAIL_HEADER, $db;
-    $jobid = $apirunjob["jobid"];
+    $jobid = $job_row["jobid"];
+    $runid = $api_run_row["runid"];
+    $apiid = $api_run_row["apiid"];
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
 
     //reusable update SQL
     $timestamp_run_sql = "update apiruns set finishdt=now() where runid = " . $runid;    //UPDATE THE RUN'S FINISH DATE
-    $timestamp_job_sql = "update apirunjobs set enddt=now(), status='R' where jobid =".$apirunjob["jobid"];
+    $timestamp_job_sql = "update apirunjobs set enddt=now(), status='R' where jobid =".$jobid;
     runQuery($timestamp_run_sql);
     runQuery($timestamp_job_sql);
 
     set_time_limit(60);
-    $jobInfo = json_decode($apirunjob["jobjson"], true);
+    $jobInfo = json_decode($job_row["jobjson"], true);
 
     $csv = fopen("bulkfiles/jodi/".$jobInfo["filename"].".csv", "r");
     $header = fgets($csv);  //throw away the header line
@@ -199,7 +236,7 @@ function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off b
             }
         }
         updateTempJodi($jobInfo["filenum"], $series_header, $data);
-        print("STARTING JODI JOBID ".$apirunjob["jobid"]."<br>"."\r\n");
+        print("STARTING JODI JOBID ".$jobid."<br>"."\r\n");
 
 
         $jodi_records = runQuery("select * from temp_jodi where file=" . $jobInfo["filenum"]);
@@ -213,62 +250,60 @@ function ApiExecuteJob($runid, $apirunjob){//runs one queued job as kicked off b
                 runQuery($timestamp_run_sql);
                 runQuery($timestamp_job_sql);
             }
-
-            $parentCatId = setCategoryByName($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]], $jobInfo["catid"]);
-            $flowCatId = setCategoryByName($apirunjob["apiid"], $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]], $parentCatId);
-
-            $countryRow = countryLookup($aryLine[$COL_COUNTRY]);
-            $setKey = $aryLine[$COL_PRODUCT]."-".$aryLine[$COL_FLOW]."-".$aryLine[$COL_UNIT];
-            $skey = $setKey.":".$countryRow["iso3166"];
-            $setName = $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]] .": ". $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]];
-
-
-            if($countryRow["geoid"]!==null) {
-                $mapSetId = getMapSet($setName, $apirunjob["apiid"], "M", $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"]);
+            if(isset($jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]]["name"])){
+                $parentCatId = setCategoryByName($apiid, $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]]["name"], $jobInfo["catid"]);
             } else {
-                $mapSetId = null;
+                if(!isset($unrecognized[$aryLine[$COL_PRODUCT]])){
+                    $unrecognized[$aryLine[$COL_PRODUCT]] = true;
+                    logEvent("JODI ingest error", "unrecognized product code ".$aryLine[$COL_PRODUCT]);
+                }
+                $status["failed"]++;
+                $parentCatId = false;
             }
 
-            $aryData = explode(",", $aRow["data"]);
-            sort($aryData);
-            /*$data = implode(":", $aryData);
-            $aryFirstPoint= explode(":", $aryData[0]);
-            $aryLastPoint= explode(":", $aryData[count($aryData)-1]);
-            $firstDate100k = strtotime(substr($aryFirstPoint[0],0,4) . "-" . (substr($aryFirstPoint[0],4,2)+1) . "-1 UTC")/100;
-            $lastDate100k = strtotime(substr($aryLastPoint[0],0,4) . "-" . (substr($aryLastPoint[0],4,2)+1) . "-1 UTC")/100;*/
-            $setId = saveSet($apirunjob["apiid"], $setKey, $setName, $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"], "Joint Oil Data Initiative","http://www.jodidata.org/database/data-downloads.aspx");
 
-            //TODO: update JODI's apis.metadata = "For methodology and data visit http://http://www.jodidata.org/database/data-downloads.aspx. For codes, see http://www.jodidata.org/_resources/files/downloads/resources/jodi-wdb-short-long-names.pdf"
+            if(isset($jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]]["name"])){
+                $flowCatId = setCategoryByName($apiid, $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]]["name"], $parentCatId);
+            } else {
+                if(!isset($unrecognized[$aryLine[$COL_FLOW]])){
+                    $unrecognized[$aryLine[$COL_FLOW]] = true;
+                    logEvent("JODI ingest error", "unrecognized flow code ".$aryLine[$COL_FLOW]);
+                }
+                $status["failed"]++;
+                $flowCatId = false;
+            }
+            if($flowCatId && $parentCatId){
+                $countryRow = countryLookup($aryLine[$COL_COUNTRY]); //if country not found, processing terminates
+                $setKey = $aryLine[$COL_PRODUCT]."-".$aryLine[$COL_FLOW]."-".$aryLine[$COL_UNIT];
+                //$skey = $setKey.":".$countryRow["iso3166"];
+                $setName = $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]]["name"] .": ". $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]]["name"];
+                $setMeta = $jodi_codes[$jobInfo["name"]][$aryLine[$COL_PRODUCT]]["meta"] ." ". $jodi_codes[$jobInfo["name"]][$aryLine[$COL_FLOW]]["meta"] ." ". $jodi_codes["unit"][$aryLine[$COL_UNIT]]["meta"];
 
-            saveSetData($status, $setId, "M", $countryRow["geoid"], "", $aryData, false, "JODI set save", date("Y-m-d"));
+                $aryData = explode(",", $aRow["data"]);
+                sort($aryData);
+                $setId = saveSet($apiid, $setKey, $setName, $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"], "Joint Oil Data Initiative","http://www.jodidata.org/oil/database/data-downloads.aspx", $setMeta);
 
-            setCatSet($flowCatId, $setId);
-
-            /*$seriesid = updateSeries($status, $apirunjob["jobid"], $skey, $setName.": ".$countryRow["name"],"Joint Oil Data Initiative","http://www.jodidata.org/database/data-downloads.aspx","M",
-                $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"], $jodi_codes["unit"][$aryLine[$COL_UNIT]]["short"],
-                "For methodology and data visit http://http://www.jodidata.org/database/data-downloads.aspx. For codes, see http://www.jodidata.org/_resources/files/downloads/resources/jodi-wdb-short-long-names.pdf",
-                $setName, $apirunjob["apiid"], date("Y-m-d"),
-                $firstDate,
-                $lastDate,
-                $data, $countryRow["geoid"], $mapSetId,
-                null, null, null);
-            catSeries($flowCatId, $seriesid);*/
+                saveSetData($status, $setId, "M", $countryRow["geoid"], "", $aryData, false, "JODI set save", date("Y-m-d"));
+                setCatSet($flowCatId, $setId);
+            }
         }
         $updatedJobJson = json_encode(array_merge($status, $jobInfo));
-        print("COMPLETE JODI JOBID ".$apirunjob["jobid"]."<br>"."\r\n");
+        print("COMPLETE JODI JOBID ".$jobid."<br>"."\r\n");
 
     } else { //unknown file format
         print("Header Format mismatch:<br>");
         print("actual header:".$header."<br>");
         print("expected header:".$HEADER."<br>");
-        runQuery( "update apirunjobs set status = 'F', enddt=now() where jobid=".$apirunjob["jobid"]);
+        runQuery("update apirunjobs set status = 'F', enddt=now() where jobid=$jobid");
         runQuery($timestamp_run_sql);
     }
     return $status;
 }
 
 function ApiRunFinished($api_run){
-    set_time_limit(600);
+    set_time_limit(200);
+    setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
+    set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
 }
 
@@ -278,7 +313,7 @@ function updateTempJodi($filenum, $aryLine, $data){
     global $jodi_codes, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
     $keys = implode(array_slice($aryLine, 0, $COL_UNIT+1), ",");
     $sql = "insert into temp_jodi values(".$filenum.",'".$keys."','".$data."') on duplicate key update data=concat(data,',','" . $data . "')";
-    if($keys=="") fatal_error($i.": ".implode(",", $aryLine));
+    if($keys=="") fatal_error("unable to insert temp_jodi record #".$i.": ".implode(",", $aryLine));
     runQuery($sql);
 }
 
@@ -291,8 +326,10 @@ function countryLookup($country){
         "DOMINICANR" => array("iso3166"=>"DOM"),
         "ECUADALL" => array("iso3166"=>"ECU"),
         "ELSALVADOR" => array("iso3166"=>"SLV"),
+        "FYR OF MACEDONIA" => array("iso3166"=>"MKD"),
         "GUATEMAL" => array("iso3166"=>"GTM"),
         "HONGKONG" => array("iso3166"=>"HKG"),
+        "IRAN" => ["iso3166"=>"IRN"],
         "LUXEMBOU" => array("iso3166"=>"LUX"),
         "MYANUNSD" => array("iso3166"=>"MMR"),
         "NETHLAND" => array("iso3166"=>"NLD"),
@@ -312,13 +349,14 @@ function countryLookup($country){
         "VIETNAM" => array("iso3166"=>"VNM"),
         "VENEZOPEC" => array("iso3166"=>"VEN")
         );
+    $country = strtoupper($country);
     if(!isset($countries[$country])){
-        $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='all' and name like '". $country ."%'");
+        $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='countries' and name like '". $country ."%'");
         if($result->num_rows != 1) fatal_error("unable to find country = ". $country);  //or found more than one!
         $geo = $result->fetch_assoc();
         $countries[$country] = array("name"=>$geo["name"], "geoid"=>$geo["geoid"], "iso3166"=>$geo["iso3166"]);
     } elseif(!isset($countries[$country]["geoid"])) {
-        $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='all' and iso3166 = '". $countries[$country]["iso3166"] ."'");
+        $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='countries' and iso3166 = '". $countries[$country]["iso3166"] ."'");
         if($result->num_rows != 1) fatal_error("unable to find country = ". $country);  //or found more than one!
         $geo = $result->fetch_assoc();
         $countries[$country] = array("name"=>$geo["name"], "geoid"=>$geo["geoid"], "iso3166"=>$geo["iso3166"]);
@@ -328,10 +366,13 @@ function countryLookup($country){
 
 function fatal_error($msg){
     global $MAIL_HEADER;
-    mail($_POST["email"],
-        "fatal error during JODI api run",
-        $msg,
-        $MAIL_HEADER
-    );
+    logEvent("JODI ingest error", $msg);
+    if(isset($_POST["email"])){
+        mail($_POST["email"],
+            "fatal error during JODI api run",
+            $msg,
+            $MAIL_HEADER
+        );
+    }
     die($msg);
 }
