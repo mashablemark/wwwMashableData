@@ -57,10 +57,6 @@ JODI gas flow codes:
     "CSNATTER" =>["name"=>"closing stocks", "meta"=> "Closing Stocks refer to the stock level held on the national territory on the last day of the reference month."],
 */
 
-
-
-
-
 $jodi_codes = array(
     "primary petroleum products"=> array(
         //products
@@ -162,9 +158,8 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
         runQuery($sql);
         runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
     }
-    $result = runQuery("update apirunjobs set endt=now(), status='S' where jobid=$thisJobId)");
+    $result = runQuery("update apirunjobs set enddt=now(), status='S' where jobid=$thisJobId");
 }
-
 
 function ApiExecuteJob($api_run_row, $job_row){//runs one queued job as kicked off by api queue master
 

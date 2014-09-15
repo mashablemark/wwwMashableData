@@ -1,7 +1,7 @@
 <?php
 $event_logging = true;
 $sql_logging = false;
-$downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
+$downloadFiles = false;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
 
 
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
@@ -137,6 +137,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     global $MAIL_HEADER, $db;
     $jobid = $job_row["jobid"];
     $runid = $api_run_row["runid"];
+    $apiid = $api_run_row["apiid"];
 
     //reusable SQL statements
     $updateRunSql = "update apiruns set finishdt=now() where runid=$runid";
@@ -148,7 +149,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
 
     //$result is a pointer to the job to run
-    set_time_limit(60);
+    set_time_limit(600);
 
     $HEADER = '"CountryCode","Country","ItemCode","Item","ElementGroup","ElementCode","Element","Year","Unit","Value","Flag"';
     $colCountryCode = 0;
@@ -167,35 +168,82 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $branchName = $branchInfo['name'];
     $catid  = $branchInfo['catid'];
     print("STARTING FAO : $branchName (job $jobid)<br>\r\n");
-
+    $time_start = microtime(true);
+    $stats = []; //parse entire file into structured assoc. array (series not always ordered together in file!)
     $csv=fopen("bulkfiles/fao".$branchInfo["file"],"r");
     $header = fgets($csv);  //throw away the header line
+    $lastLine = false;  //must have successfully read a line to merit the final saveFaoSeries
     if($HEADER==trim($header)){ //know file format
-        $line = json_decode("[". $header . "]");
-        $initial = true;
-        $series_header = array(0,1,2,3,4,5,6,7,8,9,10); //dummy data for first check
+        $headers = json_decode("[". $header . "]");
+        $lineCounter = 0;
         while(!feof($csv)){
             $line = json_decode("[". fgets($csv) . "]");
             if(count($line)==11){
-                if($line[$colItem]!=$series_header[$colItem] || $line[$colCountry]!=$series_header[$colCountry] || $line[$colElement]!=$series_header[$colElement]){ //series
-                    if(!$initial){
-                        saveFaoSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $aryData);
-                        runQuery($updateJobSql);
-                    } else {
-                        $initial = false;
+                /*$lineCounter++;
+                if(intval($lineCounter/1000)*1000==$lineCounter) {
+                    $time_elapsed =  (microtime(true) - $time_start)*1000;
+                    printNow($time_elapsed ."ms for last 1000 lines: " . $lineCounter);
+                    $time_start = microtime(true);
+                }*/
+                $setKey = $line[$colElementCode]."-".$line[$colItemCode]."-". $line[$colUnit];
+                if(!isset($stats[$setKey])){
+                    $setName =  $line[$colElement] .": ". $line[$colItem];
+                    //printNow("new set: $setName");
+                    $stats[$setKey] = [
+                        "name" => $setName,
+                        "item" => $line[$colItem],
+                        "units" => $line[$colUnit],
+                        "series" => []
+                    ];
+                }
+                //special country cases
+                if($line[$colCountry] == "Ethiopia PDR") $line[$colCountry] = "Ethiopia";  //combine the two into a single series under geoid=72
+                if($line[$colCountry] == "China") $line[$colCountry] = "XXhina";  //use "China, mainland" with Taiwan and HK separate
+
+                if(faoCountryLookup($line[$colCountry])){
+                    if(!isset($stats[$setKey]["series"][$line[$colCountry]])){
+                        $stats[$setKey]["series"][$line[$colCountry]] = [];
                     }
-                    //start series
-                    set_time_limit(60);
-                    $series_header = $line;
-                    $lastLine = $line;
-                    $aryData = [$line[$colYear].":".$line[$colValue]];
-                } else { //another point in current series
-                    $aryData[] = $line[$colYear].":".$line[$colValue];
-                    $lastLine = $line;
+                    $stats[$setKey]["series"][$line[$colCountry]][] = $line[$colYear].":".$line[$colValue];
+                } //else  printNow("not found $line[$colCountry]");
+            }
+        }
+        //finished reading file
+        foreach($stats as $setKey => &$set){
+            set_time_limit(600);
+            foreach($set["series"] as $country => &$data){
+                if(count($data)>0 && strpos($set["units"], "LCU")===false ){
+                    $geo = faoCountryLookup($country);
+                    if(!isset($set["setid"])){
+                        //set with data & need to save/get the set from the db
+                        if(strpos($set["units"], "SLC")!==false){
+                            $thisSetKey = $setKey . ":" . $geo["currency"];
+                            $thisSetName = str_ireplace("SLC",$geo["currency"], $set["name"]);
+                            $thisSetName = str_ireplace("Standard Local Currency",$geo["currency"], $thisSetName);
+                            $thisSetUnits = str_replace("SLC",$geo["currency"], $set["units"]);
+                            $thisSetId = saveSet($apiid, $thisSetKey, $thisSetName, $thisSetUnits, "UNFAO", "http://faostat3.fao.org/home/index.html", "Data from ".$branchInfo["link"]);
+                            //note: do not save setid for series in SLC because the set is actually multiple sets by currency
+                        } else {
+                            $thisSetId = saveSet($apiid, $setKey, $set["name"], $set["units"], "UNFAO", "http://faostat3.fao.org/home/index.html", "Data from ".$branchInfo["link"]);
+                            if(!$thisSetId) die($setKey." ".$set["name"]." ".$set["units"]);
+                            $set["setid"] = $thisSetId;  //save to only call db once
+                        }
+                    } else {
+                        $thisSetId = $set["setid"];
+                    }
+                    if(isset($set["series"]["catid"])){
+                        $thisCatId = $set["series"]["catid"];
+                    } else {
+                        $item = $set["item"];
+                        $thisCatId = setCategoryByName($apiid, $item, $branchInfo["catid"]);
+                        setCatSet($thisCatId, $thisSetId);
+                    }
+                    sort($data);
+                    saveSetData($status, $thisSetId, "A", $geo["geoid"], $country==$geo["name"]?"":$country, $data);
                 }
             }
         }
-        saveFaoSeries($status, $api_run_row, $jobid, $series_header, $branchInfo, $lastLine, $aryData);
+        unset($stats);  //delete the massive assoc array from mem.
         $updatedJobJson = json_encode(array_merge($branchInfo, $status));
         runQuery( "update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
         /* runQuery($updateRunSql);
@@ -219,12 +267,11 @@ function ApiRunFinished($api_run){
     set_time_limit(200);
     setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
     set_time_limit(200);
-    set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
     set_time_limit(200);
-    pruneSets($api_run["apiid"]);
+    prune($api_run["apiid"]);  //remove empty categories
 }
-
+/*
 function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $line, $aryData){
     $colCountryCode = 0;
     $colCountry = 1;
@@ -241,12 +288,12 @@ function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, 
     static $unknownGeographies = [];
     static $setIds = [];
     $thisCatId = setCategoryByName($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
-    $geo = countryLookup($series_header[$colCountry]);
+    $geo = faoCountryLookup($series_header[$colCountry]);
     if($geo){
         $geoid = $geo["geoid"];
         $setName = $series_header[$colElement] .": ". $series_header[$colItem];
         $setkey = $series_header[$colElementCode]."-".$series_header[$colItemCode]."-". $series_header[$colUnit];
-        if(str_search("LCU", $series_header[$colUnit])!==false){
+        if(strpos("LCU", $series_header[$colUnit])!==false){
             $setkey .= $geo["currency"];
             $setName = preg_replace("LCU",$geo["currency"], $setName);
         }
@@ -259,19 +306,18 @@ function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, 
                 $setName,
                 $series_header[$colUnit],
                 "UNFAO",
-                "http://faostat3.fao.org/home/index.html"
+                "http://faostat3.fao.org/home/index.html",
+                "Data from ".$branchInfo["link"]
             );
+            setCatSet($thisCatId, $setId);
             //TODO move url and note to api.url and api.metadata
             $setIds[$setkey] = $setId;
-
-            //TODO: move into apis.metadata
-            "For methodology, classification, local currency units, and abbreviations visit http://faostat3.fao.org/home/index.html#METADATA_METHODOLOGY. Data from ".$branchInfo["link"],
         }
         //$mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
 
         $skey = $setkey .":".$series_header[$colCountryCode];
         saveSetData($status, $setId, "A", $geoid, "", $aryData, false, false, date("yyyymdd"));
-/*        $seriesid = updateSeries(
+        $seriesid = updateSeries(
             $status,
             $jobid,
             $skey,
@@ -291,36 +337,56 @@ function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, 
             $geoid,
             $mapSetId,
             null, null, null);
-        catSeries($thisCatId, $seriesid);*/
-        return ["setid"=>$setId, "periocitity"=>"A", "geoid"=>$geoid, "latlon"=>""];
+        catSeries($thisCatId, $seriesid);
+        return ["setid"=>$setId, "periodicity"=>"A", "geoid"=>$geoid, "latlon"=>""];
     } else {
         if(array_search($series_header[$colCountry], $unknownGeographies)===false){
             $unknownGeographies[] = $series_header[$colCountry];
             logEvent("unknown FAO geography", $series_header[$colCountry]." in ". $branchInfo["file"]);
         }
+        $status["failed"]++;
         return false;
     }
-}
+}*/
 
-function countryLookup($country){
+function faoCountryLookup($faoCountry){
+    //does not currently handle FAO regions
     static $countries = "null";
+    static $faoMatches = []; //speeds up search for something tha must be done 500,000 times per complete FAO ingest
+    static $matchesByGhandle = [];
     if($countries=="null"){
         $countries = array();
-        $result = runQuery("select geoid, name, currency, regexes, exceptex from geographies where geoset='all'");
+        $result = runQuery("select geoid, name, coalesce(currency, 'local currency unit') as currency, regexes, exceptex from geographies where geoset='countries' order by length(name) desc");
         while($row=$result->fetch_assoc()){
-            array_push($countries, $row);
+            $countries[] = $row;
         }
     }
-    for($i=0;$i<count($countries);$i++){
-        $regex = "#( for | in | from )?". $countries[$i]["regexes"]."#";
+    if($faoCountry == "World + (Total)") {
+        $faoCountry = "World";
+    } elseif($faoCountry == "European Union + (Total)"){
+        $faoCountry = "European Union";
+    } elseif (strpos($faoCountry, " + (Total)")!==false) return null;
 
-        if(preg_match($regex, $country, $matches)==1){
-            $exceptex = $countries[$i]["exceptex"];
-            if($exceptex==null || preg_match($exceptex, $country, $matches)==0){
-                return $countries[$i];
+    if(array_key_exists($faoCountry, $faoMatches)){
+        return $faoMatches[$faoCountry];
+    } else {
+        for($i=0;$i<count($countries);$i++){
+            $regex = "#( for | in | from )?". $countries[$i]["regexes"]."#";
+
+            if(preg_match($regex, $faoCountry, $matches)==1){
+                $exceptex = $countries[$i]["exceptex"];
+                if($exceptex==null || preg_match("#".$exceptex."#", $faoCountry, $matches)==0){
+                    $faoMatches[$faoCountry] = $countries[$i];
+                    if(isset($matchesByGhandle["G".$countries[$i]["geoid"]])) logEvent("FAO ingest duplicate country detected","G".$countries[$i]["geoid"].": ".$matchesByGhandle["G".$countries[$i]["geoid"]]." vs. ". $faoCountry);
+                    $matchesByGhandle["G".$countries[$i]["geoid"]] = $faoCountry;
+                    //printNow("G".$countries[$i]["geoid"]." (".$countries[$i]["name"].") = ".$faoCountry);
+                    return $faoMatches[$faoCountry];
+                }
             }
         }
     }
-    return null;
+    printNow("$faoCountry is not a recognized country");
+    $faoMatches[$faoCountry] = null;
+    return $faoMatches[$faoCountry];
 }
 

@@ -14,21 +14,15 @@ include_once("../../global/php/common_functions.php");
 $years = array("2000","2010");
 $api_key = "b12bd9324e77b0a2edcb92e67d508e7e9e3d862b";  //registered to mark_c_elbert@yahoo.com
 
-//get array of states and counties
-$sql = <<<EOS
-    SELECT DISTINCT g1.geoid, g1.name, SUBSTR( g2.jvectormap, 3, 2 ) AS fips
+//create assoc. array of states and counties keyed by FIPS code
+$sql = "SELECT DISTINCT g1.geoid, g1.name, SUBSTR( g2.jvectormap, 3, 2 ) AS fips
     FROM geographies g1, geographies g2
     WHERE g1.geoid = g2.containingid
-    AND g2.geoset =  'uscounties'
-    UNION ALL
-    SELECT geoid, name, SUBSTR( jvectormap, 3) AS fips
-    FROM geographies
-    WHERE geoset =  'uscounties'
+    AND g2.geoset =  'US counties'
         UNION ALL
     SELECT geoid, name, SUBSTR( jvectormap, 3) AS fips
     FROM geographies
-    WHERE geoset =  'uscounties'
-EOS;
+    WHERE geoset =  'US counties'";
 $result = runQuery($sql);
 $geographies = [];
 while($row=$result->fetch_assoc()) {
@@ -42,14 +36,6 @@ $themes = array(
     "Hispanic population"=>[
         "name"=>"Hispanic population",
         "variables"=>array(
-            array(
-                "dimension"=>"sex",
-                "location"=>"variable",
-                "list"=>array(
-                    array("pattern"=>"Male", "color"=>"lightblue"),
-                    array("pattern"=>"Female", "color"=>"pink")
-                )
-            ),
             array(
                 "dimension"=>"age",
                 "location"=>"variable",
@@ -78,12 +64,7 @@ $themes = array(
                     array("pattern"=>"5 to 9 years", "short"=>"5 - 9"),
                     array("pattern"=>"Under 5 years", "short"=>"Under 5")
                 )
-            )
-        )
-    ],
-    "Population"=>array(
-        "name"=>"Population",
-        "variables"=>array(
+            ),
             array(
                 "dimension"=>"sex",
                 "location"=>"variable",
@@ -91,7 +72,12 @@ $themes = array(
                     array("pattern"=>"Male", "color"=>"lightblue"),
                     array("pattern"=>"Female", "color"=>"pink")
                 )
-            ),
+            )
+        )
+    ],
+    "Population"=>array(
+        "name"=>"Population",
+        "variables"=>array(
             array(
                 "dimension"=>"age",
                 "location"=>"variable",
@@ -133,6 +119,14 @@ $themes = array(
                     array("pattern"=>"Some Other Race", "short"=>"Other", "color"=>"#f28f43"),
                     array("pattern"=>"Two Or More Races", "short"=>"Multiracial", "color"=>"#77a1e5")
                 )
+            ),
+            array(
+                "dimension"=>"sex",
+                "location"=>"variable",
+                "list"=>array(
+                    array("pattern"=>"Male", "color"=>"lightblue"),
+                    array("pattern"=>"Female", "color"=>"pink")
+                )
             )
         )
     ),
@@ -151,17 +145,22 @@ $themes = array(
     )
 );
 
-$apiid = 8;
-$rootcatid = 692361;
+$apiid = 8;  //US Census
+$result = runQuery("select * from apis where apiid =8;");
+while($api_row=$result->fetch_assoc()) {
+    $rootcatid = $api_row["rootcatid"];
+}
+
 $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-$firstDate = strtotime("2000-1-1 UTC")*1000;
-$lastDate = strtotime("2010-1-1 UTC")*1000;
+$firstDate100k = strtotime("2000-1-1 UTC")/100;
+$lastDate100k = strtotime("2010-1-1 UTC")/100;
 
 //read the xml file and parse
 $fileArray = file("census.xml");
 $xmlCensusConfig = simplexml_load_string(implode("\n", $fileArray));
 
 foreach($xmlCensusConfig->theme as $xmlTheme){
+    //timeout("start theme loop");
     $data = array();
     $sourceKeys = array();
     $attribute = $xmlTheme->attributes();
@@ -177,6 +176,7 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
 
         //process the concept's variable tags
         foreach($xmlConcept->variable as $xmlVariable){  //XML variable loop
+            //timeout("top of variable loop");
             //detect dimensions
             $attribute = $xmlVariable->attributes();
             $key = $attribute["name"];
@@ -197,8 +197,8 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
                             $sumWithNext = $list[$j]["sumWithNext"];
                         } else {
                             $thisDimension = [
-                                "dimension"=>$variables[$i]["dimension"], 
-                                "list"=>[] 
+                                "dimension"=>$variables[$i]["dimension"],
+                                "list"=>[]
                             ];
                             for($index=0;$index<count($list);$index++){
                                 if(!isset($list[$index]["sumWithNext"])){
@@ -217,19 +217,24 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
             }
 //if($searchText=="Male: !! 25 to 29 years")die();
             //get states
+            //timeout("start fetch");
             fetchData($data, "state", $key);
             //get counties
             fetchData($data, "county", $key);
+            //timeout("finish fetch");
 
             if(!$sumWithNext) {
                 saveData(implode($sourceKeys,"+"), $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions);
+                //timeout("saved Data");
+                unset($data);
+                unset($sourceKeys);
                 $data = array();
                 $sourceKeys = array();
             }
         }
     }
-    var_dump($status);
 }
+var_dump($status);
 
 function fetchData(&$data, $location, $key){
 //turns $data into a keyed array if empty and sums if already filled
@@ -241,7 +246,7 @@ function fetchData(&$data, $location, $key){
             if($year=="2000" && substr($key,4,1)=="0") $yearKey = substr($key,0,4).substr($key,5);
             $url = "http://api.census.gov/data/$year/sf1?get=$yearKey&for=$location:*&key=$api_key";
             printNow($url);
-                $fetched = json_decode(implode(file($url),"\n"));
+            $fetched = json_decode(implode(file($url),"\n"));
             for($j=1;$j<count($fetched);$j++){ //start with 1 to skip the header row
                 if(count($fetched[$j])==3){
                     $locationCode = "F".str_pad($fetched[$j][1], 2, '0', STR_PAD_LEFT)  . str_pad($fetched[$j][2], 3, '0', STR_PAD_LEFT);
@@ -266,53 +271,98 @@ function fetchData(&$data, $location, $key){
 }
 
 function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions){
+    printNow("themeName: $themeName");
+    printNow("sourceKey: $sourceKey");
+    printNow("cubeDimensions:");
+    var_dump($cubeDimensions);
+    printNow("seriesDimensions:");
+    var_dump($seriesDimensions);
     global $apiid, $geographies, $status, $firstDate, $lastDate;
     //1. get themeid, saving as needed
     $themeid = setThemeByName($apiid, $themeName);
     //2. get cubeid, saving the cube and its dimensions as needed
     $cube = setCubeByDimensions($themeid, $cubeDimensions, $units);
-    $cubeid = $cube["id"];
     //3. get cube_catid
     $cube_catid = setCategoryByName($apiid, $themeName." ". $cube["name"], $theme_catid);
     //4. get mapsetid and set_catid
-    $setName = $themeName . (count($seriesDimensions)==0?"":" ".implode($seriesDimensions, " and "));
+    $setName = $themeName . (count($seriesDimensions)==0?"":" ".implode($seriesDimensions, " and ")); //. " in [geo]";
+    printNow("setName: $setName");
 
     //insert CATEGORIES
     $set_catid = setCategoryByName($apiid, $setName, $cube_catid);
 
-    //insert MAPSETS
-    $mapsetid = getMapSet($setName, $apiid, "A", $units);
+    //insert SETS
+    $setid = saveSet($apiid, $sourceKey, $setName, $units, "US Census Bureau","http://www.census.gov/developers/data/", "", $themeid);
+    //$mapsetid = getMapSet($setName, $apiid, "A", $units);
+
+    //insert CUBESETS
+    if($cube){
+        $stackorder = "null";
+        $barorder = "null";
+        $side = "null";
+        for($i=0;$i<count($cubeDimensions);$i++){
+            for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
+                if($seriesDimensions[$i]==$cubeDimensions[$i]["list"][$j]["name"]){
+                    if(($cubeDimensions[$i]["dimension"]=="sex" && $i!=0) || $i==2){
+                        $side = ($i==0)?"'L'":"'R'";
+
+                    } elseif($i==0){
+                        $barorder = $j;
+                    } elseif($i==1){
+                        $stackorder = $j;
+                    }
+                }
+            }
+        }
+        $cubeid = $cube["id"];
+        runQuery("insert into cubecomponents (cubeid, setid, barorder, stackorder, side)
+            values($cubeid, $setid, $barorder, $stackorder, $side)
+            on duplicate key update barorder=$barorder, stackorder=$stackorder, side=$side");
+    }
+
+    //insert CATEGORYSETS
+    setCatSet($set_catid, $setid);
 
     //5. loop through the dataset and save/update it
     foreach($data as $locationCode=>$dataArray){
         //determine geoid and insert series, categoryseries
         if(isset($geographies[$locationCode])){
-            $geoname = $geographies[$locationCode]["name"];
+            //$geoname = $geographies[$locationCode]["name"];
             $geoid = $geographies[$locationCode]["geoid"];
             $mdData = [];
             for($j=0;$j<count($dataArray);$j++){
-                array_push($mdData, implode($dataArray[$j],':'));
+                $mdData[] = implode($dataArray[$j],':');
             }
+            sort($mdData);
             //printNow("$locationCode $geoname($geoid): $j");
 
             //insert series
-            $sid = updateSeries($status, "null", $sourceKey."-".substr($locationCode, 1), $setName." in ".$geoname,
-                "US Census Bureau","http://www.census.gov/developers/data/","A",
-                $units,"null","null",$setName,
-                $apiid, "",
-                $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);
+            /*            $sid = updateSeries($status, "null", $sourceKey."-".substr($locationCode, 1), $setName." in ".$geoname,
+                            "US Census Bureau","http://www.census.gov/developers/data/","A",
+                            $units,"null","null",$setName,
+                            $apiid, "",
+                            $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);*/
 
+            //insert set
+            saveSetData($status, $setid, "A", $geoid, "", $mdData);
             //insert cubeseries
-            runQuery("insert ignore into cubeseries (cubeid, geoid, seriesid) values($cubeid, $geoid, $sid)");
+            //runQuery("insert ignore into cubeseries (cubeid, geoid, seriesid) values($cubeid, $geoid, $sid)");
 
             //insert categoryseries
-            runQuery("insert ignore into categoryseries (catid, seriesid) values($set_catid, $sid)");
+            //runQuery("insert ignore into categoryseries (catid, seriesid) values($set_catid, $sid)");
         } else {
-            if(substr($locationCode,0,3)!="F72") printNow($locationCode);  //puerto rico
+            if(substr($locationCode,0,3)!="F72") printNow("unable to insert for FIPS handle: ".$locationCode);  //puerto rico
             $status["failed"]++;
         }
     }
-    setMapsetCounts($mapsetid, $apiid);
+
+    //setMapsetCounts($mapsetid, $apiid);
+
+    set_time_limit(200);
+    setGhandlesPeriodicitiesFirstLast($apiid);
+    set_time_limit(200);
+    setMapsetCounts("all", $apiid);
+
     printNow(date("Y-m-d H:i:s") .": processed set $setName ($units), part of the cube $themeName ". $cube["name"]);
 
 }

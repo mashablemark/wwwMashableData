@@ -251,7 +251,7 @@ function prune($api_id = 0){
     $iterations = 0;
     $sql = "
         select c.catid
-        from categories c left outer join categoryseries cs on c.catid=cs.catid
+        from categories c left outer join categorysets cs on c.catid=cs.catid
         left outer join catcat cc on c.catid = cc.parentid
         where cs.catid is null and cc.parentid is null
         "; //find orphan categories for
@@ -268,15 +268,11 @@ function prune($api_id = 0){
         }
     } while($deadEndCount>0 && $iterations <10); //continue until no more dead end categories
     //clean out any dangling category series records
-    runQuery("delete from cs.* USING categoryseries cs left outer join series s on cs.seriesid=s.seriesid where s.seriesid is null");
-    runQuery("delete from  cs.* USING categoryseries cs left outer join categories c on cs.catid=c.catid where c.catid  is null");
+    runQuery("delete from cs.* USING categorysets cs left outer join sets s on cs.setid=s.setid where s.setid is null");
+    runQuery("delete from  cs.* USING categorysets cs left outer join categories c on cs.catid=c.catid where c.catid  is null");
     runQuery("delete from  cc.* USING catcat cc left outer join categories c on cc.parentid=c.catid where c.catid  is null");
     runQuery("delete from  cc.* USING catcat cc left outer join categories c on cc.childid=c.catid where c.catid  is null");
-
-    pruneMapsets($api_id);
-
     return array("status" => "ok", "pruned"=>$pruned, "iterations"=>$iterations);
-
 }
 
 
@@ -451,17 +447,6 @@ function findSets($apiid){
     //mapsets diagnostics:  select membercount, count(*) as number_of_set from (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid) mc group by membercount
     //select seriesid, skey, s.name, s.mapsetid, s.geoid, s.periodicity, s.units from series s, (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid having count(*)<=5) ms where s.mapsetid=ms.mapsetid
     return array("geographies_found"=> $matches_found, "series_scanned_for_geo" => $count);
-}
-
-function pruneMapsets($apiid="null", $minCount = 5){  //eliminate the mapsets with 5 or fewer point as these tend to be problematic.
-    runQuery("truncate temp");  //need to use temp table because mySQL cannot figure out how to do this efficiently otherwise.
-    runQuery("insert into temp (id1) select mapsetid from series where apiid = $apiid
-        and mapsetid is not null group by mapsetid having count(*)<=$minCount");
-    runQuery("delete from mapsets using mapsets, temp where mapsets.mapsetid=temp.id1");
-    //but keep detected geoid...
-    runQuery("update series s, temp t set s.mapsetid = null where s.mapsetid=t.id1");
-    runQuery("delete FROM mapsets using mapsets left outer join series s on mapsets.mapsetid=s.mapsetid WHERE s.mapsetid is null"); //clear out empty mapsets that have accumulated
-    runQuery("truncate temp");
 }
 
 function updateJob($jobid, $status, $options){

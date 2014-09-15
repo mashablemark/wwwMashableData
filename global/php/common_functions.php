@@ -326,6 +326,7 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
     //save the cube and its dimensions if DNE
     //return an assc array with cube name and id
     global $db;
+    if(count($cubeDimensions)==0) return false;  //don't insert cube for "totals"
     $names = [];
     for($i=0;$i<count($cubeDimensions);$i++){
         array_push($names, $cubeDimensions[$i]["dimension"]);
@@ -341,8 +342,27 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
         $row = $result->fetch_assoc();
         $cubeid =$row["cubeid"];
     }
-    for($i=0;$i<count($cubeDimensions);$i++){
+    $dimensions = [];
+    foreach($cubeDimensions as $i=>$dimension){
+        switch($i){
+            case 0:
+                $dimensions["bar"]=$cubeDimensions[0]["list"];
+                break;
+            case 1:
+                if(strtolower($cubeDimensions[1]["dimension"])=="sex"){
+                    $dimensions["side"]=$cubeDimensions[1]["list"];
+                } else {
+                    $dimensions["stack"]=$cubeDimensions[1]["list"];
+                }
+                break;
+            case 2:
+                $dimensions["side"]=$cubeDimensions[2]["list"];
+        }
+    }
+    runQuery("update cubes set dimnames = ".safeStringSQL(json_encode($dimensions))." where cubeid=$cubeid");
+    /*for($i=0;$i<count($cubeDimensions);$i++){
         $dimName = $cubeDimensions[$i]["dimension"];
+
         $sql = "select dimid from cubedims where cubeid=$cubeid and name='$dimName'";
         $result = runQuery($sql, "cube fetch");
         if($result->num_rows==0){
@@ -361,7 +381,7 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
             $sql="insert into cubedims (cubeid, name, json, dimorder) values($cubeid, '$dimName',".safeStringSQL($dimjson).",$i)";
             if(!runQuery($sql, "insert cubedim")) throw new Exception("error: unable to insert dimension $dimName for cubeid $cubeid");
         }
-    }
+    }*/
     return ["name"=>$cubeName, "id"=>$cubeid];
 }
 
@@ -370,6 +390,10 @@ function printNow($msg){ //print with added carriage return and flushes buffer s
     print($msg . "<br />");
     ob_flush();
     flush();
+}
+
+function timeOut($msg){
+    printNow(microtime(true)."ms: ".$msg);
 }
 
 function encyptAcctInfo($value){
@@ -582,8 +606,10 @@ function saveSetData(&$status, $setid, $periodicity, $geoid=0, $latlon="", $arra
     } else {
         $row = $result->fetch_assoc();
         if($row["data"]==$data){
+            //printNow("skipping setid: $setid, geoid:$geoid");
             $status["skipped"]++;
         } else {
+            //printNow("updating setid: $setid, geoid:$geoid");
             $status["updated"]++;
         }
     }
