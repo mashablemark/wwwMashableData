@@ -68,20 +68,19 @@ function ApiExecuteJob($runid, $apirunjob){ //called by master thread loop to ex
 }
 
 function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
-//excutes a single theme ingest (usually one code/TSV, but may combine several) without regard to apidt (apidt already testing in ApiCrawl)
-
+//excutes a single theme ingest (usually one code/TSV, but may combine several) without regard to apidt (apidt already tested in ApiCrawl)
     global $ingest, $xmlTOC, $fetchNew, $dsdFolder, $tsvFolder;
-
 
     $apiid = $api_row["apiid"];
     $jobid = isset($api_row["jobid"])?$api_row["jobid"]:null;
+
     //1. determine code
-    if(!$themeCodes && isset($_REQUEST["code"])){ //allow a single variable group to be ingested from the command line
+    if(!$themeCodes && isset($_REQUEST["code"])){ //also allow a single variable group to be ingested from the command line for debugging
         $themeCodes = [$_REQUEST["code"]];
     }
-    if($themeCodes === false) return "no theme code(s) found"; //error msg
+    if($themeCodes === false) return "no theme code(s) requested"; //error msg
 
-    //1. find configuration in $ingest (master assoc array set in es_config.php)
+    //1. find configuration for the requested code in $ingest (master assoc array set in es_config.php)
     $themeConfig = false;
     for($i=0;$i<count($ingest);$i++){
         if(in_array($themeCodes[0], $ingest[$i]["codes"])){
@@ -99,7 +98,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     $themePeriod = false;
 
     //2. loop through codes
-    for($i=0;$i<count($themeConfig["codes"]);$i++){
+    foreach($themeConfig["codes"] as $code){
         //2a. get the code leaf in TOC
         $leaves = $xmlTOC->xpath("//leaf[code='$code']");
         if(count($leaves)===0){
@@ -374,20 +373,13 @@ function getTSV($code, $force = false){
     }
 }
 
-
 function getDsd($code){
     global $dsdFolder, $dsdRootUrl;
     set_time_limit(300); // unlimited max execution time
-    $fp = fopen($dsdFolder.$code.".dsd.xml", "w");
-    $options = array(
-        CURLOPT_FILE    => $fp, //output to to window if not defined
-        CURLOPT_TIMEOUT =>  200, // set this to 8 hours so we dont timeout on big files
-        CURLOPT_URL     => $dsdRootUrl.$code
-    );
-
-    $ch = curl_init();
-    curl_setopt_array($ch, $options);
-    curl_exec($ch);
+    $url = $dsdRootUrl.$code;
+    $outputfile = $dsdFolder.$code.".dsd.xml";
+    $cmd = "wget -q \"$url\" -O $outputfile";
+    exec($cmd);
 }
 
 function mdFreqFromEsDate($esDate){

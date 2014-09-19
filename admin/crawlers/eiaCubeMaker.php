@@ -7,15 +7,6 @@ include_once("../../global/php/common_functions.php");
 
 $apiid=5;
 
-$colDataset = 0;
-$colTopicCode = 1;
-$colTopicName = 2;
-$colDimRank = 3;
-$colDimName = 4;
-$colVarPattern = 5;
-$colVarCode = 6;
-$colUnits = 7;
-
 $totals = [
     "All Fuels"=> "total",
     "Other Renewables"=>"exclude",
@@ -2115,18 +2106,39 @@ $rawVars= [  //in order of dataset, topic,
 ];
 
 
+$colDataset = 0;
+$colTopicCode = 1;
+$colTopicName = 2;
+$colDimRank = 3;
+$colDimName = 4;
+$colVarPattern = 5;
+$colVarCode = 6;
+$colUnits = 7;
+
 $datasets = [];
-for($i=0;$i<count($rawVars);$i++){
-    $rawVar = $rawVars[$i];
+/* resulting structure after processing $rawVars
+["ELEC"=>[
+        "HEAT_CONTENT"=>[
+            "theme"=>"Quality of Fossil Fuels : Heat Content",
+            "units"=>"Btu per physical units",
+            "dimensions"=>[
+                ["dimension"=>"Sector","rank"=>1, "list"=>[]],
+                []
+            ]
+    ],
+...
+]
+*/
+foreach($rawVars as &$rawVar){
     //process dataset
     if(!isset($datasets[$rawVar[$colDataset]])) $datasets[$rawVar[$colDataset]] = [];
-    $ds = $datasets[$rawVar[$colDataset]];
+    $ds =& $datasets[$rawVar[$colDataset]];
     //process theme
-    if(!isset($datasets[$rawVar[$colDataset]][$rawVar[$colTopicCode]])) $datasets[$rawVar[$colDataset]][$rawVar[$colTopicCode]] = ["theme"=>$rawVar[$colTopicName], "dimensions"=>[], "units"=>isset($rawVar[$colUnits])?$rawVar[$colUnits]:""];
-    $dims = &$datasets[$rawVar[$colDataset]][$rawVar[$colTopicCode]]["dimensions"];
+    if(!isset($ds[$rawVar[$colTopicCode]])) $ds[$rawVar[$colTopicCode]] = ["theme"=>$rawVar[$colTopicName], "dimensions"=>[], "units"=>isset($rawVar[$colUnits])?$rawVar[$colUnits]:""];
+    $dims =& $ds[$rawVar[$colTopicCode]]["dimensions"];
 
     //process dimension
-    if(!isset($dims[$rawVar[intval($colDimRank)]])) $datasets[$rawVar[$colDataset]][$rawVar[$colTopicCode]]["dimensions"][$rawVar[$colDimRank]] = ["dimension"=>$rawVar[$colDimName], "rank"=>$rawVar[$colDimRank],"totalCode"=>"", "list"=>[]];
+    if(!isset($dims[intval($rawVar[$colDimRank])])) $dims[intval($rawVar[$colDimRank])] = ["dimension"=>$rawVar[$colDimName], "rank"=>$rawVar[$colDimRank],"totalCode"=>"", "list"=>[]];
     //$dim = $datasets[$rawVar[$colDataset]][$rawVar[$colTopicCode]]["dimensions"][$rawVar[$colDimRank]];
     //process variable
     if(isset($totals[$rawVar[$colVarPattern]])) {

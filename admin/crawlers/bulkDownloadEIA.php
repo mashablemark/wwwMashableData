@@ -113,13 +113,35 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
     $jobid = $job_row["jobid"];
 
+
     //reusable SQL
     $update_job = "update apirunjobs set enddt = now() where jobid=$jobid";
-    set_time_limit(60);
     $jobInfo = json_decode($job_row["jobjson"],true);
     $datasetKey = $jobInfo["data_set"];
     $bulkCategoryName = $jobInfo["name"];
     $fp = fopen($localBulkFolder.$datasetKey.".txt","r");
+    set_time_limit(60);
+/*
+ * need to run through the bulk file twice:
+ *
+ * first pass = detect sets loop:
+ *       1. skip if forced set (elect and coal) else detect geoid and setname
+ *       2. build series[skey] = [setName=>   , geoid=>  ]
+ *       3. build sets[setname][units][f] = [skey]
+ * second pass = detect geo and setname
+ *      1. check to see if table already
+ *          A. if source key exists in DB (setdata.skey):
+ *              -> get setname, geoid, setid, settype (S|M|X)
+ *              -> logEvent if detected geoid or detected setname differs from db AND set type is M
+ *              -> logEvent if sets type is S but detected type is M
+ *              -> update sets.metadata, setdata.periodicity, setdata.geoid, setdata.latlon, sets.latlon, setdata.data
+ *          B. if source key not in DB (setdata.skey):
+ *              -> create set as set if forceSet or count(sets[setname][units][f])>5) else create sets for each freqset (collapsing f, not geo)
+ *              -> for elect and coal, set sets.setkey too
+ *              -> insert setdata records
+ *      2. for forced sets, insert/update sets record by setkey, then insert/update setdata records by sourcekey
+ *
+ * */
 
     //4.  loop through the unzipped bulk file
     $seriesCount = 0;
@@ -132,7 +154,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         //var_dump($oEIA);
         //some series of daily spot prices are > 150KB
         //objects are either series or categories.  The series are in the first half of the file.  The categories are in the second half.
-        //Categories are in heirarchical order so that top level categories are earlier in the file than descendant categories.
+        //Categories are in hierarchical order so that top level categories are earlier in the file than descendant categories.
         //This permits single pass ingestion and creation of series records followed by category records and category-series relationship records.
         if(isset($oEIA["series_id"])){
             //4a. process series
@@ -387,6 +409,7 @@ class series{
         "start" => "",
         "end" => "",
         "last_updated" => "apidt",
+
         "data" => "data"
     );
 
