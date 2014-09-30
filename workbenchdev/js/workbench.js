@@ -109,7 +109,6 @@ var localSeriesIndex = 0;  //used to give localSeries from chart plugin unique h
 var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Add to my Series" and "add to Graph" button functions.
 var quickChart;
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
-var mapsArray = []; //sorted array of available maps created from mapsList object
 var parsingHash = false;
 
 window.fbAsyncInit = function() { //called by facebook auth library after it loads (loaded asynchronously from doc.ready)
@@ -282,9 +281,6 @@ $(document).ready(function(){
     window.onbeforeunload = function() {
         return "Your work will be lost.";
     };
-
-    for(var map in mapsList) mapsArray.push(map);
-    mapsArray.sort();
 
     $('body').resize(resizeCanvas);
     $('#series_search_periodicity, #series_search_source, #series-search-button').click(seriesCloudSearch);
@@ -614,7 +610,7 @@ function setupPublicSeriesTable(){
                         + ((obj.pointsetid)?iconsHMTL.pointset:'')
                         + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(value)
-                        + '<span class="handle">' + (obj.userid?'U':'S') + obj.seriesid + '</span>';
+                        + '<span class="handle">' + obj.handle + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
             { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
@@ -1093,23 +1089,23 @@ function previewPublicSeries(){
         preview(series, true);
     }
 }
+
 //QUICK VIEW FUNCTIONS
 function preview(series, showAddSeries){
     //if(notLoggedInWarningDisplayed()) return false;     // need to allow some playing before forcing a signup
-    var sids = [], usids=[], handle, i;
+    var shandles=[], handle, i;
     for(i=0;i<series.length;i++){
         if(!series[i].data){ //note:  if L, it *must* have its own data
-            if(series[i].handle[0]=='S') sids.push(series[i].handle.substring(1));
-            if(series[i].handle[0]=='U') usids.push(series[i].handle.substring(1));
+            shandles.push(series[i].handle);
         }
     }
 
-    if(sids.length+usids.length==0){
+    if(shandles.length==0){
         quickGraph(series, showAddSeries);
     } else {
         callApi({command:  'GetMashableData',
-                sids: sids,
-                usids: usids
+                shandles: shandles,
+                periodicity: globals.periodPref || 'M'
             },
             function(jsoData, textStatus, jqXH){
                 for(i=0;i<series.length;i++){
@@ -1891,8 +1887,8 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
 
         function showPanel(){
             var $panel, mapsAsOptions='', i;
-            for(i=0;i<mapsArray.length;i++){
-                mapsAsOptions += '<option value="'+mapsArray[i]+'">'+mapsArray[i]+'</option>';
+            for(var map in globals.maps){
+                mapsAsOptions += '<option value="'+map+'">'+globals.maps[map].name+'</option>';
             }
             var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
                 +   '<h4>Create a set of series that can be mapped:</h4>'

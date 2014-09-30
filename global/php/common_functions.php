@@ -477,16 +477,17 @@ function setCatSet($catid, $setid, $geoid = 0){
 }
 
 function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
-    //TODO: add temp.int1 and temp.int2 columns
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
-    $sql = "insert into temp (id1, text1, text2, `int1`, `int2`) select s.setid, group_concat(concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity)), min(sd.firstdt100k), max(sd.lastdt100k)
+    $sql = "insert into temp (id1, text1, text2, `int1`, `int2`)
+    select sd.setid, group_concat(distinct concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity)), min(sd.firstdt100k), max(sd.lastdt100k)
     from setdata sd ";
     if($apiid == "all"){
-        $sql .=" group by s.setid;";
+        $sql .=" group by sd.setid;";
     } else {
         $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid group by s.setid;";
     }
+
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
     runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
 }

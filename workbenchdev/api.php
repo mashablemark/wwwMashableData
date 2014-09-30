@@ -108,12 +108,13 @@ switch($command){
 
 
         $sql = "SELECT SQL_CALC_FOUND_ROWS
-        concat(left(s.settype,1), s.setid, ifnull(concat('L',s.latlon), '')) as handle,
-        s.setid, s.mastersetid, s.userid, s.name, s.units, s.periodicities as period, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
-        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, s.maps, ghandles
-        FROM sets s left outer join apis a on s.apiid=a.apiid";  //left outer join sets s2 on s.mastersetid=s2.setid ";
+        concat(if(s.latlon='', left(s.settype,1),'S'), s.setid) as handle,
+        concat(left(coalesce(s2.settype, s.settype),1), coalesce(s.mastersetid, s.setid)) as sethandle,
+        s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.periodicities as period, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
+        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, coalesce(s2.maps, s.maps) as maps, s.ghandles
+        FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
-
+        //handle may be modified in read loop depending on detected geographies and
         if($catid>0){
             //1. if category search, this is simple
             $sql .= " INNER JOIN categoryseries cs on s.seriesid = cs.seriesid WHERE catid=$catid";
@@ -145,7 +146,7 @@ switch($command){
                     foreach($geoWords as $geoWord){
                         $searchWords = str_replace("+".$geoWord." ", " ", $searchWords);
                     }
-                    $foundGeos["G".$aRow["geoid"]] = [
+                    $foundGeos["G©".$aRow["geoid"]] = [
                         "seachWords"=>$searchWords,
                         "name"=>$aRow["name"]
                     ];
@@ -202,12 +203,12 @@ switch($command){
             $sOrder = " ORDER BY  ";
             for ( $i=0 ; $i<intval( $_POST['iSortingCols'] ) ; $i++ )
             {
-                if ( $_POST[ 'bSortable_'.intval($_POST['iSortCol_'.$i]) ] == "true" )
+                if ( $_POST[ 'bSortable_'.intval($_POST['iSortCol_'.$i]) ] == "true")
                 {
                     $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." s.".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
                 }
             }
-            $sOrder = substr_replace( $sOrder, "", -2 );
+            $sOrder = substr_replace($sOrder, "", -2 );
 
             if(strlen($search)>0 && $sOrder == " ORDER BY") {  // show shortest results first, but only if the user actually entered keywords
                 $sOrder = " ORDER BY s.namelen asc ";
@@ -249,12 +250,16 @@ switch($command){
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         while ($aRow = $result->fetch_assoc()) { //handle, setid, mastersetid, userid, name, units, period, title, src, url, firstdt, lastdt, apiid, maps, ghandles
             $found = false;
+            $aRow["maps"] = str_replace("M©","", $aRow["maps"]);
+            $aRow["period"] = str_replace("F©","", $aRow["period"]);
             foreach($foundGeos as $ghandle => $geoSearchDetails){
-                if(preg_match("#$ghandle,#", $aRow["ghandles"].",")==1){
-                    logEvent("ghandle matched", $ghandle);
-                    $thisRow = $aRow;
+                if(strpos($aRow["ghandles"].",", "$ghandle,")!==false){
+                    //logEvent("ghandle matched", $ghandle);
+                    $thisRow = $aRow; //copy
                     unset($thisRow["ghandles"]);
                     $thisRow["name"] .= ": ".$geoSearchDetails["name"];
+                    $thisRow["geoid"] =  str_replace("G©", "", $ghandle);
+                    $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("©","", $ghandle);
                     $output['aaData'][] = $thisRow;
                     $found = true;
                 }
@@ -1545,8 +1550,13 @@ EOS;
             $output = array("status"=>$usageTracking["msg"]);
             break;
         }
-        $sids = (isset($_POST['sids']))? $_POST['sids']:array();
-        $usids = (isset($_POST['usids']))? $_POST['usids']:array(); //must be owner or belong to same org as owner or series will not be returned
+        if(isset($_POST['handles'])){
+            $shandles = $_POST['handles'];
+        } else {
+            $output = ["status"=>"Empty data request"];
+            break;
+        }
+
         $user_id =  intval($_POST['uid']);
 
         if(count($sids) == 0 && count($usids) == 0){
@@ -1568,7 +1578,7 @@ EOS;
         $output = array("status" => "ok", "series" => array());
         if(count($clean_seriesids)>0){
             $sql = "
-            SELECT s.name, s.mapsetid, s.pointsetid, coalesce(ms.themeid, ps.themeid) as themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid,
+            SELECT s.name, s.setid, s.pointsetid, s.themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid,
             s.title as graph, s.src, s.url, s.units, s.data, s.periodicity as period, 'S' as save, 'datetime' as type, firstdt,
             lastdt, hash as datahash, ifnull(ms.counts, ps.counts) as geocounts
             FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid

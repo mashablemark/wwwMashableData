@@ -1,6 +1,6 @@
 <?php
 /**
- * abstract series class to assist in downloading and persisting the series
+ * EIA Bulk file ingest to sets
  * User: Mark Elbert
  * Date: 10/7/13
  *
@@ -10,7 +10,8 @@
 $event_logging = true;
 $sql_logging = false;
 $localBulkFolder = "bulkfiles/eia/";
-
+$minSetSize = 5;  //detected sets smaller than this
+$freqRegex = "#( : |, |)(Quarterly|Annual|Yearly|Monthly|Weekly|Daily)#i";
 
 function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and ingestion
     global $localBulkFolder, $db;
@@ -23,7 +24,7 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
     $status= [];
     $eiaBulkDownloadWebDirectory = "http://api.eia.gov/bulk/";  //"http://www.eia.gov/beta/api/bulkdownloads/";
 
-//0. create inital job
+//0. create initial job
     $insertInitialRun = "insert into apirunjobs (runid, jobjson, tries, status, startdt, enddt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now(), now())";
     $result = runQuery($insertInitialRun);
     $jobid = $db->insert_id;
@@ -57,16 +58,16 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
                 printNow("downloading to $eia_uri<br>");
                 set_time_limit(300);  //downloading may take a couple of minutes
                 //$fp = fopen($eiaBulkDownloadWebDirectory.$datasetKey."zip", 'r');
-/*CURL
-                $client = curl_init($eiaBulkDownloadWebDirectory.$datasetKey."zip");
-                curl_setopt($client, CURLOPT_RETURNTRANSFER, 1);  //fixed this line
-                $fileData = curl_exec($client);
-                file_put_contents($localBulkFolder.$datasetKey.".zip", $fileData);*/
+                /*CURL
+                                $client = curl_init($eiaBulkDownloadWebDirectory.$datasetKey."zip");
+                                curl_setopt($client, CURLOPT_RETURNTRANSFER, 1);  //fixed this line
+                                $fileData = curl_exec($client);
+                                file_put_contents($localBulkFolder.$datasetKey.".zip", $fileData);*/
                 error_reporting(E_ALL);
                 ini_set('display_errors', 'On');
 
-/*                $contents = file_get_contents($eiaBulkDownloadWebDirectory.$datasetKey."zip");
-                file_put_contents($localBulkFolder.$datasetKey.".zip", $contents);*/
+                /*                $contents = file_get_contents($eiaBulkDownloadWebDirectory.$datasetKey."zip");
+                                file_put_contents($localBulkFolder.$datasetKey.".zip", $contents);*/
 
                 $feia = @fopen($eia_uri, 'r');
                 $fzip = @fopen($localBulkFolder.$datasetKey.".zip", 'w');
@@ -108,8 +109,8 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
 }
 
 function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single single api run until no more
-    global $MAIL_HEADER, $db;
-    global $localBulkFolder;
+    global $MAIL_HEADER, $db, $freqRegex;
+    global $localBulkFolder, $minSetSize;
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
     $jobid = $job_row["jobid"];
 
@@ -121,33 +122,79 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
     $bulkCategoryName = $jobInfo["name"];
     $fp = fopen($localBulkFolder.$datasetKey.".txt","r");
     set_time_limit(60);
-/*
- * need to run through the bulk file twice:
- *
- * first pass = detect sets loop:
- *       1. skip if forced set (elect and coal) else detect geoid and setname
- *       2. build series[skey] = [setName=>   , geoid=>  ]
- *       3. build sets[setname][units][f] = [skey]
- * second pass = detect geo and setname
- *      1. check to see if table already
- *          A. if source key exists in DB (setdata.skey):
- *              -> get setname, geoid, setid, settype (S|M|X)
- *              -> logEvent if detected geoid or detected setname differs from db AND set type is M
- *              -> logEvent if sets type is S but detected type is M
- *              -> update sets.metadata, setdata.periodicity, setdata.geoid, setdata.latlon, sets.latlon, setdata.data
- *          B. if source key not in DB (setdata.skey):
- *              -> create set as set if forceSet or count(sets[setname][units][f])>5) else create sets for each freqset (collapsing f, not geo)
- *              -> for elect and coal, set sets.setkey too
- *              -> insert setdata records
- *      2. for forced sets, insert/update sets record by setkey, then insert/update setdata records by sourcekey
- *
- * */
+    /*
+     * need to run through the bulk file twice:
+     *
+     * first pass = detect sets loop:
+     *       1. skip if forced set (elect and coal) else detect geoid and setname
+     *       2. build series[skey] = [setName=>   , geoid=>  ]
+     *       3. build sets[setname][units][f] = [skey]
+     * second pass = detect geo and setname
+     *      1. check to see if table already
+     *          A. if source key exists in DB (setdata.skey):
+     *              -> get setname, geoid, setid, settype (S|M|X)
+     *              -> logEvent if detected geoid or detected setname differs from db AND set type is M
+     *              -> logEvent if sets type is S but detected type is M
+     *              -> update sets.metadata, setdata.periodicity, setdata.geoid, setdata.latlon, sets.latlon, setdata.data
+     *          B. if source key not in DB (setdata.skey):
+     *              -> create set as set if forceSet or count(sets[setname][units][f])>5) else create sets for each freqset (collapsing f, not geo)
+     *              -> for elect and coal, set sets.setkey too
+     *              -> insert setdata records
+     *      2. for forced sets, insert/update sets record by setkey, then insert/update setdata records by sourcekey
+     *
+     * */
+    $sets = [];
+    if($datasetKey!="ELEC"||$datasetKey!="COAL"){
+        while(!feof($fp)){
+            $line = fgets ($fp);
+            $oEIA = json_decode($line, true);  //each line of the file is a separate JSON encoded string
 
-    //4.  loop through the unzipped bulk file
+            if(isset($oEIA["series_id"])){
+                //1. remove frequency from name
+                $oEIA["name"] = preg_replace($freqRegex, "", $oEIA["name"]);
+                //2. remove geo from name
+                if(isset($oEIA["geography"]) && !isset($oEIA["latlon"])){
+                    if(($datasetKey=="PET"||$datasetKey=="NG")&&strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
+                    $geo = isoLookup($oEIA["geography"]);  //returns null is not found
+                    if($geo!==null){
+                        $oEIA["geoid"] = $geo["geoid"];
+                        if(!isset($series["latlon"])){
+                            $setName = preg_replace("#".$geo["regexes"]."#", "", $series["name"]);
+                            $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
+                            if(!isset($sets[$setName][$oEIA["f"]])) $sets[$setName] = $oEIA["f"];
+                            foreach($sets[$setName][$oEIA["f"]] as $series_id => $geoid){
+                                if($geo["geoid"]==$geoid) logEvent("EIA set dup", $geo["name"]." occurs twice in set: ".$setName);
+                                $sets[$setName]["error"] = true;
+                            }
+                            $sets[$setName][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
+                        }
+                    } else {
+                        //skip city detection (gasoline prices = 10 cities
+                    }
+                }
+
+            }
+        }
+    }
+    //warn of irregular sets
+    foreach($sets as $setName=>&$set){
+        $setCount = 0;
+        foreach($set as $f=>&$series){
+            $thisCount = count($series);
+            if($setCount!=0 && $setCount!=$thisCount){
+                logEvent("EIA irregular set warning", $setName);
+            } else {
+                $setCount = $thisCount;
+            }
+        }
+    }
+
+    //4. second loop through the unzipped bulk file
     $seriesCount = 0;
     $categoryCount = 0;
+    fseek($fp, 0); //reset the pointer to the start
     while(!feof($fp)){
-        runQuery($update_job);
+        if(($seriesCount+$categoryCount)%1000 == 0) runQuery($update_job); //no need to update timestamp on disk every line!
         set_time_limit(10);
         $line = fgets ($fp);
         $oEIA = json_decode($line, true);  //each line of the file is a separate JSON encoded string
@@ -159,12 +206,37 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         if(isset($oEIA["series_id"])){
             //4a. process series
             $skip = false;
-            //skip the individual movers; all primemovers = plant total
+            //skip the individual movers; all prime-movers = plant total
             if(strPos($oEIA["series_id"],"ELEC.PLANT.")===0 && strpos($oEIA["name"], "All Primemovers")===false) $skip = true;
             //skip the individual mine to plant shipments:
             if(strPos($oEIA["series_id"],"COAL.SHIPMENT_")===0) $skip = true;
 
             if(!$skip){
+                $oEIA["name"] = preg_replace($freqRegex, "", $oEIA["name"]); //remove frequency indicators from name
+                $oEIA["settype"] = "S";  //default
+                if(isset($oEIA["geography"])){
+                    if(!isset($oEIA["latlon"])){
+                        if(($datasetKey=="PET" || $datasetKey=="NG") && strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
+                        $geo = isoLookup($oEIA["geography"]);  //returns null is not found
+                        if($geo!==null){
+                            $oEIA["geoid"] = $geo["geoid"];
+
+                            $setName = preg_replace("#".$geo["regexes"]."#", "", $oEIA["name"]);
+                            $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
+                            if(isset($sets[$setName][$oEIA["f"]]) && !isset($sets[$setName]["error"])  && count($sets[$setName][$oEIA["f"]])>$minSetSize) {
+                                $oEIA["setname"] = $setName;
+                                $oEIA["settype"] = "M©S";
+                            }
+                            $sets[$setName][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
+                        }
+                    } else {
+                        $oEIA["settype"] = "X©S";
+                        //power plants and coal mines are only two EIA sets
+
+
+                    }
+                }
+
                 insertOrUpdateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
                 if(round(++$seriesCount/1000)*1000==$seriesCount) printNow(date("H:i:s").": processed $seriesCount $datasetKey series");
             }
@@ -192,7 +264,6 @@ function ApiRunFinished($api_run){
 }
 
 function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
-    static $freqRegex = "#( : |, |)(Quarterly|Annual|Monthly|Weekly|Daily)#";
     try{
 
         $propsToFields = [  //maps the properties to database fields in the series table
@@ -215,30 +286,43 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
             "url" => "url",
             "geoid" => "geoid"
         ];
-        $mapsetid = null;
-        $pointsetid = null;
-        $series["geoid"] = null;
-        $geo = null;
-        $series["name"] = preg_replace($freqRegex, "", $series["name"]); //remove frequency
-        $setName = $series["name"]; //starting point
-        if(isset($series["iso3166"])){
-            $geo = isoLookup($series["iso3166"]);  //returns null is not found
-            if($geo!==null){
-                $series["geoid"] = $geo["geoid"];
-                if(!isset($series["lat"])){
-                    $setName = preg_replace("#".$geo["regexes"]."#", "", $series["name"]);
-                    $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
-                }
-            }
-        }
-
-        $nameSegments = explode(" : ", $setName);
+        $setName = $series["setname"];
+        $nameSegments = explode(" : ", $series["name"]);
         if(strPos($series["series_id"],"ELEC.PLANT.")===0){ //single mover series already skipped
-            $setName = "U.S. Power Plants : " . $nameSegments[0] . " : " . $nameSegments[2];
+            $series["setname"] = "U.S. Power Plants : " . $nameSegments[2] . " : " . $nameSegments[0];
+            $series["name"] = "U.S. Power Plants : " . $nameSegments[1] . " : " . $nameSegments[2] . " : " . $nameSegments[0];
         } elseif(strPos($series["series_id"],"COAL.MINE.")===0){ //individual mine to plant series already skipped
-            $setName = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
+            $series["setname"] = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
+            $series["name"] = "United States " . $series["name"];
         }
 
+        //format & sort data
+        foreach($series["data"] as $i => $point){
+            $series["data"][$i] = $point[0].":".(is_numeric($point[1])?$point[1]:"null");
+        }
+        so
+        //first and last dates
+
+        //1. select setdata by series key
+        $result = runQuery("select s.setid, sd.f, sd.geoid, sd.latlon, sd.aliasid from setdata sd join sets s on sd.setid=s.setid where sd.skey ='$series[series_id]'");
+        if($setExists = ($result->num_rows==1)) {
+            $set = $result->fetch_assoc();
+            //2. if found and db setname matches: update set data
+            if($set["name"]==$series["name"] && $set["units"]==$series["units"]){
+                runQuery("update setdata set data= periodicity=$series[f], geoid=$series[geoid], latlon=$series[latlon] where setid=$set[setid] and skey=$series[series_id]");
+
+            }
+
+            //3. if found and db setname/units mismatch: delete setdata & logEvent + ...
+
+
+        }
+
+        //4. if setdata not found or mismatch: create/get set by name & units and create setdata
+
+        //5.
+
+        //set / update set
         //setname and map/pointsetid
         if(isset($series["lat"]) && strlen($series["lat"])!=0){
             //pointset
@@ -248,20 +332,16 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
             $mapsetid = getMapSet($setName, $apiid, $series["f"], $series["units"]);
         }
 
-        //correct for the difference between an EIA and MD month date formats
+        //note:  EIA and MD month date formats now align
         $mddata = [];
         for($i=0;$i<count($series["data"]);$i++){
-            if($series["f"] != "A" && $series["f"] != "Q"){
-                $d = $series["data"][$i][0];
-                $series["data"][$i][0] = substr($d,0,4).sprintf("%02d", intval(substr($d,4,2))-1).(strlen($d)==8?substr($d,6,2):"");
-            }
             array_push($mddata, $series["data"][$i][0].':'.(is_numeric($series["data"][$i][1])?floatval($series["data"][$i][1]):"null"));
         }
-        $mddata = array_reverse($mddata);
+        $mddata = sort($mddata);
 
         //create the start and end js time;
-        $sd = $series["data"][count($series["data"])-1][0];
-        $ed = $series["data"][0][0];
+        $ed = $series["data"][count($series["data"])-1][0];
+        $sd = $series["data"][0][0];
 
         switch($series["f"]){
             case "M":
@@ -291,8 +371,8 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
 
 
         //set the props missing from EIA
-        $series["start"] = date_timestamp_get($start) * 1000; //js
-        $series["end"] = date_timestamp_get($end) * 1000;
+        $series["start100k"] = date_timestamp_get($start) / 100; //js
+        $series["end100k"] = date_timestamp_get($end) / 100;
         $series["apiid"] = $apiid;
         //$series["JSONdata"] = json_encode($series["data"]);
         $series["namelen"] = strlen($series["name"]);
@@ -403,7 +483,7 @@ class series{
         "description" => "notes",
         "copyright" => "copyright",
         "source" => "source",
-        "iso3166" => "iso3166",
+        "geography" => "geography",
         "lat" => "",
         "lon" => "",
         "start" => "",
@@ -469,15 +549,4 @@ class series{
         return $this->connection->query($sql);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
 
