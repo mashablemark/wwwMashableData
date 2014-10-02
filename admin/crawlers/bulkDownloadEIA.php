@@ -113,6 +113,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
     global $localBulkFolder, $minSetSize;
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
     $jobid = $job_row["jobid"];
+    $apiid = $api_run["apiid"];
 
 
     //reusable SQL
@@ -161,12 +162,13 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                         if(!isset($series["latlon"])){
                             $setName = preg_replace("#".$geo["regexes"]."#", "", $series["name"]);
                             $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
-                            if(!isset($sets[$setName][$oEIA["f"]])) $sets[$setName] = $oEIA["f"];
-                            foreach($sets[$setName][$oEIA["f"]] as $series_id => $geoid){
+                            $setNameUnits = $setName."|".$oEIA["units"];
+                            if(!isset($sets[$setNameUnits][$oEIA["f"]])) $sets[$setName] = $oEIA["f"];
+                            foreach($sets[$setNameUnits][$oEIA["f"]] as $series_id => $geoid){
                                 if($geo["geoid"]==$geoid) logEvent("EIA set dup", $geo["name"]." occurs twice in set: ".$setName);
                                 $sets[$setName]["error"] = true;
                             }
-                            $sets[$setName][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
+                            $sets[$setNameUnits][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
                         }
                     } else {
                         //skip city detection (gasoline prices = 10 cities
@@ -177,12 +179,12 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         }
     }
     //warn of irregular sets
-    foreach($sets as $setName=>&$set){
+    foreach($sets as $setNameUnits=>&$set){
         $setCount = 0;
         foreach($set as $f=>&$series){
             $thisCount = count($series);
             if($setCount!=0 && $setCount!=$thisCount){
-                logEvent("EIA irregular set warning", $setName);
+                logEvent("EIA irregular set warning", $setNameUnits);
             } else {
                 $setCount = $thisCount;
             }
@@ -214,30 +216,85 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
             if(!$skip){
                 $oEIA["name"] = preg_replace($freqRegex, "", $oEIA["name"]); //remove frequency indicators from name
                 $oEIA["settype"] = "S";  //default
+                $oEIA["apiid"] = $apiid;  //default
+                $oEIA["namelen"] = strlen($series["name"]);
+                switch($datasetKey){
+                    case "ELECT":
+                        $oEIA["url"] = "http://www.eia.gov/electricity/data/browser";
+                        break;
+                    case "PET":
+                        $oEIA["url"] = "http://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=".substr($series["series_id"],4,count($series["series_id"])-6)."&f=".substr($series["series_id"],-1,1);
+                        break;
+                    case "NG":
+                        $oEIA["url"] = "http://www.eia.gov/dnav/ng/hist/".strtolower(substr($series["series_id"],3,count($series["series_id"])-4).substr($series["series_id"],-1,1)).".htm";
+                        break;
+                    case "SEDS":
+                        $oEIA["url"] = "http://www.eia.gov/state/seds/seds-data-complete.cfm";
+                        break;
+                    case "TOTAL":
+                        $oEIA["url"] = "http://www.eia.gov/totalenergy/data/browser/";
+                        break;
+                    case "STEO":
+                        $oEIA["url"] = "http://www.eia.gov/STEO";
+                        break;
+                    case "AEO":
+                        $oEIA["url"] = "http://www.eia.gov/AEO";
+                        break;
+                    default:
+                        $oEIA["url"] = "http://www.eia.gov";
+                }
+                if(!isset($oEIA["geoid"])) $oEIA["geoid"]=0;
+                if(!isset($oEIA["latlon"])) $oEIA["latlon"]="";
                 if(isset($oEIA["geography"])){
-                    if(!isset($oEIA["latlon"])){
-                        if(($datasetKey=="PET" || $datasetKey=="NG") && strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
-                        $geo = isoLookup($oEIA["geography"]);  //returns null is not found
-                        if($geo!==null){
-                            $oEIA["geoid"] = $geo["geoid"];
-
+                    if(($datasetKey=="PET" || $datasetKey=="NG") && strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
+                    $geo = isoLookup($oEIA["geography"]);  //returns null is not found
+                    if($geo) {
+                        $oEIA["geoid"] = $geo["geoid"];
+                        if($oEIA["latlon"] == ""){
                             $setName = preg_replace("#".$geo["regexes"]."#", "", $oEIA["name"]);
                             $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
-                            if(isset($sets[$setName][$oEIA["f"]]) && !isset($sets[$setName]["error"])  && count($sets[$setName][$oEIA["f"]])>$minSetSize) {
+                            $setNameUnits = $oEIA["setname"] ."|".$oEIA["units"];
+                            if(isset($sets[$setNameUnits][$oEIA["f"]]) && !isset($sets[$setNameUnits]["error"])  && count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
                                 $oEIA["setname"] = $setName;
                                 $oEIA["settype"] = "M©S";
+                                if(!isset($sets[$setNameUnits]["setid"])){
+                                    $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
+                                }
+                                $oEIA["setid"] = $sets[$setNameUnits]["setid"];
+                                saveEIASetData($status, $oEIA);
                             }
-                            $sets[$setName][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
+                        } else {
+                            $nameSegments = explode(" : ", $oEIA["name"]);
+                            //power plants and coal mines are only two EIA sets
+                            if(strPos($oEIA["series_id"],"ELEC.PLANT.")===0){ //individual prime mover series already skipped
+                                $oEIA["settype"] = "X©S";
+                                $oEIA["setname"] = "U.S. Power Plants : " . $nameSegments[2] . " : " . $nameSegments[0];
+                                $oEIA["name"] = "U.S. Power Plants : " . $nameSegments[1] . " : " . $nameSegments[2] . " : " . $nameSegments[0];
+                            } elseif(strPos($oEIA["series_id"],"COAL.MINE.")===0){ //individual mine to plant series already skipped
+                                $oEIA["settype"] = "X©S";
+                                $oEIA["setname"] = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
+                                $oEIA["name"] = "United States " . $oEIA["name"];
+                            }
+                            if($oEIA["settype"] == "X©S"){
+                                $setNameUnits = $oEIA["setname"] ."|".$oEIA["units"];
+                                if(!isset($sets[$setNameUnits])){
+                                    $sets[$setNameUnits] = saveEIASet($status, $oEIA); //with setname, create the master set
+                                    //$sets[$setNameUnits] = saveSet($apiid, null, $oEIA["setname"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"]); //settype (M|X|S) set in post processing
+                                }
+                                $oEIA["mastersetid"] = $sets[$setNameUnits];
+                                $oEIA["setid"] = saveEIASet($status, $oEIA);  //with a mastersetid, create the point series set
+
+                                //$oEIA["setid"] = saveSet($apiid,null, $oEIA["setname"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["updated"], null, $oEIA["latlon"]);
+                                saveEIASetData($status, $oEIA);
+                                //saveSetData($status, $oEIA["setid"], $oEIA["series_id"], $oEIA["f"], $oEIA["geoid"],$oEIA["latlon"], $oEIA["geoid"], )
+                            } else {
+                                logEvent("EIA ingest warning","unknown point set series_id ".$oEIA["series_id"]);
+                            }
                         }
-                    } else {
-                        $oEIA["settype"] = "X©S";
-                        //power plants and coal mines are only two EIA sets
-
-
                     }
                 }
 
-                insertOrUpdateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
+                //insertOrUpdateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
                 if(round(++$seriesCount/1000)*1000==$seriesCount) printNow(date("H:i:s").": processed $seriesCount $datasetKey series");
             }
         }
@@ -262,6 +319,20 @@ function ApiRunFinished($api_run){
     set_time_limit(200);
     prune($api_run["apiid"]);
 }
+
+function saveEIASet(&$status, &$oEIA){
+    if(isset($oEIA["mastersetid"])){
+        //if the mastersetid has been set, it is time to creates the series's set
+        return saveSet($oEIA["apiid"], null, $oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["updated"], null, $oEIA["latlon"], null, $oEIA["mastersetid"]);
+    } else {
+        return saveSet($oEIA["apiid"], null, isset($oEIA["setname"])?$oEIA["setname"]:$oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["updated"], null, $oEIA["latlon"]);
+    }
+}
+
+function saveEIASetData(&$status, &$oEIA){
+        saveSetData($status, isset($oEIA["mastersetid"])?$oEIA["mastersetid"]:$oEIA["setid"], $oEIA["apiid"], $oEIA["series_id"], $oEIA["f"], $oEIA["geoid"], $oEIA["latlon"], $oEIA["data"]);
+}
+
 
 function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
     try{
@@ -300,25 +371,41 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
         foreach($series["data"] as $i => $point){
             $series["data"][$i] = $point[0].":".(is_numeric($point[1])?$point[1]:"null");
         }
-        so
-        //first and last dates
+        sort($series["data"]);
+        $data = implode("|", $series["data"]);
+
+
+        //set the props missing from EIA
+        $firstdt100k = unixDateFromMd($series["start"])/100;
+        $lastdt100k = unixDateFromMd($series["end"])/100;
+        $series["apiid"] = $apiid;
+
 
         //1. select setdata by series key
         $result = runQuery("select s.setid, sd.f, sd.geoid, sd.latlon, sd.aliasid from setdata sd join sets s on sd.setid=s.setid where sd.skey ='$series[series_id]'");
         if($setExists = ($result->num_rows==1)) {
             $set = $result->fetch_assoc();
-            //2. if found and db setname matches: update set data
-            if($set["name"]==$series["name"] && $set["units"]==$series["units"]){
-                runQuery("update setdata set data= periodicity=$series[f], geoid=$series[geoid], latlon=$series[latlon] where setid=$set[setid] and skey=$series[series_id]");
+            if($set["name"]==$series["setname"] && $set["units"]==$series["units"]){
+                //2. if found and db setname matches: update set data
+                saveSetData($status, $set["setid"], $apiid, $series["series_id"], $series["f"], $series["geoid"], $series["latlon"], $series["data"], $series["updated"]);  //save metadata at the set level for EIA
 
+                runQuery("update setdata
+                set data=$data periodicity=$series[f], geoid=$series[geoid], latlon='$series[latlon]', firstdt100k=$firstdt100k, lastdt100k=$lastdt100k
+                where setid=$set[setid] and skey=$series[series_id]");
+            } else {
+                //3. if found and db setname/units mismatch: delete setdata & logEvent + ...
+                logEvent("EIA set mismatch", "$series[name] in $series[units] should not be part of $series[setname]");
             }
-
-            //3. if found and db setname/units mismatch: delete setdata & logEvent + ...
-
-
+            if($set["aliasid"]!==null && isset($series["latlon"]) && $series["latlon"]!=""){
+                $sql ="update sets set latlon='$series[latlon]', name='$series[name]', namelen=length('$series[name]'), units='$series[units]',
+                ghandles ='G©".$series["geoid"]."', firstdt100k=$firstdt100k, lastdt100k=$lastdt100k";
+                runQuery($sql);
+            }
+        } else {
+            //4. if setdata not found or mismatch: create/get set by name & units and create setdata
+            $setid = saveSet($apiid, null, $series["name"], $series["units"], $series["source"], $series["url"], isset($series["description"])?$series["description"]:"","","null", $series["latlon"] );
+            saveSetData($status, $setid, $apiid, $series["series_id"], $series["f"], $series["geoid"], $series["latlon"], $series["data"], $series["updated"]);
         }
-
-        //4. if setdata not found or mismatch: create/get set by name & units and create setdata
 
         //5.
 
@@ -369,38 +456,6 @@ function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
                 die();
         }
 
-
-        //set the props missing from EIA
-        $series["start100k"] = date_timestamp_get($start) / 100; //js
-        $series["end100k"] = date_timestamp_get($end) / 100;
-        $series["apiid"] = $apiid;
-        //$series["JSONdata"] = json_encode($series["data"]);
-        $series["namelen"] = strlen($series["name"]);
-        switch($dataset){
-            case "ELECT":
-                $series["url"] = "http://www.eia.gov/electricity/data/browser";
-                break;
-            case "PET":
-                $series["url"] = "http://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=".substr($series["series_id"],4,count($series["series_id"])-6)."&f=".substr($series["series_id"],-1,1);
-                break;
-            case "NG":
-                $series["url"] = "http://www.eia.gov/dnav/ng/hist/".strtolower(substr($series["series_id"],3,count($series["series_id"])-4).substr($series["series_id"],-1,1)).".htm";
-                break;
-            case "SEDS":
-                $series["url"] = "http://www.eia.gov/state/seds/seds-data-complete.cfm";
-                break;
-            case "TOTAL":
-                $series["url"] = "http://www.eia.gov/totalenergy/data/browser/";
-                break;
-            case "STEO":
-                $series["url"] = "http://www.eia.gov/STEO";
-                break;
-            case "AEO":
-                $series["url"] = "http://www.eia.gov/AEO";
-                break;
-            default:
-                $series["url"] = "http://www.eia.gov";
-        }
         /*
             //create and execute the update statement
             $fields = array();

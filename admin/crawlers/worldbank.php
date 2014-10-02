@@ -377,7 +377,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                             }
                         }
                         if($setId) {
-                            saveSetData($status, $setId, $datasetInfo["periodicity"], $geoId, "", $data);
+                            saveSetData($status, $setId, $apiid, null, $datasetInfo["periodicity"], $geoId, "", $data);
                         } else {
                             print("unable to insert data for:  ");
                             var_dump($values);

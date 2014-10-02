@@ -344,7 +344,7 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
                             $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);*/
 
             //insert set
-            saveSetData($status, $setid, "A", $geoid, "", $mdData);
+            saveSetData($status, $setid, $apiid, null, "A", $geoid, "", $mdData);
             //insert cubeseries
             //runQuery("insert ignore into cubeseries (cubeid, geoid, seriesid) values($cubeid, $geoid, $sid)");
 

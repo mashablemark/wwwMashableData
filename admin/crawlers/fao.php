@@ -239,7 +239,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                         setCatSet($thisCatId, $thisSetId);
                     }
                     sort($data);
-                    saveSetData($status, $thisSetId, "A", $geo["geoid"], $country==$geo["name"]?"":$country, $data);
+                    saveSetData($status, $thisSetId, $apiid, null, "A", $geo["geoid"], "", $data, $country==$geo["name"]?false:$country);
                 }
             }
         }

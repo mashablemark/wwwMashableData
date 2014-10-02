@@ -278,7 +278,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs one queued job as kicked o
                 sort($aryData);
                 $setId = saveSet($apiid, $setKey, $setName, $jodi_codes["unit"][$aryLine[$COL_UNIT]]["full"], "Joint Oil Data Initiative","http://www.jodidata.org/oil/database/data-downloads.aspx", $setMeta);
 
-                saveSetData($status, $setId, "M", $countryRow["geoid"], "", $aryData, false, "JODI set save", date("Y-m-d"));
+                saveSetData($status, $setId, $apiid, null, "M", $countryRow["geoid"], "", $aryData, false, date("Y-m-d"), false, "JODI set save");
                 setCatSet($flowCatId, $setId);
             }
         }

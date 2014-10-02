@@ -397,7 +397,7 @@ function mdDateFromEsDate($esDate, $freq){
         case "A":
             return trim($esDate);
         case "M":
-            return substr(trim($esDate), 0, 4) . sprintf("%20d", intval(substr($esDate, 5, 2))-1);
+            return substr(trim($esDate), 0, 4) . substr($esDate, 5, 2);
         case "W":
             //TODO: verify Eurostats weekly (and Q and H and D) format correct the formula below
             return substr(trim($esDate), 0, 4) . sprintf("%20d", intval(substr($esDate, 5, 2)));
@@ -406,7 +406,7 @@ function mdDateFromEsDate($esDate, $freq){
         case "H":
             return substr(trim($esDate), 0, 4) . "S" . substr($esDate, 5, 1);
         default:  //"D"
-            return substr(trim($esDate), 0, 4) . sprintf("%20d", intval(substr($esDate, 5, 2))-1). sprintf("%20d", intval(substr($esDate, 5, 2)));
+            return substr(trim($esDate), 0, 4) . substr($esDate, 5, 2). sprintf("%20d", intval(substr($esDate, 5, 2)));
     }
 }
 
