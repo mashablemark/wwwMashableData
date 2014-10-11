@@ -159,14 +159,14 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                     $geo = isoLookup($oEIA["geography"]);  //returns null is not found
                     if($geo!==null){
                         $oEIA["geoid"] = $geo["geoid"];
-                        if(!isset($series["latlon"])){
-                            $setName = preg_replace("#".$geo["regexes"]."#", "", $series["name"]);
+                        if(!isset($oEIA["latlon"])){
+                            $setName = preg_replace("#".$geo["regexes"]."#", "", $oEIA["name"]);
                             $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
                             $setNameUnits = $setName."|".$oEIA["units"];
-                            if(!isset($sets[$setNameUnits][$oEIA["f"]])) $sets[$setName] = $oEIA["f"];
+                            if(!isset($sets[$setNameUnits][$oEIA["f"]])) $sets[$setNameUnits][$oEIA["f"]] = [];
                             foreach($sets[$setNameUnits][$oEIA["f"]] as $series_id => $geoid){
-                                if($geo["geoid"]==$geoid) logEvent("EIA set dup", $geo["name"]." occurs twice in set: ".$setName);
-                                $sets[$setName]["error"] = true;
+                                if($geo["geoid"]==$geoid) logEvent("EIA set dup", "$series_id $geo[name] in set $setNameUnits. New line: $line");
+                                //too common at EIA!:  $sets[$setNameUnits]["error"] = true;
                             }
                             $sets[$setNameUnits][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
                         }
@@ -200,6 +200,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         set_time_limit(10);
         $line = fgets ($fp);
         $oEIA = json_decode($line, true);  //each line of the file is a separate JSON encoded string
+
         //var_dump($oEIA);
         //some series of daily spot prices are > 150KB
         //objects are either series or categories.  The series are in the first half of the file.  The categories are in the second half.
@@ -214,19 +215,26 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
             if(strPos($oEIA["series_id"],"COAL.SHIPMENT_")===0) $skip = true;
 
             if(!$skip){
+                foreach($oEIA["data"] as $i=>$point){
+                    $oEIA["data"][$i] = $point[0].":".(is_numeric($point[1])?$point[1]:"null");
+                }
                 $oEIA["name"] = preg_replace($freqRegex, "", $oEIA["name"]); //remove frequency indicators from name
                 $oEIA["settype"] = "S";  //default
                 $oEIA["apiid"] = $apiid;  //default
-                $oEIA["namelen"] = strlen($series["name"]);
+                $oEIA["namelen"] = strlen($oEIA["name"]);
+                $oEIA["geoid"] = 0;
+                $oEIA["source"] = null;
+
+
                 switch($datasetKey){
                     case "ELECT":
                         $oEIA["url"] = "http://www.eia.gov/electricity/data/browser";
                         break;
                     case "PET":
-                        $oEIA["url"] = "http://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=".substr($series["series_id"],4,count($series["series_id"])-6)."&f=".substr($series["series_id"],-1,1);
+                        $oEIA["url"] = "http://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=".substr($oEIA["series_id"],4,count($oEIA["series_id"])-6)."&f=".substr($oEIA["series_id"],-1,1);
                         break;
                     case "NG":
-                        $oEIA["url"] = "http://www.eia.gov/dnav/ng/hist/".strtolower(substr($series["series_id"],3,count($series["series_id"])-4).substr($series["series_id"],-1,1)).".htm";
+                        $oEIA["url"] = "http://www.eia.gov/dnav/ng/hist/".strtolower(substr($oEIA["series_id"],3,count($oEIA["series_id"])-4).substr($oEIA["series_id"],-1,1)).".htm";
                         break;
                     case "SEDS":
                         $oEIA["url"] = "http://www.eia.gov/state/seds/seds-data-complete.cfm";
@@ -253,15 +261,20 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                         if($oEIA["latlon"] == ""){
                             $setName = preg_replace("#".$geo["regexes"]."#", "", $oEIA["name"]);
                             $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
-                            $setNameUnits = $oEIA["setname"] ."|".$oEIA["units"];
-                            if(isset($sets[$setNameUnits][$oEIA["f"]]) && !isset($sets[$setNameUnits]["error"])  && count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
-                                $oEIA["setname"] = $setName;
-                                $oEIA["settype"] = "M©S";
-                                if(!isset($sets[$setNameUnits]["setid"])){
-                                    $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
+                            $setNameUnits = $setName ."|".$oEIA["units"];
+                            if(isset($sets[$setNameUnits][$oEIA["f"]])){
+                                if(!isset($sets[$setNameUnits]["error"])  && count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
+                                    $oEIA["setname"] = $setName;
+                                    $oEIA["settype"] = "M©S";
+                                    if(!isset($sets[$setNameUnits]["setid"])){
+                                        $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
+                                    }
+                                    $oEIA["setid"] = $sets[$setNameUnits]["setid"];
+                                    saveEIASetData($status, $oEIA);
                                 }
-                                $oEIA["setid"] = $sets[$setNameUnits]["setid"];
-                                saveEIASetData($status, $oEIA);
+                            } else {
+                                var_dump($sets[$setNameUnits]);
+                                printNow("$setNameUnits $oEIA[f] not found!!");
                             }
                         } else {
                             $nameSegments = explode(" : ", $oEIA["name"]);
@@ -284,7 +297,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                                 $oEIA["mastersetid"] = $sets[$setNameUnits];
                                 $oEIA["setid"] = saveEIASet($status, $oEIA);  //with a mastersetid, create the point series set
 
-                                //$oEIA["setid"] = saveSet($apiid,null, $oEIA["setname"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["updated"], null, $oEIA["latlon"]);
+                                //$oEIA["setid"] = saveSet($apiid,null, $oEIA["setname"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], null, $oEIA["latlon"]);
                                 saveEIASetData($status, $oEIA);
                                 //saveSetData($status, $oEIA["setid"], $oEIA["series_id"], $oEIA["f"], $oEIA["geoid"],$oEIA["latlon"], $oEIA["geoid"], )
                             } else {
@@ -292,6 +305,11 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                             }
                         }
                     }
+                }
+                if($oEIA["geoid"] == 0){
+                    //needs it own insert
+                    saveEIASet($status, $oEIA);
+                    saveEIASetData($status, $oEIA);
                 }
 
                 //insertOrUpdateSeries($oEIA, $api_run["apiid"], $job_row["jobid"], $datasetKey, $status);
@@ -323,181 +341,14 @@ function ApiRunFinished($api_run){
 function saveEIASet(&$status, &$oEIA){
     if(isset($oEIA["mastersetid"])){
         //if the mastersetid has been set, it is time to creates the series's set
-        return saveSet($oEIA["apiid"], null, $oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["updated"], null, $oEIA["latlon"], null, $oEIA["mastersetid"]);
+        return saveSet($oEIA["apiid"], null, $oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], 'null', $oEIA["latlon"], null, $oEIA["mastersetid"]);
     } else {
-        return saveSet($oEIA["apiid"], null, isset($oEIA["setname"])?$oEIA["setname"]:$oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["updated"], null, $oEIA["latlon"]);
+        return saveSet($oEIA["apiid"], null, isset($oEIA["setname"])?$oEIA["setname"]:$oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], 'null', $oEIA["latlon"]);
     }
 }
 
 function saveEIASetData(&$status, &$oEIA){
-        saveSetData($status, isset($oEIA["mastersetid"])?$oEIA["mastersetid"]:$oEIA["setid"], $oEIA["apiid"], $oEIA["series_id"], $oEIA["f"], $oEIA["geoid"], $oEIA["latlon"], $oEIA["data"]);
-}
-
-
-function insertOrUpdateSeries($series, $apiid, $jobid, $dataset, &$status){
-    try{
-
-        $propsToFields = [  //maps the properties to database fields in the series table
-            "series_id" => "skey",
-            "name" => "name",
-            "units" => "units",
-            "f" => "periodicity",
-            "unitsshort" => "units_abbrev",
-            "description" => "notes",
-            "source" => "source",
-            "lat" => "lat",
-            "lon" => "lon",
-            "last_updated" => "apidt",
-            //the following props do not exist in the $series assoc object obtained from EIA: they must be added
-            "apiid" => "apiid",
-            "start" => "start",
-            "end" => "end",
-            "JSONdata" => "data",
-            "namelen" => "namelen",
-            "url" => "url",
-            "geoid" => "geoid"
-        ];
-        $setName = $series["setname"];
-        $nameSegments = explode(" : ", $series["name"]);
-        if(strPos($series["series_id"],"ELEC.PLANT.")===0){ //single mover series already skipped
-            $series["setname"] = "U.S. Power Plants : " . $nameSegments[2] . " : " . $nameSegments[0];
-            $series["name"] = "U.S. Power Plants : " . $nameSegments[1] . " : " . $nameSegments[2] . " : " . $nameSegments[0];
-        } elseif(strPos($series["series_id"],"COAL.MINE.")===0){ //individual mine to plant series already skipped
-            $series["setname"] = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
-            $series["name"] = "United States " . $series["name"];
-        }
-
-        //format & sort data
-        foreach($series["data"] as $i => $point){
-            $series["data"][$i] = $point[0].":".(is_numeric($point[1])?$point[1]:"null");
-        }
-        sort($series["data"]);
-        $data = implode("|", $series["data"]);
-
-
-        //set the props missing from EIA
-        $firstdt100k = unixDateFromMd($series["start"])/100;
-        $lastdt100k = unixDateFromMd($series["end"])/100;
-        $series["apiid"] = $apiid;
-
-
-        //1. select setdata by series key
-        $result = runQuery("select s.setid, sd.f, sd.geoid, sd.latlon, sd.aliasid from setdata sd join sets s on sd.setid=s.setid where sd.skey ='$series[series_id]'");
-        if($setExists = ($result->num_rows==1)) {
-            $set = $result->fetch_assoc();
-            if($set["name"]==$series["setname"] && $set["units"]==$series["units"]){
-                //2. if found and db setname matches: update set data
-                saveSetData($status, $set["setid"], $apiid, $series["series_id"], $series["f"], $series["geoid"], $series["latlon"], $series["data"], $series["updated"]);  //save metadata at the set level for EIA
-
-                runQuery("update setdata
-                set data=$data periodicity=$series[f], geoid=$series[geoid], latlon='$series[latlon]', firstdt100k=$firstdt100k, lastdt100k=$lastdt100k
-                where setid=$set[setid] and skey=$series[series_id]");
-            } else {
-                //3. if found and db setname/units mismatch: delete setdata & logEvent + ...
-                logEvent("EIA set mismatch", "$series[name] in $series[units] should not be part of $series[setname]");
-            }
-            if($set["aliasid"]!==null && isset($series["latlon"]) && $series["latlon"]!=""){
-                $sql ="update sets set latlon='$series[latlon]', name='$series[name]', namelen=length('$series[name]'), units='$series[units]',
-                ghandles ='G©".$series["geoid"]."', firstdt100k=$firstdt100k, lastdt100k=$lastdt100k";
-                runQuery($sql);
-            }
-        } else {
-            //4. if setdata not found or mismatch: create/get set by name & units and create setdata
-            $setid = saveSet($apiid, null, $series["name"], $series["units"], $series["source"], $series["url"], isset($series["description"])?$series["description"]:"","","null", $series["latlon"] );
-            saveSetData($status, $setid, $apiid, $series["series_id"], $series["f"], $series["geoid"], $series["latlon"], $series["data"], $series["updated"]);
-        }
-
-        //5.
-
-        //set / update set
-        //setname and map/pointsetid
-        if(isset($series["lat"]) && strlen($series["lat"])!=0){
-            //pointset
-            $pointsetid = getPointSet($setName, $apiid, $series["f"], $series["units"]);
-        } elseif($series["geoid"]) {
-            //mapset
-            $mapsetid = getMapSet($setName, $apiid, $series["f"], $series["units"]);
-        }
-
-        //note:  EIA and MD month date formats now align
-        $mddata = [];
-        for($i=0;$i<count($series["data"]);$i++){
-            array_push($mddata, $series["data"][$i][0].':'.(is_numeric($series["data"][$i][1])?floatval($series["data"][$i][1]):"null"));
-        }
-        $mddata = sort($mddata);
-
-        //create the start and end js time;
-        $ed = $series["data"][count($series["data"])-1][0];
-        $sd = $series["data"][0][0];
-
-        switch($series["f"]){
-            case "M":
-                $start = new DateTime(substr($sd,0,4).'-'.substr($sd,4,2).'-01 UTC');
-                $end = new DateTime(substr($ed,0,4).'-'.substr($ed,4,2).'-01 UTC');
-                break;
-            case "Q":
-                $start = new DateTime(substr($sd,0,4).'-'. ((substr($sd,5,1)-1)*3+1) .'-01 UTC');
-                $end = new DateTime(substr($ed,0,4).'-'.((substr($ed,5,1)-1)*3+1) .'-01 UTC');
-                break;
-            case "A":
-                $start = new DateTime($sd.'-01-01 UTC');
-                $end = new DateTime($ed.'-01-01 UTC');
-                break;
-            case "4":
-                $series["f"] = "W";
-            case "W":
-            case "D":
-                $start = new DateTime($sd.' UTC');
-                $end = new DateTime($ed.' UTC');
-                break;
-            default:
-                printNow("Error: unrecognized frequency ".$series["f"]);
-                var_dump($series);
-                die();
-        }
-
-        /*
-            //create and execute the update statement
-            $fields = array();
-            $values = array();
-            $updates = array();
-            foreach($propsToFields as $prop => $field){
-                array_push($fields, $field);
-                array_push($values, safeSQL($series[$prop]));
-                array_push($updates, $prop . "=". safeSQL($series[$prop]));
-            }
-            $sql = "insert into series (". implode(",", $fields) . ") values (". implode(",", $values) .") "
-                . " on duplicate key update " . implode(", ", $updates);
-            runQuery($sql);
-            */
-        //updateSeries(&$status, $key, $name, $src, $url, $period, $units, $units_abbrev, $notes, $title, $apiid, $apidt, $firstdt, $lastdt, $data, $geoid, $mapsetid, $pointsetid, $lat, $lon)
-        updateSeries($status,
-            $jobid,
-            $series["series_id"],
-            $series["name"],
-            "U.S. Energy Information Administration",
-            $series["url"],
-            $series["f"], // $period,
-            $series["units"], // $units,
-            isset($series["unitsshort"])?$series["unitsshort"]:null, // $units_abbrev,
-            isset($series["description"])?$series["description"]:null, //$notes,
-            null, //$title,
-            $apiid,  //$apiid,
-            $series["last_updated"],  // $apidt,
-            $series["start"], //  $firstdt,
-            $series["end"],   //$lastdt,
-            implode("|", $mddata),  //  $data,
-            $series["geoid"],  //  $geoid,
-            $mapsetid,
-            $pointsetid,
-            isset($series["lat"])?$series["lat"]:null, //lat
-            isset($series["lon"])?$series["lon"]:null  //lon
-        );
-    } catch(Exception $ex){
-        $status["failed"]++;
-        logEvent("error","processing ".$series["series_id"]);
-        printNow("error processing ".$series["series_id"]);
-    }
+    saveSetData($status, isset($oEIA["mastersetid"])?$oEIA["mastersetid"]:$oEIA["setid"], $oEIA["apiid"], $oEIA["series_id"], $oEIA["f"], $oEIA["geoid"], $oEIA["latlon"], $oEIA["data"]);
 }
 
 function insertOrUpdateCategory($cat, $apirow, $job){
@@ -506,11 +357,13 @@ function insertOrUpdateCategory($cat, $apirow, $job){
     //loop through children series and add them
     for($i=0;$i<count($cat["childseries"]);$i++){
         $series_id = $cat["childseries"][$i];
-        $result = runQuery("select seriesid from series where apiid=".$apirow["apiid"]." and skey=".safeStringSQL($series_id));
+        $result = runQuery("select coalesce(s.mastersetid, sd.setid) as setid, sd.periodicity, sd.geoid from setdata sd join sets s on sd.setid=s.setid where apiid=$apirow[apiid] and sd.skey=".safeStringSQL($series_id));
         if($result->num_rows==1){
             $row = $result->fetch_assoc();
-            $sid = $row["seriesid"];
-            runQuery("insert ignore into categoryseries value($catid, $sid)");
+            $catset = runQuery("select * from categorysets where catid=$catid and setid=$row[setid] and geoid=0");
+            if($catset->num_rows==0){
+                runQuery("insert ignore into categorysets value($catid, $row[setid], $row[geoid])");
+            }
         } elseif(
             $series_id!="TOTAL..A"
             && $series_id != "TOTAL..M"
@@ -523,85 +376,4 @@ function insertOrUpdateCategory($cat, $apirow, $job){
     }
 }
 
-
-class series{
-    private $connection;
-    public $debug = false;
-    public $data = false;
-    public $escapedData = false;
-    private $propsToFields = array(  //maps the properties to database fields in the series table
-        "series_id" => "skey",
-        "name" => "name",
-        "units" => "units",
-        "f" => "periodicity",
-        "unitsshort" => "units_abbrev",
-        "description" => "notes",
-        "copyright" => "copyright",
-        "source" => "source",
-        "geography" => "geography",
-        "lat" => "",
-        "lon" => "",
-        "start" => "",
-        "end" => "",
-        "last_updated" => "apidt",
-
-        "data" => "data"
-    );
-
-
-    public function series($series_properties = false, $cn = false){
-        if($cn) $this->connection = $cn;
-        foreach($this->propsToFields as $prop => $field){ //initialize properties to NULL
-            $this[$prop] = null;
-        }
-        if($series_properties) { //set pass in valued
-            foreach($series_properties as $prop => $value){
-                $this[$prop] = $value;
-            }
-            $this->data = $series_properties;
-        }
-    }
-    public function load($series_id, $cn = false){
-        if($cn) $this->connection = $cn;
-        $fields = array();
-        foreach($this->propsToFields as $prop => $field){
-            array_push($fields, $field . " as \"$prop\" ");
-        }
-        $sql = "select ". implode(",", $fields) . " from series where skey = '$series_id'";
-        $result = $this->query($sql);
-        if($result->num_rows==1){
-            $row = $result->fetch_assoc();
-            foreach($row as $prop => $val){
-                if($prop=="data"){
-                    $this[$prop] = json_decode($val, true);
-                } else {
-                    $this[$prop] = $val;
-                }
-            }
-        } else {
-            throw(new Exception("unable to find series for id = ".$series_id));
-        }
-    }
-
-    public function save($cn = false){
-        $fields = array();
-        $values = array();
-        $updates = array();
-        if($cn) $this->connection = $cn;
-        foreach($this->propsToFields as $prop => $field){
-            array_push($fields, $field . " as \"$prop\" ");
-            array_push($values, "'". str_replace("'", "''", $this[$prop]) . "'");
-            array_push($updates, $prop . "='". str_replace("'", "''", $this[$prop]) . "'");
-
-        }
-        $sql = "insert into series (". implode(",", $fields) . ") values (". implode(",", $values) .") "
-            . " on duplicate key update " . implode(", ", $updates);
-        $this->query($sql);
-    }
-
-    private function query($sql){
-        if(!$this->connection) throw(new Exception("database connection not supplied"));
-        return $this->connection->query($sql);
-    }
-}
 

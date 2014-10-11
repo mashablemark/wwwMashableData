@@ -539,7 +539,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         ." union DISTINCT "
         ."select distinct s.* from sets join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=".safeStringSQL($setKey);
     } else {
-        $sql = "select * from sets where and apiid=$apiid and name=".safeStringSQL($name, true)." and units ".safeStringSQL($units,false);
+        $sql = "select * from sets where apiid=$apiid and name=".safeStringSQL($name, true)." and units =".safeStringSQL($units,false);
     }
     $result = runQuery($sql, "getSet select");
     if($result->num_rows==1){
@@ -592,13 +592,14 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
 
 function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
     if(!$apidt) $apidt =  date("Ymd");
+    sort($arrayData);
     $firstPoint = explode(":", $arrayData[0]);
     $lastPoint = explode(":", $arrayData[count($arrayData)-1]);
     $firstDate100k = unixDateFromMd($firstPoint[0])/100;
     $lastDate100k = unixDateFromMd($lastPoint[0])/100;
     $data = implode("|", $arrayData);
     if($key && $apiid){ //if source or set key is given, that is used over the setid
-        $result = runQuery("select setid, periodicity, geoid, latlon, data
+        $result = runQuery("select sd.setid, sd.periodicity, sd.geoid, sd.latlon, sd.data
         from setdata sd join sets s on sd.setid=s.setid
         where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.periodicity='$periodicity' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
     } else {

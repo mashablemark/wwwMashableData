@@ -28,7 +28,7 @@ $fileArray = file($dataFolder.$tocFile);
 $fileString = str_replace("</nt:","</", str_replace("<nt:","<",implode("\n", $fileArray)));  //remove obnoxious "nt" namespace!!!
 $xmlTOC = simplexml_load_string($fileString);
 
-function ApiCrawl($catid, $api_row){
+function ApiCrawl($catid, $api_row){ //$catid unused. Refactor out??
     global $ingest, $xmlTOC;
     $apiid = $api_row["apiid"];
     $runid = $api_row["runid"];
@@ -46,8 +46,8 @@ function ApiCrawl($catid, $api_row){
             print("TOC leaf for $themeCodes[0] not found");
             return false;
         }
-        $leaf = $leaves[0];
-        $apiDate = (string) $leaf->xpath("lastModified")[0];
+        $firstLeaf = $leaves[0];
+        $apiDate = (string) $firstLeaf->xpath("lastModified")[0];
 
         //3.  if theme doe not exist or apidate is different, create a queued job
         if(!$themeRow || $themeRow["apidt"]!=$apiDate){
@@ -58,13 +58,14 @@ function ApiCrawl($catid, $api_row){
     runQuery("update LOW_PRIORITY apiruns set finishdt=now() where runid = $runid");
 }
 
-
 function ApiExecuteJob($runid, $apirunjob){ //called by master thread loop to excute queued jobs
     $jobid = $apirunjob["jobid"];
     $jobconfig = json_decode($apirunjob["jobjson"], true);
-    $themeCodes = explode("+", $jobconfig["tKey"]);
-    $status = ApiBatchUpdate(null, null, $apirunjob, $themeCodes);
-    return $status; //TODO: master loop needs to interprete $status = message string (instead of an arrary) as a run failure
+    if(isset($jobconfig["type"])&&$jobconfig["type"]=="themIngest"){ //only theme ingests jobs supported
+        $themeCodes = explode("+", $jobconfig["tKey"]);
+        $status = ApiBatchUpdate(null, null, $apirunjob, $themeCodes);
+        return $status; //TODO: master loop needs to interprete $status = message string (instead of an array) as a run failure
+    } else return false;
 }
 
 function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
@@ -75,12 +76,11 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     $jobid = isset($api_row["jobid"])?$api_row["jobid"]:null;
 
     //1. determine code
-    if(!$themeCodes && isset($_REQUEST["code"])){ //also allow a single variable group to be ingested from the command line for debugging
-        $themeCodes = [$_REQUEST["code"]];
-    }
+    //also allow a single variable group to be ingested from the command line for debugging
+    if(!$themeCodes && isset($_REQUEST["code"])) $themeCodes = [$_REQUEST["code"]];
     if($themeCodes === false) return "no theme code(s) requested"; //error msg
 
-    //1. find configuration for the requested code in $ingest (master assoc array set in es_config.php)
+    //2. find configuration for the requested code in $ingest (master assoc array set in es_config.php)
     $themeConfig = false;
     for($i=0;$i<count($ingest);$i++){
         if(in_array($themeCodes[0], $ingest[$i]["codes"])){
@@ -90,32 +90,35 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     }
     if($themeConfig === false) return "themeCodes ". implode("+", $themeCodes)." not found in master config"; //error msg
 
-    $themeConfig["mapsets"] = []; $mapsets =& $themeConfig["mapsets"]; //mskey => [name, units] : build as we ingest to avoid creating mapsets that do not need to exist
-    $themeConfig["series"] = []; $series =& $themeConfig["series"];  //INGESTED ASSOC ARRAY: skey => [seriesname, keys (array), geoid, mskey, units, data (MD formatted string)]
-    $dsdCodeLists = [];  //association array built over all the code's DSD with [code][list][val] stucture
+    //themConfig starts as a copy of the ingest control branch, and will be added to throughout the BatchUpdate procedure to hold data, sets, and cubes
+    $themeConfig["sets"] = []; //setkey = $leafcode . ":" . dim values excluding geo and freq => setid
 
-    $tKey = implode("+", $themeConfig["codes"]); $themeConfig["tKey"] = $tKey;
-    $themePeriod = false;
+    //Keeping an area of sets avoids unnecessary calls to getSet
+    $themeConfig["unitsUsed"] = [];  //used to run cubes for each unit
+
+    $dsdCodeLists = [];  //association array built over all the code's DSD with [code][list][val] structure
+
+    $themeConfig["tKey"] = implode("+", $themeConfig["codes"]);
 
     //2. loop through codes
     foreach($themeConfig["codes"] as $code){
         //2a. get the code leaf in TOC
-        $leaves = $xmlTOC->xpath("//leaf[code='$code']");
+        $leaves = $xmlTOC->xpath("//leaf[code='$code']"); //$leaves (not just $firstLeaf will be used to set categories 
         if(count($leaves)===0){
-            print("TOC leaf for $code not found");
+            logEvent("EuroStat ingest error", "TOC leaf for $code not found");
             return false;
         }
-        $leaf = $leaves[0];
-        $lastModifiedDate = (string) $leaf->xpath("lastModified")[0];
-        $title = (string) $leaf->xpath("title[@language='en']")[0];
-        $metadataLink = (string) $leaf->xpath("metadata[@format='html']")[0];
-        $tsvLink = (string) $leaf->xpath("downloadLink[@format='tsv']")[0];
-        $tocUnits = (string) $leaf->xpath("unit[@language='en']")[0];
+        $firstLeaf = $leaves[0];
+        $lastModifiedDate = (string) $firstLeaf->xpath("lastModified")[0];
+        $title = (string) $firstLeaf->xpath("title[@language='en']")[0];
+        $metadataLink = (string) $firstLeaf->xpath("metadata[@format='html']")[0];
+        $tsvLink = (string) $firstLeaf->xpath("downloadLink[@format='tsv']")[0];
+        $tocUnits = (string) $firstLeaf->xpath("unit[@language='en']")[0]; //note: units is almost always blank in the table of contents XML doc
+        $tsvPeriod = false;
 
         //get / set the themeid
         $themeName = isset($themeConfig["theme_name"])?$themeConfig["theme_name"]: $title;
-        $theme = getTheme($apiid, $themeName, "For complete metadata, see <a target=\"_blank\" href=\"$metadataLink\">$metadataLink</a>", $tKey);
-        $themeid = $theme["themeid"];
+        $themeConfig["theme"] = getTheme($apiid, $themeName, "For complete metadata, see <a target=\"_blank\" href=\"$metadataLink\">$metadataLink</a>", $themeConfig["tKey"]);
 
         //2b. get the DSD = DIMENSIONS AND PARSE CODELISTS
         if($fetchNew || !file_exists($dsdFolder.$code.".dsd.xml")){
@@ -143,7 +146,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                 $codeListId = (string) $refNode->attributes()["id"];  //uppercase listname with "CL_" prefex (e.g. "CL_SEX")
                 $listCodes = $xmlDsd->xpath("//Codelist[@id='$codeListId']/Code");
 
-                if(!isset($dsdCodeLists[$dimension])) $dsdCodeLists[$dimension] = ["allCodes"=>[]]; //accumulate codes (such as partial sex lists) across grouped datasets
+                if(!isset($dsdCodeLists[$dimension])) $dsdCodeLists[$dimension] = ["allCodes"=>[]]; //accumulate codes (such as partial sex lists) across datasets grouped into this theme
                 for($j=0;$j<count($listCodes);$j++){
                     $listCode = (string) $listCodes[$j]->attributes()["id"];
                     $name = (string) ($listCodes[$j]->xpath("Name[@lang='en']")[0]);
@@ -167,7 +170,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         $tsvDims = $sideDims; array_push($tsvDims, $topDim);
         $themeConfig["tsvDims"] = $tsvDims;
         if(!in_array("TIME", $tsvDims)){
-            return "$code does not have a time dimension<br>";
+            printNow("$code does not have a time dimension");
+            return false;
         }
         //index of geo, freq, units, and lookup table
         $timeIndex = array_search("TIME", $tsvDims);
@@ -175,55 +179,62 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         $geoIndex = array_search("GEO", $tsvDims);
         $themeConfig["geoIndex"] = $geoIndex;
 
-        //units logic priority: 1. explicit settings (either fixed string or array of codes and codelist), 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
+        //determine units:
+        //units priority: 1. explicit settings (either fixed string or array of codes and codelist), 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
         $fixedUnits = (isset($themeConfig["units"])&&!is_array($themeConfig["units"]))?$themeConfig["units"]:$tocUnits;
-        $themeConfig["unitList"] = false;
-        $unitIndex = false;
+        $themeConfig["unitListName"] = false;
+        $themeConfig["unitIndex"] = false;
         if(!$fixedUnits && !isset($themeConfig["units"])){
             if(array_key_exists("UNIT", $dsdCodeLists)){
                 if(in_array("UNIT", $tsvDims)){
-                    $unitIndex = array_search("UNIT", $tsvDims);
+                    $themeConfig["unitIndex"] = array_search("UNIT", $tsvDims);
                     $themeConfig["timeIndex"] = $timeIndex;
                 } else {
-                    if(count($dsdCodeLists["UNIT"])!=1) return "UNIT codelist is not a TSV dimension, but has more than one code";
+                    if(count($dsdCodeLists["UNIT"])!=1) {
+                        printNow("UNIT codelist is not a TSV dimension, but has more than one code");
+                        return false;
+                    }
                 }
                 $themeConfig["unitListName"] = "UNIT";
             } elseif(array_key_exists("CURRENCY", $dsdCodeLists)){
                 if(in_array("CURRENCY", $tsvDims)){
-                    $unitIndex = array_search("CURRENCY", $tsvDims);
+                    $themeConfig["unitIndex"] = array_search("CURRENCY", $tsvDims);
                     $themeConfig["timeIndex"] = $timeIndex;
                 } else {
                     if(count($dsdCodeLists["CURRENCY"])!=1) return "CURRENCY codelist is not a TSV dimension, but has more than one code";
                 }
                 $themeConfig["unitListName"] = "CURRENCY";
             }
-            if(isset($themeConfig["unitListName"]) && count($dsdCodeLists[$themeConfig["unitListName"]])==1) {
+            if($themeConfig["unitListName"] && count($dsdCodeLists[$themeConfig["unitListName"]])==1) {
                 foreach($dsdCodeLists[$themeConfig["unitListName"]] as $listCode=>$val) $fixedUnits = $val; //simply treat as fixed units
             }
         }
 
-        //2d.  parse the TSV into the $series array of skeys => [name, data, mskey]
+        //2d.  parse the TSV into the $themeConfig["sets"] array of skeys => [name, data, mskey]
         while($gz && !gzeof($gz)){  //loop through the non-header rows and ingest the series
             $dataLine = gzgets($gz);
             $dataFields = explode("\t", $dataLine);
             $lineCodes = explode(",", $dataFields[0]);
             for($c=1;$c<count($dataFields);$c++){
                 //point codes = all tsv codes (side & top) that uniquely determine the point (includes TIME code)
-                $pointCodes = $lineCodes; array_push($pointCodes, $headerFields[$c]);
+                $pointCodes = array_merge($lineCodes, [$headerFields[$c]]);
 
-                //determine the unique facet and codes for this series and mapset.  When TIME is not the dimension across the page, this must be done for each point
+                //determine the unique facet and codes for this set.  If TIME is not the dimension across the page, this must be done for each point, else once per line
                 if($c==1 || $topDim!="TIME"){
-                    //codes are more permissive, including unit codes
-                    $seriesCodes = $pointCodes; array_slice($seriesCodes, $timeIndex, 1);
-                    $mapsetCodes = $seriesCodes;
-                    if($geoIndex!==false) array_slice($mapsetCodes, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
+                    //codes are more permissive, and can include unit codes
+                    $seriesCodes = $pointCodes;
+                    array_slice($seriesCodes, $timeIndex, 1); //but not the TIME code
+
+                    //set codes are the series codes - geocode
+                    $setCodes = $seriesCodes;
+                    if($geoIndex!==false) array_slice($setCodes, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
+
                     //facets are the english language equivalents, and exclude units (since units has its own special field and display)
                     $setFacets = [];
-                    $seriesFacets = [];
-
-                    $unit = $fixedUnits;
-                    for($index=0;$index<count($tsvDims);$index++){
-                        if($index!==$timeIndex){ //skip time
+                    $unit = $fixedUnits; //default.  Chenaged in loop if using a units code list
+                    $geoId = 0;
+                    foreach($tsvDims as $index=>$tsvDim){
+                        if($index!==$timeIndex){ //skip TIME dim
                             if($index===$geoIndex){
                                 $iso2 = $pointCodes[$index];  //Eurostats uses 2 letter iso codes for countries
                                 $geo = iso2Lookup($iso2);
@@ -231,94 +242,83 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                                     $geoName = $geo["name"];
                                     $geoId = $geo["id"]; //either int or "null" (string)
                                 } else {
-                                    if(!isset($iso2)) return "geocode $iso2 not foudn in GEO codelist";
+                                    //if(!isset($iso2)) return "geocode $iso2 not found in GEO codelist";
                                     $geoName = $dsdCodeLists["GEO"]["allCodes"][$iso2];
-                                    $geoId = null;
+                                    $geoId = 0;
                                 }
-                            } elseif ($index===$unitIndex && !$fixedUnits) {
+                            } elseif ($index===$themeConfig["unitIndex"] && !$fixedUnits) {
                                 //unit logic priority (continued): 1. explicit settings, 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
                                 $unit = $dsdCodeLists[$tsvDims[$index]]["allCodes"][$pointCodes[$index]];
                             } else {
-                                //mapset's name excludes GEO and units (series name = set name with geoname appended
-                                array_push($setFacets, $dsdCodeLists[$tsvDims[$index]][$pointCodes[$index]]);
+                                //set's name excludes GEO and units (series name = set name with geoname appended)
+                                array_push($setFacets, $dsdCodeLists[$tsvDim][$pointCodes[$index]]);
                             }
                             //set name excludes units and geo
                             //if($geoIndex!==false) array_push($seriesFacets, geoLookup($pointCodes[$geoIndex]));
                         }
-                        $seriesCodesPart = implode(",", $seriesCodes);
-                        $sKey = $tKey . ":" . $seriesCodesPart;
-                        if(!isset($series[$sKey])){
-                            $series[$sKey] = [
-                                "name" =>  $themeName.": ".implode("; ", $setFacets),
-                                "units" => $unit,
-                                "data"=>"",
-                                "geo" => null
-                            ]; //firstdt, lastdt will be added as the points are appended to data
-                            //add geo specific properties and modifiers to series + add mapset is not set
-                            if($geoIndex!==false){
-                                $msKey = $tKey.":".implode(",", $mapsetCodes);
-                                $series[$sKey]["name"] .= " - " . $geoName;
-                                $series[$sKey]["mskey"] = $msKey;
-                                $series[$sKey]["geoid"] = $geoId;
-                                if(!isset($mapsets[$msKey])){
-                                    $mapsets[$msKey] = [
-                                        "name" => $themeName.": ".implode("; ", $setFacets),
-                                        "units" => $unit
-                                    ];  //mapsetid added after entire tsv parsed into series and mapsets
-                                }
-                            }
-                        }
                     }
+                    $setKey = $themeConfig["tKey"] . ":" . implode(",", $geoId==0?$seriesCodes:$setCodes);
+                    if(!isset($themeConfig["sets"][$setKey])){
+                        //add mastersetkey if part of larger set
+                        $themeConfig["sets"][$setKey] = [
+                            "name" =>  $themeName.": ".implode("; ", $setFacets). ($geoId==0 ? "" : " - ".$geoName),
+                            "units" => $unit,
+                            "freqs" => [],
+                            "masterkey" => ($geoId==0 && $geoIndex!==false)? $themeConfig["tKey"] . ":" . implode(",", $seriesCodes) : null
+                        ];
+                    }
+                    if(!in_array($unit, $themeConfig["unitsUsed"])) array_push($themeConfig["unitsUsed"], $unit);
                 }
+
                 //process point
+                $geoHandle = "G".$geoId;
                 $time = $pointCodes[$timeIndex];
-                if(!$themePeriod) $themePeriod = mdFreqFromEsDate($time);
-                $mdDate = mdDateFromEsDate($time, $themePeriod);
-                $unixDate = unixDateFromMd($mdDate);
-                if(!isset($series[$sKey]["firstdt"])){
-                    $series[$sKey]["firstdt"] = $unixDate * 1000;
-                } else {
-                    $series[$sKey]["data"] .= "|";
+                if(!$tsvPeriod) $tsvPeriod = mdFreqFromEsDate($time);
+                if(!isset($themeConfig["sets"][$setKey]["freqs"][$tsvPeriod])) $themeConfig["sets"][$setKey]["freqs"][$tsvPeriod] = [];
+                if(!isset($themeConfig["sets"][$setKey]["freqs"][$tsvPeriod][$geoHandle])) $themeConfig["sets"][$setKey]["freqs"][$tsvPeriod][$geoHandle] = [];
+                $mdDate = mdDateFromEsDate($time, $tsvPeriod);
+                if($dataFields[$c]!=""){ //
+                    $themeConfig["sets"][$setKey]["freqs"][$tsvPeriod][$geoHandle][]  = $mdDate.':'.is_numeric($dataFields[$c])?$dataFields[$c]:"null";
                 }
-                $series[$sKey]["data"] .= $mdDate.':'.$dataFields[$c];
-                $series[$sKey]["lastdt"] = $unixDate * 1000;
             }
         }
     }
-    //3.  save/get the mapsetids into the array structure for lookup
-    foreach($mapsets as $msKey => $mapset){
-        $mapsetid = getMapSet($mapset["name"], $apiid, $themePeriod, $mapset["units"], null, $theme["themeid"], $mapset["msKey"]);
-        $mapsets[$msKey]["mapsetid"] = $mapsetid;
-    }
-    //4.  save/update the series (with mapsetid)
-    $status =  ["updated"=>0, "failed"=>0, "skipped"=>0, "added" =>0];
-    foreach($series as $sKey => $serie){
-        $seriesid = updateSeries(
-            $status,
-            $jobid,
-            $sKey,
-            $serie["name"],
-            "Eurostats",
-            "", //url
-            $themePeriod,
-            $serie["units"],
-            $serie["units"],
-            "",  //notes
-            $themeName,
-            $apiid,
-            $lastModifiedDate,
-            $serie["firstdt"],
-            $serie["lastdt"],
-            $serie["data"],
-            $serie["geoid"],
-            isset($serie["mskey"])?$mapsets[$serie["mskey"]]["mapsetid"]:null,
-            null, null, null, //pointsetid, lat, lon
-            $theme["themeid"]
-        );
-        $serie["seriesid"] = $seriesid;
-    }
-    mergeConfig($themeConfig, $dsdCodeLists);
 
+    //3. finished reading all TSVs ->>> save/get the sets and set data!
+    $status =  ["updated"=>0, "failed"=>0, "skipped"=>0, "added" =>0];
+    //first, all the mastersets
+    foreach($themeConfig["sets"] as $setKey => &$set){
+        if(!$set["masterkey"]){
+            if(!isset($set["setid"])){
+                $set["setid"] = saveSet($apiid, $setKey, $set["name"], $set["units"], null, null, null, $lastModifiedDate, $themeConfig["theme"]["themeid"], "", null);
+                //note: metadata, src and url to be stored in apis table and meatadata in themes table to avoid repetition and bloat
+            }
+            foreach($set["freqs"] as $freq => &$geoSet){
+                foreach($geoSet as $gHandle => $data){
+                    saveSetData($status, $set["setid"], null, null, $freq, intval(substr($gHandle,1)), "", $data);
+                }
+            }
+        }
+    }
+    //then, all the slavesets
+    foreach($themeConfig["sets"] as $setKey => &$set){
+        if($set["masterkey"]){
+            if(!isset($set["setid"])){
+                $mastsetid = $themeConfig["sets"][$set["masterkey"]]["setid"];
+                $set["setid"] = saveSet($apiid, $setKey, $set["name"], $set["units"], null, null, null, $lastModifiedDate, $themeConfig["theme"]["themeid"], "", null, $mastsetid);
+                //note: metadata, src and url to be stored in apis table and meatadata in themes table to avoid repetition and bloat
+            }
+            foreach($set["freqs"] as $freq => &$geoSet){
+                foreach($geoSet as $gHandle => $data){
+                    saveSetData($status, $set["setid"], null, null, $freq, intval(substr($gHandle,1)), "", $data);
+                }
+            }
+        }
+    }
+    //finished saving sets and setdata
+
+    //4.  make the cubes and cube-components
+    mergeConfig($themeConfig, $dsdCodeLists);
     /* $themeConfig structure:
             unitIndex
             timeIndex
@@ -333,28 +333,34 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             tsvDims: []
     */
 
-    //5.  make the cubes and cube-components
-    if($themeConfig["cubable"]){  //set in master $config or calculated in mergeConfig
+    if($themeConfig["cubable"]){  //set in master $config or calculated in mergeConfig()
+// the distinction of bar v. stack blurs:  what is needed is a local total (v. root total) to be a stacked (2nd dimension)
+// need to crawl hierarchy to detect local totals and cubes
+
+
+
+
         if(count($themeConfig["candidates"]["barOnly"])==1){ //note: there cannot be more than 1 and still be cubable
-            addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], null, false, );  //1D cube
+            addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], null, false, $units, $themeConfig["unitsUsed"]);  //1D cube
             for($s=0;$s<count($themeConfig["candidates"]["barStack"]);$s++){
-                addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], $themeConfig["candidates"]["barStack"][$s]); //2D cube
+                addCubes($themeConfig, $units, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], $themeConfig["candidates"]["barStack"][$s]); //2D cube
             }
         } else { //no bar; stack only
             for($b=0;$b<count($themeConfig["candidates"]["barStack"]);$b++){
-                addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$b]);  //1D cube
+                addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$b]);  //1D cube
                 for($s=$b+1;$s<count($themeConfig["candidates"]["barStack"]);$s++){
                     $switch = widest($themeConfig["candidates"]["barStack"][$s])>widest($themeConfig["candidates"]["barStack"][$b]);
-                    addCubes($themeConfig, $UNITSPLACEHOLDER, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$switch?$s:$b], $themeConfig["candidates"]["barStack"][$switch?$s:$b]); //2D cube
+                    addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$switch?$s:$b], $themeConfig["candidates"]["barStack"][$switch?$s:$b]); //2D cube
                 }
             }
         }
+
     }
     //note: when a theme has multiple codes, each of the TSVs must have the same dimensions
     //combining codes is used when Eurostats splits the NUTS levels or male, female, and totals across several codes
 
-    //7. save the cubes their  components
-    updateCubes($theme["themeid"], $themeConfig["cubes"]);
+    //5. save the cubes their  components
+    updateCubes($themeConfig["theme"]["themeid"], $themeConfig["cubes"]);
 
     return $status;
 }
@@ -410,42 +416,45 @@ function mdDateFromEsDate($esDate, $freq){
     }
 }
 
-function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, searches for total…
+function mergeConfig(&$themeConfig, &$dimensions){ // merges dimension into themconfig and set root, hierarchy, and sex flags
     global $cl_config;
     $themeConfig["candidates"] = ["barOnly"=>[], "barStack"=>[]];
     $tsvDims = $themeConfig["tsvDims"];
     foreach($dimensions as $cl_name => $cl){
-        //1.check $themeConfig
+
+        //1. get code list hierarchies (inline or pointer or global)
         if(isset($themeConfig["mapping"][$cl_name])){
             if(is_array($themeConfig["mapping"][$cl_name])){
                 //1a. inline configuration
-                foreach($themeConfig["mapping"][$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+                //foreach($themeConfig["mapping"][$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+                $dimensions[$cl_name] = $themeConfig["mapping"][$cl_name]; //should copy over structure
             } else {
                 //1b. version to lookup in $cl_config
                 $clVersion =  $cl_name.":".$themeConfig["mapping"][$cl_name];
-                foreach($cl_config[$clVersion] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+                //foreach($cl_config[$clVersion] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+                $dimensions[$cl_name] = $cl_config[$clVersion]; //should copy structure
             }
         } elseif(isset($cl_config[$cl_name])){ //3. check for generic cl_config
-            foreach($cl_config[$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+            //foreach($cl_config[$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
+            $dimensions[$cl_name] = $cl_config[$cl_name];
         }
 
         //check for rootCode if not already defined in (1) hierarchy or (2) as TOTAL code
         if(!isset($dimensions[$cl_name]["rootCode"])){
             if(isset($dimensions[$cl_name]["hierarchy"]) && count($dimensions[$cl_name]["hierarchy"])==1){
-                foreach($dimensions[$cl_name]["hierarchy"] as $rootCode => $h2){
+                foreach($dimensions[$cl_name]["hierarchy"] as $rootCode => $h2){ //just want the key = root code
                     $dimensions[$cl_name]["rootCode"] = $rootCode;
                 }
             } elseif(in_array("TOTAL",$dimensions[$cl_name]["allCodes"])) {
                 $dimensions[$cl_name]["rootCode"] = "TOTAL";
             }
         }
-
         //if $rootCode DNE create as null
         if(!isset($dimensions[$cl_name]["rootCode"])) $dimensions[$cl_name]["rootCode"] = null;
 
         //make hierarchy if DNE
         if(!isset($dimensions[$cl_name]["hierarchy"])){
-            if(isset($dimensions[$cl_name]["rootCode"])){
+            if($dimensions[$cl_name]["rootCode"]){
                 $dimensions[$cl_name]["hierarchy"] = [$dimensions[$cl_name]["rootCode"] => [] ];
                 $list =& $dimensions[$cl_name]["hierarchy"][0][$dimensions[$cl_name]["rootCode"]];
             } else {
@@ -460,8 +469,8 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, 
             }
         }
         //is this dimension a bar or a stack candidate?
-        if(in_array($cl_name,$tsvDims) && $cl_name!="TIME"){ //lots of weird unused code lists in the DSD
-            $index = array_search($cl_name,$tsvDims);
+        if(in_array($cl_name, $tsvDims) && $cl_name!="TIME" && $cl_name!="GEO" && $cl_name!="SEX"){ //lots of weird unused code lists in the DSD: don't process these or the time or geography dimensions; sex dimension handled below
+            $index = array_search($cl_name, $tsvDims);
             if($themeConfig["unitIndex"]!==$index){  //
                 if($dimensions[$cl_name]["rootCode"]!==null){
                     if(count($dimensions[$cl_name]["hierarchy"][$dimensions[$cl_name]["rootCode"]])>1)  array_push($themeConfig["candidates"]["barStack"], $cl_name);
@@ -472,24 +481,31 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges config into dsdCL, 
         }
     }
 
-    if(count($themeConfig["candidates"]["barOnly"])>1 || count($themeConfig["candidates"]["barOnly"])+count($themeConfig["candidates"]["barStack"])>0 ) {
-        $themeConfig["cubable"] = false;  //overrides if user set to true
-    } else {
-        if(!isset($themeConfig["cubable"])) $themeConfig["cubable"] = true;
-    }
-    $themeConfig["cubes"] = [];
-    if(isset($mergedCL["CL_SEX"])){
-        $themeConfig["sexTotal"] = in_array("T", $mergedCL["CL_SEX"]["allCodes"]);
-        $themeConfig["sexMF"] = in_array("M", $mergedCL["CL_SEX"]["allCodes"]) && in_array("F", $mergedCL["CL_SEX"]["allCodes"]);
+    //set SEX related flags
+    if(in_array("SEX", $tsvDims)){
+        $themeConfig["sexTotal"] = isset($dimensions["SEX"]["allCodes"]["T"]);
+        $themeConfig["sexMF"] = isset($dimensions["SEX"]["allCodes"]["M"]) && isset($dimensions["SEX"]["allCodes"]["F"]);
     } else {
         $themeConfig["sexTotal"] = false;
         $themeConfig["sexMF"] = false;
     }
+
+    //determine cubable
+    if(count($themeConfig["candidates"]["barOnly"])+count($themeConfig["candidates"]["barStack"])==0 && !$themeConfig["sexMF"]) {
+        $themeConfig["cubable"] = false;  //overrides if user set to true
+    } else {
+        if(!isset($themeConfig["cubable"])) $themeConfig["cubable"] = true;  //do not overide if user has set to false
+    }
+    //$themeConfig["dimensions"] = $dimensions;
+    $themeConfig["cubes"] = [];
 }
 
-function addCubes(&$themeConfig, &$dimensions, $barListCode, $stackListCode = null, &$barBranch = false, $barParentCode = false, $units = null, $unitsCodeListName = null) {
-//Adds cubes and/or sexed-cube to cubes array by cKey for bar/stack combination and for each branch of the bar.  Cube components are created as an associative sub-array of msKeys, shortname, and ordering info
-//note:  $units is a string that either represents code list name or the actual units string
+function addAllCubes(&$themeConfig, &$dimensions, $barListCode, $stackListCode = null, &$barBranch = false, $barParentCode = false, $units = null, $unitsCodeListName = null) {
+//Adds cubes and/or sexed-cube to cubes array by setKey for bar/stack combination and for each branch of the bar.  Cube components are created as an associative sub-array of msKeys, shortname, and ordering info
+//note:  must make a separate cube for each val in codeList[$themeConfig["indexUnit"]
+//note:  cube units taken from first set's units
+//a separate cube must be made for each val in unspoken for dimensions (excluding units, geo, and time)
+
     if(!$barParentCode){ //starting from the bottom
         $barBranch =& $dimensions[$barListCode]["hierarchy"];
     }
@@ -571,6 +587,171 @@ function addCubes(&$themeConfig, &$dimensions, $barListCode, $stackListCode = nu
         //is key int or a code?
         if(is_array($val)){
             addCubes($themeConfig, $units, $dimensions, $barListCode, $stackListCode, $val, $index);  //call recursively until no more sub arrays
+        }
+    }
+}
+
+function addCubeSets(&$themeConfig, &$dimensions, $bar_dim, &$bar_branch, $stack_dim = false, &$stack_branch = false, $side_dim = false, &$side_branch = false){
+    //add a single cube and all it components
+
+    //determine $bar_codes, $stack_codes & sid
+    if(count($bar_branch)==1){ //bars can be hierarchy (passed as assoc. branch) or non-hierarchy (passed as array)
+        foreach($bar_branch as $bar_local_root=>$bar_leaves);
+    } else {
+        $bar_local_root = false;
+        $bar_leaves = $bar_branch;
+    }
+    $bar_codes = [];
+    foreach($bar_leaves as $key=>$val) {
+        $bar_codes[] = is_integer($key)?$val:$key;
+        if(!is_integer($key) && count($val)>1){
+            //recurse for each sub-branch!!
+            $subBranch = [$val => $key];
+            addCubeSets($themeConfig, $bar_dim, $subBranch, $stack_dim, $stack_branch, $side_dim, $side_branch);
+        }
+    }
+
+    if($stack_dim && $stack_branch){ //stack must be a hierarchy (local or root) and must be passed as a assoc. branch
+        foreach($stack_branch as $stack_local_root=>$stack_leaves);
+        $stack_codes = [];
+        foreach($stack_leaves as $key=>$val) $stack_codes[] = is_integer($key)?$val:$key;
+
+    }
+    if($side_dim && $side_branch){
+        if(count($side_branch)==1){ //sex can be hierarchy (passed as assoc. branch) or ["M","F"] array
+            foreach($side_branch as $side_local_root=>$side_codes);
+        } else {
+            $side_local_root = false;
+            $side_codes = $bar_branch;
+        }
+    }
+
+    //determine the left out dims and the dims that determine a set key.
+    $left_out_dims = []; $set_dims = [];
+    foreach($themeConfig["tsvdims"] as $dimIndex=>$tsvdim){
+        if($dimIndex!==$themeConfig["geoIndex"] && $dimIndex!==$themeConfig["timeIndex"]){  //unitsIndex will be in there, but gets special treatment // && $dimIndex!==$themeConfig["unitIndex"]){
+            $set_dims[] = $tsvdim;
+            if($tsvdim!==$bar_dim && $tsvdim!==$stack_dim && $tsvdim!==$side_dim){
+                $left_out_dims[] = $tsvdim;
+            }
+        }
+    }
+
+
+    function addCubesOverLeftOutDims() use (&$themeConfig, &$dimensions, $bar_dim, $bar_local_root, $bar_code, $stack_dim, $stack_local_root, $stack_code, $side_dim, $side_local_root, $side_code, $left_out_dims) {
+        //there will be an cube for each combination of left_out_dim codes
+        if(count($left_out_dims)==0){
+            //add cube as is
+        } else {
+            $firstLeftIndex = array_search($left_out_dims[0], $set_dims);
+            foreach($dimensions[$left_out_dims[0]]["allCodes"] as $firstLeftOutCode){
+
+            }
+            if(count($left_out_dims)==1){
+                //this cube
+            } else {
+                $secondLeftIndex = array_search($left_out_dims[1], $set_dims);
+                foreach($dimensions[$left_out_dims[0]]["allCodes"] as $secondLeftOutCode){
+                    if(count($left_out_dims)==2){
+                        //this cube
+
+                    } else {
+                        //DO NOTHING:  CAN'T HANDLE BAR CUBE WITH 3 LEFT OUT DIMENSIONS!!!
+                    }
+
+                }
+            }
+        }
+    }
+
+
+    foreach($bar_codes as $bar_code){
+        //fresh start!
+        $totSetKeyParts = [];
+        $cubeKeyParts = [];
+        $cubeComponentParts = [];
+        $cubeNameQualifiers = [];  //used list the non root qualifiers (different than the dimensions)
+
+        //set bar_code
+        $barIndex = array_search($bar_dim, $set_dims);
+        $totSetKeyParts[$barIndex] = $bar_code;
+        $cubeKeyParts[$barIndex] = $bar_dim;
+        $cubeComponentParts[$barIndex] = $bar_code;
+        if($bar_local_root){
+            if($dimensions[$bar_dim]["rootCode"]!==$bar_local_root){
+                $cubeKeyParts[$barIndex]  .=  ">" . $bar_local_root;
+                $cubeNameQualifiers[$barIndex] = "; ". $dimensions[$bar_dim]["allCodes"][$bar_code];
+            }
+        } else {
+            $totSetKeyParts = false;
+            $cubeNameQualifiers[$barIndex] = "";
+        }
+
+        if($stack_dim){
+            foreach($stack_codes as $stack_code){
+                //set set code
+                $stackIndex = array_search($stack_dim, $set_dims);
+                if($totSetKeyParts) $totSetKeyParts[$stackIndex] = $stack_code;
+                $cubeKeyParts[$stackIndex] = $stack_dim;
+                $cubeComponentParts[$stackIndex] = $stack_code;
+                if($dimensions[$stack_dim]["rootCode"] !== $stack_local_root){
+                    $cubeKeyParts[$stackIndex] .= ">".$stack_local_root;
+                    $cName =
+                }
+                if($side_dim){
+                    //set side code
+                    $side_index = array_search($side_dim, $set_dims);
+                    $totSetKeyParts[$stackIndex] = $stack_code;
+                    $cubeKeyParts[$stackIndex] = $stack_dim;
+                    $cubeComponentParts[$stackIndex] = $stack_code . ($dimensions[$stack_dim]["rootCode"]===$stack_local_root?"":">".$stack_local_root);
+
+                    //loop through left_outs and make cubes for BAR + STACK + SIDE
+                    addCubesOverLeftOutDims();
+                } else{
+                    //loop through left_outs and make cubes for BAR + STACK
+                    addCubesOverLeftOutDims();
+                }
+            }
+        } elseif($side_dim){
+            //set sex code
+
+            //loop through left_outs and make cubes for BAR + SIDE
+            addCubesOverLeftOutDims();
+        } else {
+            //loop through left_outs and make cubes for BAR
+            addCubesOverLeftOutDims();
+        }
+    }
+
+    foreach($set_dims as $i=>$set_dim){
+        if(in_array($set_dim, $left_out_dims)){
+            if($totSetKeyParts){
+                if($dimensions[$set_dim][])
+            }
+            $totSetKeyParts[$i] = ;
+            $cubeComponentParts[$i] = ;
+        } elseif($set_dim==$bar_dim){
+
+        } elseif($set_dim==$stack_dim){
+
+        } elseif($set_dim==$side_dim){
+
+        } else logEvent("Eurostat error", "$set_dim not found in dims in addCubeSet");
+    }
+
+    //determine starting cube name
+    $cName = $themeConfig["theme"]["name"];
+    $themeConfig["cubes"][$cKey] = ["name"]
+    foreach($bar_codes as $bar_code){ //every cube must have a bar
+        if($stack_dim&&$side_codes){
+            foreach($stack_codes as $stack_code){
+                if($side_dim&&$side_codes){
+
+                }
+            }
+        } elseif($side_dim&&$side_codes){
+
+
         }
     }
 }
