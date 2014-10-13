@@ -263,14 +263,22 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                             $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
                             $setNameUnits = $setName ."|".$oEIA["units"];
                             if(isset($sets[$setNameUnits][$oEIA["f"]])){
-                                if(!isset($sets[$setNameUnits]["error"])  && count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
-                                    $oEIA["setname"] = $setName;
-                                    $oEIA["settype"] = "M©S";
-                                    if(!isset($sets[$setNameUnits]["setid"])){
-                                        $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
+                                if(!isset($sets[$setNameUnits]["error"])){
+                                    if(count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
+                                        //save as mapset set
+                                        $oEIA["setname"] = $setName;
+                                        $oEIA["settype"] = "M©S";
+                                        if(!isset($sets[$setNameUnits]["setid"])){
+                                            $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
+                                        }
+                                        $oEIA["setid"] = $sets[$setNameUnits]["setid"];
+                                        saveEIASetData($status, $oEIA);
+                                    } else {
+                                        //save as a single series set
+                                        $oEIA["geoid"] = 0; //ignore geography as it is often off + leads to strange search results
+                                        $oEIA["setid"] = saveEIASet($status, $oEIA);
+                                        saveEIASetData($status, $oEIA);
                                     }
-                                    $oEIA["setid"] = $sets[$setNameUnits]["setid"];
-                                    saveEIASetData($status, $oEIA);
                                 }
                             } else {
                                 var_dump($sets[$setNameUnits]);
@@ -308,7 +316,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                 }
                 if($oEIA["geoid"] == 0){
                     //needs it own insert
-                    saveEIASet($status, $oEIA);
+                    $oEIA["setid"] = saveEIASet($status, $oEIA);
                     saveEIASetData($status, $oEIA);
                 }
 
@@ -332,8 +340,6 @@ function ApiRunFinished($api_run){
     setMapsetCounts("all", $api_run["apiid"]);
     set_time_limit(200);
     setPointsetCounts("all", $api_run["apiid"]);
-    set_time_limit(200);
-    freqSets($api_run["apiid"]);
     set_time_limit(200);
     prune($api_run["apiid"]);
 }
