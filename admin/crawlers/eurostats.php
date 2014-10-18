@@ -98,6 +98,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
 
     $dsdCodeLists = [];  //association array built over all the code's DSD with [code][list][val] structure
 
+    $hasNegatives = false;
+    
     $themeConfig["tKey"] = implode("+", $themeConfig["codes"]);
 
     //2. loop through codes
@@ -178,7 +180,12 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         $themeConfig["timeIndex"] = $timeIndex;
         $geoIndex = array_search("GEO", $tsvDims);
         $themeConfig["geoIndex"] = $geoIndex;
-
+        
+        $setDims = $tsvDims;
+        array_slice($setDims, $timeIndex, 1); //but not the TIME code
+        if($geoIndex!==false) array_slice($setDims, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
+        $themeConfig["setDims"] = $setDims;
+            
         //determine units:
         //units priority: 1. explicit settings (either fixed string or array of codes and codelist), 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
         $fixedUnits = (isset($themeConfig["units"])&&!is_array($themeConfig["units"]))?$themeConfig["units"]:$tocUnits;
@@ -279,6 +286,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                 $mdDate = mdDateFromEsDate($time, $tsvPeriod);
                 if($dataFields[$c]!=""){ //
                     $themeConfig["sets"][$setKey]["freqs"][$tsvPeriod][$geoHandle][]  = $mdDate.':'.is_numeric($dataFields[$c])?$dataFields[$c]:"null";
+                    if(is_numeric($dataFields[$c]) && $dataFields[$c]<0) $hasNegatives = true;
                 }
             }
         }
@@ -333,19 +341,37 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             tsvDims: []
     */
 
+    //ADD CUBES (im memory)
     if($themeConfig["cubable"]){  //set in master $config or calculated in mergeConfig()
+
 // the distinction of bar v. stack blurs:  what is needed is a local total (v. root total) to be a stacked (2nd dimension)
-// need to crawl hierarchy to detect local totals and cubes
+// AddCubeSets recursively crawls bars hierarchy to detect local totals and detail cubes
 
+        //main cube set loop
+        $barableDims = array_merge($themeConfig["candidates"]["barOnly"], $themeConfig["candidates"]["barStack"]);
+        foreach($barableDims as $barDim){
+            //ADD 1D cubes = dimension with siblings!
+            addCubeSet($themeConfig, $dsdCodeLists, $barDim);  //1D cube
 
-
-
-        if(count($themeConfig["candidates"]["barOnly"])==1){ //note: there cannot be more than 1 and still be cubable
-            addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], null, false, $units, $themeConfig["unitsUsed"]);  //1D cube
-            for($s=0;$s<count($themeConfig["candidates"]["barStack"]);$s++){
-                addCubes($themeConfig, $units, $dsdCodeLists, $themeConfig["candidates"]["barOnly"][0], $themeConfig["candidates"]["barStack"][$s]); //2D cube
+            foreach($themeConfig["candidates"]["barStack"] as $stackDim){
+                //2D cubes: second dimension must be stackble (i.e. has a rootCode)
+                if($barDim!=$stackDim){
+                    if($stackDim=="SEX" && !$hasNegatives){
+                        //show SEX as a side dim rather than a stack dim
+                        addCubeSet($themeConfig, $dsdCodeLists, $barDim, null, null, $stackDim); //2D cube
+                    } else {
+                        //simple 2D stack
+                        addCubeSet($themeConfig, $dsdCodeLists, $barDim, null, $stackDim); //2D cube
+                    }
+                    if($barDim!="SEX" && $stackDim!="SEX" && $themeConfig["sexTotal"]){
+                        //sexy cube!
+                        addCubeSet($themeConfig, $dsdCodeLists, $barDim, null, $stackDim, "SEX"); //3D cube
+                    }
+                }
             }
-        } else { //no bar; stack only
+        }
+
+        /*foreach(){ //no bar; stack only
             for($b=0;$b<count($themeConfig["candidates"]["barStack"]);$b++){
                 addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$b]);  //1D cube
                 for($s=$b+1;$s<count($themeConfig["candidates"]["barStack"]);$s++){
@@ -353,7 +379,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                     addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$switch?$s:$b], $themeConfig["candidates"]["barStack"][$switch?$s:$b]); //2D cube
                 }
             }
-        }
+        }*/
 
     }
     //note: when a theme has multiple codes, each of the TSVs must have the same dimensions
@@ -416,7 +442,7 @@ function mdDateFromEsDate($esDate, $freq){
     }
 }
 
-function mergeConfig(&$themeConfig, &$dimensions){ // merges dimension into themconfig and set root, hierarchy, and sex flags
+function mergeConfig(&$themeConfig, &$dimensions){ // merges configuration in DSD derived $dimension assoc array + set themconfig flag set root, hierarchy, and sex flags
     global $cl_config;
     $themeConfig["candidates"] = ["barOnly"=>[], "barStack"=>[]];
     $tsvDims = $themeConfig["tsvDims"];
@@ -427,16 +453,16 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges dimension into them
             if(is_array($themeConfig["mapping"][$cl_name])){
                 //1a. inline configuration
                 //foreach($themeConfig["mapping"][$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
-                $dimensions[$cl_name] = $themeConfig["mapping"][$cl_name]; //should copy over structure
+                $dimensions[$cl_name] = array_merge($dimensions[$cl_name], $themeConfig["mapping"][$cl_name]); //should copy over structure
             } else {
                 //1b. version to lookup in $cl_config
                 $clVersion =  $cl_name.":".$themeConfig["mapping"][$cl_name];
                 //foreach($cl_config[$clVersion] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
-                $dimensions[$cl_name] = $cl_config[$clVersion]; //should copy structure
+                $dimensions[$cl_name] = array_merge($dimensions[$cl_name], $cl_config[$clVersion]); //should copy structure
             }
-        } elseif(isset($cl_config[$cl_name])){ //3. check for generic cl_config
+        } elseif(isset($cl_config[$cl_name])){ //3. else check for generic cl_config
             //foreach($cl_config[$cl_name] as $attribute=>$value) $dimensions[$cl_name][$attribute] = $value;
-            $dimensions[$cl_name] = $cl_config[$cl_name];
+            $dimensions[$cl_name] = array_merge($dimensions[$cl_name], $cl_config[$cl_name]);
         }
 
         //check for rootCode if not already defined in (1) hierarchy or (2) as TOTAL code
@@ -500,11 +526,291 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges dimension into them
     $themeConfig["cubes"] = [];
 }
 
+//addCubeSet adds all the cubes having the passed dimensions (i.e. the cube is fully sexed when called).
+//A cube will be added for every "left out" dimensions' combination of values
+//A cube will be added for every bar-branch in the bar dim's hierarchy (the stack dim is not crawled)
+function addCubeSet(&$themeConfig, &$dimensions, $barDim, &$barBranch = null, $stackDim=false, $sideDim=false) {
+    if(!$barBranch){ //this is a initial call (i.e. not a recursive call)
+        $barBranch = $dimensions[$barDim]["hierachy"];
+    }
+    $barRootCode = false;
+    if(count($barBranch)==1){
+        //we have a total code (root or local)...
+        foreach($barBranch as $barRootCode=>$subBranch){
+
+        }
+        $barBranch = $subBranch; //go up the hierarchy one level
+    }
+    if(count($barBranch)>1){
+        //have cubeSet: add it!
+
+        //add dimdefs
+
+        $barDimKey = $themeConfig["tKey"] . ":" . $barDim . ($barRootCode?">".$barRootCode:"");
+        //$cubeSetKey = $barDimKey . ($stackDim?",".$stackDim:"") . ($sideDim?",".$sideDim:"");
+        //$cubedBy = "by ".$dimensions[$barDim]["name"].($stackDim?" by ".$dimensions[$stackDim]["name"]:"").($sideDim?" by ".$dimensions[$sideDim]["name"]:"");
+        $cubedBy = "by ". $dimensions[$barDim]["name"].($stackDim?($sideDim?", ":" and ").$dimensions[$stackDim]["name"]:"").($sideDim?" and ".$dimensions[$sideDim]["name"]:"");
+
+        //build cube code lists
+        $bar_codes = [];
+        foreach($barBranch as $key=>$val) {
+            $bar_codes[] = is_integer($key)?$val:$key;
+            if(!is_integer($key) && count($val)>1){
+                //RECURSE for each sub-branch!!
+                $subBranch = [$val => $key];
+                addCubeSet($themeConfig, $dimensions, $barDim, $subBranch, $stackDim, $sideDim);
+            }
+        }
+        $stack_codes = [];
+        if($stackDim){ //stack must be a hierarchy (local or root) and must be passed as a assoc. branch
+            $stackL1  = $dimensions[$stackDim]["hierarchy"][$dimensions[$stackDim]["rootCode"]];
+            //foreach($stack_branch as $stack_local_root=>$stack_leaves);
+            foreach($stackL1 as $key=>$val) $stack_codes[] = is_integer($key)?$val:$key;
+        }
+        $side_codes = [];
+        if($sideDim){
+            $sideL1  = $dimensions[$sideDim]["hierarchy"][$dimensions[$sideDim]["rootCode"]];
+            //foreach($stack_branch as $stack_local_root=>$stack_leaves);
+            foreach($sideL1 as $key=>$val) $side_codes[] = is_integer($key)?$val:$key;
+        }
+
+        //determine the left out dims and the set dims that determine a set key.  (note: set dims = tsv dim - geo and time dims)
+        $left_out_dims = []; 
+        foreach($themeConfig["tsvDims"] as $dimIndex=>$tsvdim){
+            if($dimIndex!==$themeConfig["geoIndex"] && $dimIndex!==$themeConfig["timeIndex"]){
+                //unitsIndex will be in there, but gets special treatment // && $dimIndex!==$themeConfig["unitIndex"]){
+                if($tsvdim!==$barDim && $tsvdim!==$stackDim && $tsvdim!==$sideDim){
+                    $left_out_dims[$tsvdim] = null;
+                }
+            }
+        }
+
+        $qualifiers = [];
+        //bar qualifier if not dim root (note: stack and side are only root/ground level and are never up the tree)
+        if($barRootCode && $barRootCode!=$dimensions[$barDim]["rootCode"]) $qualifiers[] = $dimensions[$barDim]["allCodes"][$barRootCode];
+
+        //add dimdefs
+        $barDimKey = $barDim . ($barRootCode?">".$barRootCode:"");
+        if(!isset($themeConfig["dimdefs"][$barDimKey])) {
+            $themeConfig["dimdefs"][$barDimKey] = makeDimDef($dimensions, $barDim, $bar_codes);
+        }
+        if($stackDim){
+            $stackDimKey = $stackDim . ">" . $dimensions[$stackDim]["rootCode"];
+            if(!isset($themeConfig["dimdefs"][$stackDimKey])){
+                $themeConfig["dimdefs"][$stackDimKey] = [];
+                $themeConfig["dimdefs"][$stackDimKey] = makeDimDef($dimensions, $stackDim, $stack_codes);
+            }
+        } else $stackDimKey = "";
+        if($sideDim){
+            $sideDimKey = $stackDim . ">" . $dimensions[$sideDim]["rootCode"];
+            if(!isset($themeConfig["dimdefs"][$sideDimKey])){
+                $themeConfig["dimdefs"][$sideDimKey] = [];
+                $themeConfig["dimdefs"][$sideDimKey][] = makeDimDef($dimensions, $sideDim, $side_codes);
+            }
+        } else $sideDimKey = "";
+        
+        addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy, $barDim, $barDimKey, $bar_codes, $barRootCode, $stackDim, $stackDimKey, $stack_codes, $sideDim, $sideDimKey, $side_codes, $left_out_dims);
+
+    }
+}
+
+//addLeftOutCubes adda a cube for each combination of left out dimension's values (if any).
+//The parameters fully described the cube's dimensions and code list snippets
+//Each left out will be used to add qualifers to the cube name (derived from theme name) if not a root total or a units list
+function addCubesOverLeftOuts(&$themeConfig, &$dimensions, $qualifiers, $cubedBy, $barDim, $barDimKey, $bar_codes, $barRootCode, $stackDim, $stackDimKey, $stack_codes, $sideDim, $sideDimKey, $side_codes, $left_out_dims){
+    $leftOutKeys = [];
+    $componentSetKeyCodes = [];
+    $totSetCodes = [];
+    $setDims = $themeConfig["setDims"];
+    foreach($left_out_dims as $left_out_dim => $code){
+        if($code==null){
+            //loop through codes
+            foreach($dimensions[$left_out_dim]["allCodes"] as $left_out_code){
+                $left_out_dims[$left_out_dim] = $left_out_code;
+                addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy, $barDim, $barDimKey, $bar_codes, $barRootCode, $stackDim, $stackDimKey, $stack_codes, $sideDim, $sideDimKey, $side_codes, $left_out_dims);
+            }
+            return;
+        } else {
+            if($dimensions[$left_out_dim]["rootCode"]!=$code && (!isset($themeConfig["unitIndex"]) || $themeConfig["tsvDims"][$themeConfig["unitIndex"]]!=$left_out_dim))
+                $qualifiers[] = $dimensions[$left_out_dim]["allCodes"][$code];
+            $leftOutKeys[] = $left_out_dim . "=" . $code;
+            $index = array_search($left_out_dim, $setDims);
+            $componentSetKeyCodes[$index] = $code;
+            $totSetCodes[$index] = $code;
+        }
+    }
+
+    //all left out dimensions are filled in (through the magic of recursion!) if executing this code (i.e. did not execute a return above) 
+
+    //finally:  add a single cube! (note:  dimensions already added in addCubeSet)
+    $units = false;
+    $localCubeKey = $barDimKey.",".$stackDimKey.",".$sideDimKey.":".implode(",", $leftOutKeys);
+    if(isset($themeConfig["cubes"][$localCubeKey])){
+        logEvent("Eurostats ingest error", "cube for key ".$localCubeKey." already exists in memory");
+        die("cube for key ".$localCubeKey." already exists in memory");
+    }
+
+    $localCubeName = (count($qualifiers)==0?"":implode(", ", $qualifiers) . " detailed ").$cubedBy.
+        
+    //finish computing totSetKey
+    $barDimIndex = array_search($barDim, $setDims);
+    if($stackDim) $stackDimIndex = array_search($stackDim, $setDims);
+    if($sideDim) $sideDimIndex = array_search($sideDim, $setDims);
+    if($barRootCode){ //totSet!!
+        $totSetCodes[$barDimIndex] = $barRootCode;
+        if($stackDim) $totSetCodes[$stackDimIndex] = $dimensions[$stackDim]["rootCode"];
+        if($sideDim) $totSetCodes[$sideDimIndex] = $dimensions[$sideDim]["rootCode"];
+        $totSetKey = mplode(",", $totSetCodes); //$themeConfig["tKey"] . ":"  prefix not added to setkeys to save memory 
+    } else $totSetKey = false;
+    
+    $themeConfig["cubes"][$localCubeKey] = [
+        "by"=> $cubedBy,
+        "qualifiers"=> implode(", ", $qualifiers),
+        "units"=> false,
+        "barDimKey"=>$barDimKey,
+        "stackDimKey"=>$stackDimKey,
+        "sideDimKey"=>$sideDimKey,
+        "localTotSetKey" => $totSetKey,
+        "components"=>[]
+    ];
+
+    //loop through the bar, stack and side codes and add ordered arrays of localSetKeys
+    $components = [];
+    foreach($bar_codes as $barCode){
+        $componentSetKeyCodes[$barDimIndex] = $barCode;
+        if($stackDim){
+            $bar = [];
+            foreach($stack_codes as $stackCode){
+                $componentSetKeyCodes[$stackDimIndex] = $stackCode;
+                if($sideDim){
+                    $stack = [];
+                    foreach($side_codes as $sideCode){
+                        $componentSetKeyCodes[$sideDimIndex] = $sideCode;
+                        $stack[] = implode(",", $componentSetKeyCodes);
+                    }
+                } else {
+                    $stack = implode(",", $componentSetKeyCodes);
+                }
+                $bar[] = $stack;
+            }
+        } elseif($sideDim){
+            $side = [];
+            foreach($side_codes as $sideCode){
+                $componentSetKeyCodes[$sideDimIndex] = $sideCode;
+                $side[] = implode(",", $componentSetKeyCodes);
+            }
+            $components[] = $side;
+        } else {
+            //1D cube
+            $components[] = implode(",", $componentSetKeyCodes);
+        }
+    }
+    $themeConfig["cubes"][$localCubeKey]["components"] = $components;
+}
+
+function makeDimDef(&$dimensions, $dim, $list){
+    $names = [];
+    foreach($list as $code) $names[] = str_replace("\"","'", $dimensions[$dim]["allCodes"][$code]);
+    return json_encode($names);
+}
+
+
+
+
+
+
+        $themeConfig["cubes"][$cKey] = ["cKey"=>$cKey, "name"=> $cubeName, "components"=>[], "dimnames"=>["bar"=>[],"stack"=>[], "side"=>[]] ];
+        if($themeConfig["sexMF"]){
+            $themeConfig["cubes"][$cKey."sex"] = ["cKey"=>$cKey."sex", "name"=> $cubeName." by sex", "components"=>[], "dimnames"=>["bar"=>[],"stack"=>[], "side"=>[]] ];
+        }
+        //prep the mapset codes with rootCodes; bar and stack will be filled in / overwritten for each cube component
+        $tsvDims = $themeConfig["tsvDims"];
+        $msCodesTemplate = $tsvDims;
+        for($i=0;$i<count($msCodesTemplate);$i++){ //
+            if($msCodesTemplate[$i]!="TIME"&&$msCodesTemplate[$i]!="GEO"){
+                if(count($dimensions[$msCodesTemplate[$i]]["hierarchy"])==1){
+                    foreach($dimensions[$msCodesTemplate[$i]]["hierarchy"] as $key => $val){
+                        $msCodesTemplate[$i] = is_array($val)?$key:$val;
+                    }
+                }
+            }
+        }
+        $barIndex = array_search($barListCode, $tsvDims);
+        $stackIndex = array_search($barListCode, $tsvDims);
+        $sexIndex = array_search("SEX", $tsvDims);
+
+        //add cube components by looping through bar and stack (if stack exists)
+        $barOrder = 0;
+        $stackOrder = "null";  //overwritten in stack loop if needed
+        foreach($barListCode as $index => $val){
+            $barCode = is_array($val)?$index:$val;  //code may be the or the value in a hierarchy
+            //figure out the mapset codes (in order) to derive the msKey for binding the cube-component
+            $msCodesTemplate[$barIndex] = $barCode;
+            $barName = shortenName( $dimensions[$barListCode]["allCodes"]);
+            $themeConfig["cubes"][$cKey]["dimnames"]["bar"][$barOrder] = $barName;
+            if($themeConfig["cubes"][$cKey."sex"]){
+                $themeConfig["cubes"][$cKey."sex"]["dimnames"]["bar"][$barOrder]= $barName;
+                $themeConfig["cubes"][$cKey."sex"]["dimnames"]["side"][0]= $dimensions["CL_SEX"]["allCodes"]["M"];
+                $themeConfig["cubes"][$cKey."sex"]["dimnames"]["side"][1]= $dimensions["CL_SEX"]["allCodes"]["F"];
+            }
+            if($stackListCode){
+                $stackOrder = 0;
+                $stackChildren =& $dimensions[$stackListCode]["hierarchy"][$dimensions[$stackListCode]["rootCode"]];
+                foreach($stackChildren as $stackKey=>$stackVal){
+
+                    $stackCode = is_array($stackVal)? $stackKey : $stackVal;
+                    $msCodesTemplate[$stackIndex] = $stackCode;
+                    $stackName = shortenName($dimensions[$stackListCode]["allCodes"][$stackCode]);
+                    $themeConfig["cubes"][$cKey]["dimnames"]["bar"][$stackOrder]= $stackName;
+                    if($themeConfig["cubes"][$cKey."sex"])$themeConfig["cubes"][$cKey."sex"]["dimnames"]["bar"][$stackOrder] = $stackName;
+
+                    addCubeComponent($themeConfig, $cKey, $msCodesTemplate, $barOrder, $stackOrder, null);
+                    if($themeConfig["sexMF"]){ //add sexy stacked cube components (M & F)
+                        $msSexyCodes = $msCodesTemplate; //make a copy
+                        $msSexyCodes[$sexIndex] = "M";
+                        addCubeComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, $stackOrder, 0);
+                        $msSexyCodes[$sexIndex] = "F";
+                        addCubeComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, $stackOrder, 1);
+                    }
+                    $stackOrder++;
+                }
+            } else {
+                //bar cube
+                addCubeComponent($themeConfig, $cKey, $msCodesTemplate, $barOrder);
+                if($themeConfig["sexMF"]){ //add sexy bar cube components (M & F)
+                    $msSexyCodes = $msCodesTemplate; //make a copy
+                    $msSexyCodes[$sexIndex] = "M";
+                    addCubeComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, null, "L");
+                    $msSexyCodes[$sexIndex] = "F";
+                    addCubeComponent($themeConfig, $cKey."sex", $msSexyCodes, $barOrder, null, "R");
+                }
+            }
+            $barOrder++;
+        }
+    }
+    //check for sub hierarchies
+    foreach($barBranch as &$val){
+        //is key int or a code?
+        if(is_array($val)){
+            addCubes($themeConfig, $units, $dimensions, $barListCode, $stackListCode, $val, $index);  //call recursively until no more sub arrays
+        }
+    }
+
+}
+
+
+
+
+
+
+
+
+//OLD SHIT!!!!!!!!!!!!!!!!!!!!!
 function addAllCubes(&$themeConfig, &$dimensions, $barListCode, $stackListCode = null, &$barBranch = false, $barParentCode = false, $units = null, $unitsCodeListName = null) {
 //Adds cubes and/or sexed-cube to cubes array by setKey for bar/stack combination and for each branch of the bar.  Cube components are created as an associative sub-array of msKeys, shortname, and ordering info
 //note:  must make a separate cube for each val in codeList[$themeConfig["indexUnit"]
 //note:  cube units taken from first set's units
-//a separate cube must be made for each val in unspoken for dimensions (excluding units, geo, and time)
+//a separate cube must be made for each val in unspoken for dimensions (excluding geo, and time)
 
     if(!$barParentCode){ //starting from the bottom
         $barBranch =& $dimensions[$barListCode]["hierarchy"];
@@ -592,9 +898,11 @@ function addAllCubes(&$themeConfig, &$dimensions, $barListCode, $stackListCode =
 }
 
 function addCubeSets(&$themeConfig, &$dimensions, $bar_dim, &$bar_branch, $stack_dim = false, &$stack_branch = false, $side_dim = false, &$side_branch = false){
-    //add a single cube and all it components
+    //adds:
+    // - a cube and all it components for each combination of left out dims' values
+    // - a sexy and all it components for each combination of left out dims' values (when possible)
 
-    //determine $bar_codes, $stack_codes & sid
+    //1. determine $bar_codes, $stack_codes
     if(count($bar_branch)==1){ //bars can be hierarchy (passed as assoc. branch) or non-hierarchy (passed as array)
         foreach($bar_branch as $bar_local_root=>$bar_leaves);
     } else {
@@ -605,7 +913,7 @@ function addCubeSets(&$themeConfig, &$dimensions, $bar_dim, &$bar_branch, $stack
     foreach($bar_leaves as $key=>$val) {
         $bar_codes[] = is_integer($key)?$val:$key;
         if(!is_integer($key) && count($val)>1){
-            //recurse for each sub-branch!!
+            //RECURSE for each sub-branch!!
             $subBranch = [$val => $key];
             addCubeSets($themeConfig, $bar_dim, $subBranch, $stack_dim, $stack_branch, $side_dim, $side_branch);
         }
@@ -617,18 +925,19 @@ function addCubeSets(&$themeConfig, &$dimensions, $bar_dim, &$bar_branch, $stack
         foreach($stack_leaves as $key=>$val) $stack_codes[] = is_integer($key)?$val:$key;
 
     }
-    if($side_dim && $side_branch){
+
+    /*if($side_dim && $side_branch){
         if(count($side_branch)==1){ //sex can be hierarchy (passed as assoc. branch) or ["M","F"] array
             foreach($side_branch as $side_local_root=>$side_codes);
         } else {
             $side_local_root = false;
             $side_codes = $bar_branch;
         }
-    }
+    }*/
 
-    //determine the left out dims and the dims that determine a set key.
+    //determine the left out dims and the set dims that determine a set key.  (note: set dims = tsv dim - geo and time dims)
     $left_out_dims = []; $set_dims = [];
-    foreach($themeConfig["tsvdims"] as $dimIndex=>$tsvdim){
+    foreach($themeConfig["tsvDims"] as $dimIndex=>$tsvdim){
         if($dimIndex!==$themeConfig["geoIndex"] && $dimIndex!==$themeConfig["timeIndex"]){  //unitsIndex will be in there, but gets special treatment // && $dimIndex!==$themeConfig["unitIndex"]){
             $set_dims[] = $tsvdim;
             if($tsvdim!==$bar_dim && $tsvdim!==$stack_dim && $tsvdim!==$side_dim){
@@ -637,7 +946,7 @@ function addCubeSets(&$themeConfig, &$dimensions, $bar_dim, &$bar_branch, $stack
         }
     }
 
-
+    //closure function
     function addCubesOverLeftOutDims() use (&$themeConfig, &$dimensions, $bar_dim, $bar_local_root, $bar_code, $stack_dim, $stack_local_root, $stack_code, $side_dim, $side_local_root, $side_code, $left_out_dims) {
         //there will be an cube for each combination of left_out_dim codes
         if(count($left_out_dims)==0){
