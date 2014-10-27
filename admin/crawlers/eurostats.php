@@ -306,6 +306,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                     saveSetData($status, $set["setid"], null, null, $freq, intval(substr($gHandle,1)), "", $data);
                 }
             }
+            unset($set["freqs"]);  //free up memory
         }
     }
     //then, all the slavesets
@@ -321,6 +322,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                     saveSetData($status, $set["setid"], null, null, $freq, intval(substr($gHandle,1)), "", $data);
                 }
             }
+            unset($set["freqs"]);  //free up memory
         }
     }
     //finished saving sets and setdata
@@ -386,7 +388,15 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     //combining codes is used when Eurostats splits the NUTS levels or male, female, and totals across several codes
 
     //5. save the cubes their  components
-    updateCubes($themeConfig["theme"]["themeid"], $themeConfig["cubes"]);
+    updateCubes($themeConfig, $dsdCodeLists);
+
+    //6.save category tree and categorysets
+    $catIds = getCatidsFromEsCodes($themeConfig["codes"], $api_row);
+    foreach($themeConfig["sets"] as $setKey => &$set){
+        foreach($catIds as $catId){
+            setCatSet($catId, $set["setid"]);
+        }
+    }
 
     return $status;
 }
@@ -522,7 +532,7 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges configuration in DS
     } else {
         if(!isset($themeConfig["cubable"])) $themeConfig["cubable"] = true;  //do not overide if user has set to false
     }
-    //$themeConfig["dimensions"] = $dimensions;
+    $themeConfig["dimDefs"] = [];
     $themeConfig["cubes"] = [];
 }
 
@@ -544,7 +554,7 @@ function addCubeSet(&$themeConfig, &$dimensions, $barDim, &$barBranch = null, $s
     if(count($barBranch)>1){
         //have cubeSet: add it!
 
-        //add dimdefs
+        //add dimDefs
 
         $barDimKey = $themeConfig["tKey"] . ":" . $barDim . ($barRootCode?">".$barRootCode:"");
         //$cubeSetKey = $barDimKey . ($stackDim?",".$stackDim:"") . ($sideDim?",".$sideDim:"");
@@ -589,23 +599,21 @@ function addCubeSet(&$themeConfig, &$dimensions, $barDim, &$barBranch = null, $s
         //bar qualifier if not dim root (note: stack and side are only root/ground level and are never up the tree)
         if($barRootCode && $barRootCode!=$dimensions[$barDim]["rootCode"]) $qualifiers[] = $dimensions[$barDim]["allCodes"][$barRootCode];
 
-        //add dimdefs
+        //add dimDefs
         $barDimKey = $barDim . ($barRootCode?">".$barRootCode:"");
-        if(!isset($themeConfig["dimdefs"][$barDimKey])) {
-            $themeConfig["dimdefs"][$barDimKey] = makeDimDef($dimensions, $barDim, $bar_codes);
+        if(!isset($themeConfig["dimDefs"][$barDimKey])) {
+            $themeConfig["dimDefs"][$barDimKey] = makeDimDef($dimensions, $barDim, $bar_codes);
         }
         if($stackDim){
             $stackDimKey = $stackDim . ">" . $dimensions[$stackDim]["rootCode"];
-            if(!isset($themeConfig["dimdefs"][$stackDimKey])){
-                $themeConfig["dimdefs"][$stackDimKey] = [];
-                $themeConfig["dimdefs"][$stackDimKey] = makeDimDef($dimensions, $stackDim, $stack_codes);
+            if(!isset($themeConfig["dimDefs"][$stackDimKey])){
+                $themeConfig["dimDefs"][$stackDimKey] = makeDimDef($dimensions, $stackDim, $stack_codes);
             }
         } else $stackDimKey = "";
         if($sideDim){
             $sideDimKey = $stackDim . ">" . $dimensions[$sideDim]["rootCode"];
-            if(!isset($themeConfig["dimdefs"][$sideDimKey])){
-                $themeConfig["dimdefs"][$sideDimKey] = [];
-                $themeConfig["dimdefs"][$sideDimKey][] = makeDimDef($dimensions, $sideDim, $side_codes);
+            if(!isset($themeConfig["dimDefs"][$sideDimKey])){
+                $themeConfig["dimDefs"][$sideDimKey] = makeDimDef($dimensions, $sideDim, $side_codes);
             }
         } else $sideDimKey = "";
         
@@ -733,8 +741,7 @@ function getCatidsFromEsCodes($esCodes, $api_row){  //returns array of catids an
     foreach($esCodes as $code){
         $leaves = $xmlTOC->xpath("//leaf[code='$code']");
         for($j=0;$j<count($leaves);$j++){  //multiple leaves can have same code = multihoming!
-            $catids = getEsCatId($leaves[$j], $api_row);
-            array_push($catids, $catid);
+            $catids = array_merge($catids, getEsCatId($leaves[$j], $api_row));
         }
     }
     return $catids;
@@ -781,7 +788,8 @@ function fetchCat($api_row, $code, $title=false, $parentCatId=false){
     $result = runQuery($sql);
     if($result->num_rows!=0){
         $catids = [];
-        while($cat_row = $result->fetch_assoc()) array_push($catids, $cat_row["catid"]);
+        while($cat_row = $result->fetch_assoc())
+            $catids[] = $cat_row["catid"];
         return $catids;
     } else {
         //otherwise
@@ -825,23 +833,63 @@ function iso2Lookup($iso2LetterCode, $set = "ALL"){
 }
 
 //TODO: move to crawlers/index.php
-function  updateCubes($themeid, &$cubes, $deleteOldCubes = true){
+function  updateCubes(&$themeConfig, &$dimensions, $deleteOldCubes = true){
     global $db;
-    foreach($cubes as $cKey=> &$cube){
+    $themeId  = $themeConfig["theme"]["themeid"];
+    $cubes =& $themeConfig["cubes"];
+    $dimDefs =& $themeConfig["dimDefs"];
+    $tKey = $themeConfig["tKey"];
+    $cubes =& $themeConfig["cubes"];
+    foreach($cubes as $localCubeKey=> &$cube){
         $sqlName = safeStringSQL($cube["name"]);
         $sqlUnits = safeStringSQL($cube["units"]);
-        $sqlCkey = safeStringSQL($cube["ckey"]);
-        $sqlDimJson = safeStringSQL(json_encode($cube["dimnames"]));
+        $sqlCkey = safeStringSQL($tKey . ":" . $localCubeKey);
 
-        $sql = "select * from cubes where themeid=$themeid and ckey=$$sqlCkey";
+        $themeConfig["cubes"][$localCubeKey] = [
+            "by"=> $cubedBy,
+            "qualifiers"=> implode(", ", $qualifiers),
+            "units"=> false,
+            "barDimKey"=>$barDimKey,
+            "stackDimKey"=>$stackDimKey,
+            "sideDimKey"=>$sideDimKey,
+            "localTotSetKey" => $totSetKey,
+            "components"=>[]
+        ];
+
+
+        //save Dimension definitions:
+        //bar
+        $barDimKeyParts = explode(">", $cube["barDimKey"])[0];
+        $barDim = $barDimKeyParts[0];
+        $barDimId = saveDimDef($themeId, $cube["barDimKey"], $dimensions[$barDim]["name"], $dimDefs);
+        //stack
+        if($cube["stackDimKey"]){
+            $stackDimKeyParts = explode(">", $cube["stackDimKey"]);
+            $stackDim = $stackDimKeyParts[0];
+            $stackDimId = saveDimDef($themeId, $cube["stackDimKey"], $dimensions[$stackDim]["name"], $dimDefs);
+        } else {
+            $stackDim = false;
+            $stackDimId = "null";
+        }
+        //side
+        if($cube["sideDimKey"]){
+            $sideDimKeyParts = explode(">", $cube["sideDimKey"]);
+            $sideDim = $sideDimKeyParts[0];
+            $sideDimId = saveDimDef($themeId, $cube["stackDimKey"], $dimensions[$sideDim]["name"], $dimDefs);
+        } else {
+            $sideDim = false;
+            $sideDimId = "null";
+        }
+
+        $sql = "select * from cubes where themeid=$themeId and ckey=$sqlCkey";
         $result = runQuery($sql);
         if($result->num_rows==1){
             $row = $result->fetch_assoc();
             $cubeid = $row["cubeid"];
-            $sql = "update cubes set name=$themeid, units=$sqlUnits, dimnames==$sqlDimJson";
+            $sql = "update cubes set name=$themeId, units=$sqlUnits, dimnames==$sqlDimJson";
             runQuery($sql);
         } else {
-            $sql = "insert into cubes (themeid, ckey, name, units, dimsjson) values ($themeid, $sqlCkey, $sqlName, $sqlUnits, $sqlDimJson)";
+            $sql = "insert into cubes (themeid, ckey, name, units, dimsjson) values ($themeId, $sqlCkey, $sqlName, $sqlUnits, $sqlDimJson)";
             $result = runQuery($sql);
             if($result) {
                 $cubeid = $db->insert_id;
@@ -863,11 +911,10 @@ function  updateCubes($themeid, &$cubes, $deleteOldCubes = true){
                 runQuery("delete from cubecomponenets where mapsetid=$row[mapsetid] and cubeid=$row[cubeid]");
             }
         }
-
     }
     //delete any left over cubes that should no longer exist
     if($deleteOldCubes){
-        $result = runQuery("select ckey, cubeid from cube where themeid=$themeid");
+        $result = runQuery("select ckey, cubeid from cube where themeid=$themeId");
         while ($row = $result->fetch_assoc()){
             if(!isset($cubes[$row["ckey"]])){
                 //cube is in the database that is not in our cubes array
@@ -876,4 +923,18 @@ function  updateCubes($themeid, &$cubes, $deleteOldCubes = true){
             }
         }
     }
+}
+
+function saveDimDef($themeId, $dimKey, $dimName, &$dimDefs){
+    //save / updates the dimension definition, and saves the dimid to memory for fast future use.  Returns the dimid
+    if(is_numeric($dimDefs[$dimKey])) return $dimDefs[$dimKey];
+    $sqlName = safeStringSQL($dimName);
+    $sqlKey = safeStringSQL($dimKey);
+    $sqlJSON = safeStringSQL($dimDefs[$dimKey]);
+    $sql = "insert into cubedims (themeid, dimkey, name, json) values ($themeId, $sqlKey, $sqlName, $sqlJSON) on duplicate key set name= $sqlName, json = $sqlJSON;";
+    runQuery($sql);
+    $result = runQuery("select dimid from cubedims where themeid=$themeId and dimkey=$sqlKey");
+    $row = $result->fetch_assoc();
+    $dimDefs[$dimKey] = $row["dimid"];
+    return $row["dimid"];
 }

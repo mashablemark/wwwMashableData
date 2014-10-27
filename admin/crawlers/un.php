@@ -8,7 +8,14 @@
 
 /**
  * Created by MEL on 8/6/14.
+ *
+ * loops through:
+ * A. $reporting countries = 14 largest economies / media markets
+ *   B. $partners = universe of countries and geographies (including world)
  */
+
+
+$dataFolder = "bulkfiles/un/";
 
 $flows = [
     "imports"=> 1,
@@ -16,6 +23,7 @@ $flows = [
 ];
 
 $reporting = [
+    ["id"=> "0","text"=> "World"],
     ["id"=> "97","text"=>  "EU-28"],
     ["id"=> "251","text"=>  "France"],
     ["id"=> "842","text"=>  "USA"],
@@ -33,7 +41,8 @@ $reporting = [
 ];
 
 $partners =  [
-    //["id"=> "all","text"=> "All"],
+    //["id"=> "all","text"=> "All"],  all is not a "World total", rather it is all valid partners codes in single request = too big!
+    ["id"=> "0","text"=> "World"],
     ["id"=> "4","text"=> "Afghanistan"],
     ["id"=> "8","text"=> "Albania"],
     ["id"=> "12","text"=> "Algeria"],
@@ -295,7 +304,7 @@ $maxRecords = 0;
 $NetWeights = 0;
 foreach($reporting as $reporter){
     $iPartner = 0;
-    $callSize = 1;
+    $callSize = 5; //number of countries
     print("<b>".$reporter["text"]."</b><br>");
     $counts[$reporter["text"]] = [
         "Export"=> [
@@ -322,17 +331,28 @@ foreach($reporting as $reporter){
             array_push($apIds, $partner["id"]);
         }
         $spIds = implode(",", $apIds);
-        $url = "http://comtrade.un.org/api/get?r=$reporterId&p=".$spIds."&max=50000&cc=ALL&rg=1,2"; //cc = commidity codes; rg= imports and exports
+        $url = "http://comtrade.un.org/api/get?r=$reporterId&p=".$spIds."&max=100000&cc=ALL&rg=1,2&freq=M&ps=recent";//&fmt=csv"; //cc = commodity codes; rg= imports and exports; ps = period (recent = 5 most recent reporting periods)
+        //fmt=csv because resulting download is less than 1/3 = faster + no json_decode with large memory requirements
         $iPartner += $callSize;
-        //$responseString = httpGet($url); //fails
-        $responseString = file_get_contents($url);  //this is taking a really long time.  maybe due to the redirect?
-        print($url." ( ".strlen($response) ." characters)<BR>");
+
+        //wget works whereas the php fopen command fails (similar to eurostat)
+        $outputfile = $dataFolder . "undata".microtime(true).".csv";
+        $cmd = "wget -q \"$url\" -O $outputfile";
+        print($url);
+        print(exec($cmd));
         die();
-        $response = json_decode($responseString, true);
-        $records =& $response["dataset"];
-        $maxRecords = max($maxRecords,count($records));
-        if(count($records)>49999) print("Maximum recordcount reached for $url<br>");
-        foreach($records as $record){
+        $recordCount = 0;
+
+        $fp = fopen($outputfile, 'r');
+        $header = fgetcsv($fp);
+        print("<PRE>CSV header: ".print_r($header, true)."</PRE>");
+        while(!feof($fp)){
+            $record = fgetcsv($fp);
+            print($recordCount++);
+
+            print_r($record);
+
+            if($recordCount==10) die();
             //$rISO = $record["rt3ISO"];
             //$pISO = $record["pt3ISO"];
             $commCode = $record["cmdCode"];
@@ -344,32 +364,15 @@ foreach($reporting as $reporter){
             if($record["TradeValue"]) $thisCounts[$flow][$level]++;
             if($record["NetWeight"]) $thisCounts[$flow]["NetWeight"]++;
         }
+        if($recordCount>999999) print("Maximum recordcount reached for $url<br>");
+        print($recordCount ." records<BR>");
+        unlink($outputfile);
         sleep(1);
     }
 }
-print("<br>max records(shold be < 50,000): $maxRecords<br>");
-var_dump($counts);
 
-
-function httpGet($target, $timeout = 15){
-    $fp = false;
-    $tryLimit = 1;
-    $tries = 0;
-    while($tries<$tryLimit && $fp===false){  //try up to 3 times to open resource
-        $tries++;
-        //$fp = @fsockopen($target, 80, $errNo, $errString, $timeout);
-        $fp = @fopen( $target, 'r' );  //the @ suppresses a warning on failure
-    }
-    if($fp===false){  //failed (after 3 tries)
-        $content = false;
-        print("httpGet failed ". $target);
-    } else { //success
-        $content = "";
-        while( !feof( $fp ) ) {
-            $buffer = trim( fgets( $fp, 4096 ) );
-            $content .= $buffer;
-        }
-        fclose($fp);
-    }
-    return $content;
+function recordValue($field) {
+    global $record, $header;
+    $fieldIndex = array_search($field, $header);
+    return $record[$fieldIndex];
 }

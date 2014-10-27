@@ -304,8 +304,7 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 if($seriesDimensions[$i]==$cubeDimensions[$i]["list"][$j]["name"]){
                     if(($cubeDimensions[$i]["dimension"]=="sex" && $i!=0) || $i==2){
-                        $side = ($i==0)?"'L'":"'R'";
-
+                        $side = ($j==0)?"'L'":"'R'";
                     } elseif($i==0){
                         $barorder = $j;
                     } elseif($i==1){
