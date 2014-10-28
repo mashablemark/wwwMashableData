@@ -3,11 +3,13 @@
  */
 (function makeMapDiv(){
     var mapList = [
-        {"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":1},
-        {"map":"africa","name":"Africa","geographycount":"57","bunny":"3837","jvectormap":"africa_mill_en","legend":"BL","level":1},
-        {"map":"europe_nafrica","name":"Europe and North Africa","geographycount":"53","bunny":null,"jvectormap":"europe_nafrica_mill_en","legend":"BL","level":1},
-        {"map":"europe","name":"Europe","geographycount":"41","bunny":"3841","jvectormap":"europe_mill_en","legend":"BL","level":1},
-        {"map":"eu28","name":"European Union - countries","geographycount":"28","bunny":"307","jvectormap":"eu_mill_en","legend":"BL","level":1},
+        {"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":0},
+        {"map":"wb_incomes","name":"World Bank income levels","geographycount":"11","bunny":"321","jvectormap":"wb_incomes","legend":"BL","level":1},
+        {"map":"wb_regions","name":"World Bank regions","geographycount":"13","bunny":"321","jvectormap":"wb_regions","legend":"BL","level":1},
+        {"map":"africa","name":"Africa","geographycount":"57","bunny":"3837","jvectormap":"africa_mill_en","legend":"BL","level":0},
+        {"map":"europe_nafrica","name":"Europe and North Africa","geographycount":"53","bunny":null,"jvectormap":"europe_nafrica_mill_en","legend":"BL","level":0},
+        {"map":"europe","name":"Europe","geographycount":"41","bunny":"3841","jvectormap":"europe_mill_en","legend":"BL","level":0},
+        {"map":"eu28","name":"European Union - countries","geographycount":"28","bunny":"307","jvectormap":"eu_mill_en","legend":"BL","level":0},
         {"map":"eu_nuts1","name":"European Union - NUTS1 regions","geographycount":"104","bunny":"307","jvectormap":"eu_nuts1_mill_en","legend":"BL","level":1},
         {"map":"eu_nuts2","name":"European Union - NUTS2 regions","geographycount":"289","bunny":"307","jvectormap":"eu_nuts2_mill_en","legend":"BL","level":1},
         {"map":"eu_nuts2","name":"European Union - NUTS3 regions","geographycount":"1373","bunny":"307","jvectormap":"eu_nuts3_mill_en","legend":"BL","level":1},
@@ -45,20 +47,24 @@
         {"map":"nl_nuts3","name":"Netherlands/Nederland NUTS3 regions","geographycount":"40","bunny":"167","jvectormap":"nl_nuts3_mill_en","legend":"BR","level":2},
         {"map":"no_nuts2","name":"Norway/Norge NUTS2 regions","geographycount":"7","bunny":"168","jvectormap":"no_nuts2_mill_en","legend":"BR","level":2},
         {"map":"no_nuts3","name":"Norway/Norge NUTS3 regions","geographycount":"19","bunny":"168","jvectormap":"no_nuts3_mill_en","legend":"BR","level":2},
-        {"map":"pl_nuts2","name":"Poland/Polska NUTS2 regions","geographycount":"16","bunny":"180","jvectormap":"pl_nuts2_mill_en","legend":"BR","level":1},
-        {"map":"pl_nuts3","name":"Poland/Polska NUTS3 regions","geographycount":"66","bunny":"180","jvectormap":"pl_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"pt_nuts2","name":"Portugal NUTS2 regions","geographycount":"7","bunny":"183","jvectormap":"pt_nuts2_mill_en","legend":"BR","level":1},
-        {"map":"pt_nuts3","name":"Portugal NUTS3 regions","geographycount":"30","bunny":"183","jvectormap":"pt_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"ro_nuts2","name":"Romania/România NUTS2 regions","geographycount":"8","bunny":"189","jvectormap":"ro_nuts2_mill_en","legend":"BR","level":1},
-        {"map":"ro_nuts3","name":"Romania/România NUTS3 regions","geographycount":"42","bunny":"189","jvectormap":"ro_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"se_nuts2","name":"Sweden/Sverige NUTS2 regions","geographycount":"8","bunny":"211","jvectormap":"se_nuts2_mill_en","legend":"BR","level":1},
-        {"map":"se_nuts3","name":"Sweden/Sverige NUTS3 regions","geographycount":"21","bunny":"211","jvectormap":"se_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"si_nuts3","name":"Slovakia/Slovenija NUTS3 regions","geographycount":"12","bunny":"210","jvectormap":"si_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"sk_nuts3","name":"Slovenia/Slovensko NUTS3 regions","geographycount":"8","bunny":"209","jvectormap":"sk_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"uk_nuts1","name":"United Kingdom NUTS1 regions","geographycount":"12","bunny":"80","jvectormap":"uk_nuts1_mill_en","legend":"BR","level":1},
-        {"map":"uk_nuts2","name":"United Kingdom NUTS2 regions","geographycount":"37","bunny":"80","jvectormap":"uk_nuts2_mill_en","legend":"BR","level":1},
-        {"map":"uk_nuts3","name":"United Kingdom NUTS3 regions","geographycount":"139","bunny":"80","jvectormap":"uk_nuts3_mill_en","legend":"BR","level":1},
-        {"map":"us","name":"USA (states)","geographycount":"51","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
+        {"map":"pl_nuts2","name":"Poland/Polska NUTS2 regions","geographycount":"16","bunny":"180","jvectormap":"pl_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"pl_nuts3","name":"Poland/Polska NUTS3 regions","geographycount":"66","bunny":"180","jvectormap":"pl_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"pt_nuts2","name":"Portugal NUTS2 regions","geographycount":"7","bunny":"183","jvectormap":"pt_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"pt_nuts3","name":"Portugal NUTS3 regions","geographycount":"30","bunny":"183","jvectormap":"pt_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"ro_nuts2","name":"Romania/România NUTS2 regions","geographycount":"8","bunny":"189","jvectormap":"ro_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"ro_nuts3","name":"Romania/România NUTS3 regions","geographycount":"42","bunny":"189","jvectormap":"ro_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"se_nuts2","name":"Sweden/Sverige NUTS2 regions","geographycount":"8","bunny":"211","jvectormap":"se_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"se_nuts3","name":"Sweden/Sverige NUTS3 regions","geographycount":"21","bunny":"211","jvectormap":"se_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"si_nuts3","name":"Slovakia/Slovenija NUTS3 regions","geographycount":"12","bunny":"210","jvectormap":"si_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"sk_nuts3","name":"Slovenia/Slovensko NUTS3 regions","geographycount":"8","bunny":"209","jvectormap":"sk_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"uk_nuts1","name":"United Kingdom NUTS1 regions","geographycount":"12","bunny":"80","jvectormap":"uk_nuts1_mill_en","legend":"BR","level":2},
+        {"map":"uk_nuts2","name":"United Kingdom NUTS2 regions","geographycount":"37","bunny":"80","jvectormap":"uk_nuts2_mill_en","legend":"BR","level":2},
+        {"map":"uk_nuts3","name":"United Kingdom NUTS3 regions","geographycount":"139","bunny":"80","jvectormap":"uk_nuts3_mill_en","legend":"BR","level":2},
+        {"map":"us","name":"USA (states)","geographycount":"51","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":0},
+        {"map":"us_counties","name":"US counties","geographycount":"3145","bunny":"235","jvectormap":"us_counties_merc_en","legend":"BL","level":1},
+        {"map":"eia_regions","name":"US by EIA statistical regions","geographycount":"10","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
+        {"map":"padds","name":"US Petroleum Districts","geographycount":"5","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
+        {"map":"padds_sub","name":"US Petroleum Districts - detailed","geographycount":"7","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
         {"map":"us_ak","name":"Alaska","geographycount":"29","bunny":"251","jvectormap":"usak_merc_en","legend":"TR","level":2},
         {"map":"us_al","name":"Alabama","geographycount":"67","bunny":"250","jvectormap":"usal_merc_en","legend":"BR","level":2},
         {"map":"us_ar","name":"Arkansas","geographycount":"75","bunny":"253","jvectormap":"usar_merc_en","legend":"BR","level":2},
@@ -110,16 +116,16 @@
         {"map":"us_wi","name":"Wisconsin","geographycount":"72","bunny":"298","jvectormap":"uswi_merc_en","legend":"BL","level":2},
         {"map":"us_wv","name":"West Virginia","geographycount":"55","bunny":"297","jvectormap":"uswv_merc_en","legend":"BR","level":2},
         {"map":"us_wy","name":"Wyoming","geographycount":"23","bunny":"299","jvectormap":"uswy_merc_en","legend":"BR","level":2},
-        {"map":"au","name":"Australia","geographycount":"8","bunny":"15","jvectormap":"au_mill_en","legend":"BR","level":1},
-        {"map":"ca","name":"Canada","geographycount":"13","bunny":"40","jvectormap":"ca_mill_en","legend":"BR","level":1},
-        {"map":"cn","name":"China","geographycount":"31","bunny":"44","jvectormap":"cn_mill_en","legend":"BR","level":1},
-        {"map":"co","name":"Colombia","geographycount":"33","bunny":"50","jvectormap":"co_mill_en","legend":"BR","level":1},
-        {"map":"in","name":"India","geographycount":"34","bunny":"105","jvectormap":"in_mill_en","legend":"BR","level":1},
-        {"map":"nz","name":"New Zealand","geographycount":"13","bunny":"171","jvectormap":"nz_mill_en","legend":"BR","level":1},
-        {"map":"ph","name":"Philippines","geographycount":"17","bunny":"177","jvectormap":"ph_mill_en","legend":"BR","level":1},
-        {"map":"th","name":"Thailand","geographycount":"76","bunny":"219","jvectormap":"th_mill_en","legend":"BR","level":1},
-        {"map":"ve","name":"Venezuela","geographycount":"25","bunny":"239","jvectormap":"ve_mill_en","legend":"BR","level":1},
-        {"map":"za","name":"South Africa","geographycount":"9","bunny":"247","jvectormap":"za_mill_en","legend":"BR","level":1}
+        {"map":"au","name":"Australia","geographycount":"8","bunny":"15","jvectormap":"au_mill_en","legend":"BR","level":0},
+        {"map":"ca","name":"Canada","geographycount":"13","bunny":"40","jvectormap":"ca_mill_en","legend":"BR","level":0},
+        {"map":"cn","name":"China","geographycount":"31","bunny":"44","jvectormap":"cn_mill_en","legend":"BR","level":0},
+        {"map":"co","name":"Colombia","geographycount":"33","bunny":"50","jvectormap":"co_mill_en","legend":"BR","level":0},
+        {"map":"in","name":"India","geographycount":"34","bunny":"105","jvectormap":"in_mill_en","legend":"BR","level":0},
+        {"map":"nz","name":"New Zealand","geographycount":"13","bunny":"171","jvectormap":"nz_mill_en","legend":"BR","level":0},
+        {"map":"ph","name":"Philippines","geographycount":"17","bunny":"177","jvectormap":"ph_mill_en","legend":"BR","level":0},
+        {"map":"th","name":"Thailand","geographycount":"76","bunny":"219","jvectormap":"th_mill_en","legend":"BR","level":0},
+        {"map":"ve","name":"Venezuela","geographycount":"25","bunny":"239","jvectormap":"ve_mill_en","legend":"BR","level":0},
+        {"map":"za","name":"South Africa","geographycount":"9","bunny":"247","jvectormap":"za_mill_en","legend":"BR","level":0}
     ];
 
     MashableData.globals.maps = {};
@@ -129,7 +135,7 @@
         html += '<li class="map-level'+map.level+'" data="'+map.map+'">'+map.name+'</li>';
         MashableData.globals.maps[map.map] = map;
     }
-    MashableData.globals.$mapDiv = $('<ul class="map-list">'+html+'</ul>');
+        MashableData.globals.$mapDiv = $('<ul class="map-list">'+html+'</ul>');
 })();
 
 

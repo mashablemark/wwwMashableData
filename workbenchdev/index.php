@@ -88,8 +88,8 @@
         <div id="pickers" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
             <!--PICKER TABS-->
             <ul id="series-tabs" class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all">
-                <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Series</a></li>
-                <li class="cloud-series ui-state-default ui-corner-top"><a data="#cloud-series">Public Series</a></li>
+                <li class="local-series ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a data="#local-series">My Data</a></li>
+                <li class="cloud-series ui-state-default ui-corner-top"><a data="#cloud-series">Find Data</a></li>
                 <li class="my-graphs ui-state-default ui-corner-top"><a data="#myGraphs">My Graphs</a></li>
                 <li class="public-graphs ui-state-default ui-corner-top"><a data="#publicGraphs">Public Graphs</a></li>
             </ul>
@@ -145,6 +145,7 @@
                         <option value="7">time conversions</option>
                     </select>
                     <div id="public-settype-radio"><input type="radio" id="public-all-series" name="public-settype-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-settype-radio" value="MS"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-settype-radio" value="XS"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
+                    <select id="search-data-map"><option value="none">no map filter</option> </select>
                     <button id="series-search-button" style="background-color: orange;background: orange;">search</button>
                 </div>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
@@ -220,8 +221,8 @@
                 <button id="quick-view-to-graph">chart series</button>
             </fieldset-->
             <button id="edit-my-series">edit</button>
-            <button id="quick-view-to-series"">add to My Series</button>
-            <button id="quick-view-delete-series">delete from My Series</button>
+            <button id="quick-view-to-series"">add to My Data</button>
+            <button id="quick-view-delete-series">delete from My Data</button>
             <button id="quick-view-close" class="right">Close</button>
         </div>
     </div>
