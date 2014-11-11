@@ -415,5 +415,15 @@ MashableData.common = {
                 }
             }
         });
+    },
+    setFactory: function(recordset){
+        var newSets = [];
+        for(var i=0;i<recordset.length;i++){
+            newSets.push(new MashableData.Set(recordset[i]));
+        }
+        return newSets;
     }
 };
+
+
+

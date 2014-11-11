@@ -58,7 +58,7 @@ var colWidths = {
     longDate: 125,
     deleteIcon: 35,
     map: 125,
-    periodicity: 25,
+    periodicity: 45,
     linkIcon: 30,
     src: 150,
     drillIcon: 35,
@@ -87,11 +87,11 @@ var layoutDimensions = {
 
 var MY_SERIES_DATE = 7;  //important column indexes used for ordering
 var nonWhitePattern = /\S/;  //handy pattern to check for non-whitespace
-//Datatable variables set after onReady calls to... , setupMySeriesTable, setupMySeriesTable, and setupMySeriesTable,
-var dtMySeries; //...setupMySeriesTable
-var dtPublicSeries;  //...setupPublicSeriesTable
-var dtMyGraphs;    //...setupMyGraphsTable
-var dtPublicGraphs;   //...setupPublicGraphsTable
+//Datatable variables set after onReady calls to setupMyDataTable, setupFindDataTable, and setupMyGraphsTable, and setupPublicGraphsTable
+var $dtMyData; //...setupMyDataTable
+var $dtFindDataTable;  //...setupFindDataTable
+var $dtMyGraphs;    //...setupMyGraphsTable
+var $dtPublicGraphs;   //...setupPublicGraphsTable
 var searchCatId = 0;  //set on API browser selection in hash, cleared on public series search text change
 var browsedCats = {}; //saves info of categories browsed to assist that function, cache db queries and provide name lookup cabilibilti for the category search function
 var lastSeriesSearch="", lastGraphSearch=""; //kill column sorting on new searches.  Sort is by name length asc to show most concise (best fit) first
@@ -152,7 +152,7 @@ $(document).ready(function(){
         return false;  //no further executes
     }
     $(document).mouse({distance: 10});  //prevent jQuery from turning accidental mouse movement during a click into a dray event
-    //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from graph.js)
+    //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from grapher.js)
     requirejs.config({waitSeconds: 15});
     require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
 
@@ -220,7 +220,7 @@ $(document).ready(function(){
     lastTabAnchorClicked = $("#series-tabs li a").click(function (){pickerPanel(this)}).filter("[data='#local-series']").get(0);
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
     resizeCanvas();
-    setupMySeriesTable();
+    setupMyDataTable();
     loadMySeriesByKey();  //load everything in localStorage & updates userseries on server if logged
     setupMyGraphsTable(); //loaded on sync account.  No local storage for graphs.
 
@@ -255,15 +255,15 @@ $(document).ready(function(){
         .bind("focus", function(event){
             if(mySeriesLoaded){
                 if(loadMySeriesByKey()>0){
-                    dtMySeries.fnFilter('');
-                    dtMySeries.fnSort([[MY_SERIES_DATE, 'asc']]);
+                    $dtMyData.fnFilter('');
+                    $dtMyData.fnSort([[MY_SERIES_DATE, 'asc']]);
                 }
             }
             event.bubbles = true;
             return true;
         });
 
-    setupPublicSeriesTable();
+    setupFindDataTable();
     setupPublicGraphsTable();
 
     $('#tblPublicSeries_processing, #tblPublicGraphs_processing').html('searching the MashableData servers...');
@@ -442,9 +442,10 @@ function resizeCanvas(){
     //mySeries
     layoutDimensions.widths.mySeriesTable.table = layoutDimensions.widths.canvas-8*colWidths.padding-colWidths.scrollbarWidth;
     var remainingInnerWidths =  layoutDimensions.widths.mySeriesTable.table - (colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
-    layoutDimensions.widths.mySeriesTable.columns.units = parseInt(remainingInnerWidths * 0.20);
+    layoutDimensions.widths.mySeriesTable.columns.units = parseInt(remainingInnerWidths * 0.15);
+    layoutDimensions.widths.mySeriesTable.columns.maps = parseInt(remainingInnerWidths * 0.10);
     layoutDimensions.widths.mySeriesTable.columns.series = parseInt(remainingInnerWidths * 0.55);
-    layoutDimensions.widths.mySeriesTable.columns.category = parseInt(remainingInnerWidths * 0.25);
+    layoutDimensions.widths.mySeriesTable.columns.category = parseInt(remainingInnerWidths * 0.20);
     $('#series-table_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.mySeriesTable.columns.series+'px')
         .end().find('th.units').width(layoutDimensions.widths.mySeriesTable.columns.units+'px')
         .end().find('th.cat').width(layoutDimensions.widths.mySeriesTable.columns.category+'px');
@@ -476,9 +477,9 @@ function resizeCanvas(){
         .end().find('th.analysis').width(layoutDimensions.widths.publicGraphTable.columns.analysis+'px')
         .end().find('th.series').width(layoutDimensions.widths.publicGraphTable.columns.series+'px');
 }
-function setupMySeriesTable(){
+function setupMyDataTable(){
 
-    dtMySeries = $('#series-table').html('')
+    $dtMyData = $('#series-table').html('')
         .dataTable({
             "bProcessing": true,
             "sDom": 'frti',
@@ -503,7 +504,8 @@ function setupMySeriesTable(){
                     }
                 },
                 { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.units + "px",  "mRender": function(value, type, obj){return value}},
-                { "mData": "period", "sTitle": "P<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.periodicity + "px",
+                { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(value, type, obj){return value}},
+                { "mData": "period", "sTitle": "f<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.periodicity + "px",
                     "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}
                 },
                 { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'],
@@ -530,7 +532,7 @@ function setupMySeriesTable(){
         .click(function(e){
             var $td = $(e.target).closest('td');
             if($td.hasClass('title') || $td.hasClass('units') || $td.hasClass('dt-freq') || $td.hasClass('dte')){
-                dtMySeries.find('tr.ui-selected').removeClass('ui-selected');
+                $dtMyData.find('tr.ui-selected').removeClass('ui-selected');
                 $td.closest('tr').addClass('ui-selected');
                 previewMySeries();
             }
@@ -551,9 +553,10 @@ function setupMySeriesTable(){
 
     $('.new-series').button().click(function(){showSeriesEditor()});
     $('#series-table_info').appendTo('#local-series-header');
+
 }
-function setupPublicSeriesTable(){
-    dtPublicSeries =  $('#tblPublicSeries').html('').dataTable({
+function setupFindDataTable(){
+    $dtFindDataTable =  $('#tblPublicSeries').html('').dataTable({
         "sDom": "frti", //TODO: style the components (http://datatables.net/blog/Twitter_Bootstrap) and avoid jQuery calls to append/move elements
         "bServerSide": true,
         "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public series"},
@@ -562,6 +565,7 @@ function setupPublicSeriesTable(){
             aoData.push({name: "command", value: "NewSearchSeries"});
             aoData.push({name: "uid", value: getUserId()});
             aoData.push({name: "accessToken", value: account.info.accessToken});
+            aoData.push({name: "mapfilter", value: $("#find-data-map").val()});
             aoData.push({name: "periodicity", value: $("#series_search_periodicity").val()});
             aoData.push({name: "apiid", value: $("#series_search_source").val()});
             aoData.push({name: "catid", value: searchCatId});
@@ -570,7 +574,7 @@ function setupPublicSeriesTable(){
             aoData.push({name: "search", value: thisSearch});
             if(lastSeriesSearch!=thisSearch) {
                 lastSeriesSearch = thisSearch;
-                dtPublicSeries.fnSort([]);   //this clear sort order and triggers a fnServerData call
+                $dtFindDataTable.fnSort([]);   //this clear sort order and triggers a fnServerData call
                 return;  //the server call trigger by the previous line will correctly load the data, therefore abort
             }
             var startSearchTime = new Date();
@@ -582,7 +586,10 @@ function setupPublicSeriesTable(){
                 "success": function(data, textStatus, jqXHR){
                     var endSearchTime = new Date();
                     console.log(data.command+" ("+data.search+"): "+data.exec_time+' ('+(endSearchTime.getTime()-startSearchTime.getTime()) +'ms)');
-                    if(data.status=='ok') fnCallback(data, textStatus, jqXHR); else dialogShow('server error', data.status);
+                    if(data.status=='ok') {
+                        data.aaData = common.setFactory(data.aaData);
+                        fnCallback(data, textStatus, jqXHR);
+                    } else dialogShow('server error', data.status);
                 },
                 "error": function(results){
                     console.log(results);
@@ -612,8 +619,9 @@ function setupPublicSeriesTable(){
                         + spanWithTitle(value)
                         + '<span class="handle">' + obj.handle + '</span>';
                 }},
-            { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)} },
-            { "mData":null, "sTitle": "P<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
+            { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
+            { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(common.parseMaps(maps))}},
+            { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"titles", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
@@ -631,7 +639,7 @@ function setupPublicSeriesTable(){
     }).click(function(e){
             var $td = $(e.target).closest('td');
             if($td.hasClass('title') || $td.hasClass('units') || $td.hasClass('dt-freq') || $td.hasClass('dte')){
-                dtPublicSeries.find('tr.ui-selected').removeClass('ui-selected');
+                $dtFindDataTable.find('tr.ui-selected').removeClass('ui-selected');
                 $td.closest('tr').addClass('ui-selected');
                 previewPublicSeries();
             }
@@ -646,8 +654,8 @@ function setupPublicSeriesTable(){
         });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
-    $('#public-settype-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
-
+    //mapset/markerset selector replaced by the map selector functionality $('#public-settype-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
+    $('#find-data-map').click(common.selectMap);
     $('#series_search_text')
         .val('enter search keywords (-keyword to exclude)')
         .keyup(function(event){ seriesCloudSearchKey(event)})
@@ -657,7 +665,7 @@ function setupPublicSeriesTable(){
     $('#cloud-series-browse').button({icons: {secondary: "ui-icon-circle-triangle-e"}}).click(function(){browseFromSeries()});
 }
 function setupMyGraphsTable(){
-    dtMyGraphs = $('#my_graphs_table').html(' ').dataTable({
+    $dtMyGraphs = $('#my_graphs_table').html(' ').dataTable({
         "sDom": 'frti',
         "bFilter": true,
         "bPaginate": false,
@@ -702,8 +710,8 @@ function setupMyGraphsTable(){
     }).click(function(e){
             var $td = $(e.target).closest('td');
             /*if($td.hasClass('title')){*/
-            dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
-            var rowObject = dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+            $dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
+            var rowObject = $dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
             viewGraph(rowObject.gid);
             /*}*/
         });
@@ -719,7 +727,7 @@ function setupMyGraphsTable(){
     $('#my_graphs_table_info').appendTo('#myGraphsHeader');
 }
 function setupPublicGraphsTable(){
-    dtPublicGraphs = $('#tblPublicGraphs').dataTable({
+    $dtPublicGraphs = $('#tblPublicGraphs').dataTable({
         //"aaData": md_search_results.aaData,
         "sDom": 'frti',
         "bPaginate": false,
@@ -777,11 +785,11 @@ function setupPublicGraphsTable(){
         .click(function(e){
             var $td = $(e.target).closest('td');
             /*if($td.hasClass('title')){*/
-            dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
-            var rowObject = dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
-            var $graphRow = dtPublicGraphs.find('tr.ui-selected');
+            $dtPublicGraphs.find('tr.ui-selected').removeClass('ui-selected');
+            var rowObject = $dtPublicGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+            var $graphRow = $dtPublicGraphs.find('tr.ui-selected');
             if($graphRow.length==1){
-                var rowObject = dtPublicGraphs.fnGetData($graphRow.get(0));
+                var rowObject = $dtPublicGraphs.fnGetData($graphRow.get(0));
                 if(rowObject){
                     hasher.setHash(encodeURI('t=g&graphcode=' + rowObject.ghash));
                 } else {
@@ -851,7 +859,7 @@ function seriesCloudSearch(noHashChange){
         searchText = '+' + searchText.replace(/ /g,' +');
     }
     $('#tblPublicSeries_filter input').val(searchText);
-    dtPublicSeries.fnFilter(searchText);
+    $dtFindDataTable.fnFilter(searchText);
     if(!noHashChange) setPanelHash();
 }
 function getPublicSeriesByCat(a){
@@ -867,7 +875,7 @@ function graphsCloudSearch(event){
         searchText = searchText.substring(1, searchText.length-1);
         searchText = '+' + searchText.replace(/ /g,' +');
         $('#tblPublicGraphs_filter input').val(searchText);
-        dtPublicGraphs.fnFilter(searchText);
+        $dtPublicGraphs.fnFilter(searchText);
         setPanelHash();
     }
 }
@@ -1063,8 +1071,8 @@ function titleChange(titleControl){
 function previewMySeries(){
     var series = [], hasMySeries = false;
     $('#local-series-header input').focus(); //deselect anything table text accidentally selected through double-clicking
-    $quickViewRows = dtMySeries.find('tr.ui-selected').each(function(){
-        series.push(dtMySeries.fnGetData(this));
+    $quickViewRows = $dtMyData.find('tr.ui-selected').each(function(){
+        series.push($dtMyData.fnGetData(this));
     });
     if(series.length==0){
         for(var handle in oMySeries){
@@ -1080,8 +1088,8 @@ function previewMySeries(){
 function previewPublicSeries(){
     var series = [], hasMySeries = false;
     $('#series_search_text').focus(); //deselect anything table text accidentally selected through double-clicking
-    dtPublicSeries.find('tr.ui-selected').each(function(){
-        series.push(dtPublicSeries.fnGetData(this));
+    $dtFindDataTable.find('tr.ui-selected').each(function(){
+        series.push($dtFindDataTable.fnGetData(this));
     });
     if(series.length==0){
         dialogShow('selection required', dialogues.noSeriesSelected);
@@ -1798,7 +1806,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     } else {
                         var sids = [], usids=[];
                         if(handle.charAt(0)=="U")usids.push(parseInt(handle.substr(1))); else sids.push(parseInt(handle.substr(1)));
-                        callApi({command:  'GetMashableData', sids:  sids, usids: usids},
+                        callApi({command: 'GetMashableData', sids:  sids, usids: usids},
                             function(jsoData, textStatus, jqXH){
                                 //showSeriesInEditor()
                                 oSerie.data = jsoData.series[handle].data;
@@ -2088,8 +2096,8 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                     for(i=0;i<arySeries.length;i++){
                         if(arySeries[i].handle.substr(0,1)=='U' && arySeries[i].handle.substr(0,1)=='U'){  //update operation
                             //problems with the update on the manipulated cells.  Easier to delete and add.
-                            dtMySeries.find('span.handle:contains('+arySeries[i].handle+')').each(function(){
-                                if($(this).html()==arySeries[i].handle) dtMySeries.fnDeleteRow($(this).closest("tr").get(0));
+                            $dtMyData.find('span.handle:contains('+arySeries[i].handle+')').each(function(){
+                                if($(this).html()==arySeries[i].handle) $dtMyData.fnDeleteRow($(this).closest("tr").get(0));
                             });
                         }
                         //add to dataable and mySeries object
@@ -2101,7 +2109,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                         arySeries[i].url = '';
                         arySeries[i].username = account.info.name || 'user';
                         arySeries[i].userid = account.info.userId || null;
-                        dtMySeries.fnAddData(arySeries[i]);
+                        $dtMyData.fnAddData(arySeries[i]);
                         oMySeries[arySeries[i].handle]=arySeries[i];  //over-write as needed
                     }
                 }
@@ -2475,7 +2483,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
             for(var key in results.graphs){
                 oMyGraphs[key]=results.graphs[key];
                 grapher.inflateGraph(oMyGraphs[key]);
-                dtMyGraphs.fnAddData(oMyGraphs[key]);
+                $dtMyGraphs.fnAddData(oMyGraphs[key]);
             }
         }
     );
@@ -2487,22 +2495,22 @@ function getMySeries(){
             var series=[];
             for(var sHandle in results.series){
                 /*                if(oMySeries[sHandle]){
-                 var trSeries = dtMySeries.find("button[data='" + sHandle + "']").closest('tr').get(0);
-                 //dtMySeries.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
-                 dtMySeries.fnDeleteRow(trSeries);
+                 var trSeries = $dtMyData.find("button[data='" + sHandle + "']").closest('tr').get(0);
+                 //$dtMyData.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
+                 $dtMyData.fnDeleteRow(trSeries);
                  }*/
                 results.series[sHandle].save_dt = parseInt(results.series[sHandle].save_dt)
                 oMySeries[sHandle] = results.series[sHandle]; //if exists, it will be overwritten with new data
                 series.push(results.series[sHandle]);  //takes an array or object, not an object
             }
-            dtMySeries.fnClearTable();
-            dtMySeries.fnAddData(series);
+            $dtMyData.fnClearTable();
+            $dtMyData.fnAddData(series);
         }
     );
 }
 
 function saveGraph(oGraph, callback) {
-//first save to db and than to dtMyGraphs and oMyGraphs once we have a gid
+//first save to db and than to $dtMyGraphs and oMyGraphs once we have a gid
     if(oGraph.gid){
         oGraph.updatedt = (new Date()).getTime();
     } else {
@@ -2553,10 +2561,10 @@ function saveGraph(oGraph, callback) {
             objForDataTable.updatedt = new Date().getTime();
             if(('G' + oGraph.gid) in oMyGraphs){
                 var trMyGraph;
-                trMyGraph = $(dtMyGraphs).find('span.handle[data=G' + oGraph.gid + ']').closest('tr').get(0);
-                dtMyGraphs.fnUpdate(objForDataTable, trMyGraph);
+                trMyGraph = $($dtMyGraphs).find('span.handle[data=G' + oGraph.gid + ']').closest('tr').get(0);
+                $dtMyGraphs.fnUpdate(objForDataTable, trMyGraph);
             } else {
-                dtMyGraphs.fnAddData(objForDataTable);
+                $dtMyGraphs.fnAddData(objForDataTable);
             }
 
             oMyGraphs['G'+oGraph.gid]=objForDataTable;
@@ -2599,13 +2607,13 @@ function addMySeriesRow(oMD){  //add to table and to oMySeries
         if(oMD.save_dt) oMD.save_dt = parseInt(oMD.save_dt);
         if(oMySeries[oMD.handle]){
             //still need to check if it is a row.  There are lots of things in the oMySeries trunk...
-            var $trSeries = dtMySeries.find("button[data='" + oMD.handle + "']").closest('tr');
+            var $trSeries = $dtMyData.find("button[data='" + oMD.handle + "']").closest('tr');
             if($trSeries.length==1){
-                //dtMySeries.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
-                dtMySeries.fnDeleteRow($trSeries.get(0));
+                //$dtMyData.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
+                $dtMyData.fnDeleteRow($trSeries.get(0));
             }
         }
-        dtMySeries.fnAddData(oMD);
+        $dtMyData.fnAddData(oMD);
         oMySeries[oMD.handle] = oMD; //if exists, overwrite with new
     } else {
         console.log("Error loading series object: invalid series handle.")
@@ -2662,7 +2670,7 @@ function md_calcSeriesInfo(PointArray){
     return oSeriesInfo
 }
 
-//GRAPHING FUNCTIONS (note:  most graphing routines are in graph.js)
+//GRAPHING FUNCTIONS (note:  most graphing routines are in grapher.js)
 
 function deleteMySeries(){  //remove all series in quickView from users MySeries
     //$quickViewRows array is only filled when previewing MySeries
@@ -2673,13 +2681,13 @@ function deleteMySeries(){  //remove all series in quickView from users MySeries
             {text: 'delete',id:'btn-delete',
                 click:  function() {
                     for(var i=0;i<$quickViewRows.length;i++){
-                        obj = dtMySeries.fnGetData($quickViewRows.get(i));
+                        obj = $dtMyData.fnGetData($quickViewRows.get(i));
                         if(account.loggedIn()){
                             obj.save = null;
                             updateMySeries(obj);  //delete from DB
                         }
                         delete oMySeries[obj.handle];
-                        dtMySeries.fnDeleteRow($quickViewRows.get(i));
+                        $dtMyData.fnDeleteRow($quickViewRows.get(i));
                     }
                     $(this).dialog('close');
                     quickViewClose();

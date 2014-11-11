@@ -43,8 +43,9 @@
     <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
         <script type="text/javascript" src="/workbenchdev/js/globals.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/common.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/set.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/maps.js?v=<?=$workbenchVersion?>"></script>
-        <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/grapher.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/account.js?v=<?=$workbenchVersion?>"></script>
@@ -144,9 +145,9 @@
                         <option value="3">World Bank Indicators</option>
                         <option value="7">time conversions</option>
                     </select>
-                    <div id="public-settype-radio"><input type="radio" id="public-all-series" name="public-settype-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-settype-radio" value="MS"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-settype-radio" value="XS"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
-                    <select id="search-data-map"><option value="none">no map filter</option> </select>
-                    <button id="series-search-button" style="background-color: orange;background: orange;">search</button>
+                    <div id="public-settype-radio" style="display:none;"><input type="radio" id="public-all-series" name="public-settype-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-settype-radio" value="MS"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-settype-radio" value="XS"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
+                    <select id="find-data-map"><option value="none">no map filter</option> </select>
+                    <button id="series-search-button">search</button>
                 </div>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                     <span id="public-series-buttons-top" class="right">
@@ -175,7 +176,7 @@
             <div id="publicGraphsHeader" class="md-DS_title">
                 <div id="public_graphs_search" style="display:inline; margin-left:5px; padding:7px; background-color: lightyellow;">
                     <input maxlength="200" id="graphs_search_text" class="long grey-italics"/>
-                    <button id="graphs-search-button" style="background-color: orange;background: orange;">search</button>
+                    <button id="graphs-search-button">search</button>
                 </div>
                 <div id="public_graphs_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                 </div>
@@ -211,7 +212,7 @@
                     <input type="radio" class="chart-or-map" name="chart-or-map" id="quick-view-map" checked="checked" value="map"><label for="quick-view-map">map set</label>
                 </div>
                 <select id="quick-view-maps"></select>
-                <button id="quick-view-add-to-graph"  style="background-color: orange;background: orange;">add to graph</button>
+                <button id="quick-view-add-to-graph">add to graph</button>
             </div>
 
             <!--fieldset class="tight-fieldset"><legend>graph</legend>

@@ -3,6 +3,7 @@
  */
 (function makeMapDiv(){
     var mapList = [
+        {"map":"none","name":"no map filter","level":0},
         {"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":0},
         {"map":"wb_incomes","name":"World Bank income levels","geographycount":"11","bunny":"321","jvectormap":"wb_incomes","legend":"BL","level":1},
         {"map":"wb_regions","name":"World Bank regions","geographycount":"13","bunny":"321","jvectormap":"wb_regions","legend":"BL","level":1},
@@ -129,14 +130,54 @@
     ];
 
     MashableData.globals.maps = {};
-    var map, html = '';
+    var map, listHtml = '';
     for(var i=0; i<mapList.length;i++){
         map = mapList[i];
-        html += '<li class="map-level'+map.level+'" data="'+map.map+'">'+map.name+'</li>';
+        listHtml += '<li class="map-list-item map-level'+map.level+'" data="'+map.map+'">'+map.name+'</li>';
         MashableData.globals.maps[map.map] = map;
     }
-        MashableData.globals.$mapDiv = $('<ul class="map-list">'+html+'</ul>');
+    var $mapsUl = MashableData.globals.$mapsUl = $('<ul class="map-list">'+listHtml+'</ul>');
+
+    MashableData.common.selectMap = function(event){
+        //handles global map selector click event used in FindData tab (#find-data-map)
+        //event.data
+        var initializing = true;
+        var $selector = $(this).blur();
+        var offset = $selector.offset();
+        var divHtml = '<div id="select-map" style="left:'+offset.left+'px;top:'+(offset.top+$selector.innerHeight())+'px;">'+$mapsUl.html()+'</div>';
+        var $divHtml = $(divHtml)
+            .appendTo('body')
+            .find('li[data="'+$selector.val()+'"]').addClass('selector-selected').end()
+            .css('max-height', ($(window).innerHeight() *0.8)+'px')
+            .show();
+        $('body').bind('click', handleMapSelect);
+        function handleMapSelect(event){
+            if(initializing) return initializing=false;
+            var $target = $(event.target);
+            if($target.hasClass('map-list-item')){
+                var selectedMap = $target.attr('data');
+                $('#find-data-map').html('<option value="'+selectedMap+'" selected>'+MashableData.globals.maps[selectedMap].name+'</option>');
+                $divHtml.remove();
+                return selectedMap;
+            } else {
+                $divHtml.remove();
+                $('body').unbind('click', handleMapSelect);
+                return false;
+            }
+        }
+    };
+
+    MashableData.common.parseMaps = function(mapsJson){
+        var theseMaps = JSON.parse('{'+mapsJson+'}');
+        var mapNames = [];
+        for(var code in theseMaps){
+            if(theseMaps[code]>1 && MashableData.globals.maps[code]) mapNames.push(MashableData.globals.maps[code].name);
+        }
+        return mapNames.join('; ');
+    }
+
 })();
+
 
 
 

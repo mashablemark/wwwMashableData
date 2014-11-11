@@ -89,7 +89,8 @@ switch($command){
             $usageTracking = trackUsage("count_seriessearch");
         }
         $search =  rawurldecode($_POST['search']);
-        $periodicity =  $_POST['periodicity'];
+        $periodicity =  str_replace("'", "''", $_POST['periodicity']);
+        $mapFilter =  str_replace("'", "''", $_POST['mapfilter']);
         $apiid =  $_POST['apiid'];
         $catid =  intVal($_POST['catid']);
         $setType =  $_POST['settype'];
@@ -110,7 +111,7 @@ switch($command){
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         concat(if(s.latlon='', left(s.settype,1),'S'), s.setid) as handle,
         concat(left(coalesce(s2.settype, s.settype),1), coalesce(s.mastersetid, s.setid)) as sethandle,
-        s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.periodicities as period, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
+        s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.periodicities as freqs, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
         s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, coalesce(s2.maps, s.maps) as maps, s.ghandles
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
@@ -160,11 +161,13 @@ switch($command){
             if(strpos($search,'title:"')===0){ //ideally, use a regex like s.match(/(title|name|skey):"[^"]+"/i)
                 $title = substr($search, strlen("title")+2,strlen($search)-strlen("title")-3);
                 $sql .= " AND title = " . safeStringSQL($title);
-            } elseif($search!='+ +') {
-                $mainBooleanSearch = "($search)";
+            } elseif($search!='+ +' || $mapFilter<>"none" || $periodicity != "all") {
+                $periodTerm = $periodicity == "all"?"":" +F©".$periodicity;
+                $mapTerm = $mapFilter == "none"?"":" +M©".$mapFilter;
+                $mainBooleanSearch = "($search $periodTerm $mapTerm)";
                 foreach($foundGeos as $ghandle => $geoSearchDetails){
                     $geoSearchWords  = $geoSearchDetails["seachWords"];
-                    $mainBooleanSearch .= " OR ($geoSearchWords +$ghandle)";
+                    $mainBooleanSearch .= " OR ($geoSearchWords $periodTerm $mapTerm +$ghandle)";
                 }
                 $sql .= " AND match(s.name,s.units,s.titles,s.ghandles,s.maps,s.settype,s.periodicities) against ('$mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
             }
@@ -182,9 +185,6 @@ switch($command){
                 }
             }
         }
-        if($periodicity != "all") {
-            $sql = $sql . " AND periodicities='" . $periodicity . "'";
-        };
 
         //type of set detection = done by additional field
         $mapsSearch = isset($_POST['map']) && strlen($_POST['map'])>0 ? "+".$_POST['map'] : "";
@@ -258,7 +258,7 @@ switch($command){
                     $thisRow = $aRow; //copy
                     unset($thisRow["ghandles"]);
                     $thisRow["name"] .= ": ".$geoSearchDetails["name"];
-                    $thisRow["geoid"] =  str_replace("G©", "", $ghandle);
+                    $thisRow["geoid"] =  intval(str_replace("G©", "", $ghandle));
                     $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("©","", $ghandle);
                     $output['aaData'][] = $thisRow;
                     $found = true;

@@ -31,7 +31,7 @@
             <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/common.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/annotator.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/graph.js"></script>
+            <script type="text/javascript" src="/workbenchdev/js/grapher.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/shims.js"></script>
             <script type="text/javascript" src="/embedder/mashabledata_embedtools.js"></script>
 <?php } else { ?>
