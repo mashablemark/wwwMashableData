@@ -136,7 +136,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
      *              -> get setname, geoid, setid, settype (S|M|X)
      *              -> logEvent if detected geoid or detected setname differs from db AND set type is M
      *              -> logEvent if sets type is S but detected type is M
-     *              -> update sets.metadata, setdata.periodicity, setdata.geoid, setdata.latlon, sets.latlon, setdata.data
+     *              -> update sets.metadata, setdata.freq, setdata.geoid, setdata.latlon, sets.latlon, setdata.data
      *          B. if source key not in DB (setdata.skey):
      *              -> create set as set if forceSet or count(sets[setname][units][f])>5) else create sets for each freqset (collapsing f, not geo)
      *              -> for elect and coal, set sets.setkey too
@@ -363,7 +363,7 @@ function insertOrUpdateCategory($cat, $apirow, $job){
     //loop through children series and add them
     for($i=0;$i<count($cat["childseries"]);$i++){
         $series_id = $cat["childseries"][$i];
-        $result = runQuery("select coalesce(s.mastersetid, sd.setid) as setid, sd.periodicity, sd.geoid from setdata sd join sets s on sd.setid=s.setid where apiid=$apirow[apiid] and sd.skey=".safeStringSQL($series_id));
+        $result = runQuery("select coalesce(s.mastersetid, sd.setid) as setid, sd.freq, sd.geoid from setdata sd join sets s on sd.setid=s.setid where apiid=$apirow[apiid] and sd.skey=".safeStringSQL($series_id));
         if($result->num_rows==1){
             $row = $result->fetch_assoc();
             $catset = runQuery("select * from categorysets where catid=$catid and setid=$row[setid] and geoid=0");

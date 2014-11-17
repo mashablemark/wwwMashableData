@@ -29,7 +29,7 @@ var MashableData = {
         themeCubes: {}, //stores {cubes: [{cubeid, name}...] under T+themeid key to eliminate repretative calls
         panelGraphs: {}, //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. panelGraphs['graphTab1']).  Kept in sync by UI events.  Used by save/publish operations.
         //These 2 master objects contain representations of MySeries and MyGraphs.  They are filled by API calls and in turn are used populate the datatables
-        MySeries: {},  //referenced by 'S'+seriesid (i.e. oMySeries['S173937']). Filled from localstatoraged, API.getMySeries (header only; no data for speed), and when series is added from PublicSeries viewer.  Data fetched as needed.  Used to populate graph data (and vice-versa ) as possible.
+        MySets: {},  //referenced by 'S'+seriesid (i.e. oMySeries['S173937']). Filled from localstatoraged, API.getMySeries (header only; no data for speed), and when series is added from PublicSeries viewer.  Data fetched as needed.  Used to populate graph data (and vice-versa ) as possible.
         //var oPublicSeries = {}; //NOT USED. DataTables fetches directly from API.SearchSeries = endless scroll style fetch
         MyGraphs: {},  //complete fetch from API.GetMyGraphs.  Kept in sync with cloud by API.ManageMyGraphs and API.DeleteMyGraphs
         //var oPublicGraphs = {};  //NOT USED.  DataTables fetches directly from API.SearchGraphs = endless scroll style fetch TODO: show button not programmed

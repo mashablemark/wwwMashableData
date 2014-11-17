@@ -218,7 +218,7 @@ MashableData.grapher = function(){
                                             }
                                         }
                                     },
-                                    //rolling: {name: "add rolling average", disabled: !onPoint, items: {}},  //add choices depending on periodicity
+                                    //rolling: {name: "add rolling average", disabled: !onPoint, items: {}},  //add choices depending on freq
                                     standard: {name: "add standard annotations", items: {}}
                                 }
                             };
@@ -440,62 +440,7 @@ MashableData.grapher = function(){
             return closestYet;
         },
 
-        assetNeeded: function assetNeeded(handle, graph, assetsToFetch){
-            graph.assets = graph.assets || {};
-            if(!graph.assets[handle]){
-                if(oMySeries&&oMySeries[handle]&&oMySeries[handle].data){
-                    graph.assets[handle] = $.extend(true, {}, oMySeries[handle]);
-                } else {
-                    assetsToFetch[handle.charAt(0)].push(handle.substr(1));
-                }
-            }
-        },
 
-        getAssets: function getAssets(graph, callBack){
-            var assetsToFetch = {S:[],U:[], X:[], M:[]};
-            var p, c, handle;
-            eachComponent(graph, function(){
-                assetNeeded(this.handle, graph, assetsToFetch);
-            });
-            fetchAssets(graph, assetsToFetch, callBack);
-        },
-
-        fetchAssets: function fetchAssets(graph, assetsToFetch, callBack){
-            if(assetsToFetch.S.length>0 || assetsToFetch.U.length>0){
-                callApi(
-                    {command:"GetMashableData", sids: assetsToFetch.S, usids: assetsToFetch.U, modal:'persist'},
-                    function(jsoData, textStatus, jqXHR){
-                        for(handle in jsoData.series) graph.assets[handle] = jsoData.series[handle];
-                        assetsToFetch.S = [];
-                        assetsToFetch.U = [];
-                        if(assetsToFetch.M.length+assetsToFetch.X.length+assetsToFetch.U.length+assetsToFetch.S.length==0) callBack();
-                    }
-                );
-            }
-
-            if(assetsToFetch.M.length>0){
-                callApi(
-                    {command:"GetMapSets", mapsetids: assetsToFetch.M, map: graph.map, modal:'persist'},
-                    function(jsoData, textStatus, jqXHR){
-                        for(handle in jsoData.mapsets) graph.assets[handle] = jsoData.mapsets[handle];
-                        assetsToFetch.M = [];
-                        if(assetsToFetch.M.length+assetsToFetch.X.length+assetsToFetch.U.length+assetsToFetch.S.length==0) callBack();
-                    }
-                );
-            }
-
-            if(assetsToFetch.X.length>0){
-                callApi(
-                    {command:"GetPointSets", pointsetids: assetsToFetch.X, map: graph.map, modal:'persist'},
-                    function(jsoData, textStatus, jqXHR){
-                        for(handle in jsoData.pointsets) graph.assets[handle] = jsoData.pointsets[handle];
-                        assetsToFetch.X = [];
-                        if(assetsToFetch.M.length+assetsToFetch.X.length+assetsToFetch.U.length+assetsToFetch.S.length==0) callBack();
-                    }
-                );
-            }
-            if(assetsToFetch.M.length+assetsToFetch.X.length+assetsToFetch.U.length+assetsToFetch.S.length==0) callBack();
-        },
 
         createMyGraph: function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a ghash
             console.time('createMyGraph');
@@ -545,8 +490,8 @@ MashableData.grapher = function(){
             } else {
                 graph.annotations=[];
             }
-            eachPlot(graph, function(p, plot){plot.options = safeParse(plot.options, {})});
-            eachComponent(graph, function(c, comp){comp.options = safeParse(comp.options, {})});
+            graph.eachPlot(function(p, plot){plot.options = safeParse(plot.options, {})});
+            graph.eachComponent(function(c, comp){comp.options = safeParse(comp.options, {})});
             graph.mapconfig = safeParse(graph.mapconfig, {});
 
             function safeParse(jsonString, emptyValue){
@@ -667,12 +612,12 @@ MashableData.grapher = function(){
                 }
             }
             //find and create any mathematical days per interval series
-            eachComponent(oGraph, function(i, plot){
+            oGraph.eachComponent(function(i, plot){
                 var asset = oGraph.assets[this.handle];
                 if(asset.src == 'MashableData'){
                     //if single component, use start and end of graph else use start and end of plot components
                     if(plot.components.length==1){
-                        if(!oGraph.firstdt&&!oGraph.lastdt) eachComponent(oGraph, function(){ firstLast(oGraph, oGraph.assets[this.handle]) });
+                        if(!oGraph.firstdt&&!oGraph.lastdt) oGraph.eachComponent(function(){ firstLast(oGraph, oGraph.assets[this.handle]) });
                         asset.firstdt = oGraph.firstdt;
                         asset.lastdt = oGraph.lastdt;
                     } else {
@@ -815,7 +760,7 @@ MashableData.grapher = function(){
                                 jschart.series[i].groupPadding = 0.05; //default 0.2
                             }
                         }
-                    } else {  //all periodicities the same; see if we have very short series
+                    } else {  //all frequencies the same; see if we have very short series
                         var maxCount = 0, onscreenCount;
                         for(i=0;i<jschart.series.length;i++){
                             if(jschart.series[i].period){  //scatter series used for annotations does not have a period property = skip these
@@ -891,12 +836,12 @@ MashableData.grapher = function(){
             console.time('createSerieFromPlot');
             var valuesObject, y, components, i, j, sHandle, plot, calculatedSeries, data, point, plotData=[], dateKey, oComponentData = {};
             plot = oGraph.plots[plotIndex];
-            calculatedSeries = {name: plotName(oGraph,plot), units: plotUnits(oGraph, plot)};
+            calculatedSeries = {name: plot.name(), units: plot.units()};
             components = plot.components;
 
             //note freq in a plot must be the same, either natively or through transformations
             calculatedSeries.period = plot.options.fdown || oGraph.assets[components[0].handle].period;
-            plot.formula = plotFormula(plot);
+            plot.formula(); //refesh the formula object
 
             /*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
              calculatedSeries.data = oGraph.assets[components[0].handle].data;
@@ -908,7 +853,7 @@ MashableData.grapher = function(){
             //1. rearrange series data into single object by date keys
             var compSymbols = [], symbol;
             for(i=0;i<components.length;i++ ){
-                symbol = compSymbol(i);
+                symbol = plot.compSymbol(i);
                 compSymbols.push(symbol); //calculate once and use as lookup below
                 //DOWNSHIFT DETECTION
                 if(plot.options.fdown && plot.options.fdown!=oGraph.assets[components[i].handle].period){
@@ -980,111 +925,6 @@ MashableData.grapher = function(){
             return calculatedSeries;
         },
 
-        plotFormula: function plotFormula(plot){//returns a formula object for display and eval
-            var cmp, variable, isDenom = false, inDivision=false, numFormula='', denomFormula='', term='', formula=''
-            var patMultiterm = /[+-/*]+/;
-            for(var i=0;i<plot.components.length;i++){
-                cmp = plot.components[i];
-                //variable  = (cmp.handle.match(/MX/))?String.fromCharCode('A'.charCodeAt(0)+i):variable = String.fromCharCode('a'.charCodeAt(0)+i);
-                variable  = compSymbol(i);
-                if(!isDenom && cmp.options.dn && cmp.options.dn=='d'){ //first denom component causes all following components forced to denom even if their flag is nto set
-                    if(inDivision){
-                        inDivision = false;
-                        if(patMultiterm.test(term)) term = '(' + term + ')';
-                        formula += term;
-                    }
-                    numFormula = formula;
-                    formula = '';
-                    isDenom = true;
-                }
-                if(formula.length==0){
-                    switch(cmp.options.op){
-                        case '/':
-                            inDivision = true;
-                            term = subTerm();
-                            formula = '1/';
-                            break;
-                        case '-':
-                            formula = '-'+subTerm();
-                            break;
-                        case '+':
-                        case '*':
-                        default:
-                            formula = subTerm();
-                    }
-                } else {
-                    switch(cmp.options.op){
-                        case "+":
-                        case '-':
-                            if(inDivision){
-                                inDivision = false;
-                                if(patMultiterm.test(term)) term = '(' + term + ')';
-                                formula += term + ' ' + cmp.options.op + ' ' + subTerm();
-                            } else {
-                                formula += ' ' + cmp.options.op + ' ' + subTerm();
-                            }
-                            break;
-                        case '*':
-                            if(inDivision){
-                                term += '*' + subTerm();
-                            } else {
-                                formula += '*' + subTerm();
-                            }
-                            break;
-                        case '/':
-                            if(inDivision){
-                                term += '*' + subTerm();
-                            } else {
-                                inDivision = true;
-                                formula += "/";
-                                term = subTerm();
-                            }
-                    }
-                }
-            }
-            if(inDivision){
-                inDivision = false;
-                if(patMultiterm.test(term)) term = '(' + term + ')';
-                formula += term;
-            }
-            if(isDenom){
-                denomFormula = formula
-            } else {
-                numFormula = formula;
-            }
-            if((plot.options.k||1)==1){
-                if(isDenom){
-                    formula = (numFormula==''?1:(patMultiterm.test(numFormula)?'('+numFormula+')':numFormula)) + ' / ' + (patMultiterm.test(denomFormula)?'('+ denomFormula + ')':denomFormula);
-                } else {
-                    formula = numFormula;
-                }
-            } else {
-                if(isDenom){
-                    formula = plot.options.k+' * ' + (numFormula=''?'':(patMultiterm.test(numFormula)?'('+numFormula+')':numFormula)) + ' / ' + (patMultiterm.test(denomFormula)?'('+ denomFormula + ')':denomFormula);
-                } else {
-                    formula = plot.options.k + ' * ' + (patMultiterm.test(numFormula)?'('+numFormula+')':numFormula);
-                }
-            }
-            plot.options.calculatedFormula = {
-                formula: formula,
-                denomFormula: denomFormula,
-                numFormula: numFormula,
-                k: plot.options.k||1
-            };
-            return plot.options.calculatedFormula;
-
-            function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
-        },
-
-        compSymbol: function compSymbol(compIndex){ //handles up to 26^2 = 676 symbols.  Proper would be to recurse, but current function will work in practical terms
-            var symbol='';
-            if(compIndex>25){
-                symbol = String.fromCharCode('A'.charCodeAt(0)+parseInt(compIndex/26));
-            }
-            symbol += String.fromCharCode('A'.charCodeAt(0)+(compIndex%26));
-            return symbol;
-        },
-
         buildGraphPanel: function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
 
             if(globals.isEmbedded){
@@ -1102,7 +942,7 @@ MashableData.grapher = function(){
 
                 //missing assets detect
                 var missingAssets = [];
-                eachComponent(oGraph,function(c, plot){
+                oGraph.eachComponent(function(c, plot){
                     if(!oGraph.assets[this.handle]) {
                         missingAssets.push(this.handle);
                         plot.components.splice(c, 1);
@@ -1699,7 +1539,7 @@ MashableData.grapher = function(){
                                 }
                             }
                         }
-                        eachPlot(newGraph, function(p, plot){findBunnies(plot)});
+                        newGraph.eachPlot(function(p, plot){findBunnies(plot)});
                         var handle;
                         function replaceBunny(plot, oldHandle, bunny, regex, replacment){
                             var i, asset;
@@ -1720,7 +1560,7 @@ MashableData.grapher = function(){
                                 for(handle in jsoData.bunnies) {
                                     newGraph.assets[jsoData.bunnies[handle].handle] = jsoData.bunnies[handle];
                                     if(handle){ //undefined if no bunnies
-                                        eachPlot(newGraph, function(p, plot){
+                                        newGraph.eachPlot(function(p, plot){
                                             replaceBunny(plot, handle, jsoData.bunnies[handle], jsoData.regex, jsoData.replacement);
                                         });
                                     }
@@ -2310,7 +2150,7 @@ MashableData.grapher = function(){
                                                 }
                                             }
                                         }
-                                        plt.options.name = plotName(oGraph, oGraph.mapsets[0]) + " for " + regionNames.join('+');
+                                        plt.options.name = oGraph.mapsets[0].name() + " for " + regionNames.join('+');
                                         grph.plots.push(plt);
                                     } else {
                                         for(X=0;X<oGraph.pointsets.length;X++){
@@ -2783,7 +2623,7 @@ MashableData.grapher = function(){
                                             stroke: 'black',
                                             'stroke-width': 1
                                         }).add();
-                                        hcr.text(plotName(oGraph, oGraph.pointsets[i]).substring(0, MAX_MARKER_LABEL_LENGTH), xOffset + 2*(spacer + standardRadius), yOffset + y).add(); //clip at MAX_MARKER_LABEL_LENGTH
+                                        hcr.text(oGraph.pointsets[i].name().substring(0, MAX_MARKER_LABEL_LENGTH), xOffset + 2*(spacer + standardRadius), yOffset + y).add(); //clip at MAX_MARKER_LABEL_LENGTH
                                     }
                                     y += standardRadius;
                                 });
@@ -3011,7 +2851,7 @@ MashableData.grapher = function(){
                     if(graph.mapsets){
                         //THE BRAINS:
                         var mapset = graph.mapsets[0];
-                        mapset.formula = plotFormula(mapset);
+                        mapset.formula(); //refresh the formula obj
                         expression = 'return ' + mapset.formula.formula.replace(patVariable,'values.$1') + ';';
                         var mapCompute = new Function('values', expression);
 
@@ -3067,8 +2907,8 @@ MashableData.grapher = function(){
                         var breakNulls = mapset.options.breaks=='nulls';
                         var breakMissing = mapset.options.breaks=='missing';
 
-                        mapTitle = plotName(graph, mapset);
-                        mapPeriod = graph.assets[components[0].handle].period; //for now, all components for have same periodicity, so just check the first component
+                        mapTitle = mapset.name();
+                        mapPeriod = graph.assets[components[0].handle].period; //for now, all components for have same freq, so just check the first component
                         mapUnits = plotUnits(graph, mapset);
 
                         for(dateKey in oComponentData){
@@ -3148,7 +2988,7 @@ MashableData.grapher = function(){
                             var regionRows = []; //initialize empty grid
                             var hasCalc = (mapset.formula.formula != 'A'); //used to skip calculated column when plot = component
                             sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                            var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = plotName(graph, mapset), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
+                            var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = mapset.name(), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
                             for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
                                 //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
                                 jsDateTime = dateFromMdDate(dateKey).getTime();
@@ -3193,7 +3033,7 @@ MashableData.grapher = function(){
                             var sortedLatlonList = [];
                             pointset = graph.pointsets[i];
                             if(!pointset.options.color) pointset.options.color = nextColor(graph.pointsets);
-                            pointset.formula = plotFormula(pointset);
+                            pointset.formula(pointset);
                             expression = 'return ' + pointset.formula.formula.replace(patVariable,'values.$1') + ';';
                             var pointsetCompute = new Function('values', expression);
                             //A. rearrange series data into single object by date keys
@@ -3252,8 +3092,8 @@ MashableData.grapher = function(){
                             var breakNulls = pointset.options.breaks=='nulls';
                             var breakMissing = pointset.options.breaks=='missing';
 
-                            mapTitle = mapTitle + plotName(graph, pointset);
-                            mapPeriod = graph.assets[components[0].handle].period; //for now, all components must have same periodicity, so just check the first component
+                            mapTitle = mapTitle + pointset.name();
+                            mapPeriod = graph.assets[components[0].handle].period; //for now, all components must have same freq, so just check the first component
 
                             if(pointset.options.attribute=='fill'){
                                 fillUnits = plotUnits(graph, pointset);
@@ -3348,7 +3188,7 @@ MashableData.grapher = function(){
                                 sortedLatlonList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
                                 var pointsetHasCalc = (pointset.formula.formula != 'A'); //used to skip calculated column when plot = component
 
-                                var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = plotName(graph, pointset), pointsetUnits = plotUnits(graph, pointset, false, pointset.formula);
+                                var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = pointset.name(), pointsetUnits = plotUnits(graph, pointset, false, pointset.formula);
                                 for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
                                     //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
                                     jsDateTime = dateFromMdDate(dateKey).getTime();
@@ -3422,7 +3262,7 @@ MashableData.grapher = function(){
 
                     graph.calculatedMapData = {
                         title: mapTitle,  //string
-                        period: mapPeriod, //string: single periodicity for maps
+                        period: mapPeriod, //string: single freq for maps
                         mapUnits: mapUnits,  //string
                         markers: markers, //{pointid: {name:, style: {fill:}}  radius attribute set in CalcAttibute if
                         markerData: markerData,  //
@@ -3671,7 +3511,7 @@ MashableData.grapher = function(){
                 }
 
                 function getMapDataByContainingDate(mapData,mdDate){ //tries exact date match and then step back if weekly->monthly->annual or if monthly->annual
-                    //this allows mixed-periodicity mapsets and marker set to be display controlled via the slider
+                    //this allows mixed-freq mapsets and marker set to be display controlled via the slider
                     while(mdDate.length>=4){
                         if(mapData[mdDate]) return mapData[mdDate];
                         mdDate = mdDate.substr(0,mdDate.length-2);
@@ -3684,103 +3524,12 @@ MashableData.grapher = function(){
 
         isSummationMap: function isSummationMap(oGraph){
             if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
-            if(!oGraph.mapsets[0].options.calculatedFormula) plotFormula(oGraph.mapsets[0]);
+            if(!oGraph.mapsets[0].options.calculatedFormula) oGraph.mapsets[0].formula();
             var formula = oGraph.mapsets[0].options.calculatedFormula;
             for(var i=0;i<oGraph.mapsets[0].components.length;i++){
                 if(oGraph.mapsets[0].components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
             }
             return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula));  //no division or multiplication TODO:  allow series multipliers/dividers
-        },
-
-        plotName: function plotName(graph, plot, forceCalculated){
-            var handle, comp, c, calcName='';
-            if(typeof(plot.options.name)!="undefined" && plot.options.name!='' && !forceCalculated){
-                return plot.options.name;
-            } else {
-                //calculate from components
-                var isDenom = false;
-                for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-                    comp = plot.components[c];
-                    handle = comp.handle;
-                    calcName += ((c!=0 && comp.options.op)?((comp.options.dn=='d'&&!isDenom)?' / ':' '+comp.options.op+' '):' ') + graph.assets[handle].name;
-                    isDenom = comp.options.dn=='d' || isDenom;
-                }
-                return calcName;
-            }
-        },
-
-        plotUnits: function plotUnits(graph, plot, forceCalculated, formulaObj){
-            var c, i, terms, numUnits = '', denomUnits = '';
-            //short cut for single component plots
-            if(plot.components.length==1){
-                return plot.options.units || (plot.components[0].op=='/'?'per ':'') + (graph.assets[plot.components[0].handle].units||'');
-            }
-            if(!plot.options.units || forceCalculated){
-                //calculate from component series
-                if(!formulaObj) formulaObj = plotFormula(plot);
-                //use local copies
-                var numerUnits = formulaObj.numFormula;
-                var denomFormula = formulaObj.denomFormula;
-                // remove any leading negative sign or numerator "1" to not trip ourselves up
-                replaceFormula('^(\-)?(1)?','');
-                //1. remove any numerical scalor and flag
-                var patKs=/[0-9]+/g;
-                var scalorFlag = patKs.test(numerUnits) || patKs.test(denomFormula);
-                numerUnits = numerUnits.replace(patKs, ' ');
-                denomFormula = denomFormula.replace(patKs, ' ');
-                //2. remove any numerical scalers K
-                var patRemoveOps = /(\*|\(|\))/g;
-                numerUnits = numerUnits.replace(patRemoveOps, ' ');
-                denomFormula = denomFormula.replace(patRemoveOps, ' ');
-                var patPer = /\//g;
-                numerUnits = numerUnits.replace(patPer, ' per ');
-                denomFormula = denomFormula.replace(patPer, ' per ');
-                var patMinus = /-/g;
-                numerUnits = numerUnits.replace(patMinus, '+');
-                denomFormula = denomFormula.replace(patMinus, '+');
-                var patWhiteSpace = /[\s]+/g;
-                numerUnits = numerUnits.replace(patWhiteSpace, ' ');
-                denomFormula = denomFormula.replace(patWhiteSpace, ' ');
-                //3. wrapped variable in code to prevent accident detection in next step
-                replaceFormula('([A-Z]+)','{{$1}}');
-                //4. swap in units (removing any + signs)
-                var patPlus = /\+/g;
-                for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-                    replaceFormula('{{'+compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units||'').replace(patPlus,' '));
-                }
-                var error = false;
-                if(numerUnits!=''){
-                    terms = numerUnits.split('+');
-                    numerUnits = terms[0].trim();
-                    for(i=1;i<terms.length;i++){
-                        if(terms[i].trim()!=numerUnits) error = true;
-                    }
-                }
-                if(denomFormula!=''){
-                    terms = denomFormula.split('+');
-                    denomUnits = terms[0].trim();
-                    for(i=1;i<terms.length;i++){
-                        if(terms[i].trim()!=terms[0]) error = true;
-                    }
-                }
-                if(error){
-                    return 'potentially mismatched units';
-                } else {
-                    if(numerUnits==denomUnits && numerUnits.length>0){
-                        return 'ratio';
-                    } else {
-                        return  (scalorFlag?'user scaled ':'') + numerUnits + (denomUnits==''?'':' per ' + denomUnits);
-                    }
-                }
-            } else {
-                return plot.options.units;
-            }
-
-            function replaceFormula(search, replace){
-                var pat = new RegExp(search, 'g');
-                numerUnits = numerUnits.replace(pat, replace);
-                denomUnits = denomUnits.replace(pat, replace);
-            }
         },
 
         visiblePanelId: function visiblePanelId(){  //uniform way of getting ID of active panel for user events
@@ -3809,19 +3558,6 @@ MashableData.grapher = function(){
             {
                 return '-';
             }
-        },
-
-        eachComponent: function eachComponent(graph, callback){
-            eachPlot(graph, function(){
-                var plot = this;
-                $.each(plot.components, function(c){callback.call(this, c, plot)});
-            });
-        },
-
-        eachPlot: function eachPlot(graph, callback){
-            if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph.mapsets[p])});
-            if(graph.pointsets) $.each(graph.pointsets, function(p){callback.call(this, p, graph.pointsets[p])});
-            if(graph.plots) $.each(graph.plots, function(p){callback.call(this, p, graph.plots[p])});
         },
 
         fillScalingCount: function fillScalingCount(pointsets){
@@ -3857,16 +3593,10 @@ MashableData.grapher = function(){
         emptyGraph = grapher.emptyGraph,
         makeChartOptionsObject = grapher.makeChartOptionsObject,
         createSerieFromPlot = grapher.createSerieFromPlot,
-        plotFormula = grapher.plotFormula,
-        compSymbol = grapher.compSymbol,
         buildGraphPanel = grapher.buildGraphPanel,
         isSummationMap = grapher.isSummationMap,
-        plotName = grapher.plotName,
-        plotUnits = grapher.plotUnits,
         visiblePanelId = grapher.visiblePanelId,
         formatDateByPeriod = grapher.formatDateByPeriod,
-        eachComponent = grapher.eachComponent,
-        eachPlot = grapher.eachPlot,
         fillScalingCount = grapher.fillScalingCount,
         areaScalingCount = grapher.areaScalingCount;
 
@@ -3949,7 +3679,7 @@ MashableData.grapher = function(){
         oGraph.smallestPeriod = "A";
         oGraph.largestPeriod = "N";
         var min, max, jsdt, handle, key;
-        eachComponent(oGraph, function(){
+        oGraph.eachComponent(function(){
             if(!oGraph.assets[this.handle].firstdt && (this.handle.charAt(0)=='M' || this.handle.charAt(0)=='X')){
                 for(handle in oGraph.assets[this.handle].data){
                     jsdt = oGraph.assets[this.handle].data[handle].firstdt;
@@ -4026,7 +3756,7 @@ MashableData.grapher = function(){
             //2. find geoName from assets geoKey
             var geoName = null;
             if(isNaN(geoKey)){
-                eachComponent(graph, function(){
+                graph.eachComponent(function(){
                     if(!geoName){ //TODO: pointsets names
                         if(this.handle[0]=='M' && graph.assets[this.handle].data[geoKey]) geoName = graph.assets[this.handle].data[geoKey].geoname;
                     }

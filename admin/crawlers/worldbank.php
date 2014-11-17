@@ -45,7 +45,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "name"=>"Indicator Name",  //if split(":").length>1, first part = category
             "metaData"=>["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
             "subcategories"=>"Topic", //blank for over a thousand series
-            //"periodicity"=>"Periodicity",  blank for edstats, but data is annual + projected to 2050
+            //"freq"=>"Periodicity",  blank for edstats, but data is annual + projected to 2050
             "DataFile_CountryNameColumn" => 0,
             "DataFile_CountryCodeColumn" => 1,
             "DataFile_SeriesCodeColumn" => 3,
@@ -101,7 +101,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
                 $datasets[$acronym]["acronym"] = $acronym;
                 $datasets[$acronym]["datasetName"] = $newDataSet["name"];
                 $datasets[$acronym]["url"] = $newDataSet["url"];
-                $datasets[$acronym]["periodicity"] = substr($newDataSet["periodicity"], 0, 1);
+                $datasets[$acronym]["freq"] = substr($newDataSet["freq"], 0, 1);
                 preg_match("#http:\S+csv\.zip#i",  $newDataSet["bulkdownload"], $matches);
                 $datasets[$acronym]["bulkdownload"] = $matches[0];
                 $datasets[$acronym]["category"] = $newDataSet["name"];
@@ -377,7 +377,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                             }
                         }
                         if($setId) {
-                            saveSetData($status, $setId, $apiid, null, $datasetInfo["periodicity"], $geoId, "", $data);
+                            saveSetData($status, $setId, $apiid, null, $datasetInfo["freq"], $geoId, "", $data);
                         } else {
                             print("unable to insert data for:  ");
                             var_dump($values);
@@ -416,9 +416,9 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
             if($geo){
                 $geoId = $geo["geoid"];
                 if(isset($set[$setKey]["setid"])){
-                    updateSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+                    updateSetdataMetadata($set[$setKey]["setid"], $datasetInfo["freq"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
                 } elseif(isset($set[$setKey.":".$geo["currency"]]["setid"])){
-                    updateSetdataMetadata($set[$setKey]["setid"], $datasetInfo["periodicity"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
+                    updateSetdataMetadata($set[$setKey]["setid"], $datasetInfo["freq"], $geoId, "", $values[$CountrySeriesFile_SetDataMetaData]);
                 }
             }
         }

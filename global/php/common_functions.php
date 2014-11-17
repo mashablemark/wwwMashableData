@@ -214,7 +214,7 @@ function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=nul
     if($msKey){
         $sql = "select mapsetid  from mapsets where apiid=$apiid and mskey=".safeStringSQL($msKey);
     } else {
-        $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
+        $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  freq='".$db->escape_string($periodicity)."'  and apiid=".$apiid
             ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
     }
     $result = runQuery($sql, "getMapSet select");
@@ -222,7 +222,7 @@ function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=nul
         $row = $result->fetch_assoc();
         return $row["mapsetid"];
     } else {
-        $sql = "insert into mapsets set name='".$db->escape_string($name)."', periodicity='".$db->escape_string($periodicity)
+        $sql = "insert into mapsets set name='".$db->escape_string($name)."', freq='".$db->escape_string($periodicity)
             ."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid
             .", meta=".safeStringSQL($meta).", themeid=".safeStringSQL($themeid).", mskey=".safeStringSQL($msKey);
         $result = runQuery($sql, "getMapSet insert");
@@ -235,14 +235,14 @@ function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=nul
 }
 function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, creating a record if necessary
     global $db;
-    $sql = "select pointsetid  from pointsets where name='".$db->escape_string($name)."' and  periodicity='".$db->escape_string($periodicity)."'  and apiid=".$apiid
+    $sql = "select pointsetid  from pointsets where name='".$db->escape_string($name)."' and  freq='".$db->escape_string($periodicity)."'  and apiid=".$apiid
         ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
     $result = runQuery($sql, "getPointSet select");
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
         return $row["pointsetid"];
     } else {
-        $sql = "insert into pointsets set name='".$db->escape_string($name)."', periodicity='".$db->escape_string($periodicity)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
+        $sql = "insert into pointsets set name='".$db->escape_string($name)."', freq='".$db->escape_string($periodicity)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
         $result = runQuery($sql, "getPointSet insert");
         if($result!==false){
             $pointSetId = $db->insert_id;
@@ -478,7 +478,7 @@ function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
     $sql = "insert into temp (id1, text1, text2, `int1`, `int2`)
-    select sd.setid, group_concat(distinct concat('G©',geoid)), group_concat(distinct concat('F©', sd.periodicity)), min(sd.firstdt100k), max(sd.lastdt100k)
+    select sd.setid, group_concat(distinct concat('G©',geoid)), group_concat(distinct concat('F©', sd.freq)), min(sd.firstdt100k), max(sd.lastdt100k)
     from setdata sd ";
     if($apiid == "all"){
         $sql .=" group by sd.setid;";
@@ -487,7 +487,7 @@ function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
     }
 
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.periodicities = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
 }
 
 function setMapsetCounts($setid="all", $apiid){
@@ -597,11 +597,11 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity,
     $lastDate100k = unixDateFromMd($lastPoint[0])/100;
     $data = implode("|", $arrayData);
     if($key && $apiid){ //if source or set key is given, that is used over the setid
-        $result = runQuery("select sd.setid, sd.periodicity, sd.geoid, sd.latlon, sd.data
+        $result = runQuery("select sd.setid, sd.freq, sd.geoid, sd.latlon, sd.data
         from setdata sd join sets s on sd.setid=s.setid
-        where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.periodicity='$periodicity' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
+        where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.freq='$periodicity' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
     } else {
-        $result = runQuery("select data from setdata where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
+        $result = runQuery("select data from setdata where setid=$setid and freq='$periodicity' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
     }
     if($result->num_rows==0){
         $status["added"]++;
@@ -614,13 +614,13 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity,
             //printNow("updating setid: $setid, geoid:$geoid");
             $status["updated"]++;
         }
-        if($key && ($setData["setid"]!=$setid || $setData["periodicity"]!=$periodicity || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
+        if($key && ($setData["setid"]!=$setid || $setData["freq"]!=$periodicity || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
             //in the off chance that the identifying data for source key (such as latlon) has been updated, delete record and reinsert below
-            runQuery("delete from setdata where setid='$setData[setid]' and periodicity='$setData[periodicity]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
+            runQuery("delete from setdata where setid='$setData[setid]' and freq='$setData[freq]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
         }
     }
 
-    $sql = "insert into setdata (setid, periodicity, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt, skey)"
+    $sql = "insert into setdata (setid, freq, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt, skey)"
         ." values($setid, '$periodicity', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
         ." on duplicate key update data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
     return runQuery($sql, $logAs);
@@ -628,6 +628,6 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity,
 
 function updateSetdataMetadata($setid, $periodicity, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
     $sql = "update setdata set metadata = ".  safeStringSQL($metadata)
-        ." where setid=$setid and periodicity='$periodicity' and geoid=$geoid and latlon='$latlon'";
+        ." where setid=$setid and freq='$periodicity' and geoid=$geoid and latlon='$latlon'";
     return runQuery($sql, $logAs);
 }

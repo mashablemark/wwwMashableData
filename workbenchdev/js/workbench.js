@@ -7,12 +7,12 @@
 
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
-var emptyGraph = grapher.emptyGraph, getAssets = grapher.getAssets, plotName = grapher.plotName, plotUnits = grapher.plotUnits,
+var emptyGraph = grapher.emptyGraph, getAssets = grapher.getAssets,
     buildGraphPanel = grapher.buildGraphPanel;
 var themeCubes = globals.themeCubes,
     iconsHMTL = globals.iconsHMTL,
     panelGraphs = globals.panelGraphs,
-    oMySeries = globals.MySeries,
+    oMySets = globals.MySets,
     oMyGraphs = globals.MyGraphs,
     hcColors = globals.hcColors,
     colorsPlotBands = globals.colorsPlotBands,
@@ -58,7 +58,7 @@ var colWidths = {
     longDate: 125,
     deleteIcon: 35,
     map: 125,
-    periodicity: 45,
+    freq: 45,
     linkIcon: 30,
     src: 150,
     drillIcon: 35,
@@ -354,7 +354,7 @@ function parseHash(newHash, oldHash){
                 $('#series-tabs').find('li.cloud-series a').click();
                 $search = $('#series_search_text');
                 searchCatId == oH.cat||0;
-                $('#series_search_periodicity').val(oH.f||'all'); //search executes on periodicity change
+                $('#series_search_periodicity').val(oH.f||'all'); //search executes on freq change
                 $('#series_search_source').val(oH.api||'all'); //search executes on API change
                 $('#public-settype-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
                 if(searchCatId!=0){
@@ -441,7 +441,7 @@ function resizeCanvas(){
     layoutDimensions.widths.canvas = $("#canvas").innerWidth();
     //mySeries
     layoutDimensions.widths.mySeriesTable.table = layoutDimensions.widths.canvas-8*colWidths.padding-colWidths.scrollbarWidth;
-    var remainingInnerWidths =  layoutDimensions.widths.mySeriesTable.table - (colWidths.periodicity + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
+    var remainingInnerWidths =  layoutDimensions.widths.mySeriesTable.table - (colWidths.freq + 2*colWidths.shortDate  + colWidths.src + colWidths.shortDate);
     layoutDimensions.widths.mySeriesTable.columns.units = parseInt(remainingInnerWidths * 0.15);
     layoutDimensions.widths.mySeriesTable.columns.maps = parseInt(remainingInnerWidths * 0.10);
     layoutDimensions.widths.mySeriesTable.columns.series = parseInt(remainingInnerWidths * 0.55);
@@ -451,7 +451,7 @@ function resizeCanvas(){
         .end().find('th.cat').width(layoutDimensions.widths.mySeriesTable.columns.category+'px');
     //publicSeries
     layoutDimensions.widths.publicSeriesTable.table = layoutDimensions.widths.canvas-7*colWidths.padding-colWidths.scrollbarWidth;
-    remainingInnerWidths =  layoutDimensions.widths.publicSeriesTable.table - (colWidths.periodicity + colWidths.src + 2*colWidths.mmmyyyy);
+    remainingInnerWidths =  layoutDimensions.widths.publicSeriesTable.table - (colWidths.freq + colWidths.src + 2*colWidths.mmmyyyy);
     layoutDimensions.widths.publicSeriesTable.columns.series = remainingInnerWidths * 0.4;
     layoutDimensions.widths.publicSeriesTable.columns.units = remainingInnerWidths * 0.3;
     layoutDimensions.widths.publicSeriesTable.columns.category = remainingInnerWidths * 0.3;
@@ -504,17 +504,17 @@ function setupMyDataTable(){
                     }
                 },
                 { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.units + "px",  "mRender": function(value, type, obj){return value}},
-                { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(value, type, obj){return value}},
-                { "mData": "period", "sTitle": "f<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.periodicity + "px",
-                    "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)}
+                { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(value, type, obj){return spanWithTitle(common.parseMaps(value))}},
+                { "mData": "freqs", "sTitle": "f<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.freq + "px",
+                    "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs.join(' '))}
                 },
-                { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'],
+                { "mData":"firstsetdt", "sTitle": "from<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'],
                     "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return formatDateByPeriod(value, obj.period);}
                 },
-                { "mData":"lastdt", "sTitle": "to<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'], "resize": false,
+                { "mData":"lastsetdt", "sTitle": "to<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'], "resize": false,
                     "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return formatDateByPeriod(value, obj.period);}
                 },
-                { "mData": "graph",  "sTitle": "Category<span></span>", "sClass": "cat", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.category + "px", "mRender": function(value, type, obj){return value}},
+                { "mData": "categories",  "sTitle": "Category<span></span>", "sClass": "cat", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.category + "px", "mRender": function(value, type, obj){return value}},
                 { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
                     "mRender": function(value, type, obj){
                         if(obj.url) {
@@ -566,7 +566,7 @@ function setupFindDataTable(){
             aoData.push({name: "uid", value: getUserId()});
             aoData.push({name: "accessToken", value: account.info.accessToken});
             aoData.push({name: "mapfilter", value: $("#find-data-map").val()});
-            aoData.push({name: "periodicity", value: $("#series_search_periodicity").val()});
+            aoData.push({name: "freq", value: $("#series_search_freq").val()});
             aoData.push({name: "apiid", value: $("#series_search_source").val()});
             aoData.push({name: "catid", value: searchCatId});
             aoData.push({name: "settype", value: $("input:radio[name=public-settype-radio]:checked").val()});
@@ -613,15 +613,15 @@ function setupFindDataTable(){
         "aoColumns": [
             { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": layoutDimensions.widths.publicSeriesTable.columns.series + "px", "sClass": "title",
                 "mRender": function(value, type, obj){
-                    return ((obj.mapsetid)?iconsHMTL.mapset:'')
-                        + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                    return ((obj.settype=='M')?iconsHMTL.mapset:'')
+                        + ((obj.settype=='X')?iconsHMTL.pointset:'')
                         + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(value)
                         + '<span class="handle">' + obj.handle + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
             { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(common.parseMaps(maps))}},
-            { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.periodicity+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatPeriodWithSpan(obj.period)} },
+            { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"titles", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
@@ -741,7 +741,7 @@ function setupPublicGraphsTable(){
         "bServerSide": true,
         "fnServerData": function ( sSource, aoData, fnCallback ) {
             aoData.push({name: "command", value: "SearchGraphs"});
-//            aoData.push({ "name": "periodicity", "value": $("#").value });
+//            aoData.push({ "name": "freq", "value": $("#").value });
             aoData.push({name: "search", value: $("#tblPublicGraphs_filter input").val()});
             $.ajax( {
                 "dataType": 'json',
@@ -879,7 +879,7 @@ function graphsCloudSearch(event){
         setPanelHash();
     }
 }
-function formatPeriodWithSpan(period){
+function formatFreqWithSpan(period){
     switch(period){
         case 'D':
             return '<span title="Daily data">D</span>';
@@ -901,6 +901,7 @@ function spanWithTitle(val){
     return '<span title="' + ((val==null)?" ":val) + '">' + ((val==null)?" ":val) + '</span>';
 }
 function formatAsUrl(url, txt){
+    if(!url) return txt || '';
     txt = txt ||url.replace(/\b(http(s)*:\/\/)*(www.)*/gi,'').replace('/', ' /');
     return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span>'+txt+'</a>';
 }
@@ -984,7 +985,7 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
                 params.series.push(mySerie);
                 seriesTree[mySerie.handle] = mySerie;
             } else {
-                oMySeries[mySerie.handle] = mySerie;
+                oMySets[mySerie.handle] = mySerie;
                 addMySeriesRow($.extend({}, mySerie));
             }
         }
@@ -995,7 +996,7 @@ function loadMySeriesByKey(){ //called on document.ready and when page get focus
                     dbHandle = results.handles[localHandle];
                     seriesTree[localHandle].handle = dbHandle;
                     mySerie.usid = dbHandle.substr(1);
-                    addMySeriesRow($.extend({},seriesTree[localHandle])); //this will update or add the series as needed and add it to the oMySeries object
+                    addMySeriesRow($.extend({},seriesTree[localHandle])); //this will update or add the series as needed and add it to the oMySets object
                 }
             });
         }
@@ -1075,7 +1076,7 @@ function previewMySeries(){
         series.push($dtMyData.fnGetData(this));
     });
     if(series.length==0){
-        for(var handle in oMySeries){
+        for(var handle in oMySets){
             hasMySeries = true;
             break;
         }
@@ -1094,7 +1095,9 @@ function previewPublicSeries(){
     if(series.length==0){
         dialogShow('selection required', dialogues.noSeriesSelected);
     } else {
-        preview(series, true);
+        getAssets(series, function(){
+            preview(series, true);
+        });
     }
 }
 
@@ -1111,17 +1114,20 @@ function preview(series, showAddSeries){
     if(shandles.length==0){
         quickGraph(series, showAddSeries);
     } else {
+        if(shandles.length==1){
+
+        }
         callApi({command:  'GetMashableData',
                 shandles: shandles,
-                periodicity: globals.periodPref || 'M'
+                freq: globals.periodPref || 'M'
             },
             function(jsoData, textStatus, jqXH){
                 for(i=0;i<series.length;i++){
                     handle = series[i].handle;
-                    if(oMySeries[handle]){ //if this happens to be in mySeries...
-                        oMySeries[handle].data = jsoData.series[handle].data;
-                        oMySeries[handle].notes = jsoData.series[handle].notes;
-                        oMySeries[handle].geocounts = jsoData.series[handle].geocounts;
+                    if(oMySets[handle]){ //if this happens to be in mySeries...
+                        oMySets[handle].data = jsoData.series[handle].data;
+                        oMySets[handle].notes = jsoData.series[handle].notes;
+                        oMySets[handle].geocounts = jsoData.series[handle].geocounts;
                     }
                     series.splice(i, 1, jsoData.series[handle]);
                 }
@@ -1153,9 +1159,9 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
 
     var quickChartOptions = grapher.makeChartOptionsObject(quickGraph);
 
-    grapher.eachComponent(quickGraph, function(){
-        if(globals.MySeries[this.handle]) someMySeries.push(globals.MySeries[this.handle]);
-        if(!globals.MySeries[this.handle]) someNewSeries.push(quickGraph.assets[this.handle]);
+    quickGraph.eachComponent(function(){
+        if(globals.MySets[this.handle]) someMySeries.push(globals.MySets[this.handle]);
+        if(!globals.MySets[this.handle]) someNewSeries.push(quickGraph.assets[this.handle]);
     });
 
     delete quickChartOptions.chart.height;
@@ -1248,7 +1254,7 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
     $(btn).button("disable");
     for(var i=0;i<oQuickViewSeries.length;i++){
         oQuickViewSeries[i].save_dt = new Date().getTime();
-        var serieskey = addMySeriesRow(oQuickViewSeries[i]);  //table and oMySeries add/update
+        var serieskey = addMySeriesRow(oQuickViewSeries[i]);  //table and oMySets add/update
         updateMySeries(oQuickViewSeries[i]); //cloud update
     }
     dialogShow('My Series', 'series added.',[]);
@@ -1423,7 +1429,7 @@ function quickViewToMap(){
         getAssets(oGraph, function(){
             require(['/global/js/maps/' + oGraph.mapFile + '.js'],function(){
                 if(oGraph.title===null || oGraph.title==''){
-                    oGraph.title = oGraph.mapsets?plotName(oGraph, oGraph.mapsets[0]):plotName(oGraph, oGraph.pointsets[0]);
+                    oGraph.title = oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets[0].name();
                 }
                 if(panelId=="new"){
                     buildGraphPanel(oGraph);
@@ -1805,7 +1811,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                         $editor.find('table.htCore tr').show().filter(':eq('+rows.U.handle+')').hide();
                     } else {
                         var sids = [], usids=[];
-                        if(handle.charAt(0)=="U")usids.push(parseInt(handle.substr(1))); else sids.push(parseInt(handle.substr(1)));
+                        if(handle.charAt(0)=="U") usids.push(parseInt(handle.substr(1))); else sids.push(parseInt(handle.substr(1)));
                         callApi({command: 'GetMashableData', sids:  sids, usids: usids},
                             function(jsoData, textStatus, jqXH){
                                 //showSeriesInEditor()
@@ -2110,7 +2116,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                         arySeries[i].username = account.info.name || 'user';
                         arySeries[i].userid = account.info.userId || null;
                         $dtMyData.fnAddData(arySeries[i]);
-                        oMySeries[arySeries[i].handle]=arySeries[i];  //over-write as needed
+                        oMySets[arySeries[i].handle]=arySeries[i];  //over-write as needed
                     }
                 }
             );
@@ -2427,23 +2433,23 @@ function syncMyAccount(){ //called only after loggin and after initial report of
     //1A.look for localseries (handle prefixed with "L")
     var adddt = new Date();
     var params = {command: 'UploadMyMashableData', adddt: adddt.getTime(), series: []};
-    for(handle in oMySeries){
+    for(handle in oMySets){
         if(handle[0]=='L'){
-            params.series.push(oMySeries[handle]);
+            params.series.push(oMySets[handle]);
         }
     }
     //1B.  local series found -> save to server
     if(params.series.length>0){
         callApi(params, function(results, textStatus, jqXH){
             for(oldHandle in results.handles){
-                //1C. update oMySeries, mySeries table, and in any graphs and graph assets
+                //1C. update oMySets, mySeries table, and in any graphs and graph assets
                 newHandle = results.handles[oldHandle]
-                serie = oMySeries[oldHandle];
+                serie = oMySets[oldHandle];
                 serie.handle = newHandle;
                 serie.sid = newHandle.substr(1);
 
-                delete oMySeries[oldHandle];
-                oMySeries[newHandle] = serie;
+                delete oMySets[oldHandle];
+                oMySets[newHandle] = serie;
 
                 //$('#series-table').find("td.quick-view button[data='"+oldHandle+"']").attr('data',serie.handle);
 
@@ -2454,10 +2460,10 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                     updateHandles(oMyGraphs[graph], oldHandle, serie);
                 }
             }
-            getMySeries();  //if uploading series, ensure this happens after they are registered on My Series (note: modal is persisted)
+            getMySets();  //if uploading series, ensure this happens after they are registered on My Series (note: modal is persisted)
         });
     } else {
-        getMySeries();
+        getMySets();
     }
 
     function updateHandles(graph, oldHandle, serie){
@@ -2470,7 +2476,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
                 return;
             }
         }
-        grapher.eachComponent(graph, function(){if(this.handle==oldHandle) this.handle = serie.handle});
+        graph.eachComponent(function(){if(this.handle==oldHandle) this.handle = serie.handle});
     }
 
 // note: series cleared from localStorage when they were read
@@ -2489,104 +2495,21 @@ function syncMyAccount(){ //called only after loggin and after initial report of
     );
 }
 
-function getMySeries(){
-    callApi({'command':	'GetMySeries', modal:"persist"},
+function getMySets(){
+    callApi({'command':	'GetMySets', modal:"persist"},
         function(results, textStatus, jqXH){
-            var series=[];
-            for(var sHandle in results.series){
-                /*                if(oMySeries[sHandle]){
-                 var trSeries = $dtMyData.find("button[data='" + sHandle + "']").closest('tr').get(0);
-                 //$dtMyData.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
-                 $dtMyData.fnDeleteRow(trSeries);
-                 }*/
-                results.series[sHandle].save_dt = parseInt(results.series[sHandle].save_dt)
-                oMySeries[sHandle] = results.series[sHandle]; //if exists, it will be overwritten with new data
-                series.push(results.series[sHandle]);  //takes an array or object, not an object
+            var sets=[];
+            for(var sHandle in results.sets){
+                results.sets[sHandle].save_dt = parseInt(results.sets[sHandle].save_dt)
+                oMySets[sHandle] = results.sets[sHandle]; //if exists, it will be overwritten with new data
+                sets.push(results.sets[sHandle]);  //takes an array or object, not an object
             }
             $dtMyData.fnClearTable();
-            $dtMyData.fnAddData(series);
+            $dtMyData.fnAddData(sets);
         }
     );
 }
 
-function saveGraph(oGraph, callback) {
-//first save to db and than to $dtMyGraphs and oMyGraphs once we have a gid
-    if(oGraph.gid){
-        oGraph.updatedt = (new Date()).getTime();
-    } else {
-        oGraph.createdt = (new Date()).getTime();
-    }
-    //create/update the series list
-    oGraph.serieslist = [];
-    grapher.eachComponent(oGraph, function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
-    oGraph.serieslist = oGraph.serieslist.join('; ');
-
-    var assets = oGraph.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
-    var calculatedMapData = oGraph.calculatedMapData; //ditto
-    var controls = oGraph.controls; //ditto
-    delete oGraph.assets; //temporarily remove after making local reference
-    delete oGraph.calculatedMapData; //ditto
-    delete oGraph.controls; //ditto
-
-    var params = {command: 'ManageMyGraphs'};
-    var o = {}, nonTransmit = ['assts'];
-    $.extend(true, params, oGraph);
-    params.annotations = serializeAnnotations(oGraph);  // over write array of object with a single serialized field
-    params.mapconfig = $.stringify(oGraph.mapconfig);
-    var plot, comp;
-    grapher.eachPlot(params, function(){
-        this.options = $.stringify(this.options);
-        $.each(this.components, function(){
-            this.options = $.stringify(this.options);
-        });
-    });
-
-    oGraph.assets = assets; //restore objects temporarily removed from oGraph
-    oGraph.calculatedMapData = calculatedMapData;
-    oGraph.controls = controls;
-
-    callApi(params,
-        function(jsoData, textStatus, jqXH){
-            //first find to whether this is a new row or an update
-            oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
-            oGraph.ghash = jsoData.ghash;
-            oGraph.isDirty = false;
-            delete oGraph.assets; //but don't copy the potentially very large assets.   unattach and reattech instead
-            delete oGraph.calculatedMapData; //ditto
-            delete oGraph.controls; //ditto
-            var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
-            oGraph.assets = assets; //restore objects temporarily removed from oGraph
-            oGraph.calculatedMapData = calculatedMapData;
-            oGraph.controls = controls;
-            objForDataTable.updatedt = new Date().getTime();
-            if(('G' + oGraph.gid) in oMyGraphs){
-                var trMyGraph;
-                trMyGraph = $($dtMyGraphs).find('span.handle[data=G' + oGraph.gid + ']').closest('tr').get(0);
-                $dtMyGraphs.fnUpdate(objForDataTable, trMyGraph);
-            } else {
-                $dtMyGraphs.fnAddData(objForDataTable);
-            }
-
-            oMyGraphs['G'+oGraph.gid]=objForDataTable;
-            panelGraphs[visiblePanelId()] =  oGraph;
-            if(callback) callback();
-        }
-    );
-}
-function serializeAnnotations(mdGraph){  //called by saveGraph.  Couldn't use stringify because of logic
-    var serialized = '[';
-    for(var i=0;i<mdGraph.annotations.length;i++){
-        serialized += '{"type":"' + mdGraph.annotations[i].type + '",';
-        if(mdGraph.annotations[i].type=='point')serialized += '"series":"' + mdGraph.annotations[i].series + '",';
-        if(mdGraph.annotations[i].type.substring(0,1)=='h')serialized += '"yAxis":"' + mdGraph.annotations[i].yAxis + '",';
-        serialized += '"color":"' + mdGraph.annotations[i].color + '",';
-        serialized += '"from":"' + mdGraph.annotations[i].from + '",';
-        if(mdGraph.annotations[i].type.indexOf('band')>-1)serialized += '"to":"' + mdGraph.annotations[i].to + '",';
-        serialized += '"text":"' + mdGraph.annotations[i].text + '"}';
-        if(i<mdGraph.annotations.length-1)serialized += ',';
-    }
-    return serialized + ']';
-}
 //TODO:  updateMySeries should be eliminated because either token will provide direct access to user account or MD will wait until user is logged in to load to cloud
 function updateMySeries(oSeries){   //add or deletes to MySeries db
     if(notLoggedInWarningDisplayed()) return false;
@@ -2601,12 +2524,12 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
     );
 }
 
-function addMySeriesRow(oMD){  //add to table and to oMySeries
-    //TODO:  need to update existing panelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySeries.');
+function addMySeriesRow(oMD){  //add to table and to oMySets
+    //TODO:  need to update existing panelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySets.');
     if(oMD.handle){
         if(oMD.save_dt) oMD.save_dt = parseInt(oMD.save_dt);
-        if(oMySeries[oMD.handle]){
-            //still need to check if it is a row.  There are lots of things in the oMySeries trunk...
+        if(oMySets[oMD.handle]){
+            //still need to check if it is a row.  There are lots of things in the oMySets trunk...
             var $trSeries = $dtMyData.find("button[data='" + oMD.handle + "']").closest('tr');
             if($trSeries.length==1){
                 //$dtMyData.fnUpdate(oMD, trSeries); < problem will the delete cell.   easrier just to delete and add
@@ -2614,7 +2537,7 @@ function addMySeriesRow(oMD){  //add to table and to oMySeries
             }
         }
         $dtMyData.fnAddData(oMD);
-        oMySeries[oMD.handle] = oMD; //if exists, overwrite with new
+        oMySets[oMD.handle] = oMD; //if exists, overwrite with new
     } else {
         console.log("Error loading series object: invalid series handle.")
     }
@@ -2686,7 +2609,7 @@ function deleteMySeries(){  //remove all series in quickView from users MySeries
                             obj.save = null;
                             updateMySeries(obj);  //delete from DB
                         }
-                        delete oMySeries[obj.handle];
+                        delete oMySets[obj.handle];
                         $dtMyData.fnDeleteRow($quickViewRows.get(i));
                     }
                     $(this).dialog('close');
@@ -3036,8 +2959,8 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
             columns.push({
                     id: plotId,
                     field: plotId,
-                    name:'<b>' + plotName(oGraph, plot) + '</b><br>'
-                        + plotUnits(oGraph, plot) + '<br>'
+                    name:'<b>' + plot.name() + '</b><br>'
+                        + plot.units() + '<br>'
                         + '<br>'
                         + '<br>'
                         + '<br>'

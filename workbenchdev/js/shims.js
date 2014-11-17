@@ -70,7 +70,7 @@ Date.prototype.toMDDateString = function(period){
 };
 
 //dictionary support
-if (!('pushUnique' in Array.prototype)) {
+/*if (!('pushUnique' in Array.prototype)) {
     Array.prototype.pushUnique = function(item) {
         if(this.indexOf(item)===-1){
             return this.push(item);
@@ -78,7 +78,7 @@ if (!('pushUnique' in Array.prototype)) {
             return false;
         }
     };
-}
+}*/
 
 // Add ECMA262-5 method binding if not supported natively
 if (!('bind' in Function.prototype)) {

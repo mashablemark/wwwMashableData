@@ -905,15 +905,37 @@ a {
 .mdspacer {
   padding-top: 6px !important;
 }
-.map-level1,
-.map-level2 {
+#select-map {
+  background: white;
+  padding: 5px;
+  border: thin solid black;
+  z-index: 10000;
+  position: fixed;
+  overflow-y: scroll;
+}
+#select-map li {
   list-style-type: none;
+  margin: 1px;
+  cursor: default;
+}
+#select-map li:hover,
+#select-selected {
+  text-decoration: none;
+  background-color: dodgerblue;
+  color: white;
+}
+.map-level0 {
+  font-size: 15px;
+}
+.map-level1 {
+  padding-left: 10px;
+  font-size: 14px;
 }
 .map-level2 {
-  margin-left: 10px;
+  padding-left: 20px;
 }
 .ui-button-text {
-  /*prevents slection of text, but does not solve the mouse sensitivity issue */
+  /*prevents selection of text, but does not solve the mouse sensitivity issue */
   -moz-user-select: -moz-none;
   -khtml-user-select: none;
   -webkit-user-select: none;
@@ -998,6 +1020,11 @@ fieldset.tight-fieldset {
 fieldset.tight-fieldset legend {
   color: #444;
   font-size: 12px;
+}
+#series-search-button,
+#graphs-search-button,
+#cloud-series-browse {
+  background: orange;
 }
 div.legend-scale,
 div.legend-continuous,

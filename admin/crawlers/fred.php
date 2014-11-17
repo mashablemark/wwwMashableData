@@ -14,11 +14,11 @@ $sql_logging = false;
  *
  * command: Get | Update | Crawl
  *   search
- *   periodicity
+ *   freq
  * command: Crawl
  *   exhaustive crawl starting at cat_id=0
  * command:  Update
- *   periodicity:  D|M|A|ALL.  If missing, smartupdate  algorythme
+ *   freq:  D|M|A|ALL.  If missing, smartupdate  algorythme
  *   since: datetime; if missing smartupdate algorythme
 */
 $fred_api_key = '975171546acb193c402f70777c4eb46d';

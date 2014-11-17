@@ -168,12 +168,14 @@
     };
 
     MashableData.common.parseMaps = function(mapsJson){
-        var theseMaps = JSON.parse('{'+mapsJson+'}');
-        var mapNames = [];
-        for(var code in theseMaps){
-            if(theseMaps[code]>1 && MashableData.globals.maps[code]) mapNames.push(MashableData.globals.maps[code].name);
-        }
-        return mapNames.join('; ');
+        if(mapsJson){
+            var theseMaps = JSON.parse('{'+mapsJson+'}');
+            var mapNames = [];
+            for(var code in theseMaps){
+                if(theseMaps[code]>1 && MashableData.globals.maps[code]) mapNames.push(MashableData.globals.maps[code].name);
+            }
+            return mapNames.join('; ');
+        } else return "";
     }
 
 })();

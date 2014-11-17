@@ -10,11 +10,11 @@ $downloadFiles = false;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY D
  *
  * command: Get | Update | Crawl
  *   search
- *   periodicity
+ *   freq
  * command: Crawl
  *   exhaustive crawl starting at cat_id=0
  * command:  Update
- *   periodicity:  D|M|A|ALL.  If missing, smartupdate  algorithm
+ *   freq:  D|M|A|ALL.  If missing, smartupdate  algorithm
  *   since: datetime; if missing smartupdate algorithm
 */
 
@@ -338,7 +338,7 @@ function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, 
             $mapSetId,
             null, null, null);
         catSeries($thisCatId, $seriesid);
-        return ["setid"=>$setId, "periodicity"=>"A", "geoid"=>$geoid, "latlon"=>""];
+        return ["setid"=>$setId, "freq"=>"A", "geoid"=>$geoid, "latlon"=>""];
     } else {
         if(array_search($series_header[$colCountry], $unknownGeographies)===false){
             $unknownGeographies[] = $series_header[$colCountry];

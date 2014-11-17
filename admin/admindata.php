@@ -19,7 +19,7 @@ $command =  $_POST['command'];
 $con = getConnection();
 switch($command){
     case "GetApis":
-        $sql = "select a.apiid, name, file, l1domain, l2domain, path, runid, command, periodicity, added, updated, failed, startdt, finishdt "
+        $sql = "select a.apiid, name, file, l1domain, l2domain, path, runid, command, freq, added, updated, failed, startdt, finishdt "
             . " from apis a left outer join (select ar.* from apiruns ar, (select max(runid) maxrunid, apiid from apiruns group by apiid) as xr where ar.apiid=xr.apiid and xr.maxrunid = ar.runid) as r "
             . " on r.apiid=a.apiid ";
         logEvent("GetApis", $sql);
@@ -40,7 +40,7 @@ switch($command){
         break;
  /*   case "NewApiRun":  moved to master /admin/crawlers/index.php page
         $sql = "insert into apiruns (command, periodicty, since, added, updated, failed) "
-        . " values (" . safeStringSQL($_POST['command']) . "," . safeStringSQL($_POST['periodicity']) . "," . safeStringSQL($_POST['since']) . ",0,0,0)";
+        . " values (" . safeStringSQL($_POST['command']) . "," . safeStringSQL($_POST['freq']) . "," . safeStringSQL($_POST['since']) . ",0,0,0)";
         logEvent("NewApiRun", $sql);
         $result = mysql_query($sql);
         $runid = mysql_insert_id ($con);

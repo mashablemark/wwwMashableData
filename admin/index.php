@@ -52,7 +52,7 @@ function loadApiTable(){
                     {"mDataProp": "apiid", "sTitle": 'id', sClass: "apiid"},
                     {"mDataProp": "name", "sTitle": 'name'},
                     {"mDataProp": null, "sTitle": 'domain', fnRender: function(obj){return obj.aData.l2domain + '.' + obj.aData.l1domain}},
-                    {"mDataProp": null, "sTitle": 'last run', fnRender: function(obj){return obj.aData.finishdt+ ' (' + obj.aData.command + '[' + obj.aData.periodicity + "] => added:" +  obj.aData.added+ "; updated:" +  obj.aData.updated+ "; failed:" +  obj.aData.failed + ")"}},
+                    {"mDataProp": null, "sTitle": 'last run', fnRender: function(obj){return obj.aData.finishdt+ ' (' + obj.aData.command + '[' + obj.aData.freq + "] => added:" +  obj.aData.added+ "; updated:" +  obj.aData.updated+ "; failed:" +  obj.aData.failed + ")"}},
                     {"mDataProp": null, "sTitle": 'Update',
                         fnRender: function(obj){
                             return '<input class="api-since" value=""> <select class="api-period"><option>all</option><option>Y</option><option>M</option><option>W</option><option>D</option></select><button class="api-update" onclick="runApiUpdate(this)">Start Batch Update</button>'
@@ -86,13 +86,13 @@ function runApiUpdate(btn) {
     if(btn.innerHTML == "Start Batch Update"){
         $(btn).closest("tr").find("button.api-crawl").attr("disabled","disabled");
         $(btn).html("Stop Batch Update");
-        var periodicity = $(btn).closest("td").find(".api-period").val();
+        var freq = $(btn).closest("td").find(".api-period").val();
         var since = $(btn).closest("td").find(".api-since").val();
         apiRuns["api_"+apiid] = {
             command: "Update",
             btn: btn,
             apiid: apiid,
-            periodicity: periodicity,
+            freq: freq,
             since: since,
             runid:0,
             added: 0,
@@ -141,7 +141,7 @@ function apiBatchManager(apiid){
         }
         switch(apiRuns["api_"+apiid].command){
             case "Update":
-                callApi({command: apiRuns["api_"+apiid].command, apiid: parseInt(apiid), runid: apiRuns["api_"+apiid].runid, since: apiRuns["api_"+apiid].since, periodicity: apiRuns["api_"+apiid].periodicity},
+                callApi({command: apiRuns["api_"+apiid].command, apiid: parseInt(apiid), runid: apiRuns["api_"+apiid].runid, since: apiRuns["api_"+apiid].since, freq: apiRuns["api_"+apiid].freq},
                     function(results){
                         if(apiRuns["api_"+apiid]){  //make sure user has not canceled the Batch Job
                             clearTimeout(apiRuns["api_"+apiid].timer);

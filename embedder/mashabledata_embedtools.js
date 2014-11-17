@@ -227,7 +227,7 @@ window.MashableData.plugin = function(){ //mashableData namespace
                         /*var dataPortion = "";
                          for(var datapoint in thisSeries.data){
                          var xDate = new Date(thisSeries.data[datapoint].x);
-                         switch(seriesInfo.periodicity){
+                         switch(seriesInfo.freq){
                          case 'A':
                          dataPortion += ("|" + xDate.getUTCFullYear() + ":" + thisSeries.data[datapoint].y);
                          break;

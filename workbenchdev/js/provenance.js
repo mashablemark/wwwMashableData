@@ -16,11 +16,7 @@ function ProvenanceController(panelId){
         period = globals.period,
         op = globals.op,
         MAP_COLORS = globals.MAP_COLORS,
-        plotName = grapher.plotName,
-        plotUnits = grapher.plotUnits,
-        plotFormula = grapher.plotFormula,
-        fillScalingCount = grapher.fillScalingCount,
-        eachComponent = grapher.eachComponent;
+        fillScalingCount = grapher.fillScalingCount;
 
 
     var controller = {
@@ -168,8 +164,8 @@ function ProvenanceController(panelId){
                 + '<button class="edit-plot">configure</button>'
                 + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
                 + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                + plotName(graph, plot)+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plotUnits(graph, plot) + '</span></div>'
-                + '<span class="plot-formula">= ' + plotFormula(plot).formula + '</span><br>'
+                + plot.name()+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plotUnits(graph, plot) + '</span></div>'
+                + '<span class="plot-formula">= ' + plot.formula().formula + '</span><br>'
                 + self.componentsHTML(plot)
                 + '</li>';
             return plotList;
@@ -463,7 +459,9 @@ function ProvenanceController(panelId){
                 self.graph.mapconfig = self.mapconfigEdits;
                 if(!self.graph.mapsets && !self.graph.pointsets) self.graph.map='';  //remove map
                 this.provClose();
-                if(!noRedraw) $('#'+panelId).find(".graph-type").change();  //trigger redaw
+                self.graph.fetchAssets(function(){
+                    if(!noRedraw) $('#'+panelId).find(".graph-type").change();  //trigger redaw
+                });
             }
         },
         provClose:  function provClose(){ //called directly from cancel btn = close without saving
@@ -594,8 +592,8 @@ function ProvenanceController(panelId){
             var $editDiv = $(editDiv);    //instantiate the editor
             self.$prov.find("button.plot-close").click();  //close any open editors
             //text boxes
-            $editDiv.find("input.plot-name").val(plotName(self.graph, oPlot)).change(function(){
-                if(plotName(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') oPlot.options.name = $(this).val(); else delete oPlot.options.name;
+            $editDiv.find("input.plot-name").val(oPlot.name()).change(function(){
+                if(oPlot() != $(this).val().trim()) $(this).val(oPlot.name($(this).val())); //Plot.name() resets name to default name if emprty string passed in
                 makeDirty();
             });
             $editDiv.find("input.plot-units").val(plotUnits(self.graph, oPlot)).change(function(){
@@ -629,7 +627,6 @@ function ProvenanceController(panelId){
                                 }
                             });
                             f = newF;
-                            self.fetchNewSeries(oPlot);
                             makeDirty();
                         } else {
                             $editDiv.find('select.dshift').val(f);  //reset to former value
@@ -644,7 +641,6 @@ function ProvenanceController(panelId){
                         this.handle = self.graph.assets[this.handle].freqset[newF];
                     });
                     f = newF;
-                    self.fetchNewSeries(oPlot);
                     makeDirty();
                 }
             });
@@ -725,7 +721,7 @@ function ProvenanceController(panelId){
         },
         freqOptions: function(plot){
             var i, c, allComps, asset, options = '', freqs={}, thisPeriod;
-            //1. see what alternative periodicities exist is the APIs datasets
+            //1. see what alternative frequencies exist is the APIs datasets
             for(i=0;i<period.order.length;i++){
                 allComps = true;
                 thisPeriod = period.order[i];
@@ -742,16 +738,11 @@ function ProvenanceController(panelId){
                     freqs[thisPeriod] = true;
                 }
             }
-            //2. add options to calculate Quarterly and Annual periodicities if (A) they don't exist and (B) the right precursor periodicities exist
+            //2. add options to calculate Quarterly and Annual frequencies if (A) they don't exist and (B) the right precursor periodicities exist
             if(!freqs['Q'] && freqs['M']) options += '<option value="Q" data="M">'+period.name.Q +' calculated from monthly data</option>';
             if(!freqs['A'] && (freqs['M'] || freqs['Q'])) options += '<option value="A" data="'+(freqs['Q']?'Q':'M')+'">'+period.name.A +' calculated from '+(freqs['Q']?period.name.Q:period.name.M)+' data</option>';
 
             return options;
-        },
-        fetchNewSeries: function (oPlot){
-            var self = this, assetsToFetch = {S:[],U:[], X:[], M:[]};
-            $.each(oPlot.components, function(){ assetNeeded(this.handle, self.graph, assetsToFetch)});
-            fetchAssets(self.graph, assetsToFetch, unmask);
         },
         showPointSetEditor: function($liPointSet){
             var self = this;
@@ -784,8 +775,8 @@ function ProvenanceController(panelId){
 
             var $editDiv = $(editDiv);
             //text boxes
-            $editDiv.find("input.plot-name").val(plotName(self.graph, oPointset)).change(function(){
-                if(plotName(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.name = $(this).val(); else delete options.name;
+            $editDiv.find("input.plot-name").val(oPointset.name()).change(function(){
+                if(oPointset.name() != $(this).val().trim()) $(this).val(oPointset.name($(this).val()));  //Plot.name() resets name to default name if emprty string passed in
                 makeDirty();
             });
             $editDiv.find("input.plot-units").val(plotUnits(self.graph, oPointset)).change(function(){
@@ -872,11 +863,11 @@ function ProvenanceController(panelId){
             var self = this;
             var provHTML = '', ps, pointset, themes = [], tid, fetchThemes = [], cubeSelector='', summationMap = MD.grapher.isSummationMap(self.graph);
             if(self.graph.map&&(self.mapsetEdits || self.pointsetsEdits)){ //map!!
-                eachComponent(self.graph, function(){
+                self.graph.eachComponent(function(){
                     tid = self.graph.assets[this.handle].themeid;
                     if(tid) {
-                        themes.pushUnique(tid);
-                        if(!themeCubes['T'+tid]) fetchThemes.pushUnique(tid);
+                        if(themes.indexOf(tid)===-1) themes.push(tid);
+                        if(!themeCubes['T'+tid] && fetchThemes.indexOf(tid)===-1) fetchThemes.pushUnique(tid);
                     }
                 });
                 if(themes.length>0 || summationMap){
@@ -913,9 +904,9 @@ function ProvenanceController(panelId){
                         + '<div class="plot-info">'
                         + '<button class="edit-mapset right ehide">configure</button>'
                         + '<div class="edit-block ehide">'
-                        +   '<span class="plot-title">' + plotName(self.graph, mapset)+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + plotUnits(self.graph, mapset) +'</span>'
+                        +   '<span class="plot-title">' + mapset.name()+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + plotUnits(self.graph, mapset) +'</span>'
                         + '</div>'
-                        + '<span class="plot-formula">= ' + plotFormula(mapset).formula + '</span><br>'
+                        + '<span class="plot-formula">= ' + mapset.formula().formula + '</span><br>'
                         + '<span class="map-mode ehide">mode: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined regions') + '</span>'
                         /*                        + '<span class="map-legend ehide">-'
                          +    continuousColorScale(self.mapsetEdits.options)
@@ -936,8 +927,8 @@ function ProvenanceController(panelId){
                             + '<button class="edit-pointset right">configure</button>'
                             + '<div class="plot-info" style="display:inline-block;">'
                             + '<div class="marker" style="background-color: '+(pointset.options.color||'#000000')+'"></div>'
-                            + '<span class="plot-title">' + plotName(self.graph, pointset)+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + plotUnits(self.graph, pointset) + '</span>'
-                            + '<span class="plot-formula">= ' + plotFormula(pointset).formula + '</span></div>'
+                            + '<span class="plot-title">' + pointset.name()+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + plotUnits(self.graph, pointset) + '</span>'
+                            + '<span class="plot-formula">= ' + pointset.formula().formula + '</span></div>'
                             + self.componentsHTML(self.pointsetsEdits[ps])
                             + '</li>';
                     }
@@ -959,7 +950,7 @@ function ProvenanceController(panelId){
                 $plot.find('span.plot-formula').hide()
                     .after('<button class="guided">guided editing</button>')
                     .after('<input class="plot-formula">');
-                $plot.find('input.plot-formula').val(plot.options.userFormula|| plotFormula(plot).formula).keyup(function(){
+                $plot.find('input.plot-formula').val(plot.options.userFormula|| plot.formula().formula).keyup(function(){
                     try{
                         var userFormula = $(this).val();
                         if(userFormula.indexOf(';')>=0) throw('invalid mathematical syntax');
@@ -988,7 +979,7 @@ function ProvenanceController(panelId){
             function guidedEditing(){
                 $plot.find('div.op, span.comp-edit-k').show();
                 $plot.find('input.plot-formula, button.guided').remove();
-                $plot.find('span.plot-formula').html('= ' + plotFormula(plot).formula).show()
+                $plot.find('span.plot-formula').html('= ' + plot.formula().formula).show()
                     .after('<button class="manual">manual editing</button>');
                 delete plot.options.userFormula;
                 $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
@@ -1136,7 +1127,7 @@ function ProvenanceController(panelId){
             });
 
             //sync
-            $editDiv.find("input.plot-name").val(plotName(self.graph, mapset)).change(function(){
+            $editDiv.find("input.plot-name").val(mapset.name()).change(function(){
                 self.set(options, $(this));  //mapset.options.name = $(this).val();
                 $mapset.find('span.plot-title').html(mapset.options.name);
             });
@@ -1149,13 +1140,13 @@ function ProvenanceController(panelId){
             self.$prov.find('.landing').slideUp();
         },
         setFormula: function(plot, $container){
-            plot.formula = plotFormula(plot);
+            plot.formula = plot.formula();
             var formula = plot.formula.formula;
             if($container) {
                 $container.find('span.plot-formula').html('= '+ formula);
                 //if plot units are calculated, change those
                 if(!plot.options.units) $container.find('input.plot-units').val(plotUnits(this.graph, plot));
-                if(!plot.options.name) $container.find('input.plot-name').val(plotName(this.graph, plot));
+                if(!plot.options.name) $container.find('input.plot-name').val(plot.name());
             }
         },
         legendEditor: function($target, options, type){

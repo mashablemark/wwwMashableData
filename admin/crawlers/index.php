@@ -25,7 +25,7 @@ include_once("../../global/php/common_functions.php");
  * command: [Get|Crawl|Update]
  * apiid: required by all commands
  * since: required by "Update" command
- * periodicity:  required by "Update" command
+ * freq:  required by "Update" command
 
 
 to run as a cron (with no space between the * and /5):
@@ -41,7 +41,7 @@ $time_start = microtime(true);
 $command =  $_REQUEST['command'];
 $api_id =  isset($_REQUEST['apiid'])?intval($_REQUEST['apiid']):0;
 $since =  isset($_REQUEST['since'])?$_REQUEST['since']:'';
-$periodicity =  isset($_REQUEST['periodicity'])?$_REQUEST['periodicity']:'all';
+$periodicity =  isset($_REQUEST['freq'])?$_REQUEST['freq']:'all';
 $user_id =  intval($_REQUEST['uid']);
 $access_token=  isset($_REQUEST['accesstoken'])?$_REQUEST['accesstoken']:"";
 $catid =  intval(isset($_REQUEST['catid'])?$_REQUEST['catid']:0);
@@ -356,7 +356,7 @@ function findSets($apiid){
     while($geography = $result->fetch_assoc()){
         array_push($geographies, $geography);
     }
-    $sql = "select seriesid, name, units, periodicity, lat, lon, geoid, pointsetid, mapsetid "
+    $sql = "select seriesid, name, units, freq, lat, lon, geoid, pointsetid, mapsetid "
         . "from series where geoid is null and pointsetid is null and seriesid = 581935 and apiid=" . $apiid; // . " LIMIT 0 , 30";
     $result = runQuery($sql, "FindSets");
     $matches_found = false;
@@ -373,14 +373,14 @@ function findSets($apiid){
                 print($serie["name"].": ".trim(substr($serie["name"],$pos+4))."<BR>");
                 $geography = $gresult->fetch_assoc();
                 if($geography["type"]=="M"){
-                    $mapSetId = getMapSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                    $mapSetId = getMapSet($setName, $apiid, $serie["freq"], $serie["units"]);
                     $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
                         . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
                         .", lon=".(($geography["lon"]==null)?"null":safeStringSQL($geography["lon"]))
                         . " where seriesid=".$serie["seriesid"];
                     runQuery($sql);
                 } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for other types
-                    $pointSetId = getPointSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                    $pointSetId = getPointSet($setName, $apiid, $serie["freq"], $serie["units"]);
                     $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
                         . " where seriesid=".$serie["seriesid"];
                     runQuery($sql);
@@ -394,7 +394,7 @@ function findSets($apiid){
                     $matches_found = ($matches_found>0)?$matches_found+1:1;  //match!
                     $setName = trim(preg_replace ($regex,"",$serie["name"]));
                     if($geography["type"]=="M"){
-                        $mapSetId = getMapSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                        $mapSetId = getMapSet($setName, $apiid, $serie["freq"], $serie["units"]);
                         print($serie["name"]."|".$setName."|".$mapSetId."<BR>");
                         $sql = "update series set mapsetid=".$mapSetId.",geoid=".$geography["geoid"]
                             . ", lat=".(($geography["lat"]==null)?"null":safeStringSQL($geography["lat"]))
@@ -405,7 +405,7 @@ function findSets($apiid){
                         //print("<br>MATCHES_FOUND: ". $matches_found ." SERIESNAME: ".$serie["name"]. " SET: ".$setName."<br>");
                         break;
                     } elseif($geography["type"]=="X") {  //this second test should be unnecessary, but safe + ready for
-                        $pointSetId = getPointSet($setName, $apiid, $serie["periodicity"], $serie["units"]);
+                        $pointSetId = getPointSet($setName, $apiid, $serie["freq"], $serie["units"]);
                         $sql = "update series set pointsetid=".$pointSetId.", geoid=".$geography["containingid"].", lat=".$geography["lat"].", lon=".$geography["lon"]
                             . " where seriesid=".$serie["seriesid"];
                         runQuery($sql);
@@ -445,7 +445,7 @@ function findSets($apiid){
 
 
     //mapsets diagnostics:  select membercount, count(*) as number_of_set from (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid) mc group by membercount
-    //select seriesid, skey, s.name, s.mapsetid, s.geoid, s.periodicity, s.units from series s, (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid having count(*)<=5) ms where s.mapsetid=ms.mapsetid
+    //select seriesid, skey, s.name, s.mapsetid, s.geoid, s.freq, s.units from series s, (select mapsetid, count(*) as membercount from series where apiid = 1 and mapsetid is not null group by mapsetid having count(*)<=5) ms where s.mapsetid=ms.mapsetid
     return array("geographies_found"=> $matches_found, "series_scanned_for_geo" => $count);
 }
 

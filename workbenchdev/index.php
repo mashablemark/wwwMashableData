@@ -127,7 +127,7 @@
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
-                    <select id="series_search_periodicity">
+                    <select id="series_search_freq">
                         <option selected="selected" value="all">all frequencies</option>
                         <option value="D">daily</option>
                         <option value="W">weekly</option>
