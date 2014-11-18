@@ -100,12 +100,13 @@ MashableData.common = {
         return udt
     },
 
-    dateConversionData: function dateConversionData(key, jsStart, jsEnd){
+    dateConversionData: function dateConversionData(series){
     //if end is not specified, this year is used.
     //if start is not specified, a 10 year interval  is used
+        var key=series.sourcekey, jsStart=series.firstdt, jsEnd=series.lastdt, period=common.period;
         if(jsStart && typeof jsStart != "object") jsStart = new Date(parseInt(jsStart));
         if(jsEnd && typeof jsEnd != "object") jsEnd = new Date(parseInt(jsEnd));
-        var data = '', altStart;
+        var data = [], altStart;
         var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
         var today = new Date();
         var mashableDate = this.mashableDate;
@@ -123,7 +124,7 @@ MashableData.common = {
                     jsStart.setUTCMonth(jsStart.getUTCMonth() - 119);
                 }
                 while(jsStart <= jsEnd){
-                    data += (data?'|':'') + mashableDate(jsStart.getTime(), 'M') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay);
+                    data.push(mashableDate(jsStart.getTime(), 'M') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay));
                 }
                 break;
             case "DAYSPERQUARTER":  //seriesid = 5258276
@@ -139,13 +140,11 @@ MashableData.common = {
                     jsStart.setUTCMonth(jsStart.getUTCMonth() - 119);
                 }
                 while(jsStart <= jsEnd){
-                    data += (data?'|':'') + mashableDate(jsStart.getTime(), 'Q') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay);
+                    data.push(mashableDate(jsStart.getTime(), 'Q') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay));
                 }
                 break;
             case "DAYSPERYEAR":  //seriesid = 5258275
                 jsEnd = jsEnd || new Date(today.getUTCFullYear() + '-01-01 UTC');
-
-
                 if(jsEnd){
                     jsEnd = new Date(jsEnd.getUTCFullYear() + '-01-01 UTC');
                 } else {
@@ -157,10 +156,11 @@ MashableData.common = {
                     jsStart = new Date((jsEnd.getUTCFullYear() - 20)  + '-01-01 UTC');
                 }
                 while(jsStart <= jsEnd){
-                    data += (data?'|':'') + mashableDate(jsStart.getTime(), 'A') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCFullYear(jsStart.getUTCFullYear()+1))/period.value.D);
+                    data.push(mashableDate(jsStart.getTime(), 'A') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCFullYear(jsStart.getUTCFullYear()+1))/period.value.D));
                 }
                 break;
         }
+        series.data = data; //already parsed!
         return data;
     },
 
@@ -172,10 +172,9 @@ MashableData.common = {
         else html += 'You have requested to mash series with different frequencies.  This will require first recalculating the series data having a shorter reporting period to a common longer period.  Please confirm by selecting the algorithm and the treatment of missing and null values.<br>';
         html += '<br>Component series that must be recalculated:'
             + '<ol>';
-        for(i=0;i<plot.components.length;i++){
-            asset = graph.assets[plot.components[i].handle];
-            html += '<li><b>'+asset.name+'</b> ('+asset.units+') '+period.name[fdown=='A'&&asset.freqset.Q?'Q':'M']+'</li>';
-        }
+        plot.eachComponent(function(){
+            html += '<li><b>'+this.name()+'</b> ('+this.units+') '+common.period.name[fdown=='A'&&(this.freqset.indexOf(Q)==-1?'Q':'M')]+'</li>';
+        });
         html += '</ol>'
             //+ 'Recalculate individual compnent series data to be <select id="dsw_period"><option value="A">annual</option>'+ (minPeriod=='Q'?'<option value="Q">quarterly</option>':'')+'</select> if different<br>'
             + '<br>Each component series will be individual recalculated as needed to the new frequency by:<br>'
@@ -389,9 +388,9 @@ MashableData.common = {
                 console.info(jsoData);
                 if(jsoData.status=="ok"){
                     if(!embed){
-                        totalServerTime += parseFloat(jsoData.exec_time);
+                        globals.totalServerTime += parseFloat(jsoData.exec_time);
                         if(jsoData.msg) dialogShow('', jsoData.msg);
-                        console.info(params.command+': '+jsoData.exec_time+' (total server time: '+totalServerTime+'ms)');
+                        console.info(params.command+': '+jsoData.exec_time+' (total server time: '+globals.totalServerTime+'ms)');
                     }
                     callBack(jsoData, textStatus, jqXHR);
                     if(params.modal!='persist' && !embed) unmask();

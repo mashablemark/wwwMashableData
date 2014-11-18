@@ -6,6 +6,7 @@ MashableData.grapher = function(){
     var MD = MashableData,
         globals = MD.globals,
         common = MD.common,
+        mapsList = common.maps,
         panelGraphs = globals.panelGraphs,
         months = globals.months,
         period = globals.period,
@@ -18,8 +19,6 @@ MashableData.grapher = function(){
         dashStyles = globals.dashStyles,
         op = globals.op,
         oMyGraphs = globals.MyGraphs,
-        vectorPattern = globals.vectorPattern,
-        handlePattern = globals.handlePattern,
         isIE = globals.isIE,
         mapBackground = globals.mapBackground,
         graphScriptFiles = globals.graphScriptFiles,
@@ -504,21 +503,6 @@ MashableData.grapher = function(){
             }
         },
 
-        emptyGraph: function emptyGraph(){
-            return  {
-                annotations: [],
-                title: '',
-                type: 'auto',
-                map: '',
-                assets: {},
-                analysis: null,
-                mapconfig: {},
-                start: null,
-                end: null,
-                published: 'N'
-            };
-        },
-
         makeChartOptionsObject: function makeChartOptionsObject(oGraph){
             console.time('makeChartOptionsObject');
             var i, j, dt, allX = {}, xVals = {};
@@ -598,47 +582,46 @@ MashableData.grapher = function(){
             var lineIndex = 0;
 
             //MashableData's time conversion series are mathematical creations. Make data as needed
-            function firstLast(main, asset){
-                if(typeof asset.firstdt != 'undefined'){
-                    main.firstdt = typeof main.firstdt == 'undefined' ? parseInt(asset.firstdt) : Math.min(parseInt(asset.firstdt), parseInt(main.firstdt));
-                    main.lastdt = typeof main.lastdt  == 'undefined' ? parseInt(asset.lastdt ) : Math.max(parseInt(asset.lastdt ), parseInt(main.lastdt));
+            function firstLast(MashableSeries, component){
+                if(typeof component.firstdt != 'undefined'){
+                    MashableSeries.firstdt = typeof MashableSeries.firstdt == 'undefined' ? parseInt(component.firstdt) : Math.min(parseInt(component.firstdt), parseInt(MashableSeries.firstdt));
+                    MashableSeries.lastdt = typeof MashableSeries.lastdt  == 'undefined' ? parseInt(component.lastdt ) : Math.max(parseInt(component.lastdt ), parseInt(MashableSeries.lastdt));
                 } else {
-                    if(asset.mapsetid || asset.pointsetid){
-                        for(location in asset.data){
-                            main.firstdt = typeof main.firstdt == 'undefined' ? parseInt(asset.data[location].firstdt) : Math.min(parseInt(asset.data[location].firstdt), parseInt(main.firstdt));
-                            main.lastdt = typeof main.lastdt  == 'undefined' ? parseInt(asset.data[location].lastdt ) : Math.max(parseInt(asset.data[location].lastdt ), parseInt(main.lastdt));
+                    if(component.mapsetid || component.pointsetid){
+                        for(location in component.data){
+                            MashableSeries.firstdt = typeof MashableSeries.firstdt == 'undefined' ? parseInt(component.data[location].firstdt) : Math.min(parseInt(component.data[location].firstdt), parseInt(MashableSeries.firstdt));
+                            MashableSeries.lastdt = typeof MashableSeries.lastdt  == 'undefined' ? parseInt(component.data[location].lastdt ) : Math.max(parseInt(component.data[location].lastdt ), parseInt(MashableSeries.lastdt));
                         }
                     }
                 }
             }
             //find and create any mathematical days per interval series
             oGraph.eachComponent(function(i, plot){
-                var asset = oGraph.assets[this.handle];
-                if(asset.src == 'MashableData'){
+                if(this.src == 'MashableData'){
+                    var MashableSeries = this;
                     //if single component, use start and end of graph else use start and end of plot components
                     if(plot.components.length==1){
-                        if(!oGraph.firstdt&&!oGraph.lastdt) oGraph.eachComponent(function(){ firstLast(oGraph, oGraph.assets[this.handle]) });
-                        asset.firstdt = oGraph.firstdt;
-                        asset.lastdt = oGraph.lastdt;
+                        if(!oGraph.firstdt&&!oGraph.lastdt) oGraph.eachComponent(function(){ firstLast(oGraph, oGraph.assets[this.handle()]) });
+                        this.firstdt = oGraph.firstdt;
+                        this.lastdt = oGraph.lastdt;
                     } else {
-                        delete asset.firstdt;
-                        delete asset.lastdt;
-                        $.each(plot.components, function(){ firstLast(asset, oGraph.assets[this.handle]) });
+                        delete MashableSeries.firstdt;
+                        delete MashableSeries.lastdt;
+                        plot.eachComponent(function(){firstLast(MashableSeries, this)});
                     }
-                    asset.data = dateConversionData(asset.skey, asset.firstdt, asset.lastdt);
+                    MashableSeries.data = MashableData.common.dateConversionData(MashableSeries);
                 }
             });
 
-
             for(i=0;i<oGraph.plots.length;i++){
                 var oPlot = oGraph.plots[i];
-                var oSerie = createSerieFromPlot(oGraph, i);
+                var oSerie = oPlot.createHighSeries();
                 if(!oPlot.options.color) oPlot.options.color = nextColor(oGraph.plots);
                 var oDataSeries = {
                     name: oSerie.name,
                     marker: {enabled: oGraph.type=='marker'},
                     id: 'P'+i,
-                    period: oSerie.period,
+                    freq: oSerie.freq,
                     color: oPlot.options.color,
                     data: oSerie.data,
                     yAxis: 0
@@ -751,7 +734,7 @@ MashableData.grapher = function(){
                 case "auto":
                     if(oGraph.smallestPeriod!=oGraph.largestPeriod ){
                         for(i=0;i<jschart.series.length;i++){
-                            if(oGraph.largestPeriod == jschart.series[i].period){  //convert the largest periods to column if multi-frequency (ie. if monthly + quarterly + annual, only annual data become columns) or very short series
+                            if(oGraph.largestPeriod == jschart.series[i].freq){  //convert the largest periods to column if multi-frequency (ie. if monthly + quarterly + annual, only annual data become columns) or very short series
                                 jschart.series[i].type = 'column';
                                 jschart.series[i].zIndex = 8;
                                 jschart.series[i].pointRange = period.value[jschart.series[i].period];
@@ -763,7 +746,7 @@ MashableData.grapher = function(){
                     } else {  //all frequencies the same; see if we have very short series
                         var maxCount = 0, onscreenCount;
                         for(i=0;i<jschart.series.length;i++){
-                            if(jschart.series[i].period){  //scatter series used for annotations does not have a period property = skip these
+                            if(jschart.series[i].freq){  //scatter series used for annotations does not have a freq property = skip these
                                 onscreenCount = 0;
                                 for(j=0;j<jschart.series[i].data.length;j++){
                                     dt = jschart.series[i].data[j][0];
@@ -832,99 +815,6 @@ MashableData.grapher = function(){
             return jschart
         },
 
-        createSerieFromPlot: function createSerieFromPlot(oGraph, plotIndex){
-            console.time('createSerieFromPlot');
-            var valuesObject, y, components, i, j, sHandle, plot, calculatedSeries, data, point, plotData=[], dateKey, oComponentData = {};
-            plot = oGraph.plots[plotIndex];
-            calculatedSeries = {name: plot.name(), units: plot.units()};
-            components = plot.components;
-
-            //note freq in a plot must be the same, either natively or through transformations
-            calculatedSeries.period = plot.options.fdown || oGraph.assets[components[0].handle].period;
-            plot.formula(); //refesh the formula object
-
-            /*    if(components.length==1 && ((components[0].options.k||1)==1) && (components[0].options.op=='+' || components[0].options.op=='*')){ //short cut for straight plots
-             calculatedSeries.data = oGraph.assets[components[0].handle].data;
-             } else {*/
-            //THE BRAINS:
-            var expression = 'return ' + plot.formula.formula.replace(patVariable,'values.$1') + ';';
-            var compute = new Function('values', expression);
-
-            //1. rearrange series data into single object by date keys
-            var compSymbols = [], symbol;
-            for(i=0;i<components.length;i++ ){
-                symbol = plot.compSymbol(i);
-                compSymbols.push(symbol); //calculate once and use as lookup below
-                //DOWNSHIFT DETECTION
-                if(plot.options.fdown && plot.options.fdown!=oGraph.assets[components[i].handle].period){
-                    data = common.downShiftData(oGraph.assets[components[i].handle], plot.options.fdown, plot.options.algorithm, plot.options.missing);
-                } else {
-                    data = oGraph.assets[components[i].handle].data.split('|');
-                }
-                for(j=0; j<data.length; j++){
-                    point = data[j].split(':');
-                    if(!oComponentData[point[0].toString()]){
-                        oComponentData[point[0].toString()] = {};
-                    }
-                    oComponentData[point[0].toString()][symbol] = point[1];
-                }
-            }
-            //2. calculate value for each date key (= grouped points)
-            var required = !plot.options.componentData || plot.options.componentData=='required';
-            var missingAsZero =  plot.options.componentData=='missingAsZero';
-            var nullsMissingAsZero =  plot.options.componentData=='nullsMissingAsZero';
-
-            var breakNever = !plot.options.breaks || plot.options.breaks=='never';
-            var breakNulls = plot.options.breaks=='nulls';
-            var breakMissing = plot.options.breaks=='missing';
-
-            for(dateKey in oComponentData){
-                valuesObject = {};
-                y = true;
-                for(i=0;i<compSymbols.length;i++ ){
-                    if(!isNaN(oComponentData[dateKey][compSymbols[i]])){
-                        valuesObject[compSymbols[i]] = parseFloat(oComponentData[dateKey][compSymbols[i]]);
-                    } else {
-                        if(oComponentData[dateKey][compSymbols[i]]=='null'){
-                            if(nullsMissingAsZero){
-                                valuesObject[compSymbols[i]] = 0;
-                            } else {
-                                y = null;
-                                break;
-                            }
-                        } else {
-                            if(required) {
-                                y = null;
-                                break;
-                            } else {
-                                valuesObject[compSymbols[i]] = 0;
-                            }
-                        }
-                    }
-                }
-                if(y) {
-                    try{
-                        y = compute(valuesObject);
-                        if(Math.abs(y)==Infinity || isNaN(y)) y=null;
-                    } catch(err){
-                        y = null;
-                    }
-                }
-                if(y!==null || !breakNever){
-                    if(y!==null) y = rationalize(y);  //fix floating point math rounding errors
-                    plotData.push([Date.parse(dateFromMdDate(dateKey)), y]);
-                }
-            }
-            //3. reconstruct an ordered MD data array
-            plotData.sort(function(a,b){return a[0]-b[0];});
-            if(breakMissing){
-                plotData = addBreaks(plotData, calculatedSeries.period);
-            }
-            calculatedSeries.data = plotData;
-            console.timeEnd('createSerieFromPlot');
-            return calculatedSeries;
-        },
-
         buildGraphPanel: function buildGraphPanel(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
 
             if(globals.isEmbedded){
@@ -943,9 +833,9 @@ MashableData.grapher = function(){
                 //missing assets detect
                 var missingAssets = [];
                 oGraph.eachComponent(function(c, plot){
-                    if(!oGraph.assets[this.handle]) {
-                        missingAssets.push(this.handle);
-                        plot.components.splice(c, 1);
+                    if(!this.data && !oGraph.assets[this.handle()]) {
+                        missingAssets.push(this.handle());
+                        plot.components.splice(c--, 1);
                     }
                 });
                 console.time('buildGraphPanel:header');
@@ -1506,77 +1396,19 @@ MashableData.grapher = function(){
                     $thisPanel.find('select.change-map').html(fillChangeMapSelect()).change(function(){
                         //create new map panel!
                         var $mapSelect = $(this);
-                        //1. copy existing object but not its map assets or calculate map data (saves time for large point & mapsets)
-                        var assets = oGraph.assets;
-                        delete oGraph.assets;
-                        var calculatedMapData = oGraph.calculatedMapData;
-                        delete oGraph.calculatedMapData;
-                        delete oGraph.assets;
-                        var controls = oGraph.controls;
-                        delete oGraph.controls;
-                        var newGraph = $.extend(true, {}, oGraph);
-                        oGraph.assets = assets;
-                        newGraph.assets = {};
-                        oGraph.calculatedMapData = calculatedMapData;
-                        oGraph.controls = controls;
-                        //2. set new map
-                        newGraph.map = $(this).val();
-                        newGraph.mapFile = mapsList[$(this).val()].jvectormap;
-                        //3. compile a list of the mapsetids and corresponding bunnies for the old graph
-                        var i, oBunnies={};
-                        function findBunnies(plot){
-                            var asset;
-                            for(i=0;i<plot.components.length;i++){
-                                if(vectorPattern.test(plot.components[i].handle)){ //tests for "S" or "U"
-                                    asset = assets[plot.components[i].handle];
-                                    if(asset.mapsetid && mapsList[oGraph.map].bunny && mapsList[oGraph.map].bunny==asset.geoid){
-                                        //found a bunny!
-                                        oBunnies[asset.handle] = {mapsetid: asset.mapsetid, handle: asset.handle}; //use object to dedup
-                                    } else {
-                                        //not a bunny so we will need this asset...
-                                        newGraph.assets[asset.handle] = asset;
-                                    }
-                                }
-                            }
-                        }
-                        newGraph.eachPlot(function(p, plot){findBunnies(plot)});
-                        var handle;
-                        function replaceBunny(plot, oldHandle, bunny, regex, replacment){
-                            var i, asset;
-                            for(i=0;i<plot.components.length;i++){
-                                if(plot.components[i].handle == oldHandle){
-                                    //replace bunny!
-                                    plot.components[i].handle = bunny.handle;
-                                    if(plot.options.name) plot.options.name = plot.options.name.replace(regex,replacement);
-                                }
-                            }
-                        }
-                        //4. talk to db (even if no bunnies to get regex and replacement string)
-                        callApi(
-                            {command:"ChangeMaps", bunnies: oBunnies, fromgeoid: mapsList[oGraph.map].bunny, togeoid: mapsList[newGraph.map].bunny,  modal:'persist'},
-                            function(jsoData, textStatus, jqXHR){
-                                var regex = new RegExp(jsoData.regex);
-                                newGraph.title = newGraph.title.replace(regex, jsoData.replacement);
-                                for(handle in jsoData.bunnies) {
-                                    newGraph.assets[jsoData.bunnies[handle].handle] = jsoData.bunnies[handle];
-                                    if(handle){ //undefined if no bunnies
-                                        newGraph.eachPlot(function(p, plot){
-                                            replaceBunny(plot, handle, jsoData.bunnies[handle], jsoData.regex, jsoData.replacement);
-                                        });
-                                    }
-                                }
+                        var newGraph = oGraph.clone(); //doesn't copy assets or data
+                        var newMapCode = $mapSelect.val();
+                        $mapSelect.val(oGraph.map);  //for old graph, continue to show its map in its selector
 
-                                var fileAssets = ['/global/js/maps/'+ newGraph.mapFile +'.js'];
-                                require(fileAssets); //parallel load while getting db assets
-                                getAssets(newGraph, function(){ //this will get the Map and Pointset
-                                    require(fileAssets, function(){ //ensure that we have the new map file
-                                        buildGraphPanel(newGraph);//panelId not passed -> new panel
-                                        $mapSelect.val(oGraph.map);//for old graph, continue to show its map in teh selector
-                                    });
-                                });
-                            }
-                        );
+                        var fileAssets = ['/global/js/maps/'+ globals.maps[newMapCode].jvectormap +'.js'];
+                        require(fileAssets); //parallel load while getting db assets
+                        newGraph.changeMap(newMapCode, function(){
+                            require(fileAssets, function(){ //ensure that we have the new map file
+                                buildGraphPanel(newGraph); //panelId not passed -> new panel
+                            });
+                        });
                     });
+
                     showChangeSelectors();
                     function showChangeSelectors(){
                         if(oGraph.plots){
@@ -1984,7 +1816,7 @@ MashableData.grapher = function(){
                                     //loop though components and build a values array
                                     var asset, seriesVal, symbolData = {}, names = [], i, numNamesAsWords = [], symbol, o = {}, nameTree = {};
                                     $.each(oGraph.mapsets[0].components, function(c){
-                                        asset = oGraph.assets[this.handle];
+                                        asset = oGraph.assets[this.handle()];
                                         names.push(asset.name);
                                         symbol = compSymbol(c);
                                         if(this.handle[0]=='M'){
@@ -2122,7 +1954,7 @@ MashableData.grapher = function(){
 
                                 var selectedRegions = $map.getSelectedRegions();
                                 var selectedMarkers = $map.getSelectedMarkers();
-                                var grph = emptyGraph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
+                                var grph = new Graph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
                                 grph.plots =[];
                                 grph.title = 'from map of ' + oGraph.title;
                                 for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
@@ -2139,14 +1971,14 @@ MashableData.grapher = function(){
                                             regionNames.push($map.getRegionName(regionCodes[j]));
                                             for(c=0;c<mapComps.length;c++){
                                                 if(mapComps[c].handle[0]=='M'){
-                                                    asset = $.extend({units: oGraph.assets[mapComps[c].handle].units, period: oGraph.assets[mapComps[c].handle].period}, oGraph.assets[mapComps[c].handle].data[regionCodes[j]]);
+                                                    asset = $.extend({units: oGraph.assets[mapComps[c].handle()].units, period: oGraph.assets[mapComps[c].handle()].period}, oGraph.assets[mapComps[c].handle()].data[regionCodes[j]]);
                                                     newComp = $.extend(true, {}, mapComps[c]);
                                                     newComp.handle = asset.handle;
-                                                    grph.assets[asset.handle] = asset; //data, first/lastdt, handle & name
+                                                    grph.assets[asset.handle()] = asset; //data, first/lastdt, handle & name
                                                     plt.components.push(newComp);
                                                 } else {
                                                     plt.components.push($.extend(true, {}, mapComps[c]));
-                                                    grph.assets[mapComps[c].handle] = oGraph.assets[mapComps[c].handle];
+                                                    grph.assets[mapComps[c].handle()] = oGraph.assets[mapComps[c].handle()];
                                                 }
                                             }
                                         }
@@ -2158,13 +1990,13 @@ MashableData.grapher = function(){
                                             found = false;
                                             comps = pointset.components;
                                             for(c=0;c<comps.length;c++){
-                                                if(comps[c].handle[0]=='X' && oGraph.assets[comps[c].handle].data[selectedMarkers[i]]){
+                                                if(comps[c].handle[0]=='X' && oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]){
                                                     found = true;
-                                                    sHandle = oGraph.assets[comps[c].handle].data[selectedMarkers[i]].handle;
-                                                    grph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle].units, period: oGraph.assets[comps[c].handle].period}, oGraph.assets[comps[c].handle].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
+                                                    sHandle = oGraph.assets[comps[c].handle()].data[selectedMarkers[i]].handle;
+                                                    grph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle()].units, period: oGraph.assets[comps[c].handle()].period}, oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
                                                     comps[c].handle = sHandle;
                                                 } else {
-                                                    grph.assets[comps[c].handle] = oGraph.assets[comps[c].handle];
+                                                    grph.assets[comps[c].handle()] = oGraph.assets[comps[c].handle()];
                                                 }
                                             }
                                             if(found) grph.plots.push(pointset);
@@ -2178,12 +2010,12 @@ MashableData.grapher = function(){
                                             plt = $.extend(true, {}, oGraph.mapsets[0]);
                                             for(j=0;j<plt.components.length;j++){
                                                 if(plt.components[j].handle.substr(0,1)=='M'){ //need to replace mapset with this region's series (note: no pointseets components allowed in multi-component a mapset)
-                                                    var mapAsset = oGraph.assets[plt.components[j].handle];
+                                                    var mapAsset = oGraph.assets[plt.components[j].handle()];
                                                     var regionSeries = $.extend(true, {name: mapAsset.geoname, geocounts: mapAsset.maps, period: mapAsset.period, units: mapAsset.units, mapsetid:  plt.components[j].handle.substr(1)}, mapAsset.data[selectedRegions[i]]);
                                                     plt.components[j].handle = regionSeries.handle; //swap the series for the mapset in the plot blueprint
-                                                    grph.assets[regionSeries.handle] = regionSeries; //add the series to the graph assets
+                                                    grph.assets[regionSeries.handle()] = regionSeries; //add the series to the graph assets
                                                 } else {
-                                                    grph.assets[plt.components[j].handle] = $.extend(true, {}, oGraph.assets[plt.components[j].handle]);
+                                                    grph.assets[plt.components[j].handle()] = $.extend(true, {}, oGraph.assets[plt.components[j].handle()]);
                                                 }
                                             }
                                             if(plt.name) plt.name += ' - ' + $map.getRegionName(selectedRegions[i]);
@@ -2776,8 +2608,8 @@ MashableData.grapher = function(){
                         for(var i=0;i<regions.length;i++){  //iterate through the list
                             latLon=null;
                             $.each(oGraph.mapsets[0].components, function(c, comp){
-                                if(oGraph.assets[comp.handle].data[regions[i]]&&comp.handle[0]=='M'&&oGraph.assets[comp.handle].data[regions[i]].latLon){
-                                    latLon = oGraph.assets[comp.handle].data[regions[i]].latLon.split(',');
+                                if(oGraph.assets[comp.handle()].data[regions[i]]&&comp.handle[0]=='M'&&oGraph.assets[comp.handle()].data[regions[i]].latLon){
+                                    latLon = oGraph.assets[comp.handle()].data[regions[i]].latLon.split(',');
                                 }
                             });
                             bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
@@ -2869,12 +2701,12 @@ MashableData.grapher = function(){
                             compSymbols.push(symbol); //calculate once and use as lookup below
                             //TODO: apply any series down-shifting here instead of just parroting series data
                             if(components[i].handle[0]=='M'){
-                                for(geo in graph.assets[components[i].handle].data){
+                                for(geo in graph.assets[components[i].handle()].data){
                                     if(!geos[geo]) { //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
                                         geos[geo]=true;
-                                        sortedGeoList.push({geo: geo, name: graph.assets[components[i].handle].geoname});
+                                        sortedGeoList.push({geo: geo, name: graph.assets[components[i].handle()].geoname});
                                     }
-                                    data = graph.assets[components[i].handle].data[geo].data.split('|');
+                                    data = graph.assets[components[i].handle()].data[geo].data.split('|');
                                     for(j=0; j<data.length; j++){
                                         point = data[j].split(':');
                                         if(!oComponentData[point[0].toString()]){
@@ -2887,7 +2719,7 @@ MashableData.grapher = function(){
                                     }
                                 }
                             } else {
-                                data = graph.assets[components[i].handle].data.split('|');
+                                data = graph.assets[components[i].handle()].data.split('|');
                                 for(j=0; j<data.length; j++){
                                     point = data[j].split(':');
                                     if(!oComponentData[point[0].toString()]){
@@ -2908,7 +2740,7 @@ MashableData.grapher = function(){
                         var breakMissing = mapset.options.breaks=='missing';
 
                         mapTitle = mapset.name();
-                        mapPeriod = graph.assets[components[0].handle].period; //for now, all components for have same freq, so just check the first component
+                        mapPeriod = graph.assets[components[0].handle()].period; //for now, all components for have same freq, so just check the first component
                         mapUnits = plotUnits(graph, mapset);
 
                         for(dateKey in oComponentData){
@@ -2992,12 +2824,12 @@ MashableData.grapher = function(){
                             for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
                                 //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
                                 jsDateTime = dateFromMdDate(dateKey).getTime();
-                                row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
+                                row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle()].period)}; //TODO: handle down-shifted period
                                 for(i=0;i<sortedGeoList.length;i++){ //first each date row, loop through geos
                                     for(j=0;j<compSymbols.length;j++){  //for each geo, loop through components
                                         geo = sortedGeoList[i].geo;
                                         id = compSymbols[j]+'_'+i;
-                                        asset = graph.assets[components[j].handle];
+                                        asset = graph.assets[components[j].handle()];
                                         //add columns on first date key loop through
                                         if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+((asset.maps&&asset.data[geo])?asset.data[geo].geoname:asset.geoname||'')+'<br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
                                         if(components[j].handle[0]=='M'){
@@ -3045,7 +2877,7 @@ MashableData.grapher = function(){
                                 compSymbols.push(symbol); //calculate once and use as lookup below
                                 //TODO: apply any series down-shifting here instead of just parroting series data
                                 if(components[j].handle[0]=='X'){
-                                    Xdata = graph.assets[components[j].handle].data; //shortcut
+                                    Xdata = graph.assets[components[j].handle()].data; //shortcut
                                     for(latlon in Xdata){
                                         //"markers" object and "latlons" array is common for all pointsets in graph, but "sortedLatlonList" is per pointset
                                         if(!latlons[latlon]){
@@ -3072,7 +2904,7 @@ MashableData.grapher = function(){
                                         }
                                     }
                                 } else {
-                                    data = graph.assets[components[j].handle].data.split('|');
+                                    data = graph.assets[components[j].handle()].data.split('|');
                                     for(k=0; k<data.length; k++){
                                         point = data[k].split(':');
                                         if(!oComponentData[point[0].toString()]){
@@ -3093,7 +2925,7 @@ MashableData.grapher = function(){
                             var breakMissing = pointset.options.breaks=='missing';
 
                             mapTitle = mapTitle + pointset.name();
-                            mapPeriod = graph.assets[components[0].handle].period; //for now, all components must have same freq, so just check the first component
+                            mapPeriod = graph.assets[components[0].handle()].period; //for now, all components must have same freq, so just check the first component
 
                             if(pointset.options.attribute=='fill'){
                                 fillUnits = plotUnits(graph, pointset);
@@ -3192,12 +3024,12 @@ MashableData.grapher = function(){
                                 for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
                                     //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
                                     jsDateTime = dateFromMdDate(dateKey).getTime();
-                                    row = {"id": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle].period)}; //TODO: handle down-shifted period
+                                    row = {"id": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle()].period)}; //TODO: handle down-shifted period
                                     for(var ll=0;ll<sortedLatlonList.length;ll++){ //first each date row, loop through geos
                                         for(j=0;j<compSymbols.length;j++){  //for each latlon, loop through components
                                             latlon = sortedLatlonList[ll].latlon;
                                             id = compSymbols[j]+'_'+ll;
-                                            asset = graph.assets[components[j].handle];
+                                            asset = graph.assets[components[j].handle()];
 
                                             //add columns on first date key loop through
                                             if(firstDateKey) markerColumns.push({
@@ -3590,9 +3422,7 @@ MashableData.grapher = function(){
         getAssets = grapher.getAssets,
         fetchAssets = grapher.fetchAssets,
         createMyGraph = grapher.createMyGraph,
-        emptyGraph = grapher.emptyGraph,
         makeChartOptionsObject = grapher.makeChartOptionsObject,
-        createSerieFromPlot = grapher.createSerieFromPlot,
         buildGraphPanel = grapher.buildGraphPanel,
         isSummationMap = grapher.isSummationMap,
         visiblePanelId = grapher.visiblePanelId,
@@ -3680,27 +3510,25 @@ MashableData.grapher = function(){
         oGraph.largestPeriod = "N";
         var min, max, jsdt, handle, key;
         oGraph.eachComponent(function(){
-            if(!oGraph.assets[this.handle].firstdt && (this.handle.charAt(0)=='M' || this.handle.charAt(0)=='X')){
-                for(handle in oGraph.assets[this.handle].data){
-                    jsdt = oGraph.assets[this.handle].data[handle].firstdt;
-                    oGraph.assets[this.handle].firstdt = Math.min(oGraph.assets[this.handle].firstdt, jsdt)||jsdt;
-                    jsdt = oGraph.assets[this.handle].data[handle].lastdt;
-                    oGraph.assets[this.handle].lastdt = Math.max(oGraph.assets[this.handle].lastdt, jsdt)||jsdt;
+            if(!this.firstdt && (this.handle.charAt(0)=='M' || this.handle.charAt(0)=='X')){
+                for(handle in oGraph.assets[this.handle()].data){
+                    jsdt = oGraph.assets[this.handle()].data[handle].firstdt;
+                    oGraph.assets[this.handle()].firstdt = Math.min(oGraph.assets[this.handle()].firstdt, jsdt)||jsdt;
+                    jsdt = oGraph.assets[this.handle()].data[handle].lastdt;
+                    oGraph.assets[this.handle()].lastdt = Math.max(oGraph.assets[this.handle()].lastdt, jsdt)||jsdt;
                 }
             }
 
-            jsdt = oGraph.assets[this.handle].firstdt;
+            jsdt = this.firstdt;
             min = Math.min(jsdt, min)  || jsdt || min; //in case first date is missing
-            jsdt = oGraph.assets[this.handle].lastdt;
+            jsdt = this.lastdt;
             max = Math.max(jsdt, max)  || jsdt || min; //in case lasst date is missing
         });
-        if(oGraph.plots){
-            $.each(oGraph.plots, function(){
-                var thisPeriod = this.options.fdown || oGraph.assets[this.components[0].handle].period;
-                if(period.value[oGraph.smallestPeriod]>period.value[thisPeriod]) oGraph.smallestPeriod = thisPeriod;
-                if(period.value[oGraph.largestPeriod]<period.value[thisPeriod]) oGraph.largestPeriod = thisPeriod;
-            });
-        }
+        oGraph.eachPlot(function(){
+            var thisFreq = this.freq();
+            if(period.value[oGraph.smallestPeriod]>period.value[thisFreq]) oGraph.smallestPeriod = thisFreq;
+            if(period.value[oGraph.largestPeriod]<period.value[thisFreq]) oGraph.largestPeriod = thisFreq;
+        })
         oGraph.firstdt = min;
         oGraph.lastdt = max;
         oGraph.minZoom = oGraph.start || oGraph.firstdt;
@@ -3758,7 +3586,7 @@ MashableData.grapher = function(){
             if(isNaN(geoKey)){
                 graph.eachComponent(function(){
                     if(!geoName){ //TODO: pointsets names
-                        if(this.handle[0]=='M' && graph.assets[this.handle].data[geoKey]) geoName = graph.assets[this.handle].data[geoKey].geoname;
+                        if(this.handle[0]=='M' && graph.assets[this.handle()].data[geoKey]) geoName = graph.assets[this.handle()].data[geoKey].geoname;
                     }
                 });
             } else {

@@ -8,6 +8,7 @@
 
 var MashableData = {
     globals: {
+        totalServerTime: 0,
         isEmbedded: (window.location.hostname.indexOf('www.mashabledata.com')===-1 || window.location.pathname.indexOf('workbench')===-1),
         lang: {
             decimalPoint : '.',
@@ -119,8 +120,6 @@ var MashableData = {
             date: 6,
             dataStart: 7
         },
-        vectorPattern: /[SUL]/,   //series or user series handle test
-        handlePattern: /[MXSU]\d+/g,
         patVariable: /(\b[A-Z]{1,2}\b)/g,  //used to search and replace formula to use a passed in values object
         //SVGNS: "http://www.w3.org/2000/svg",
         isIE: /msie/i.test(navigator.userAgent) && !window.opera,

@@ -7,9 +7,8 @@
 
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
-var emptyGraph = grapher.emptyGraph, getAssets = grapher.getAssets,
-    buildGraphPanel = grapher.buildGraphPanel;
-var themeCubes = globals.themeCubes,
+var buildGraphPanel = grapher.buildGraphPanel,
+    themeCubes = globals.themeCubes,
     iconsHMTL = globals.iconsHMTL,
     panelGraphs = globals.panelGraphs,
     oMySets = globals.MySets,
@@ -47,7 +46,6 @@ var dialogues = {
     signInRequired: 'You must be signed in to do this edit and create your own series.  Please use the sign in button to use your Facebook account.'
 };
 //WORKBENCH GLOBAL VARIABLES
-var totalServerTime = 0;
 var colWidths = {
     quickView: 50,
     views: 55,
@@ -294,7 +292,7 @@ $(document).ready(function(){
         Highcharts.setOptions({
             tooltip: {
                 formatter: function(){  //shorten the data accord to period; add commas to number; show units
-                    var tooltip = formatDateByPeriod(this.point.x, this.series.options.period) + '<br>'
+                    var tooltip = formatDateByPeriod(this.point.x, this.series.options.freq) + '<br>'
                         + this.series.name.trim() + ':<br>'
                         + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text;
                     return tooltip;
@@ -496,8 +494,8 @@ function setupMyDataTable(){
             "aoColumns": [
                 { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'title', "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.series + "px",
                     "mRender": function(value, type, obj){
-                        return ((obj.mapsetid)?iconsHMTL.mapset:'')
-                            + ((obj.pointsetid)?iconsHMTL.pointset:'')
+                        return ((obj.settype=='M')?iconsHMTL.mapset:'')
+                            + ((obj.settype=='X')?iconsHMTL.pointset:'')
                             + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                             + value
                             + '<span class="handle">' + obj.handle + '</span>';
@@ -520,7 +518,7 @@ function setupMyDataTable(){
                         if(obj.url) {
                             return formatAsUrl(obj.url,  obj.src) ;
                         } else {
-                            return '<span class=" ui-icon ui-icon-person" title="user series"></span> ' +  obj.username||'';
+                            return '<span class=" ui-icon ui-icon-person" title="user sets"></span> ' +  obj.username||'';
                         }
                     }
                 },
@@ -551,7 +549,7 @@ function setupMyDataTable(){
         })
         .on('keyup change', seriesFilterChange);
 
-    $('.new-series').button().click(function(){showSeriesEditor()});
+    $('.new-data').button().click(function(){showSeriesEditor()});
     $('#series-table_info').appendTo('#local-series-header');
 
 }
@@ -559,7 +557,7 @@ function setupFindDataTable(){
     $dtFindDataTable =  $('#tblPublicSeries').html('').dataTable({
         "sDom": "frti", //TODO: style the components (http://datatables.net/blog/Twitter_Bootstrap) and avoid jQuery calls to append/move elements
         "bServerSide": true,
-        "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public series"},
+        "oLanguage": {"sEmptyTable": "Please use the form above to search the MashableData servers for public data"},
         "fnServerData": function ( sSource, aoData, fnCallback ) {
             var thisSearch =  $("#tblPublicSeries_filter input").val();
             aoData.push({name: "command", value: "NewSearchSeries"});
@@ -1083,11 +1081,11 @@ function previewMySeries(){
         if(hasMySeries) dialogShow('no series selected', dialogues.noSeriesSelected); else dialogShow('no series selected', dialogues.noMySeries);
     } else {
 
-        preview(series, false);
+        preview(series, false, false);
     }
 }
 function previewPublicSeries(){
-    var series = [], hasMySeries = false;
+    var series = [], hasMySeries = false, mapFilter;
     $('#series_search_text').focus(); //deselect anything table text accidentally selected through double-clicking
     $dtFindDataTable.find('tr.ui-selected').each(function(){
         series.push($dtFindDataTable.fnGetData(this));
@@ -1095,45 +1093,52 @@ function previewPublicSeries(){
     if(series.length==0){
         dialogShow('selection required', dialogues.noSeriesSelected);
     } else {
-        getAssets(series, function(){
-            preview(series, true);
-        });
+        var map = $("#find-data-map").val();
+        if(map=='none') map = false;
+        preview(series, map, true);      //GetMashableData takes basic set info, fills in missing freq and geo and fetches the series
     }
 }
 
 //QUICK VIEW FUNCTIONS
-function preview(series, showAddSeries){
+function preview(series, map, showAddSeries){ //series is an array of Set objects which may be missing freq, geo, and latlon info
     //if(notLoggedInWarningDisplayed()) return false;     // need to allow some playing before forcing a signup
-    var shandles=[], handle, i;
+    var needData=false, seriesNeedingData={}, serie, handle, i;
     for(i=0;i<series.length;i++){
-        if(!series[i].data){ //note:  if L, it *must* have its own data
-            shandles.push(series[i].handle);
+        serie = series[i];
+        if(!serie.data){ //note:  if L, it *must* have its own data
+            handle = serie.handle();
+            seriesNeedingData[handle] = {
+                setid: serie.setid,
+                freq: serie.preferedFreq(),
+                geoid: serie.geoid,
+                latlon: serie.latlon
+            };
+            needData = true;
         }
     }
-
-    if(shandles.length==0){
-        quickGraph(series, showAddSeries);
-    } else {
-        if(shandles.length==1){
-
-        }
-        callApi({command:  'GetMashableData',
-                shandles: shandles,
-                freq: globals.periodPref || 'M'
+    if(needData){
+        callApi(
+            {
+                command:  'GetSeries',
+                series: seriesNeedingData,
+                map: (map ? {code: map, bunny: globals.maps[map].bunny} : false)
             },
             function(jsoData, textStatus, jqXH){
                 for(i=0;i<series.length;i++){
-                    handle = series[i].handle;
-                    if(oMySets[handle]){ //if this happens to be in mySeries...
-                        oMySets[handle].data = jsoData.series[handle].data;
-                        oMySets[handle].notes = jsoData.series[handle].notes;
-                        oMySets[handle].geocounts = jsoData.series[handle].geocounts;
+                    handle = series[i].handle();
+                    if(jsoData.series[handle]){
+                        var newSerie = new MD.Set(jsoData.series[handle]);
                     }
-                    series.splice(i, 1, jsoData.series[handle]);
+                    if(oMySets[newSerie.handle()]){ //if this happens to be in mySeries...
+                        oMySets[handle] = newSerie;
+                    }
+                    series.splice(i,1, newSerie);
                 }
                 quickGraph(series, showAddSeries);
             }
-        );
+        )
+    } else {
+        quickGraph(series, showAddSeries);
     }
 }
 
@@ -1147,13 +1152,9 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
         oQuickViewSeries = aoSeries; //aoSeries is guarented to be an array of series
-        quickGraph = emptyGraph();
-        quickGraph.plots = [];
-        var handles = [];
+        quickGraph = new MD.Graph();
         for(i=0;i<aoSeries.length;i++){
-            quickGraph.assets[aoSeries[i].handle] = aoSeries[i];
-            quickGraph.plots.push({components:[{handle:aoSeries[i].handle, options:{k:1, op:'+'}}],  options:{}});
-            handles.push(aoSeries[i].handle);
+            quickGraph.addPlot([new MD.Component(aoSeries[i])]);
         }
     }
 
@@ -1167,7 +1168,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     delete quickChartOptions.chart.height;
     if(aoSeries instanceof Array){
         if(aoSeries.length==1){
-            quickChartOptions.title = {text: aoSeries[0].name};
+            quickChartOptions.title = {text: aoSeries[0].name()};
             quickChartOptions.legend = {enabled: false};
         } else {
             delete quickChartOptions.title;
@@ -1182,16 +1183,16 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         if(aoSeries.length==1 && aoSeries[0].notes){
             //this are the series info added to the quickView panel.  Could be more complete & styled
             qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph||'' + '</td></tr>'
-                + '<tr><td>Series notes:</td><td>' + aoSeries[0].notes||'' + '</td></tr>'
+                + '<tr><td>Set notes:</td><td>' + aoSeries[0].setmetadata||'' + '</td></tr>'
                 + '<tr><td>API notes:</td><td>need to fetch</td></tr>'
                 + '<tr><td>Theme notes:</td><td>need to fetch</td></tr>'
-                + '<tr><td>Series key:</td><td>' + aoSeries[0].skey||'' + '</td></tr>'
+                + '<tr><td>Series key:</td><td>' + aoSeries[0].setkey||'' + '</td></tr>'
                 + '</table>';
         }
 
         //determine whether and which maps to show in the selector
         for(i=0;i<aoSeries.length;i++){
-            if((aoSeries[i].mapsetid && sets.indexOf('M'+aoSeries[i].mapsetid)==-1) || (aoSeries[i].pointsetid && sets.indexOf('X'+aoSeries[i].pointsetid)==-1)){
+            if((aoSeries[i].set && sets.indexOf('M'+aoSeries[i].mapsetid)==-1) || (aoSeries[i].pointsetid && sets.indexOf('X'+aoSeries[i].pointsetid)==-1)){
                 if(aoSeries[i].mapsetid) sets.push('M'+aoSeries[i].mapsetid); else sets.push('X'+aoSeries[i].pointsetid);
                 for(var map in aoSeries[i].geocounts){
                     if(aoSeries[i].geocounts[map].set>1){
@@ -1285,19 +1286,11 @@ function quickViewToChart(btn){
             graph = panelGraphs[panelId];
             graph.controls.provenance.provOk(false); //commit any prov changes but do not redraw
         } else {
-            graph = emptyGraph();
+            graph = new MD.Graph();
         }
-        if(!graph.plots)graph.plots=[];
         for(var i=0;i<oQuickViewSeries.length;i++){
-            graph.assets[oQuickViewSeries[i].handle] = $.extend({save_dt: new Date().getTime()}, oQuickViewSeries[i]); //make copy
-            graph.plots.push({
-                components:
-                    [{
-                        handle:   oQuickViewSeries[i].handle,
-                        options: {k:1.0, op:'+'}
-                    }],
-                options: {}
-            });
+
+            graph.addPlot([new MD.Component(oQuickViewSeries[i])]);
         }
         if(panelId!='new'){
             $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
@@ -1333,7 +1326,7 @@ function quickViewToMap(){
     }
     var oGraph;
     if(panelId=="new"){
-        oGraph = emptyGraph()
+        oGraph = new MD.Graph();
     } else {
         oGraph = panelGraphs[panelId];
         oGraph.controls.provenance.provOk(false);

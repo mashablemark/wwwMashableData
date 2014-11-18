@@ -28,17 +28,16 @@ MashableData.Set = function(SetParams){
         }
     }
     this.parsedData();
-    if(this.freqs) this.freqs = this.freqs.split(' ');
+    if(this.freqs && !Array.isArray(this.freqs )) this.freqs = this.freqs.split(' ');
     return this;
 };
 (function(){
+    var MD = MashableData, globals = MD.globals, grapher = MD.grapher, Set = MD.Set, Graph = MD.Graph; 
     MashableData.Set.prototype.parsedData = function(updatedData){
         if(updatedData) this.data = updatedData;
         if(this.data){
-            if(Array.isArray(updatedData)){
-                this.data = updatedData;
-            } else {
-                this.data = updatedData.split('|');
+            if(!Array.isArray(this.data)){
+                this.data = this.data.split('|');
             }
             return this.data;
         } else {
@@ -102,21 +101,24 @@ MashableData.Set = function(SetParams){
         //prefered (previous requested freq) is available
         if(MashableData.globals.periodPref && this.freqs.indexOf(MashableData.globals.periodPref)!==-1) return MashableData.globals.periodPref;
         //order of preference= monthly, annual, quarterly, semi-annual or whatever
-        if(this.freqs.indexOf('M')) return 'M';
-        if(this.freqs.indexOf('A')) return 'A';
-        if(this.freqs.indexOf('Q')) return 'Q';
-        if(this.freqs.indexOf('H')) return 'H';
+        if(this.freqs.indexOf('M')!==-1) return 'M';
+        if(this.freqs.indexOf('A')!==-1) return 'A';
+        if(this.freqs.indexOf('Q')!==-1) return 'Q';
+        if(this.freqs.indexOf('H')!==-1) return 'H';
         return(this.freqs[0]);  //whatever
     };
+    MashableData.Set.prototype.name = function(){
+        return this.setname + (this.geoname?': '+this.geoname:'');
+    };
     MashableData.Set.prototype.handle = function(){
-        var handle = this.type + this.setid + this.preferedFreq();  //the bar minimum to be a set obj
+        var handle = this.settype + this.setid + this.preferedFreq();  //the bar minimum to be a set obj
         if(this.geoid) handle += 'G'+this.geoid;
         if(this.latLon) handle += 'L'+this.latLon;
         return handle;
     };
     MashableData.Set.prototype.clone = function(){
         var original = this;
-        var clone = new MashableData.Set(original);
+        var clone = new MashableData.Set(original);  //new object, same parameters
         return clone;
     };
     MashableData.Set.prototype.isSeries = function(){
@@ -127,14 +129,19 @@ MashableData.Set = function(SetParams){
     };
     MashableData.Set.prototype.isMarkerSet = function(){
         return (this.freq && !this.latlon && this.type=='X');
-    }
+    };
 })();
 
 MashableData.Component = function(SetParams, compnentOptions){
+    //if(SetParams.clone)   <<< should accept
     MashableData.Set.call(this, SetParams);
-    this.options = compnentOptions;
+    this.options = $.extend({k:1, op:'+'}, compnentOptions||{});
     return this;
 };
 
 MashableData.Component.prototype = Object.create(MashableData.Set.prototype);
-
+MashableData.Component.prototype.clone = function(){
+    var thisComp = this;
+    var clone = new MashableData.Component(thisComp, thisComp.options);  //new object, same parameters
+    return clone;
+};

@@ -3,12 +3,68 @@
  */
 
 
-MashableData.Graph = function(properties){
-    return this
+MashableData.Graph = function(properties){ //replaces function emptyGraph
+    this.annotations = [];
+    this.title = '';
+    this.type = 'auto';
+    this.map = '';
+    this.assets = {};
+    this.analysis = null;
+    this.mapconfig = {};
+    this.start = null;
+    this.end = null;
+    this.published = 'N';
+    return this;
 };
 (function(){
     var Graph = MashableData.Graph, globals = MashableData.globals;
-    Graph.prototype.delete = function(){
+    Graph.prototype.addPlot = function(componentsOrPlot, options){
+        if(Array.isArray(componentsOrPlot)){
+            var plot = new MashableData.Plot(componentsOrPlot, options);
+        } else {
+            plot = componentsOrPlot
+        }
+        plot.graph = this;
+        switch(plot.type()){
+            case 'M':
+                if(!this.mapsets) this.mapsets = [];
+                this.plots.push(plot);
+                break;
+            case 'X':
+                if(!this.pointsets) this.pointsets = [];
+                this.plots.push(plot);
+                break;
+            case 'S':
+                if(!this.plots) this.plots = [];
+                this.plots.push(plot);
+                break;
+        }
+        return plot;
+    };
+    Graph.prototype.addRegionPlot = function(components, options){
+        if(!this.plots) this.plots = [];
+        var plot = new MashableData.Plot(components);
+        plot.options = options || {};
+        plot.graph = this;
+        this.plots.push(plot);
+        return plot;
+    };
+    Graph.prototype.clone = function(){
+        var thisGraph = this, clone = new Graph();
+        clone.map = thisGraph.map;
+        clone.start = thisGraph.map;
+        clone.end = thisGraph.map;
+        clone.mapconfig = $.extend(true, {}, thisGraph.mapconfig);
+        clone.title = thisGraph.title;
+        clone.type = thisGraph.type;
+        clone.analysis = thisGraph.analysis;
+        clone.annotations = $.extend(true, {}, {a: thisGraph.annotations}).a;
+        thisGraph.eachPlot(function(){
+            thisGraph.addPlot(this.clone());
+        });
+    };
+
+    Graph.prototype.destroy = function(){
 
     };
     Graph.prototype.draw = function(){
@@ -21,19 +77,22 @@ MashableData.Graph = function(properties){
 
     };
     Graph.prototype.fetchAssets = function(callback){
+        //data will reside in the component after fully inflating.  However, the data and the properties need to create the Component object often start an asset
         var assetsToFetch = {series:[], regionSets:[], markerSets:[]}, fetchTracker = [];
         var c, comp, plot, handle, graph = this;
         this.eachComponent(function(c, plot){
             var comp = this;
-            handle = comp.handle();
-            if((!graph.assets[handle] || !graph.assets[handle].data) && fetchTracker.indexOf(handle)!==-1){
-                if(globals.MySets && globals.MySets[handle] && globals.MySets[handle].data){
-                    graph.assets[handle] = globals.MySets[handle].clone();
-                } else {
-                    if(comp.isSeries) assetsToFetch.series.push({setid: comp.setid, freq: comp.freq, geoid: comp.geoid, latlon: comp.latlon});
-                    if(comp.isRegionSet) assetsToFetch.regionSets.push({setid: comp.setid, freq: comp.freq});
-                    if(comp.isMarkerSet) assetsToFetch.markerSets.push({setid: comp.setid, freq: comp.freq});
-                    fetchTracker.push(handle);
+            if(!comp.data){
+                handle = comp.handle();
+                if((!graph.assets[handle] || !graph.assets[handle].data) && fetchTracker.indexOf(handle)!==-1){
+                    if(globals.MySets && globals.MySets[handle] && globals.MySets[handle].data){
+                        graph.assets[handle] = globals.MySets[handle].clone();
+                    } else {
+                        if(comp.isSeries) assetsToFetch.series.push({setid: comp.setid, freq: comp.freq, geoid: comp.geoid, latlon: comp.latlon});
+                        if(comp.isRegionSet) assetsToFetch.regionSets.push({setid: comp.setid, freq: comp.freq});
+                        if(comp.isMarkerSet) assetsToFetch.markerSets.push({setid: comp.setid, freq: comp.freq});
+                        fetchTracker.push(handle);
+                    }
                 }
             }
         });
@@ -48,29 +107,78 @@ MashableData.Graph = function(properties){
             );
         } else callBack();
     };
-    Graph.prototype.changeMap = function(mapCode, callbak){
+    Graph.prototype.changeMap = function(mapCode, callback){
         if(this.map && this.map!=mapCode) {
-            var oldMap = MashableData.Maps[this.map];
-            var newMap = MashableData.Maps[mapCode];
-            var graph = this;
-            var bunnySeries = {}, fetchNeeded = false;
+            var graph = this, comp;
+            var oldMap = globals.maps[graph.map];
+            var newMap = globals.maps[mapCode];
+            var changedAssets = {};
             graph.eachComponent(function(){  //remove the region and market sets' data in assets
-                if(this.isRegionSet() || this.isMarkerSet()) {
-                    delete graph.assets[this.handle()];
-                } else {
-                    if(this.geoid==oldMap.bunny && !this.latlon){
-                        bunnySeries[this.handle()] = {setid: this.setid, freq: this.freq, geoid: this.geoid};
-                        fetchNeeded = true;
+                comp = this;
+                var handle = comp.handle();
+                if(comp.isSeries()){
+                    if(this.geoid==oldMap.bunny && newMap.bunny!=oldMap.bunny && !this.latlon){
+                        changedAssets.series = changedAssets.series || {};
+                        changedAssets.series [handle] = {setid: this.setid, freq: this.freq, geoid: newMap.bunny};
+                        delete comp.data;
+                        delete graph.assets[comp.handle]
                     }
+                } else {
+                    if(comp.isRegionSet()) {
+                        changedAssets.regionSets = changedAssets.regionSets || {};
+                        changedAssets.regionSets [handle] = {setid: this.setid, freq: this.freq};
+                    }
+                    if(comp.isMarkerSet()) {
+                        changedAssets.markerSets = changedAssets.markerSets || {};
+                        changedAssets.markerSets [handle] = {setid: this.setid, freq: this.freq};
+                    }
+                    delete graph.assets[comp.handle];
+                    delete comp.data;
+                    delete comp.mappedTo;
                 }
             });
-            if(fetchNeeded){
-                //TODO: do fetch and replace titles and component moving replaceBunny and findBunnies functionality from graph.js.to here
-            } else {
-                if(callback) callback();
-            }
+            //get the assets
+            callApi(
+                {
+                    command:"ChangeMaps",
+                    map: mapCode,
+                    sets:  changedAssets,
+                    fromgeoid: oldMap.bunny,
+                    togeoid: newMap.bunny,
+                    modal:'persist'
+                },
+                function(jsoData, textStatus, jqXHR){
+                    var regex = new RegExp(jsoData.regex);
+                    graph.title = graph.title.replace(regex, jsoData.replacement);
+                    graph.eachPlot(function(){
+                        if(this.options.name) this.options.name = this.options.name.replace(regex, jsoData.replacement);
+                        this.eachComponent(function(){
+                            var handle = this.handle();
+                            if(this.isSeries()){
+                                if(!this.latlon){
+                                    if(changedAssets.series[handle]){
+                                        //find the new asset
+                                        for(var sHandle in jsoData.series){
+                                            if(jsoData.series[sHandle].setid == this.setid){
+                                                this.geoid = jsoData.series[sHandle].geoid;
+                                                this.parseData(jsoData.series[sHandle].data);
+                                                this.geoname = jsoData.series[sHandle].geoname;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+                    for(var handle in jsoData.sets){
+                        graph.assets[handle] = jsoData.sets[handle];
+                        graph.assets[handle].mappedTo = mapCode;
+                    }
+                    this.map = newMap;
+                    callback();
+                }
+            );
         }
-        this.map = map;
     };
 
     Graph.prototype.save = function saveGraph(callback) {
@@ -83,7 +191,7 @@ MashableData.Graph = function(properties){
         }
         //create/update the series list
         oGraph.serieslist = [];
-        oGraph.eachComponent(function(){oGraph.serieslist.push(oGraph.assets[this.handle].name)});
+        oGraph.eachComponent(function(){oGraph.serieslist.push(oGraph.assets[this.handle()].name)});
         oGraph.serieslist = oGraph.serieslist.join('; ');
 
         var assets = oGraph.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
@@ -161,9 +269,9 @@ MashableData.Graph = function(properties){
 
     Graph.prototype.eachPlot = function eachPlot(callback){
         var graph = this;
-        if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph.mapsets[p])});
-        if(graph.pointsets) $.each(graph.pointsets, function(p){callback.call(this, p, graph.pointsets[p])});
-        if(graph.plots) $.each(graph.plots, function(p){callback.call(this, p, graph.plots[p])});
+        if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph)});
+        if(graph.pointsets) $.each(graph.pointsets, function(p){callback.call(this, p, graph)});
+        if(graph.plots) $.each(graph.plots, function(p){callback.call(this, p, graph)});
     };
     Graph.prototype.eachComponent = function eachComponent(callback){
         var graph = this;

@@ -61,7 +61,7 @@ header('Content-type: text/html; charset=utf-8');
  *   company: required, but can be ''
  * command: UploadMyMashableData
  *   the entire md metadata as object properties
- * command: GetMashableData -> the entire mashabledata as object, with points as string property "data"
+ * command: GetSeries -> the entire mashabledata as object, with points as string property "data"
  *   sid:  either series id (sid) or capture id (cid) must be submitted
  *   cid:  cid takes precedence
  * command: GetAnnotations    (anonymous permitted for standard only)
@@ -110,9 +110,7 @@ switch($command){
 
 
         $sql = "SELECT SQL_CALC_FOUND_ROWS
-        concat(if(s.latlon='', left(s.settype,1),'S'), s.setid) as handle,
-        concat(left(coalesce(s2.settype, s.settype),1), coalesce(s.mastersetid, s.setid)) as sethandle,
-        s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.freqs, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
+        s.settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.freqs, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
         s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'F©','') as maps, s.ghandles
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
@@ -269,129 +267,6 @@ switch($command){
                 unset($aRow["ghandles"]);
                 $output['aaData'][] = $aRow;
             }
-        }
-        break;
-    case "SearchSeries":
-        if(isset($_POST["uid"])  && intval($_POST["uid"])>0 && $_POST["uid"]!=null){
-            $usageTracking = trackUsage("count_seriessearch");
-        }
-        /*        if(!$usageTracking["approved"]){
-                    $output = array("status"=>$usageTracking["msg"]);
-                    break;
-                }
-        */
-        $search =  rawurldecode($_POST['search']);
-        $freq =  $_POST['freq'];
-        $apiid =  $_POST['apiid'];
-        $catid =  intVal($_POST['catid']);
-        $mapset =  $_POST['mapset'];
-
-        if(count($search) == 0 || count($freq)== 0) die("invalid call.  Err 101");
-
-        $sLimit = " ";
-        if ( isset( $_POST['iDisplayStart'] ) && $_POST['iDisplayLength'] != '-1' ) {
-            $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
-                . $db->real_escape_string( $_POST['iDisplayLength'] );
-        }
-
-        $aColumns=array("name", "units", "freq", "firstdt", "lastdt", "title");
-
-        $sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, name, units, freq as period, title, src, url, "
-            . " firstdt, lastdt, apiid"
-            . " FROM series s ";
-
-        if($catid>0){
-            $sql = $sql . " INNER JOIN categoryseries cs on s.seriesid = cs.seriesid "
-                . " WHERE catid=" . $catid;
-        } else {
-            $sql = $sql . " WHERE 1 ";
-            if(strpos($search,'title:"')===0){ //ideally, use a regex like s.match(/(title|name|skey):"[^"]+"/i)
-                $title = substr($search, strlen("title")+2,strlen($search)-strlen("title")-3);
-                $sql .= " AND title = " . safeStringSQL($title);
-            } elseif($search!='+ +') {
-                $sql .= " AND match(name,title,units) against ('" . $search . "' IN BOOLEAN MODE)";
-            }
-            if(is_numeric($apiid)) {
-                $sql .= " AND apiid = " . intval($apiid);
-            } elseif ($apiid == "org") { //for security, the orgid is not passed in.  rather, if it is fetched from the users account
-                requiresLogin(); //sets $orgid.  Dies if not logged in
-                $sql .= " AND orgid = " . $orgid;
-
-            } else {  //open search = must filter out orgs series that are not my org
-                if(isset($_POST["uid"]) && intval($_POST["uid"])>0){
-                    requiresLogin(); //sets $orgid.  Dies if not logged in, but we should be because a uid was passed in
-                    $sql .= " AND (orgid is null or orgid = " . $orgid . ") ";
-                } else {
-                    $sql .= " AND orgid is null ";
-                }
-
-            }
-        }
-        if($freq != "all") {
-            $sql = $sql . " AND freq='" . $freq . "'";
-        };
-        if($mapset=='mapsets'){
-            $sql = $sql . " AND mapsetid is not null AND pointsetid is null  ";
-        }
-        if($mapset=='pointsets'){
-            $sql = $sql . " AND pointsetid is not null AND mapsetid is null";
-        }
-        /*
-         * Ordering
-         */
-        $sOrder = '';
-        if ( isset( $_POST['iSortCol_0'] ) )
-        {
-            $sOrder = " ORDER BY  ";
-            for ( $i=0 ; $i<intval( $_POST['iSortingCols'] ) ; $i++ )
-            {
-                if ( $_POST[ 'bSortable_'.intval($_POST['iSortCol_'.$i]) ] == "true" )
-                {
-                    $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." ".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
-                }
-            }
-            $sOrder = substr_replace( $sOrder, "", -2 );
-
-            if(strlen($search)>0 && $sOrder == " ORDER BY") {  // show shortest results first, but only if the user actually entered keywords
-                $sOrder = " ORDER BY namelen asc ";
-            }
-        }
-        if(strlen($search)>0 && $sOrder == "") {  // show shortest results first, but only if the user actually entered keywords
-            if($catid==0){
-                $sOrder = " ORDER BY namelen asc ";
-            } else {
-                $sOrder = " ORDER BY name asc ";
-            }
-        }
-        $sql = $sql . $sOrder . $sLimit;
-
-        $result = runQuery($sql, "SearchSeries");
-
-        /* Data set length after filtering */
-        $sQuery = "
-            SELECT FOUND_ROWS()
-        ";
-        $rResultFilterTotal = runQuery( $sQuery) or die($db->error());
-        $aResultFilterTotal = $rResultFilterTotal->fetch_array();
-        $iFilteredTotal = $aResultFilterTotal[0];
-
-        /* Total data set length */
-        $sQuery = "SELECT COUNT(seriesid)FROM series";
-
-        //echo($sQuery . "<br>");
-        $rResultTotal = runQuery( $sQuery ) or die($db->error());
-        $aResultTotal = $rResultTotal->fetch_array();
-        $iTotal = $aResultTotal[0];
-        $output = array("status"=>"ok",
-            "sEcho" => intval($_POST['sEcho']),
-            "iTotalRecords" => $iTotal,
-            "iTotalDisplayRecords" => $iFilteredTotal,
-            "search"=>$search,
-            "aaData" => array()
-        );
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
-        while ($aRow = $result->fetch_assoc()) {
-            $output['aaData'][] = $aRow;
         }
         break;
     case "SearchGraphs":
@@ -555,7 +430,7 @@ switch($command){
                                     $asset["data"] = dataSliver($asset["data"], $asset["period"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                     break;
                                 case "X":
-                                    foreach($asset["data"] as $laton => $series){
+                                    foreach($asset["data"] as $latlon => $series){
                                         $series["data"] = dataSliver($series["data"], $asset["period"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                     }
                                     break;
@@ -611,7 +486,7 @@ switch($command){
             $output = array("status"=>"Error:  Requested map sets not found.");
         }
         break;*/
-    case "GetSets": //used to perform all asset and data fetches in a single call (no ambiguous sets; for that use GetMashableData)
+    case "GetSets": //used to perform all asset and data fetches in a single call (no ambiguous sets; for that use GetSeries)
         $output = ["status"=>"ok", "sets"=>[]];
         if($series = (isset($_POST["series"]) && count($_POST["series"])>0) ? $_POST["series"] : false){
             $sql = "select s.metadata as setmetadata, s.name, sd.setid, sd.geoid, sd.freq, s.freqs, sd.latlon, s.maps, g.name as geoname
@@ -621,6 +496,7 @@ switch($command){
                 $filter = "(s.setid= $serie[setid] and sd.freq=$serie[freq]";
                 if(isset($serie["geoid"])) $filter .= " and sd.geoid=$serie[geoid]";
                 if(isset($serie["latlon"])) $filter .= " and sd.latlon=$serie[latlon]";
+                    elseif(!isset($serie["geoid"])) $filter .= " and sd.geoid=0"; //cannot havea  series without a defining geo or latlon
                 $filter .= ")";
                 $filters[] = $filter;
             }
@@ -629,7 +505,6 @@ switch($command){
             while($row=$result->fetch_assoc()){
                 $handle = $row["type"].$row["setid"].$row["freq"]."G".$row["setid"].($row["latlon"]?"L".$row["latlon"]:"");
                 $output["series"][$handle] = $row;
-
             }
         }
 
@@ -831,7 +706,7 @@ switch($command){
                 . "s.title as graph, s.src, s.url, s.units, s.data, s.freq as period, 'S' as save, 'datetime' as type, firstdt, "
                 . "lastdt, hash as datahash, ms.counts as geocounts "
                 . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid "
-                . " WHERE s.pointsetid is null and s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetMashableData to either be the owner or org or be part of a graph whose owner/org
+                . " WHERE s.pointsetid is null and s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetSeries to either be the owner or org or be part of a graph whose owner/org
             $result = runQuery($sql, "ChangeMaps: get series");
             if($result->num_rows==1){
                 $output["bunnies"][$bunny] = $result->fetch_assoc();
@@ -1006,9 +881,9 @@ switch($command){
     case "GetMySets":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
-        $sql = "SELECT  s.userid, u.name as username, s.name, setkey, s.setid, s.settype, maps,
-            titles as categories, s.metadata as setmetadata, saved as save, null as 'decimal', src, s.url, s.units,
-            adddt as save_dt, 'datetime' as type, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
+        $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, s.settype, maps,
+            titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
+            savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
             FROM sets s
             inner join  mysets ms on s.setid=ms.setid
             left outer join users u on s.userid=u.userid
@@ -1018,7 +893,7 @@ switch($command){
         while ($aRow = $result->fetch_assoc()){
             $aRow["handle"] = handle($aRow);
             $aRow["rawmaps"] = $aRow["maps"] ;
-            $aRow["maps"] = str_replace('M©', '' ,$aRow["maps"]);
+            $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
             $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
             $output["sets"][$aRow["handle"]] = $aRow;
         }
@@ -1571,92 +1446,129 @@ EOS;
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         break;
 
-    case "GetMashableData":
+    case "GetSeries":  //formerly GetMashableData
+        //takes sets and get a series in that set, guessing at geo and latlon as needed (note: workbench should already have guessed at freq
         $usageTracking = trackUsage("count_seriesview");
         if(!$usageTracking["approved"]){
             $output = array("status"=>$usageTracking["msg"]);
             break;
         }
-        if(isset($_POST['handles'])){
-            $shandles = $_POST['handles'];
+        if(isset($_POST['series']) && count($_POST['series']) > 0){
+            $series = $_POST['series'];
         } else {
             $output = ["status"=>"Empty data request"];
             break;
         }
-
+        $fromMap = isset($_POST['map'])? $_POST['map'] : false;
         $user_id =  intval($_POST['uid']);
-
-        if(count($sids) == 0 && count($usids) == 0){
-            $output = array("status" => "invalid call.  Err 102");
-            break;
-        }
-        $clean_seriesids = array();
-        if(count($sids) > 0){
-            foreach($sids as $sid){
-                array_push($clean_seriesids, intval($sid));
-            }
-        }
-        if(count($usids) > 0){
-            requiresLogin();   //also set the global $orgid var
-            foreach($usids as $usid){
-                array_push($clean_seriesids, intval($usid));
-            }
-        }
-        $output = array("status" => "ok", "series" => array());
-        if(count($clean_seriesids)>0){
-            $sql = "
-            SELECT s.name, s.setid, s.pointsetid, s.themeid, s.freqset, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid,
-            s.title as graph, s.src, s.url, s.units, s.data, s.freq as period, 'S' as save, 'datetime' as type, firstdt,
-            lastdt, hash as datahash, ifnull(ms.counts, ps.counts) as geocounts
-            FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid left outer join pointsets ps on s.pointsetid=ps.pointsetid
-            WHERE s.seriesid in (" . implode($clean_seriesids,",") .") and (s.userid is null or s.userid = $user_id or orgid=$orgid)";
-            $result = runQuery($sql, "GetMashableData series");
-
-            while ($aRow = $result->fetch_assoc()) {
-                if($aRow["geocounts"]!==null) { //stored as JSON without final braces by /admin/crawlers/start_apirun?command=SetCounts
-                    $ary = json_decode('{"a":{'.$aRow["geocounts"].'}}', true);
-                    $aRow["geocounts"] = $ary["a"];
-                    if($aRow["geoid"]!==null && ($aRow["mapsetid"]!==null || $aRow["pointsetid"]!==null)){
-                        $sql = 'select m.map, geographycount from mapgeographies mg join maps m on mg.map=m.map where geoid='.$aRow["geoid"];
-                        if($aRow["pointsetid"]){
-                            $sql .= ' or bunny = '.$aRow["geoid"] . ' group by map';
-                        }
-                        $geoResult = runQuery($sql,"GetMashableData geographies");
-                        while ($gRow = $geoResult->fetch_assoc()) {
-                            if(isset($aRow["geocounts"][$gRow["map"]])){
-                                $aRow["geocounts"][$gRow["map"]]["regions"] = intval($gRow["geographycount"]);
+        $output = ["status"=>"ok", "series"=> []];
+        foreach($series as $orginalHandle => $serie){
+            if(!isset($serie["geoid"])){
+                //1. see if a preferred map (and bunny)
+                if($fromMap  && $fromMap!="false"){
+                    //1a.  look for bunny
+                    $sql = "select geoid, latlon from setdata where setid=$serie[setid] and freq='$serie[freq]' and geoid=$fromMap[bunny]";
+                    $result = runQuery($sql);
+                    if($result->num_rows>0){
+                        $row = $result->fetch_assoc();
+                        $serie["geoid"] = $row["geoid"];
+                        $serie["latlon"] = $row["latlon"];
+                    } else {
+                        //1b. look for any series belonging to any of map's geographies
+                        $sql = "select sd.geoid, sd.latlon
+                            from setdata sd join mapgeographies mg on sd.geoid=mg.geoid
+                            where sd.setid=$serie[setid] and sd.freq='$serie[freq]' and mg.map='$fromMap[code]'
+                            limit 1";
+                        $result = runQuery($sql);
+                        if($result->num_rows>0){
+                            $row = $result->fetch_assoc();
+                            $serie["geoid"] = $row["geoid"];
+                            $serie["latlon"] = $row["latlon"];
+                        } else {
+                            //1c. Geeze-louise! get anything in set!
+                            $sql = "select geoid, latlon from setdata where setid=$serie[setid] and freq='$serie[freq]' limit 1";
+                            $result = runQuery($sql);
+                            if($result->num_rows>0){
+                                $row = $result->fetch_assoc();
+                                $serie["geoid"] = $row["geoid"];
+                                $serie["latlon"] = $row["latlon"];
                             } else {
-                                $aRow["geocounts"][$gRow["map"]] = array("regions"=>intval($gRow["geographycount"]));
+                                //I give up!
+                                $output = ["status" => "unable to find any data for the set and frequency requested."];
+                                break;
                             }
                         }
                     }
-                }
 
-                if($aRow["freqset"]!==null){
-                    $freqset = '{"a":{'.$aRow["freqset"].'}}';
-                    $ary = json_decode($freqset, true);
-                    $aRow["freqset"] = $ary["a"];
-                }
-                if($aRow["themeid"]!==null && intval($aRow["themeid"])!=0){
-                    $cubeResults = runQuery("select c.cubeid, c.name from cubes c where c.themeid=".$aRow["themeid"]);
-                    $aRow["cubes"] = [];
-                    while($cubeRow = $cubeResults->fetch_assoc()){
-                        array_push($aRow["cubes"], $cubeRow);
-                    }
-                    $aRow["handle"] =  "S".$aRow["id"];
-                    $aRow["sid"] =  $aRow["id"];
-                }
-                if($aRow["userid"]==null){
-                    $aRow["handle"] =  "S".$aRow["id"];
-                    $aRow["sid"] =  $aRow["id"];
                 } else {
-                    $aRow["handle"] =  "U".$aRow["id"];
-                    $aRow["usid"] =  $aRow["id"];
+                   //2. if no map as a guide, look for a prominent geography (world=321, africa=3837, europe=3841,307,306, us=235, china=44, uk=80)
+                    $primeGeos = [321, 235, 306,307,3841,80,44,3837];
+                    $sql = "select geoid, latlon
+                            from setdata
+                            where setid=$serie[setid] and freq='$serie[freq]' and geoid in (".implode(",", $primeGeos).")";
+                    $result = runQuery($sql);
+                    $bestRank = 1000;
+                    if($result->num_rows>0){
+                        while($row = $result->fetch_assoc()){
+                            $rowRank = array_search($row["geoid"], $primeGeos);
+                            if($rowRank<$bestRank){
+                                $rowRank = $bestRank;
+                                $serie["geoid"] = $row["geoid"];
+                                $serie["latlon"] = $row["latlon"];
+                            }
+                        }
+                    } else {
+                        //2b. get anything in set!
+                        $sql = "select geoid, latlon from setdata where setid=$serie[setid] and freq='$serie[freq]' limit 1";
+                        $result = runQuery($sql);
+                        if($result->num_rows>0){
+                            $row = $result->fetch_assoc();
+                            $serie["geoid"] = $row["geoid"];
+                            $serie["latlon"] = $row["latlon"];
+                        } else {
+                            //I give up!
+                            $output = ["status" => "unable to find any data for the set and frequency requested."];
+                            break;
+                        }
+                    }
                 }
-                unset($aRow["id"]);
-                $output["series"][$aRow["handle"]] = $aRow;
+            }
+            //3.with accurate geoid and latlon => fetch series the whole thing!
+            //  distributed metadata = setdata.metadata & (sets.metadata + apis.metadata + theme.meta)
+            //  distributed src = sets.src > apis.name
+            //  distributed url = setdata.url > sets.url > apis.url
+            $sql = "
+            SELECT
+              s.settype, s.setid, s.name as setname, s.themeid, s.metadata as setmetadata, s.titles as categories, s.userid, s.units,
+              sd.latlon, sd.geoid, sd.data, sd.freq, sd.firstdt100k*100000 as firstdt, lastdt100k*100000 as lastdt,
+              coalesce(s.src, a.name) as src,
+              coalesce(sd.url, s.url, a.url) as url,
+              coalesce(sd.skey, s.setkey) as sourcekey,
+              coalesce(s.maps, xs.maps) as maps,
+              coalesce(s.freqs, xs.freqs) as freqs,
+              sd.metadata as seriesmetadata,
+              g.name as geoname,
+              concat(IFNULL(s.metadata ,''),' ',IFNULL(a.metadata,''),' ', IFNULL(t.meta,'')) as setmetadata
+            FROM sets s join setdata sd on s.setid = sd.setid
+              left outer join apis a on s.apiid=a.apiid
+              left outer join themes t on s.themeid=t.themeid
+              left outer join geographies g on sd.geoid=g.geoid
+              left outer join sets xs on xs.mastersetid=s.setid and xs.latlon=sd.latlon
+            WHERE
+              s.setid = $serie[setid] and sd.freq = '$serie[freq]' and sd.geoid = $serie[geoid] and sd.latlon = '$serie[latlon]'";
+            $result = runQuery($sql, "GetSeries series");
+            if($result->num_rows==1){
+                $aRow = $result->fetch_assoc();
+                $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
+                $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
+                $output["series"][$orginalHandle] = $aRow;
+            } else {
+                $output = ["status" => "Unable to query data for the set and frequency requested."];
+                break;
             }
         }
+        //don't get cubes here
+
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         //log embedded usage
         if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
@@ -1952,7 +1864,7 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
         if($currentMapSetId!=$row["setid"]){
             //new mapset = need header
             $currentMapSetId=$row["setid"];
-            $handle = "M".$currentMapSetId.$row["freq"]."G".$row["geoid"];
+            $handle = "M".$currentMapSetId.$row["freq"];
             $output["sets"][$handle] = array(
                 "setid"=>$currentMapSetId,
                 "maps"=>array(),
@@ -1966,12 +1878,8 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
                 "lastdt"=>$row["lastdt100k"]*100000,
                 "data"=>array()
             );
-            if($row["freqs"]!==null){
-                $output["sets"][$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
-            }
-            if($row["maps"]!==null) {
-                $output["sets"][$handle]["maps"] = mapsFieldToArray($row["maps"]);
-            }
+            $output["sets"][$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
+            $output["sets"][$handle]["maps"] = mapsFieldCleanup($row["maps"]);
         }
         $output["sets"][$handle]["data"][$row["map_code"]] = [
             "handle"=>"S".$row["seriesid"].$row["freq"]."G".$row["geoid"],
@@ -2042,13 +1950,13 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
 
 function freqsFieldToArray($freqs){
     global $ft_join_char;
+    if(!$freqs) return [];
     return explode(" ", str_replace("F".$ft_join_char, "", $freqs));
 }
-function mapsFieldToArray($mapsField){
+function mapsFieldCleanup($mapsField){
     global $ft_join_char;
     if($mapsField) {
-        $maps = json_decode('{"a":{'.str_replace("M".$ft_join_char, "", $mapsField).'}}', true);
-        return $maps["a"];
+        return str_replace("M".$ft_join_char, "", $mapsField);
     } else {
         return null;
     }

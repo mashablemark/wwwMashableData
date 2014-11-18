@@ -114,7 +114,7 @@
             <div id="local-series-header" class="md-DS_title">
                 <span id="series-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px"></span>
                     <span id="main-graph-buttons-top" class="right">
-                        <button class="new-series">new series</button>
+                        <button class="new-data">new series</button>
                     </span>
             </div>
             <div>
@@ -154,7 +154,7 @@
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">
                     <span id="public-series-buttons-top" class="right">
                         <button id="cloud-series-browse">browse</button>
-                        <button class="new-series">new series</button>
+                        <button class="new-data">new series</button>
                     </span>
                 </div>
                 <div id="cloud_series_info" style="display:inline;font-size:8px;"></div>
