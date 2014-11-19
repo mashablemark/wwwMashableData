@@ -2,7 +2,7 @@
  * Created by mark__000 on 7/6/14.
  */
 (function makeMapDiv(){
-    var mapList = [
+    var orderedMapList = [
         {"map":"none","name":"no map filter","level":0},
         {"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":0},
         {"map":"wb_incomes","name":"World Bank income levels","geographycount":"11","bunny":"321","jvectormap":"wb_incomes","legend":"BL","level":1},
@@ -128,15 +128,18 @@
         {"map":"ve","name":"Venezuela","geographycount":"25","bunny":"239","jvectormap":"ve_mill_en","legend":"BR","level":0},
         {"map":"za","name":"South Africa","geographycount":"9","bunny":"247","jvectormap":"za_mill_en","legend":"BR","level":0}
     ];
+        
+        
 
+    MashableData.globals.orderedMapList = orderedMapList;
     MashableData.globals.maps = {};
     var map, listHtml = '';
-    for(var i=0; i<mapList.length;i++){
-        map = mapList[i];
+    for(var i=0; i<orderedMapList.length;i++){
+        map = orderedMapList[i];
         listHtml += '<li class="map-list-item map-level'+map.level+'" data="'+map.map+'">'+map.name+'</li>';
         MashableData.globals.maps[map.map] = map;
     }
-    var $mapsUl = MashableData.globals.$mapsUl = $('<ul class="map-list">'+listHtml+'</ul>');
+    var mapsUl = '<ul class="map-list">'+listHtml+'</ul>';
 
     MashableData.common.selectMap = function(event){
         //handles global map selector click event used in FindData tab (#find-data-map)
@@ -144,7 +147,7 @@
         var initializing = true;
         var $selector = $(this).blur();
         var offset = $selector.offset();
-        var divHtml = '<div id="select-map" style="left:'+offset.left+'px;top:'+(offset.top+$selector.innerHeight())+'px;">'+$mapsUl.html()+'</div>';
+        var divHtml = '<div id="select-map" style="left:'+offset.left+'px;top:'+(offset.top+$selector.innerHeight())+'px;">'+mapsUl+'</div>';
         var $divHtml = $(divHtml)
             .appendTo('body')
             .find('li[data="'+$selector.val()+'"]').addClass('selector-selected').end()
@@ -167,16 +170,6 @@
         }
     };
 
-    MashableData.common.parseMaps = function(mapsJson){
-        if(mapsJson){
-            var theseMaps = JSON.parse('{'+mapsJson+'}');
-            var mapNames = [];
-            for(var code in theseMaps){
-                if(theseMaps[code]>1 && MashableData.globals.maps[code]) mapNames.push(MashableData.globals.maps[code].name);
-            }
-            return mapNames.join('; ');
-        } else return "";
-    }
 
 })();
 

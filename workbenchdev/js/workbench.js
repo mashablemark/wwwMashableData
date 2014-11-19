@@ -276,10 +276,11 @@ $(document).ready(function(){
     hasher.changed.add(parseHash); //add hash change listener
     hasher.initialized.add(parseHash); //add initialized listener (to grab initial value in case it is already set)
     hasher.init(); //initialize hasher (start listening for history changes)
-    window.onbeforeunload = function() {
+    //TODO uncomment after testing!!!
+    /*window.onbeforeunload = function() {
         return "Your work will be lost.";
     };
-
+*/
     $('body').resize(resizeCanvas);
     $('#series_search_periodicity, #series_search_source, #series-search-button').click(seriesCloudSearch);
     $('#show-hide-pickers').click(function(){
@@ -502,7 +503,7 @@ function setupMyDataTable(){
                     }
                 },
                 { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.units + "px",  "mRender": function(value, type, obj){return value}},
-                { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(value, type, obj){return spanWithTitle(common.parseMaps(value))}},
+                { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(value, type, obj){return spanWithTitle(obj.mapList())}},
                 { "mData": "freqs", "sTitle": "f<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.freq + "px",
                     "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs.join(' '))}
                 },
@@ -522,7 +523,7 @@ function setupMyDataTable(){
                         }
                     }
                 },
-                { "mData": "save_dt",  "sTitle": "added<span></span>", "bSortable": true, sType: "numeric",  "sWidth": colWidths.shortDate + "px", "resize": false,
+                { "mData": "savedt",  "sTitle": "added<span></span>", "bSortable": true, sType: "numeric",  "sWidth": colWidths.shortDate + "px", "resize": false,
                     "mRender": function(value, type, obj){ if(type=='sort') return parseInt(value); else return timeOrDate(value);}
                 }//
             ]
@@ -618,7 +619,7 @@ function setupFindDataTable(){
                         + '<span class="handle">' + obj.handle + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(common.parseMaps(maps))}},
+            { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
             { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
@@ -1128,6 +1129,7 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
                     handle = series[i].handle();
                     if(jsoData.series[handle]){
                         var newSerie = new MD.Set(jsoData.series[handle]);
+                        if(map) newSerie.preferredMap = map;
                     }
                     if(oMySets[newSerie.handle()]){ //if this happens to be in mySeries...
                         oMySets[handle] = newSerie;
@@ -1143,8 +1145,8 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
 }
 
 function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
-    var quickGraph, aoSeries, i, someNewSeries = [], someMySeries = [];
-    var hasMaps = false, seriesMaps = [], otherMaps = [], sets = [];
+    var quickGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [];
+    var setMaps = [], sets = [];
     var $mapSelect =  $('#quick-view-maps');
     if(obj.plots){ // a graphs object was passed in
         quickGraph = obj; // everything including title should be set by caller
@@ -1178,31 +1180,27 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     quickChartOptions.chart.renderTo = 'highcharts-div';
     quickChart = new Highcharts.Chart(quickChartOptions);
 
-    var qvNotes='';
+    var serie, qvNotes='';
     if(!obj.plots){ //only if single series
-        if(aoSeries.length==1 && aoSeries[0].notes){
+        if(aoSeries.length==1){
+            serie = aoSeries[0];
             //this are the series info added to the quickView panel.  Could be more complete & styled
-            qvNotes = '<table><tr><td width="20%">Graph title or API category:</td><td width="*">' + aoSeries[0].graph||'' + '</td></tr>'
-                + '<tr><td>Set notes:</td><td>' + aoSeries[0].setmetadata||'' + '</td></tr>'
-                + '<tr><td>API notes:</td><td>need to fetch</td></tr>'
-                + '<tr><td>Theme notes:</td><td>need to fetch</td></tr>'
-                + '<tr><td>Series key:</td><td>' + aoSeries[0].setkey||'' + '</td></tr>'
-                + '</table>';
+            if(serie.setmetadata) qvNotes += '<tr><td>Set notes:</td><td>' + serie.setmetadata + '</td></tr>';
+            if(serie.seriesmetadata) qvNotes += '<tr><td>Series notes:</td><td>' + serie.seriesmetadata + '</td></tr>';
+            if(serie.categories) qvNotes += '<tr><td>Categories:</td><td>' + serie.categories + '</td></tr>';
+            if(serie.src) qvNotes += '<tr><td>API Source:</td><td><a href="'+serie.url+'" target="_blank">' + serie.src + (serie.sourcekey?' (source key: '+serie.sourcekey +') ':'') +'</a></td></tr>';
+            //if(serie.sourcekey) qvNotes += '<tr><td>API Source Key:</td><td>' + serie.sourcekey + '</td></tr>';
+            if(qvNotes) qvNotes = '<table>' + qvNotes + '</table>';
         }
 
         //determine whether and which maps to show in the selector
-        for(i=0;i<aoSeries.length;i++){
-            if((aoSeries[i].set && sets.indexOf('M'+aoSeries[i].mapsetid)==-1) || (aoSeries[i].pointsetid && sets.indexOf('X'+aoSeries[i].pointsetid)==-1)){
-                if(aoSeries[i].mapsetid) sets.push('M'+aoSeries[i].mapsetid); else sets.push('X'+aoSeries[i].pointsetid);
-                for(var map in aoSeries[i].geocounts){
-                    if(aoSeries[i].geocounts[map].set>1){
-                        hasMaps = true;
-                        if(aoSeries[i].geocounts[map].regions){
-                            seriesMaps.push('<option value="'+map+'">'+map+' ('+aoSeries[i].geocounts[map].set+')</option>');
-                        } else {
-                            otherMaps.push('<option class="other-map" value="'+map+'">'+map+' ('+aoSeries[i].geocounts[map].set+')</option>');
-                        }
-                    }
+        var mapList = globals.orderedMapList, maps = globals.maps;
+        for(i=0;i<mapList.length;i++){ //primary loop= orderedlist to preserve order in eventual
+            for(j=0;j<aoSeries.length;j++){  //synthetic series will get their mapsets' map property
+                serie = aoSeries[j];
+                if(serie.maps[mapList[i].map]>1){ //this map is match!
+                    setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+')</option>');
+                    break;
                 }
             }
         }
@@ -1212,12 +1210,11 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         var shown = $mapSelect.css("display")!='none';
         if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
     }
-    if(hasMaps){ //make sure we have maps to show
-        seriesMaps.sort();
-        otherMaps.sort();
+
+    if(setMaps.length){ //make sure we have maps to show
         //$('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
         $('#quick-view-chart-or-map').show().find('input').off().click(showHideMapSelector );
-        $mapSelect.html(seriesMaps.join('')+(otherMaps.length>0?'<option class="other-maps" value="other">other maps for this set:</option>'+otherMaps.join(''):''));
+        $mapSelect.html(setMaps.join(''));
         showHideMapSelector();
     } else {
         $mapSelect.hide();
@@ -1254,7 +1251,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
     $(btn).button("disable");
     for(var i=0;i<oQuickViewSeries.length;i++){
-        oQuickViewSeries[i].save_dt = new Date().getTime();
+        oQuickViewSeries[i].savedt = new Date().getTime();
         var serieskey = addMySeriesRow(oQuickViewSeries[i]);  //table and oMySets add/update
         updateMySeries(oQuickViewSeries[i]); //cloud update
     }
@@ -1306,7 +1303,6 @@ function quickViewToChart(btn){
 }
 function quickViewToMap(){
     var panelId =  $('#quick-view-to-graphs').val();
-    var addedHandle;
     var map = $("#quick-view-maps").val();
     if(
         panelGraphs[panelId]
@@ -1332,48 +1328,52 @@ function quickViewToMap(){
         oGraph.controls.provenance.provOk(false);
     }
     oGraph.map = map;
-    oGraph.mapconfig.legendLocation = mapsList[map].legend;
-    oGraph.mapFile = mapsList[map].jvectormap;
+    oGraph.mapconfig.legendLocation = globals.maps[map].legend;
+    oGraph.mapFile = globals.maps[map].jvectormap;
     require(['/global/js/maps/' +  oGraph.mapFile + '.js']); //preload it
-    if(!oGraph.plots) oGraph.plots = [];
 
+    var themeids = [], setids = [];
     for(var s=0;s<oQuickViewSeries.length;s++){
-        serie = oQuickViewSeries[s];
-        oGraph.plots.push({options:{}, components:[{handle: serie.handle, options: {k:1.0, op:'+'}}]});  //always plot the series in addition to any map
-        if(serie.geocounts && serie.geocounts[map]){
-            if(!isNaN(serie.mapsetid) && serie.mapsetid>0 && !hasMapset(serie.mapsetid)){
-                if(!oGraph.mapsets) oGraph.mapsets = [{options:{}, components:[]}];
-                addedHandle = 'M'+serie.mapsetid;
-                oGraph.mapsets[0].components.push({handle: addedHandle, options:{k:1.0, op:(oGraph.mapsets[0].components.length==0?'+':'/')}});
+        var serie = oQuickViewSeries[s], seriesComp = new MD.Component(serie); //truely a series, as quickview does not support mapping
+        oGraph.addPlot([seriesComp]);  //always plot the series in addition to any map
+        if(serie.maps && serie.maps[map]){  //final check in case of multiple series in quickview
+            mapComp = new MD.Component(serie);
+            delete mapComp.geoid;
+            delete mapComp.geoname;
+            delete mapComp.latlon;
+            delete mapComp.data;
+            if(mapComp.themeid) {
+                themeids.push(mapComp.themeid);
+                setids.push(mapComp.setid);
             }
-            if(!isNaN(serie.pointsetid) && serie.pointsetid>0 && !hasPointset(serie.pointsetid)){
-                if(!oGraph.pointsets) oGraph.pointsets = [];
-                addedHandle = 'X'+serie.pointsetid;
-                oGraph.pointsets.push({options:{}, components:[{handle: addedHandle, options: {k:1.0, op:'+'} } ] } );
+            if(mapComp.isMapSet()){
+                oGraph.addMapPlot([mapComp]);
+            }
+            if(mapComp.isPointSet()){
+                oGraph.addPointPlot([mapComp]);
             }
         }
     }
-    if(serie.themeid){
-        if(themeCubes['T'+serie.themeid]) {
-            selectCube(serie.themeid);
-        } else {
-            callApi({command: "GetCubeList", themeids: [serie.themeid]}, function(jsoData, textStatus, jqXH){
-                themeCubes['T'+serie.themeid] = jsoData.themes['T'+serie.themeid];
-                selectCube(serie.themeid);
-            });
-        }
+
+    //if no cube active and cubes are available, see if we want to add one
+    if(!oGraph.cubeid && themeids.length){ //do we have a region/marker set that *might* supports a cube?
+        //cubes now include many vertices and sub details.  Cubes are fetched by themeid AND setid?
+        //this fetch is outside the graph.getApplicableCubes because we just want the cubes applicaable to the sets being added
+        callApi({command: "GetCubeList", themeids: themeids, setids: setids}, function(jsoData, textStatus, jqXH){
+            if(jsoData.cubes.length) selectCube(jsoData.cubes); else makeGraphAfterFetches();
+        });
     } else makeGraphAfterFetches();
 
     quickViewClose();
 
-    function selectCube(themeid){
-        var theme = themeCubes['T'+themeid];
+    function selectCube(cubes){
+        var themes = [], cube;
         var html = '<div id="select-cube" style="width:330px;">'
             + '<h4>Map linked visualization available</h4>'
-            + '<p>This series is part of a '+theme.name+'structure set that supports the following facetted vizualizations, which will be linked to the user\'s map clicks.</p><p>Please choose one.</p>'
-            + '<select class="cubeSelector" size="'+theme.cubes.length+'">';
-        for(var c=0;c<theme.cubes.length;c++){
-            html += '<option value="'+theme.cubes[c].cubeid+'" '+(c==theme.cubes.length-1?'selected':'')+'>'+theme.cubes[c].name+'</option>';
+            + '<p>This series is part of a structured data set ' + cubes[0].themename + ' structure that supports the following facetted vizualizations, which will be linked to the user\'s map clicks.</p><p>Please choose one.</p>'
+            + '<select class="cubeSelector" size="'+cubes.length+'">';
+        for(var c=0;c<cubes.length;c++){
+            html += '<option value="'+cubes[c].cubeid+'" '+(c==cubes.length-1?'selected':'')+'>'+cubes[c].name+' ('+cubes[c].rel+')</option>';
         }
         html += '</select></label><br><br>'
             + '<button class="right" id="noViz">skip</button> <button class="right" id="vizSetOk">add linked visualization</button> '
@@ -1387,8 +1387,7 @@ function quickViewToMap(){
             });
         var $panel = $('#select-cube');
         $('#vizSetOk').button({icons: {secondary: 'ui-icon-cube'}}).click(function(){
-            var cubeid = $panel.find('.cubeSelector').val();
-            oGraph.mapconfig.cubeid = cubeid;
+            oGraph.cubeid = $panel.find('.cubeSelector').val();
             close();
         });
         $('#noViz').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
@@ -1400,30 +1399,12 @@ function quickViewToMap(){
         }
 
     }
-    function hasMapset(mapsetid){
-        if(oGraph.mapsets){
-            for(var c=0;c<oGraph.mapsets[0].components.length;c++){
-                if(oGraph.mapsets[0].components.handle=='M'+mapsetid) return true;
-            }
-        }
-        return false;
-    }
-    function hasPointset(pointsetid){
-        if(oGraph.pointsets){
-            for(var x= 0, len=oGraph.pointsets.length;x<len;x++){
-                for(var c=0, len=oGraph.pointsets[x].components.length;c<len;c++){
-                    if(oGraph.pointsets[x].components.handle=='X'+pointsetid) return true;
-                }
-            }
-        }
-        return false;
-    }
+
     function makeGraphAfterFetches(){
-        getAssets(oGraph, function(){
+        var mapFile = globals.maps[oGraph.map].jvectormap;  //map file already prefetched
+        oGraph.fetchAssets(function(){
             require(['/global/js/maps/' + oGraph.mapFile + '.js'],function(){
-                if(oGraph.title===null || oGraph.title==''){
-                    oGraph.title = oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets[0].name();
-                }
+                oGraph.title = oGraph.title || (oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets[0].name());
                 if(panelId=="new"){
                     buildGraphPanel(oGraph);
                 } else {
@@ -1997,7 +1978,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                             units: gridData[rows.M.units][1],
                             notes: gridData[rows.M.geoid][c],
                             geoid: gridData[rows.M.geoid][c],
-                            save_dt: new Date().getTime()
+                            savedt: new Date().getTime()
                         };
                         headerRow = rows.M.header;
                         break;
@@ -2011,7 +1992,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                             geoid:gridData[rows.X.geoid][c],
                             lat:gridData[rows.X.lon][c],
                             lon:gridData[rows.X.lat][c],
-                            save_dt: new Date().getTime()
+                            savedt: new Date().getTime()
                         };
                         headerRow = rows.X.header;
                         break;
@@ -2021,7 +2002,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                             name:gridData[rows.U.name][c],
                             units:gridData[rows.U.units][c],
                             notes:gridData[rows.U.notes][c],
-                            save_dt: new Date().getTime()
+                            savedt: new Date().getTime()
                         };
                         headerRow = rows.U.header;
                         break;
@@ -2491,11 +2472,12 @@ function syncMyAccount(){ //called only after loggin and after initial report of
 function getMySets(){
     callApi({'command':	'GetMySets', modal:"persist"},
         function(results, textStatus, jqXH){
-            var sets=[];
+            var sets=[], set;
             for(var sHandle in results.sets){
-                results.sets[sHandle].save_dt = parseInt(results.sets[sHandle].save_dt)
-                oMySets[sHandle] = results.sets[sHandle]; //if exists, it will be overwritten with new data
-                sets.push(results.sets[sHandle]);  //takes an array or object, not an object
+                results.sets[sHandle].savedt = parseInt(results.sets[sHandle].savedt);
+                set = new MD.Set(results.sets[sHandle]); //if exists, it will be overwritten with new data
+                oMySets[sHandle] = set;
+                sets.push(set);  //takes an array or object, not an object
             }
             $dtMyData.fnClearTable();
             $dtMyData.fnAddData(sets);
@@ -2509,7 +2491,7 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
     callApi({
             command:	'ManageMySeries',
             modal: "none",
-            jsts: oSeries.save_dt,
+            jsts: oSeries.savedt,
             handle:  oSeries.handle,
             to:		oSeries.save  //"H" for history, "S" for saved, null to remove
         },
@@ -2520,7 +2502,7 @@ function updateMySeries(oSeries){   //add or deletes to MySeries db
 function addMySeriesRow(oMD){  //add to table and to oMySets
     //TODO:  need to update existing panelGraphs if update.  Note new oPanelGraph objects should always be created using the freshest oMySets.');
     if(oMD.handle){
-        if(oMD.save_dt) oMD.save_dt = parseInt(oMD.save_dt);
+        if(oMD.savedt) oMD.savedt = parseInt(oMD.savedt);
         if(oMySets[oMD.handle]){
             //still need to check if it is a row.  There are lots of things in the oMySets trunk...
             var $trSeries = $dtMyData.find("button[data='" + oMD.handle + "']").closest('tr');
@@ -2911,7 +2893,7 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
         plot = oGraph.plots[p];
         plotId = 'P'+p;
         serie = chart.get(plotId);
-        var showComponentsAndPlot = (plot.options.formula && plot.options.formula.formula.length>1) || (plot.formula && plot.formula.formula.length>1) || plot.options.units || plot.options.name;
+        var showComponentsAndPlot = (plot.calculatedFormula && plot.calculatedFormula.formula.length>1) || plot.options.units || plot.options.name;
         for(c=0;c<plot.components.length;c++){
             colId = 'P'+p+'-C'+c;
             component = assets[plot.components[c].handle];
@@ -2958,11 +2940,11 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
                         + '<br>'
                         + '<br>'
                         + '<br>'
-                        + '<br>'+plot.formula.formula,
+                        + '<br>'+plot.calculatedFormula.formula,
                     cssClass: 'grid-calculated-column'}
             );
             for(d=0;d<serie.options.data.length;d++){
-                pnt = serie.options.data[d]
+                pnt = serie.options.data[d];
                 readableDate = formatDateByPeriod(pnt[0], serie.options.period);
                 mdDate = MD.common.mashableDate(pnt[0], serie.options.period);
                 //search to see if this date is in gridArray

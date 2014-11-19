@@ -106,7 +106,7 @@ switch($command){
 
         $aColumns=array("name", "units", "firstdt", "lastdt");
 
-        //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.seriesid)) as handle , s.seriesid, s.userid, mapsetid, pointsetid, name, units, freq as period, title, src, url, ";
+        //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as period, title, src, url, ";
 
 
         $sql = "SELECT SQL_CALC_FOUND_ROWS
@@ -117,7 +117,7 @@ switch($command){
         //handle may be modified in read loop depending on detected geographies and
         if($catid>0){
             //1. if category search, this is simple
-            $sql .= " INNER JOIN categoryseries cs on s.seriesid = cs.seriesid WHERE catid=$catid";
+            $sql .= " INNER JOIN categoryseries cs on s.setid = cs.setid WHERE catid=$catid";
         } else {
             //2. look for geo matching and search sets if
             $foundGeos = [];
@@ -233,7 +233,7 @@ switch($command){
         $iFilteredTotal = $aResultFilterTotal[0];
 
         /* Total data set length */
-       /* $sQuery = "SELECT COUNT(seriesid)FROM series";
+       /* $sQuery = "SELECT COUNT(setid)FROM series";
         $rResultTotal = runQuery( $sQuery ) or die($db->error());
         $aResultTotal = $rResultTotal->fetch_array();
         $iTotal = $aResultTotal[0];*/
@@ -286,7 +286,7 @@ switch($command){
         }
         $aColumns=array("g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
 
-        $sql = "SELECT g.graphid, g.title, map, text as analysis, serieslist, ghash, views, "
+        $sql = "SELECT g.graphid, g.title, map, text as analysis, g.cubeid, serieslist, ghash, views, "
             //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
             . " ifnull(updatedt, createdt) as modified "
             . ", mapsets, pointsets "
@@ -531,7 +531,7 @@ switch($command){
     case "GetSet":  //called only in showSeriesEditor = left outer join to grab unused regions
         $mapsetid = intval($_POST["mapsetid"]);
         $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
-        $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), seriesid) as handle, seriesid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
+        $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), setid) as handle, setid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
             . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
             . " left outer join (select * from series s where mapsetid=".$mapsetid." and pointsetid is null) s on g.geoid=s.geoid "
             . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
@@ -587,7 +587,7 @@ switch($command){
 
         */
 
-        $sql = "select * from maps where map<>name order by map";
+        $sql = "select * from maps order by map";
         $result = runQuery($sql,"GetMapsList");
         $output = array("status"=>"ok", "maps"=>array());
         while($row = $result->fetch_assoc()){
@@ -605,23 +605,30 @@ switch($command){
         }
         break;
     case "GetCubeList":
-        if(!isset($_POST["themeids"]) && !isset($_POST["cubeid"])){
-            $output = ["status"=>"must provide  valid cube or theme id"];
-        } else {
-            $cubeid = isset($_POST["cubeid"])?intval($_POST["cubeid"]):0;
-            $themeids = isset($_POST["themeids"])?implode(",", cleanIdArray($_POST["themeids"])):0;
-            $output = ["status"=>"ok", "themes"=>[]];
+        if(!isset($_POST["themeids"]) || !isset($_POST["setids"])){
+            $output = ["status"=>"must provide  valid set and theme id"];
+            break;
+        }
 
-            $sql = "select t.themeid, t.name as themename, c.cubeid, c.name from cubes c inner join themes t on t.themeid=c.themeid where c.cubeid=$cubeid or (c.themeid in (".$themeids.") and c.name<>'total')";
-            $result = runQuery($sql,"GetCubeList");
-            while($row = $result->fetch_assoc()){
-                if(!isset($output["themes"]["T".$row["themeid"]])) $output["themes"]["T".$row["themeid"]] = [
-                    "themeid" => $row["themeid"],
-                    "name" => $row["themename"],
-                    "cubes" => []
-                ];
-                array_push($output["themes"]["T".$row["themeid"]]["cubes"], ["cubeid"=>$row["cubeid"], "name"=>$row["name"]]);
-            }
+        $setids = implode(",", cleanIdArray($_POST["setids"]));
+        $themeids = implode(",", cleanIdArray($_POST["themeids"]));
+        $output = ["status"=>"ok", "cubes"=>[]];
+
+        //totset cubes UNION sibling cubes
+        $sql = "(select totsetid as setid, 'drill-down' as rel, t.themeid, t.name as themename, c.cubeid, c.name
+        from cubes c inner join themes t on t.themeid=c.themeid
+        where c.totsetid in ($setids) and c.themeid in ($themeids)
+        order by themename, c.name, c.units)
+        UNION ALL
+        (select distinct setid, 'context' as rel,  t.themeid, t.name as themename, c.cubeid, c.name
+        from cubes c inner join themes t on t.themeid=c.themeid join cubecomponents cc on cc.cubeid=c.cubeid
+        where cc.setid in ($setids) and c.themeid in ($themeids)
+        order by themename, c.name, c.units)";
+
+        $result = runQuery($sql,"GetCubeList root totals");
+        while($row = $result->fetch_assoc()){
+            if(!isset($output["cubes"]["S".$row["setid"]])) $output["cubes"]["S".$row["setid"]] = ["themename"=>$row["themename"], "cubes"=>[]];
+            $output["cubes"]["S".$row["setid"]]["cubes"][] = ["name"=>$row["name"], "cubeid"=>$row["cubeid"], "type"=>$row["relation"]];  //organize by setid because they will be attached to components and available for graph level op
         }
         break;
     case "GetCubeSeries":
@@ -702,7 +709,7 @@ switch($command){
         $bunnies = isset($_POST["bunnies"])?$_POST["bunnies"]:[];
         foreach($bunnies as $bunny=>$set){
             $sid = substr($bunny,1); //remove the leading U or S
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.setid as id, lat, lon, geoid,  s.userid, "
                 . "s.title as graph, s.src, s.url, s.units, s.data, s.freq as period, 'S' as save, 'datetime' as type, firstdt, "
                 . "lastdt, hash as datahash, ms.counts as geocounts "
                 . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid "
@@ -730,7 +737,7 @@ switch($command){
         }
         $output = array("status"=>"ok", "allfound"=>true, "assets"=>array());
         for($i=0;$i<count($mapsetids);$i++){
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.seriesid as id, lat, lon, geoid,  s.userid, "
+            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.setid as id, lat, lon, geoid,  s.userid, "
                 . "s.title as graph, s.src, s.url, s.units, s.data, freq as period, 'S' as save, 'datetime' as type, firstdt, "
                 . "lastdt, hash as datahash "
                 . " FROM series s "
@@ -899,10 +906,10 @@ switch($command){
         }
         break;
     case "GetCatChains":
-        $seriesid = intval($_POST["sid"]);
-        if($seriesid == 0){ //get list of APIs to browse = select children of root category
+        $setid = intval($_POST["sid"]);
+        if($setid == 0){ //get list of APIs to browse = select children of root category
             $sql = <<<EOS
-                SELECT c.catid, c.name, COUNT( DISTINCT cs2.seriesid ) AS scount, COUNT( DISTINCT cc2.childid ) AS children
+                SELECT c.catid, c.name, COUNT( DISTINCT cs2.setid ) AS scount, COUNT( DISTINCT cc2.childid ) AS children
                 FROM categories c
                 INNER JOIN catcat cc ON c.catid = cc.childid
                 LEFT OUTER JOIN categoryseries cs2 ON c.catid = cs2.catid
@@ -912,13 +919,13 @@ switch($command){
 EOS;
         } else {
             $sql = <<<EOS
-            SELECT c.catid, c.name, COUNT(DISTINCT cs2.seriesid ) AS scount,
+            SELECT c.catid, c.name, COUNT(DISTINCT cs2.setid ) AS scount,
              COUNT(DISTINCT childid ) AS children
             FROM categories c
               INNER JOIN categoryseries cs ON  c.catid = cs.catid
               INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid
               LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid
-            WHERE cs.seriesid = $seriesid and c.catid<>5506
+            WHERE cs.setid = $setid and c.catid<>5506
             GROUP BY c.catid, c.apicatid, c.name
 EOS;
 //don't get the root category
@@ -934,12 +941,12 @@ EOS;
              array_pop($chain); // get rid of terminal cats added in BuildChainLinks
          }*/
         $output = array("chains"=>$chains);
-        $output["sid"] = $seriesid;
+        $output["sid"] = $setid;
         $output["status"] = "ok";
         break;
     case "GetCatSiblings":
         $catid = intval($_POST["catid"]);
-        $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs.seriesid ) AS scount
+        $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs.setid ) AS scount
             , COUNT(DISTINCT kids.childid ) AS children
             FROM catcat parent
             INNER JOIN catcat siblings ON siblings.parentid = parent.parentid
@@ -959,7 +966,7 @@ EOS;
     case "GetCatChildren":
         $catid = intval($_POST["catid"]);
         $sql = "SELECT
-            c.catid, c.name, COUNT(DISTINCT cs.seriesid ) AS scount, COUNT(DISTINCT kids.childid ) AS children
+            c.catid, c.name, COUNT(DISTINCT cs.setid ) AS scount, COUNT(DISTINCT kids.childid ) AS children
             FROM catcat siblings
             INNER JOIN  categories c  ON c.catid = siblings.childid
             LEFT OUTER JOIN categoryseries cs ON  siblings.childid = cs.catid
@@ -1017,6 +1024,7 @@ EOS;
         $intervals = isset($_POST['intervals'])?intval($_POST['intervals']):'null';
         $from = (isset($_POST['start']) && is_numeric($_POST['start']))?intval($_POST['start']/1000)*1000:'null';
         $to = (isset($_POST['end']) && is_numeric($_POST['end']))?intval($_POST['end']/1000)*1000:'null';
+        $cubeid = (isset($_POST['cubeid']) && is_numeric($_POST['cubeid']))?intval($_POST['cubeid']):'null';
         switch($_POST['type']){
             case "auto":
             case "area":
@@ -1033,27 +1041,28 @@ EOS;
             default:
                 $type = "line";
         }
-
+        $annotations = safeSQLFromPost("annotations");
+        $serieslist = safeSQLFromPost("serieslist");
+        $map = safeSQLFromPost("map");
+        $mapconfig = safeSQLFromPost("mapconfig");
+        $title = safeSQLFromPost("title");
+        $analysis = safeSQLFromPost("analysis");
         //table structure = graphs <-> graphplots <-> plotcomponents
 
         if($gid==0){
             $ghash = makeGhash($user_id);  //ok to use uid instead of gid as ghash is really just a random number
-            $sql = "insert into graphs (userid, published, title, text, type, "
-                . " intervalcount, fromdt, todt, annotations, serieslist, map, mapconfig, views, createdt, ghash) values ("
-                . $user_id . ", '" . $published . "',". safeSQLFromPost("title") . "," . safeSQLFromPost("analysis")
-                . ", '" . $type . "', " . $intervals
-                . ", " . $from . ", ". $to . ", ". safeSQLFromPost("annotations") . ", " . safeSQLFromPost("serieslist")
-                . ", " . safeSQLFromPost("map") . ", " . safeSQLFromPost("mapconfig")   . ", 0, ".$createdt.",'". $ghash . "')";
+            $sql = "insert into graphs
+            (userid, published, title, text, type, intervalcount, fromdt, todt, annotations, serieslist, map, mapconfig, cubeid, views, createdt, ghash)
+            values (
+            $user_id, '$published',$title, $analysis, '$type', $intervals, $from, $to, $annotations,  $map, $mapconfig , $cubeid, 0, $createdt,'$ghash'
+            )";
             if(!runQuery($sql, "ManageMyGraphs: insert graphs record")){$output = array("status" => "fail on graph record insert", "post" => $_POST);break;}
             $gid = $db->insert_id;
         } else {
-            $sql = "update graphs set userid=" . $user_id . ", published='" . $published . "', title=". safeSQLFromPost("title")
-                . ", text=" . safeSQLFromPost("analysis") . ", type='" . $type . "', intervalcount="
-                . $intervals . " , fromdt=" . $from
-                . ", todt=" . $to . ", annotations=" . safeSQLFromPost("annotations") . ", updatedt=".$updatedt
-                . ", serieslist=" . safeSQLFromPost("serieslist")
-                . ", map=" . safeSQLFromPost("map") . ", mapconfig=" . safeSQLFromPost("mapconfig")
-                . " where graphid = " . $gid . " and userid=" . $user_id;
+            $sql = "UPDATE graphs
+            SET userid=$user_id, published='$published ', title=$title, text=$analysis, type='$type', intervalcount=$intervals,
+            fromdt=$from, todt=$to, annotations=$annotations, updatedt=$updatedt, serieslist=$serieslist, map=$map, mapconfig=$mapconfig
+            WHERE graphid = " . $gid . " and userid=" . $user_id;
             if(!runQuery($sql,"ManageMyGraphs: update graphs record")){$output = array("status" => "fail on graph record update");break;}
             $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id,"ManageMyGraphs: read the ghash when updating");
             $row = $result->fetch_assoc();
@@ -1137,7 +1146,7 @@ EOS;
 
         if($type=="S"){    //series
 
-            $sql = "select * from myseries where seriesid = " . $id . " and userid = " . $user_id;
+            $sql = "select * from mysets where setid = " . $id . " and userid = " . $user_id;
             $result = runQuery($sql);
             $from = "";
             if($result->num_rows==1){
@@ -1147,33 +1156,33 @@ EOS;
                     $output = array("status" => "error: from and to save status are identical");
                     break;
                 }
-                $sql = "update myseries set saved=" . safeStringSQL($to) . ", adddt=". $addDt ." where seriesid = " . $id . " and userid = " . $user_id;
+                $sql = "update mysets set savedt=". $addDt ." where setid = " . $id . " and userid = " . $user_id;
                 logEvent("ManageMySeries: add", $sql);
                 runQuery($sql);
             } else {
                 if($to=="H" || $to=="S"){ //if not assigned to "saved" or "history" then command is to delete
-                    $sql = "insert into myseries (userid, seriesid, saved, adddt) VALUES (" . $user_id . "," . $id . "," . safeStringSQL($to) . "," . $addDt . ")";
+                    $sql = "insert into mysets (userid, setid, savedt) VALUES ($user_id, $id, $addDt)";
                     logEvent("ManageMySeries: add", $sql);
                     runQuery($sql);
                     //TODO:  delete history in excess of 100 series
                 }
             }
             if($to == 'S'){
-                $sql = "update series set myseriescount= myseriescount+1 where seriesid = " . $id;
+                $sql = "update series set myseriescount= myseriescount+1 where setid = " . $id;
                 runQuery($sql);
             }elseif($from == 'S' && $to == 'H'){
-                $sql = "update series set myseriescount= myseriescount-1 where seriesid = " . $id;
+                $sql = "update series set myseriescount= myseriescount-1 where setid = " . $id;
                 runQuery($sql);
             }
             if($to!="H" && $to!="S"){
-                $sql = "delete from myseries where seriesid = " . $id . " and userid = " . $user_id;
+                $sql = "delete from mysets where setid = " . $id . " and userid = " . $user_id;
                 logEvent("ManageMySeries: delete", $sql);
                 runQuery($sql);
             }
         } elseif($type=="U"){
             if($to!="S"){   //can only delete here.  nothing else to manage.
                 //TODO: check for graph dependencies and organizational usage
-                $sql = "delete from series where seriesid=". $id . " and userid=". $user_id;
+                $sql = "delete from series where setid=". $id . " and userid=". $user_id;
                 runQuery($sql);
             }
         }
@@ -1249,7 +1258,7 @@ EOS;
             $skey = isset($series[$i]['skey'])?$series[$i]['skey']:'';
             $url = $series[$i]['url'];
             $freq = $series[$i]['freq'];
-            $capture_dt = $series[$i]['save_dt'];
+            $capture_dt = $series[$i]['savedt'];
             $data = $series[$i]['data'];
             $firstdt = intval( $series[$i]['firstdt']);
             $lastdt = intval($series[$i]['lastdt']);
@@ -1286,34 +1295,34 @@ EOS;
             if($period){$l2domain = substr($l2domain, $period+1);}
             $src = isset($series[$i]['src'])?$series[$i]['src']:$l2domain.".".$l1domain;
             //see if user has already uploaded this one:
-            $sql = "SELECT seriesid, data FROM series WHERE name='" . $db->real_escape_string ($series_name) . "' and title = '" . $db->real_escape_string ($graph_title)
+            $sql = "SELECT setid, data FROM series WHERE name='" . $db->real_escape_string ($series_name) . "' and title = '" . $db->real_escape_string ($graph_title)
                 . "' and url = '" . $db->real_escape_string ($url) . "' and freq = '" . $db->real_escape_string ($freq)
                 . "' and units = '" . $db->real_escape_string ($units) . "' and userid=".$user_id;
             $result = runQuery($sql, "uploadMashableData: search whether this user series exists");
             if($result->num_rows!=0){
                 $row = $result->fetch_assoc();
-                $seriesid = $row["seriesid"];
+                $setid = $row["setid"];
                 if($data!=$row["data"]){
-                    $sql = "update series set data='".$db->real_escape_string ($data)."', firstdt=".$firstdt.", lastdt=".$lastdt." where seriesid=".$seriesid;
+                    $sql = "update series set data='".$db->real_escape_string ($data)."', firstdt=".$firstdt.", lastdt=".$lastdt." where setid=".$setid;
                     runQuery($sql, $command);
                 }
-                $sql = "update myseries set adddt = ".intval($_POST["adddt"])." where seriesid=".$seriesid." and userid=".$user_id;
+                $sql = "update mysets set savedt = ".intval($_POST["savedt"])." where setid=".$setid." and userid=".$user_id;
                 runQuery($sql, $command);
             } else {
                 $sql = "insert into series (userid, skey, name, namelen, src, units, units_abbrev, freq, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
                     . " values (".$user_id.",".safeStringSQL($skey).",".safeStringSQL($series_name).",".strlen($series_name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units).",".safeStringSQL($freq).",".safeStringSQL($graph_title).",".safeStringSQL($url).",'private user series acquired through via a chart using the MashableData chart plugin',".safeStringSQL($data).",".safeStringSQL(sha1($data)).",null,".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
                 $queryStatus = runQuery($sql, $command);
                 if($queryStatus!==false){
-                    $seriesid = $db->insert_id;
-                    $output["handles"][$local_handle] = 'U'.$seriesid;
-                    runQuery("insert into myseries (seriesid, userid, adddt) values (".$seriesid.",".$user_id.",".intval($capture_dt).")", $command);
+                    $setid = $db->insert_id;
+                    $output["handles"][$local_handle] = 'U'.$setid;
+                    runQuery("insert into mysets (setid, userid, savedt) values (".$setid.",".$user_id.",".intval($capture_dt).")", $command);
                 }
                 else {
                     $output["status"] = "error adding local series";
                     break;
                 }
             }
-            $output['handles'][$local_handle] = 'U'.$seriesid;
+            $output['handles'][$local_handle] = 'U'.$setid;
 
         }
         break;
@@ -1399,9 +1408,9 @@ EOS;
                     . ", hash='" . sha1($data)  . "'"
                     . ", firstdt=" . intval($arySeries[$i]['firstdt']/1000)*1000
                     . ", lastdt=" . intval($arySeries[$i]['lastdt']/1000)*1000
-                    . " WHERE userid=".$user_id." and seriesid=".$usid;
+                    . " WHERE userid=".$user_id." and setid=".$usid;
                 runQuery($sql);
-                $sql = "UPDATE myseries SET adddt=".intval($arySeries[$i]["save_dt"]/1000)*1000 . " WHERE userid=".$user_id." and seriesid=".$usid;
+                $sql = "UPDATE mysets SET savedt=".intval($arySeries[$i]["savedt"]/1000)*1000 . " WHERE userid=".$user_id." and setid=".$usid;
             } else {
                 $sql = "select COALESCE(u.name, u.email, o.orgname) as owner "
                     . " FROM users u left outer join organizations o on u.orgid=o.orgid "
@@ -1427,8 +1436,8 @@ EOS;
                     . safeStringSQL($src) .")";
                 runQuery($sql, "userseries insert");
                 $usid = $db->insert_id;
-                $sql="insert into myseries (userid, seriesid, adddt) values (".$user_id.",".$usid.",".intval($arySeries[$i]["save_dt"]/1000)*1000 .")";
-                runQuery($sql, "myseries insert for new user series");
+                $sql="insert into mysets (userid, setid, savedt) values (".$user_id.",".$usid.",".intval($arySeries[$i]["savedt"]/1000)*1000 .")";
+                runQuery($sql, "mysets insert for new user series");
             }
             array_push($output["series"],
                 array(
@@ -1620,7 +1629,7 @@ function BuildChainLinks(&$chains){
     foreach($chains as $name => $chain){
         $lastcat = $chain[count($chain)-1];
         if($lastcat["catid"]!=0){
-            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT childrenseries.seriesid ) AS scount "
+            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT childrenseries.setid ) AS scount "
                 . ", COUNT(DISTINCT childrencats.childid ) AS children   "
                 //. ", COUNT(DISTINCT silbingcats.childid ) AS sbilings   "
                 . " FROM catcat current "
@@ -1663,7 +1672,7 @@ function getGraphs($userid, $ghash){
         die('{"status":"Must provide valid a hash or user credentials."}');
     }
     $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis, "
-        . " g.map, g.mapconfig,  g.serieslist, "
+        . " g.map, g.mapconfig,  g.cubeid,  g.serieslist, "
         . " g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt, "
         . " m.jvectormap, m.bunny, m.legend, "
         . " s.name, s.units, setkey, s.src, s.freqs, s.metadata as setmetadata, s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, "
@@ -1845,19 +1854,19 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
     global $db, $orgid;
     $setFilters = [];
     for($i=0;$i<count($requestedSets);$i++){
-        $setFilters[] = ["(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')"];
+        $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
-    $sql = "SELECT s.setid, s.type, s.name, s.counts, s.freqs, s.themeid, s.metdata as setmetadata, s.src, s.url, s.units,
+    $sql = "SELECT s.setid, s.settype, s.name, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
     g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
-    sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k
+    sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
     FROM sets s, setdata sd, geographies g, mapgeographies mg, maps m
-    WHERE (" . implode($setFilters, " OR ") . ")
+    WHERE (" . implode(" OR ", $setFilters) . ")
     and mg.map  = " . safeStringSQL($map)
     ." and mg.geoid=sd.geoid and mg.geoid=g.geoid and mg.map=" . safeStringSQL($map);
     if($mustBeOwnerOrPublic){
         $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run
     }
-    $sql .= " ORDER by mapsetid";
+    $sql .= " ORDER by  setid";
     $result = runQuery($sql, "getMapSets");
     $currentMapSetId = 0;
     while($row = $result->fetch_assoc()){
@@ -1873,7 +1882,7 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
                 "freq"=>$row["freq"],
                 "src"=>$row["src"],
                 "themeid"=>$row["themeid"],
-                "metadata"=>$row["metadata"],
+                "setmetadata"=>$row["setmetadata"],
                 "firstdt"=>$row["firstdt100k"]*100000,
                 "lastdt"=>$row["lastdt100k"]*100000,
                 "data"=>array()
@@ -1882,14 +1891,15 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
             $output["sets"][$handle]["maps"] = mapsFieldCleanup($row["maps"]);
         }
         $output["sets"][$handle]["data"][$row["map_code"]] = [
-            "handle"=>"S".$row["seriesid"].$row["freq"]."G".$row["geoid"],
+            "handle"=>"S".$row["setid"].$row["freq"]."G".$row["geoid"],
             "geoid"=>$row["geoid"],
             "geoname"=>$row["geoname"],
             "data"=>$row["data"],
-            "metadata"=>$row["seriesmetdata"],
             "firstdt"=>$row["firstdt100k"]*100000,
             "lastdt"=>$row["lastdt100k"]*100000
         ];
+        if($row["seriesmetadata"]!=null) $output["sets"][$handle][$row["map_code"]]["metadata"] = $row["seriesmetadata"];
+        if($row["seriesurl"]!=null) $output["sets"][$handle][$row["map_code"]]["url"] = $row["seriesurl"];
         if($row["latlon"]!=null) $output["sets"][$handle][$row["map_code"]]["latlon"] = $row["latlon"];
         $output["sets"][$handle]["firstdt"] = min($output["sets"][$handle]["firstdt"], $row["firstdt100k"]*100000);
         $output["sets"][$handle]["lastdt"] = max($output["sets"][$handle]["lastdt"], $row["lastdt100k"]*100000);
@@ -1905,7 +1915,7 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
 function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
     global $db, $orgid;
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.freq as period, ps.freqset, ps.themeid, "
-        . " s.seriesid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
+        . " s.setid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
         . " from pointsets ps, series s, mapgeographies mg, maps m "
         . " where ps.pointsetid = s.pointsetid and s.mapsetid is null  and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
         . " and m.map  = " . safeStringSQL($map)
@@ -1938,7 +1948,7 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
         $latlon = $row["lat"].",".$row["lon"];
         $mapout["X".$currentPointSetId]["coordinates"][$latlon] = array("latLng"=>array($row["lat"], $row["lon"]));
         $mapout["X".$currentPointSetId]["data"][$latlon] = array(
-            "handle"=>"S".$row["seriesid"],
+            "handle"=>"S".$row["setid"],
             "name"=>$row["seriesname"],
             "data"=>$row["data"],
             "firstdt"=>$row["firstdt"],
@@ -2013,7 +2023,7 @@ function getCubeSeries(&$output, $cubeid, $geoid=0){
     //fetch cube series
     if(intval($geoid)>0){
         $output["series"] = [];
-        $sql = "select name, data from series s inner join cubeseries cs on s.seriesid=cs.seriesid where cs.geoid = $geoid and cs.cubeid=$cubeid";
+        $sql = "select name, data from series s inner join cubeseries cs on s.setid=cs.setid where cs.geoid = $geoid and cs.cubeid=$cubeid";
         $result = runQuery($sql,"GetCubeSeries data");
         while($row = $result->fetch_assoc()){
             array_push($output["series"], $row);

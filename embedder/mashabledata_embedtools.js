@@ -222,7 +222,7 @@ window.MashableData.plugin = function(){ //mashableData namespace
                         serie.credit = (thisChart.options.credits&&thisChart.options.credits.text)?thisChart.options.credits.text:null;
                         serie.url = window.location.href;
                         serie.units = thisSerie.units || (thisSerie.yAxis.options.title?thisSerie.yAxis.options.title.text||'':'');
-                        serie.save_dt = timestamp;
+                        serie.savedt = timestamp;
 
                         /*var dataPortion = "";
                          for(var datapoint in thisSeries.data){
@@ -568,7 +568,7 @@ window.MashableData.plugin = function(){ //mashableData namespace
             var i, series, rows = '', now = new Date(), viewed, inChart;
             for(i=0;i<aryKeys.length;i++){
                 series = this.series[aryKeys[i]];
-                viewed = new Date(parseInt(series.save_dt));
+                viewed = new Date(parseInt(series.savedt));
                 inChart = this.hasSeries(aryKeys[i]);
                 rows += '<tr><td class="mashabledata_cell_bookmark"><span class="'+(series.bookmark?'mashabledata_star':'mashabledata_nostar')+'"></span></td>'
                     + '<td class="mashabledata_cell_check"><input type="checkbox" data="'+aryKeys[i]+'"'+(inChart?' checked><span>a'+viewed.getTime()+'</span>':'><span>b'+viewed.getTime()+'</span>')+'</td>'

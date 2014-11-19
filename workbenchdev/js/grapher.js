@@ -1421,16 +1421,16 @@ MashableData.grapher = function(){
                         } else {
                             $thisPanel.find('div.change-map').hide();
                         }
-                        var options = '';
-                        if(oGraph.plots) options  += '<option value="chart">chart</option>';
-                        if(oGraph.mapsets||oGraph.pointsets) options  += '<option value="map" selected>map</option>';
+                        var downloadOptions = '';
+                        if(oGraph.plots) downloadOptions  += '<option value="chart">chart</option>';
+                        if(oGraph.mapsets||oGraph.pointsets) downloadOptions  += '<option value="map" selected>map</option>';
                         if(summationMap = isSummationMap(oGraph)){
-                            if(typeof oGraph.mapconfig.cubeid == 'undefined') oGraph.mapconfig.cubeid = 'sum';
+                            if(!oGraph.cubeid) oGraph.mapconfig.summationCube = true;
                         } else {
-                            if(oGraph.mapconfig.cubeid == 'sum') delete oGraph.mapconfig.cubeid;
+                            delete oGraph.mapconfig.summationCube;
                         }
-                        if(oGraph.mapconfig.cubeid) options  += '<option value="cube">supplemental bar chart</option>';
-                        $('.download-selector').html(options);
+                        if(oGraph.mapconfig.summationCube || oGraph.cubeid) downloadOptions  += '<option value="cube">supplemental bar chart</option>';
+                        $('.download-selector').html(downloadOptions);
                     }
                     function redraw(){
                         mask('redrawing');
@@ -1818,7 +1818,7 @@ MashableData.grapher = function(){
                                     $.each(oGraph.mapsets[0].components, function(c){
                                         asset = oGraph.assets[this.handle()];
                                         names.push(asset.name);
-                                        symbol = compSymbol(c);
+                                        symbol = mapsets[0].compSymbol(c);
                                         if(this.handle[0]=='M'){
                                             symbolData[symbol] = asset.data[geoKey]?asset.data[geoKey].data:null;
                                         } else {
@@ -1864,7 +1864,7 @@ MashableData.grapher = function(){
                                     var cube = oGraph.assets.cube;
                                     cube.theme =  peeledWords.join(' ');
                                     cube.name = '';
-                                    cube.units = plotUnits(oGraph, oGraph.mapsets[0]);
+                                    cube.units = oGraph.mapsets[0].units();
                                     cube['G'+geoKey] = {facetedData: []};
                                     for(i=0;i<numNamesAsWords.length;i++){
                                         cube.dimensions[0].list.push({name: numNamesAsWords[i].join(' ')});
@@ -2480,7 +2480,7 @@ MashableData.grapher = function(){
                             }
                         }
                         if(oGraph.mapsets && !isBubble()){
-                            hcr.text(plotUnits(oGraph, oGraph.mapsets).substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+                            hcr.text(oGraph.mapsets[0].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
                             if(oGraph.mapsets[0].options.scale!='discrete' && oGraph.mapsets[0].options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
 
                             if(oGraph.mapsets[0].options.scale == 'discrete'){
@@ -2683,8 +2683,8 @@ MashableData.grapher = function(){
                     if(graph.mapsets){
                         //THE BRAINS:
                         var mapset = graph.mapsets[0];
-                        mapset.formula(); //refresh the formula obj
-                        expression = 'return ' + mapset.formula.formula.replace(patVariable,'values.$1') + ';';
+                        var formula = mapset.calculateFormula(); //make a fresh the formula obj
+                        expression = 'return ' + mapset.calculatedFormula.formula.replace(patVariable,'values.$1') + ';';
                         var mapCompute = new Function('values', expression);
 
                         //1. rearrange series data into single object by date keys
@@ -2697,10 +2697,10 @@ MashableData.grapher = function(){
                         var sortedGeoList = [];
 
                         for(i=0;i<components.length;i++ ){
-                            symbol = compSymbol(i);
+                            symbol = mapset.compSymbol(i);
                             compSymbols.push(symbol); //calculate once and use as lookup below
                             //TODO: apply any series down-shifting here instead of just parroting series data
-                            if(components[i].handle[0]=='M'){
+                            if(components[i].isMapSet()){
                                 for(geo in graph.assets[components[i].handle()].data){
                                     if(!geos[geo]) { //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
                                         geos[geo]=true;
@@ -2741,7 +2741,7 @@ MashableData.grapher = function(){
 
                         mapTitle = mapset.name();
                         mapPeriod = graph.assets[components[0].handle()].period; //for now, all components for have same freq, so just check the first component
-                        mapUnits = plotUnits(graph, mapset);
+                        mapUnits = mapset.units();
 
                         for(dateKey in oComponentData){
                             dataMin = Number.MAX_VALUE;
@@ -2818,9 +2818,9 @@ MashableData.grapher = function(){
                         if(!isEmbedded){
                             var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
                             var regionRows = []; //initialize empty grid
-                            var hasCalc = (mapset.formula.formula != 'A'); //used to skip calculated column when plot = component
+                            var hasCalc = (mapset.calculatedFormula.formula != 'A'); //used to skip calculated column when plot = component
                             sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                            var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = mapset.name(), mapsetUnits = plotUnits(graph, mapset, false, mapset.formula);
+                            var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = mapset.name(), mapsetUnits = mapset.units();
                             for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
                                 //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
                                 jsDateTime = dateFromMdDate(dateKey).getTime();
@@ -2840,7 +2840,7 @@ MashableData.grapher = function(){
                                         if(typeof row[id] == 'undefined') row[id] = '-';
                                     }
                                     if(hasCalc){  //special
-                                        if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                                        if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.calculatedFormula.formula:''), cssClass: 'grid-calculated-column'});
                                         row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
                                     }
                                 }
@@ -2866,14 +2866,14 @@ MashableData.grapher = function(){
                             pointset = graph.pointsets[i];
                             if(!pointset.options.color) pointset.options.color = nextColor(graph.pointsets);
                             pointset.formula(pointset);
-                            expression = 'return ' + pointset.formula.formula.replace(patVariable,'values.$1') + ';';
+                            expression = 'return ' + pointset.calculatedFormula.formula.replace(patVariable,'values.$1') + ';';
                             var pointsetCompute = new Function('values', expression);
                             //A. rearrange series data into single object by date keys
                             compSymbols = [];
                             components = pointset.components;
                             oComponentData = {};
                             for(j=0;j<components.length;j++ ){
-                                symbol = compSymbol(j);
+                                symbol = pointset.compSymbol(j);
                                 compSymbols.push(symbol); //calculate once and use as lookup below
                                 //TODO: apply any series down-shifting here instead of just parroting series data
                                 if(components[j].handle[0]=='X'){
@@ -2928,9 +2928,9 @@ MashableData.grapher = function(){
                             mapPeriod = graph.assets[components[0].handle()].period; //for now, all components must have same freq, so just check the first component
 
                             if(pointset.options.attribute=='fill'){
-                                fillUnits = plotUnits(graph, pointset);
+                                fillUnits = pointset.units();
                             }else{
-                                radiusUnits = plotUnits(graph, pointset);  //default to radius
+                                radiusUnits = pointset.units();  //default to radius
                             }
 
                             for(dateKey in oComponentData){
@@ -3018,9 +3018,9 @@ MashableData.grapher = function(){
                             //C.  markerColumns and markerRows to drive slick grids in data tab (inside the pointsets loop)
                             if(!isEmbedded){
                                 sortedLatlonList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                                var pointsetHasCalc = (pointset.formula.formula != 'A'); //used to skip calculated column when plot = component
+                                var pointsetHasCalc = (pointset.calculatedFormula.formula != 'A'); //used to skip calculated column when plot = component
 
-                                var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = pointset.name(), pointsetUnits = plotUnits(graph, pointset, false, pointset.formula);
+                                var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = pointset.name(), pointsetUnits = pointset.units();
                                 for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
                                     //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
                                     jsDateTime = dateFromMdDate(dateKey).getTime();
@@ -3052,7 +3052,7 @@ MashableData.grapher = function(){
                                             if(typeof row[id] == 'undefined') row[id] = '-';
                                         }
                                         if(pointsetHasCalc){  //special
-                                            if(firstDateKey) markerColumns.push({id: latlon+'-'+i, field: latlon+'-'+i, name: '<b>' + pointsetName + ': '+ sortedLatlonList[ll].name + '</b><br>'+pointsetUnits+'<br><br>'+(hasCalc?'<br>value = '+pointset.formula.formula:''), cssClass: 'grid-calculated-column'});
+                                            if(firstDateKey) markerColumns.push({id: latlon+'-'+i, field: latlon+'-'+i, name: '<b>' + pointsetName + ': '+ sortedLatlonList[ll].name + '</b><br>'+pointsetUnits+'<br><br>'+(hasCalc?'<br>value = '+pointset.calculatedFormula.formula:''), cssClass: 'grid-calculated-column'});
                                             row[latlon+'-'+i] = typeof markerData[dateKey][latlon] == 'undefined'?'-':markerData[dateKey][latlon];
                                         }
                                     }
@@ -3356,7 +3356,7 @@ MashableData.grapher = function(){
 
         isSummationMap: function isSummationMap(oGraph){
             if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
-            if(!oGraph.mapsets[0].options.calculatedFormula) oGraph.mapsets[0].formula();
+            if(!oGraph.mapsets[0].options.calculatedFormula) oGraph.mapsets[0].calculateFormula();
             var formula = oGraph.mapsets[0].options.calculatedFormula;
             for(var i=0;i<oGraph.mapsets[0].components.length;i++){
                 if(oGraph.mapsets[0].components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
@@ -3555,7 +3555,7 @@ MashableData.grapher = function(){
 
     function vizualizeCube(graph, geoKey, mapDate, action){
         if(typeof action == 'undefined') action = 'new';
-        var serie, i, j, k, cubeid = graph.mapconfig.cubeid;
+        var serie, i, j, k, cubeid = graph.cubeid;
         if(!graph.assets.cube) graph.assets.cube = {};
         var cube = graph.assets.cube;
         if(!cube['G'+geoKey]){

@@ -55,7 +55,7 @@ MashableData.Plot = function(components, options){
         }
         if(!plot.options.units || forceCalculated){
             //calculate from component series
-            if(!formulaObj) formulaObj = plot.formula();
+            if(!formulaObj) formulaObj = plot.calculateFormula();
             //use local copies
             var numerUnits = formulaObj.numFormula;
             var denomFormula = formulaObj.denomFormula;
@@ -84,7 +84,7 @@ MashableData.Plot = function(components, options){
             //4. swap in units (removing any + signs)
             var patPlus = /\+/g;
             for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-                replaceFormula('{{'+compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units||'').replace(patPlus,' '));
+                replaceFormula('{{'+this.compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units||'').replace(patPlus,' '));
             }
             var error = false;
             if(numerUnits!=''){
@@ -121,7 +121,7 @@ MashableData.Plot = function(components, options){
         }
     };
 
-    Plot.prototype.formula = function plotFormula(){//returns a formula object for display and eval
+    Plot.prototype.calculateFormula = function plotFormula(){//returns a formula object for display and eval
         var cmp, variable, isDenom = false, inDivision=false, numFormula='', denomFormula='', term='', formula=''
         var patMultiterm = /[+-/*]+/;
         for(var i=0;i<this.components.length;i++){
@@ -206,13 +206,13 @@ MashableData.Plot = function(components, options){
                 formula = this.options.k + ' * ' + (patMultiterm.test(numFormula)?'('+numFormula+')':numFormula);
             }
         }
-        this.options.calculatedFormula = {
+        this.calculatedFormula = {
             formula: formula,
             denomFormula: denomFormula,
             numFormula: numFormula,
             k: this.options.k||1
         };
-        return this.options.calculatedFormula;
+        return this.calculatedFormula;
 
         function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
     };
@@ -226,7 +226,7 @@ MashableData.Plot = function(components, options){
         components = plot.components;
         //note freq in a plot must be the same, either natively or through transformations
         highSeries.freq = plot.options.fdown || components[0].freq;
-        var formula = plot.formula(); //refesh the formula object
+        var formula = plot.calculateFormula(); //refesh the formula object
 
         //THE BRAINS:
         var expression = 'return ' + formula.formula.replace(globals.patVariable,'values.$1') + ';';
@@ -318,8 +318,8 @@ MashableData.Plot = function(components, options){
     Plot.prototype.type = function(){ //accounts for downshifting
         var plotType = "S";  //default until proven otherwise!
         this.eachComponent(function(){
-            if(this.isMarkerSet()) plotType = "X";
-            if(this.isRegionSet()) plotType = "M";
+            if(this.isPointSet()) plotType = "X";
+            if(this.isMapSet()) plotType = "M";
         });
         return plotType;
     };

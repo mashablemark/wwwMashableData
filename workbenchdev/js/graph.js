@@ -41,12 +41,16 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         }
         return plot;
     };
-    Graph.prototype.addRegionPlot = function(components, options){
-        if(!this.plots) this.plots = [];
-        var plot = new MashableData.Plot(components);
-        plot.options = options || {};
+    Graph.prototype.addMapPlot = function(components, options){
+        var plot = new MashableData.Plot(components, options);
         plot.graph = this;
-        this.plots.push(plot);
+        if (this.mapsets) this.mapsets.push(plot); else this.mapsets = [plot];
+        return plot;
+    };
+    Graph.prototype.addPointPlot = function(components, options){
+        var plot = new MashableData.Plot(components, options);
+        plot.graph = this;
+        if(this.pointsets) this.pointsets.push(plot); else this.pointsets = [plot];
         return plot;
     };
     Graph.prototype.clone = function(){
@@ -84,13 +88,13 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             var comp = this;
             if(!comp.data){
                 handle = comp.handle();
-                if((!graph.assets[handle] || !graph.assets[handle].data) && fetchTracker.indexOf(handle)!==-1){
+                if((!graph.assets[handle] || !graph.assets[handle].data) && fetchTracker.indexOf(handle)==-1){
                     if(globals.MySets && globals.MySets[handle] && globals.MySets[handle].data){
                         graph.assets[handle] = globals.MySets[handle].clone();
                     } else {
-                        if(comp.isSeries) assetsToFetch.series.push({setid: comp.setid, freq: comp.freq, geoid: comp.geoid, latlon: comp.latlon});
-                        if(comp.isRegionSet) assetsToFetch.regionSets.push({setid: comp.setid, freq: comp.freq});
-                        if(comp.isMarkerSet) assetsToFetch.markerSets.push({setid: comp.setid, freq: comp.freq});
+                        if(comp.isSeries()) assetsToFetch.series.push({setid: comp.setid, freq: comp.freq, geoid: comp.geoid, latlon: comp.latlon});
+                        if(comp.isMapSet()) assetsToFetch.regionSets.push({setid: comp.setid, freq: comp.freq});
+                        if(comp.isPointSet()) assetsToFetch.markerSets.push({setid: comp.setid, freq: comp.freq});
                         fetchTracker.push(handle);
                     }
                 }
@@ -102,10 +106,10 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             callApi(params,
                 function(jsoData, textStatus, jqXHR){
                     for(handle in jsoData.sets) graph.assets[handle] = jsoData.sets[handle];
-                    callBack();
+                    callback();
                 }
             );
-        } else callBack();
+        } else callback();
     };
     Graph.prototype.changeMap = function(mapCode, callback){
         if(this.map && this.map!=mapCode) {
@@ -124,11 +128,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                         delete graph.assets[comp.handle]
                     }
                 } else {
-                    if(comp.isRegionSet()) {
+                    if(comp.isMapSet()) {
                         changedAssets.regionSets = changedAssets.regionSets || {};
                         changedAssets.regionSets [handle] = {setid: this.setid, freq: this.freq};
                     }
-                    if(comp.isMarkerSet()) {
+                    if(comp.isPointSet()) {
                         changedAssets.markerSets = changedAssets.markerSets || {};
                         changedAssets.markerSets [handle] = {setid: this.setid, freq: this.freq};
                     }

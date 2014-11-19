@@ -433,11 +433,11 @@ MashableData.common = {
             handle = set.handle();
             directory[handle] = i;
             if(set.isSeries() && !set.data) series.push({handle: handle, setid: set.setid, freq: set.freq, geoid: set.geoid, latlon: set.latlon});
-            if(set.isRegionSet() && (!set.data || set.mappedTo!=map)) regionSets.push({handle: handle, setid: set.setid, freq: set.freq});
-            if(set.isMarkerSet() && (!set.data || set.mappedTo!=map)) markerSets.push({handle: handle, setid: set.setid, freq: set.freq});
+            if(set.isMapSet() && (!set.data || set.mappedTo!=map)) regionSets.push({handle: handle, setid: set.setid, freq: set.freq});
+            if(set.isPointSet() && (!set.data || set.mappedTo!=map)) markerSets.push({handle: handle, setid: set.setid, freq: set.freq});
         }
         if(series.length+regionSets.length+markerSets.length>0){
-            var params = {command: 'batchDataFetch'}
+            var params = {command: 'batchDataFetch'};
             callApi()
         } else callback(sets);
     }

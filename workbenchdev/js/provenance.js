@@ -164,8 +164,8 @@ function ProvenanceController(panelId){
                 + '<button class="edit-plot">configure</button>'
                 + '<div class="line-sample" style="background-color:'+plotColor+';height:'+plot.options.lineWidth+'px;"><img src="images/'+plot.options.lineStyle+'.png" height="'+plot.options.lineWidth+'px" width="'+plot.options.lineWidth*38+'px"></div>'
                 + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">'
-                + plot.name()+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plotUnits(graph, plot) + '</span></div>'
-                + '<span class="plot-formula">= ' + plot.formula().formula + '</span><br>'
+                + plot.name()+'</span> (' + self.plotPeriodicity(plot)+') in <span class="plot-units">' + plot.units() + '</span></div>'
+                + '<span class="plot-formula">= ' + plot.calculateFormula().formula + '</span><br>'
                 + self.componentsHTML(plot)
                 + '</li>';
             return plotList;
@@ -596,13 +596,13 @@ function ProvenanceController(panelId){
                 if(oPlot() != $(this).val().trim()) $(this).val(oPlot.name($(this).val())); //Plot.name() resets name to default name if emprty string passed in
                 makeDirty();
             });
-            $editDiv.find("input.plot-units").val(plotUnits(self.graph, oPlot)).change(function(){
-                if(plotUnits(self.graph, oPlot, true) != $(this).val() && $(this).val().trim()!='') {
+            $editDiv.find("input.plot-units").val(oPlot.units()).change(function(){
+                if(oPlot.units(true) != $(this).val() && $(this).val().trim()!='') {
                     oPlot.options.units = $(this).val();
                 } else {
                     delete oPlot.options.units;
                 }
-                $liPlot.find('span.plot-units').html(plotUnits(self.graph, oPlot));
+                $liPlot.find('span.plot-units').html(oPlot.units());
                 makeDirty();
             });
             $editDiv.find('select.dshift').val(f).change(function(){
@@ -779,8 +779,8 @@ function ProvenanceController(panelId){
                 if(oPointset.name() != $(this).val().trim()) $(this).val(oPointset.name($(this).val()));  //Plot.name() resets name to default name if emprty string passed in
                 makeDirty();
             });
-            $editDiv.find("input.plot-units").val(plotUnits(self.graph, oPointset)).change(function(){
-                if(plotUnits(self.graph, oPointset, true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
+            $editDiv.find("input.plot-units").val(oPointset.units()).change(function(){
+                if(oPointset.units(true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
                 makeDirty();
             });
             $editDiv.find('.plot-edit-k input').change(function(){
@@ -904,9 +904,9 @@ function ProvenanceController(panelId){
                         + '<div class="plot-info">'
                         + '<button class="edit-mapset right ehide">configure</button>'
                         + '<div class="edit-block ehide">'
-                        +   '<span class="plot-title">' + mapset.name()+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + plotUnits(self.graph, mapset) +'</span>'
+                        +   '<span class="plot-title">' + mapset.name()+ '</span> (' + self.plotPeriodicity(mapset)+') in <span class="plot-units">' + mapset.units() +'</span>'
                         + '</div>'
-                        + '<span class="plot-formula">= ' + mapset.formula().formula + '</span><br>'
+                        + '<span class="plot-formula">= ' + mapset.calculateFormula().formula + '</span><br>'
                         + '<span class="map-mode ehide">mode: ' + ((!mapset.options.mode || mapset.options.mode!='bubble')?'heat map':'bubbles with user defined regions') + '</span>'
                         /*                        + '<span class="map-legend ehide">-'
                          +    continuousColorScale(self.mapsetEdits.options)
@@ -927,8 +927,8 @@ function ProvenanceController(panelId){
                             + '<button class="edit-pointset right">configure</button>'
                             + '<div class="plot-info" style="display:inline-block;">'
                             + '<div class="marker" style="background-color: '+(pointset.options.color||'#000000')+'"></div>'
-                            + '<span class="plot-title">' + pointset.name()+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + plotUnits(self.graph, pointset) + '</span>'
-                            + '<span class="plot-formula">= ' + pointset.formula().formula + '</span></div>'
+                            + '<span class="plot-title">' + pointset.name()+'</span> (' + self.plotPeriodicity(pointset) + ') in <span class="plot-units">' + pointset.nits() + '</span>'
+                            + '<span class="plot-formula">= ' + pointset.calculateFormula().formula + '</span></div>'
                             + self.componentsHTML(self.pointsetsEdits[ps])
                             + '</li>';
                     }
@@ -950,7 +950,7 @@ function ProvenanceController(panelId){
                 $plot.find('span.plot-formula').hide()
                     .after('<button class="guided">guided editing</button>')
                     .after('<input class="plot-formula">');
-                $plot.find('input.plot-formula').val(plot.options.userFormula|| plot.formula().formula).keyup(function(){
+                $plot.find('input.plot-formula').val(plot.options.userFormula|| plot.calculateFormula().formula).keyup(function(){
                     try{
                         var userFormula = $(this).val();
                         if(userFormula.indexOf(';')>=0) throw('invalid mathematical syntax');
@@ -958,9 +958,9 @@ function ProvenanceController(panelId){
                         var compute = new Function('values', expression);
                         var valuesObject = {}, symbol;
                         $.each(plot.components, function(c){
-                                symbol = compSymbol(c);
+                                symbol = plot.compSymbol(c);
                                 if(userFormula.indexOf(symbol)===-1) throw('all symbols must be used');
-                                valuesObject[compSymbol(c)] = c;}
+                                valuesObject[plot.compSymbol(c)] = c;}
                         );
                         var testCalc = compute(valuesObject);
                         $(this).removeClass('ui-state-error');
@@ -979,7 +979,7 @@ function ProvenanceController(panelId){
             function guidedEditing(){
                 $plot.find('div.op, span.comp-edit-k').show();
                 $plot.find('input.plot-formula, button.guided').remove();
-                $plot.find('span.plot-formula').html('= ' + plot.formula().formula).show()
+                $plot.find('span.plot-formula').html('= ' + plot.calculateFormula().formula).show()
                     .after('<button class="manual">manual editing</button>');
                 delete plot.options.userFormula;
                 $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
@@ -1131,7 +1131,7 @@ function ProvenanceController(panelId){
                 self.set(options, $(this));  //mapset.options.name = $(this).val();
                 $mapset.find('span.plot-title').html(mapset.options.name);
             });
-            $editDiv.find("input.plot-units").val(plotUnits(self.graph, mapset)).change(function(){
+            $editDiv.find("input.plot-units").val(mapset.nits()).change(function(){
                 self.set(options, $(this));  //mapset.options.units = $(this).val();
                 $mapset.find('span.plot-units').html(mapset.options.units);
             });
@@ -1140,12 +1140,11 @@ function ProvenanceController(panelId){
             self.$prov.find('.landing').slideUp();
         },
         setFormula: function(plot, $container){
-            plot.formula = plot.formula();
-            var formula = plot.formula.formula;
+            var formula = plot.calculateFormula();
             if($container) {
                 $container.find('span.plot-formula').html('= '+ formula);
                 //if plot units are calculated, change those
-                if(!plot.options.units) $container.find('input.plot-units').val(plotUnits(this.graph, plot));
+                if(!plot.options.units) $container.find('input.plot-units').val(plot.units());
                 if(!plot.options.name) $container.find('input.plot-name').val(plot.name());
             }
         },

@@ -24,9 +24,12 @@ MashableData.Set = function(SetParams){
         }
     } else { //hash object of parameters
         for(var param in SetParams){
-            if(SetParams.hasOwnProperty(param))  this[param] = SetParams[param];
+            if(SetParams.hasOwnProperty(param))  {
+                this[param] = SetParams[param];
+            }
         }
     }
+    if(this.maps && typeof this.maps=="string") this.maps = JSON.parse('{'+this.maps+'}');
     this.parsedData();
     if(this.freqs && !Array.isArray(this.freqs )) this.freqs = this.freqs.split(' ');
     return this;
@@ -118,18 +121,28 @@ MashableData.Set = function(SetParams){
     };
     MashableData.Set.prototype.clone = function(){
         var original = this;
-        var clone = new MashableData.Set(original);  //new object, same parameters
+        var clone = new MashableData.Set(original);  //new object, same parameters (note: data property may be referential)
         return clone;
     };
     MashableData.Set.prototype.isSeries = function(){
-        return (this.freq && (this.geoid || this.latlon));
+        return (this.freq && (this.geoid || this.latlon))?true:false;
     };
-    MashableData.Set.prototype.isRegionSet = function(){
-        return (this.freq && (!this.geoid && !this.latlon) && this.type=='M');
+    MashableData.Set.prototype.isMapSet = function(){
+        return (this.freq && (!this.geoid && !this.latlon) && this.settype=='M')?true:false;
     };
-    MashableData.Set.prototype.isMarkerSet = function(){
-        return (this.freq && !this.latlon && this.type=='X');
+    MashableData.Set.prototype.isPointSet = function(){
+        return (this.freq && !this.latlon && this.settype=='X')?true:false;
     };
+    MashableData.Set.prototype.mapList = function(){
+        if(this.maps){
+            var mapCode, mapNames = [];
+            for(mapCode in this.maps){
+                if(this.maps[mapCode]>1 && globals.maps[mapCode]) mapNames.push(globals.maps[mapCode].name);
+            }
+            return mapNames.join('; ');
+        } else return "";
+    };
+
 })();
 
 MashableData.Component = function(SetParams, compnentOptions){
@@ -143,5 +156,5 @@ MashableData.Component.prototype = Object.create(MashableData.Set.prototype);
 MashableData.Component.prototype.clone = function(){
     var thisComp = this;
     var clone = new MashableData.Component(thisComp, thisComp.options);  //new object, same parameters
-    return clone;
+    return clone;  //data may be relational, but options are copies
 };
