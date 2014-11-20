@@ -1163,8 +1163,8 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
     var quickChartOptions = grapher.makeChartOptionsObject(quickGraph);
 
     quickGraph.eachComponent(function(){
-        if(globals.MySets[this.handle]) someMySeries.push(globals.MySets[this.handle]);
-        if(!globals.MySets[this.handle]) someNewSeries.push(quickGraph.assets[this.handle]);
+        if(globals.MySets[this.handle()]) someMySeries.push(globals.MySets[this.handle()]);
+        if(!globals.MySets[this.handle()]) someNewSeries.push(quickGraph.assets[this.handle()]);
     });
 
     delete quickChartOptions.chart.height;

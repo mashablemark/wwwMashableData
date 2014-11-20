@@ -31,7 +31,16 @@ MashableData.common = {
         s = s.toString(16);
         return (s.length==1?0:'') + s;
     },
-
+    mustache: function(template, valuesObject){ //single level simplistic mustache-like templating
+        if(valuesObject){
+            var key, searchRegex;
+            for(key in valuesObject){
+                searchRegex = new RegExp('{{'+key+'}}','g');
+                template = template.replace(searchRegex, valuesObject[key]);
+            }
+        }
+        return template;
+    },
     mashableDataString: function mashableDataString(serie){
         var i, points=[];
         if (typeof serie.data == 'string'){

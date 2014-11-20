@@ -100,7 +100,7 @@ MashableData.Set = function(SetParams){
     };
     MashableData.Set.prototype.preferedFreq = function(){
         //hard set
-        if(this.f) return this.f;
+        if(this.freq) return this.freq;
         //prefered (previous requested freq) is available
         if(MashableData.globals.periodPref && this.freqs.indexOf(MashableData.globals.periodPref)!==-1) return MashableData.globals.periodPref;
         //order of preference= monthly, annual, quarterly, semi-annual or whatever

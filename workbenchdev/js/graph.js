@@ -28,11 +28,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         switch(plot.type()){
             case 'M':
                 if(!this.mapsets) this.mapsets = [];
-                this.plots.push(plot);
+                this.mapsets.push(plot);
                 break;
             case 'X':
                 if(!this.pointsets) this.pointsets = [];
-                this.plots.push(plot);
+                this.pointsets.push(plot);
                 break;
             case 'S':
                 if(!this.plots) this.plots = [];
@@ -64,10 +64,10 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         clone.analysis = thisGraph.analysis;
         clone.annotations = $.extend(true, {}, {a: thisGraph.annotations}).a;
         thisGraph.eachPlot(function(){
-            thisGraph.addPlot(this.clone());
+            clone.addPlot(this.clone());
         });
+        return clone;
     };
-
     Graph.prototype.destroy = function(){
 
     };

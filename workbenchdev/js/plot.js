@@ -216,7 +216,11 @@ MashableData.Plot = function(components, options){
 
         function subTerm(){return (isNaN(cmp.options.k)||cmp.options.k==1)?variable:cmp.options.k+'*' + variable;}
     };
-
+    Plot.prototype.formula = function formula(){ //calculated formula expected to be correct is present
+        if(this.options.userFormula) return this.options.userFormula;
+        if(!this.calculatedFormula) this.calculateFormula();
+        return this.calculatedFormula.formula;
+    };
     Plot.prototype.createHighSeries = function(){
         console.time('createHighSeries');
         var valuesObject, y, i, j, highSeries, data, point, plotData=[], dateKey, oComponentData = {};
