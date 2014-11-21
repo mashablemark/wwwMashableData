@@ -1007,12 +1007,12 @@ function ProvenanceController(panelId){
                             units: mapPlot.units(),
                             readableFrequency: self.plotPeriodicity(mapPlot),
                             formula: mapPlot.calculateFormula().formula,
-                            components: self.componentsHTML(mapPlot),
-                            mode: (!mapPlot.options.mode || mapPlot.options.mode!='bubble')?'heat map':'bubbles with user defined regions'
+                            components: self.componentsHTML(mapPlot)
                         });
                     }
                     mapPlotsHTML = mustache(templates.mapPlots,{
-                        mapPlots: mapPlotsInnerHTML
+                        mapPlots: mapPlotsInnerHTML,
+                        mode: (!mapPlot.options.mode || mapPlot.options.mode!='bubble')?'heat map':'bubbles with user defined regions'
                     });
                 }
 
@@ -1513,7 +1513,7 @@ function ProvenanceController(panelId){
         controller.$prov.find('.config-cancel').button('enable');
     }
     function continuousColorStrip(a, b){
-        return mustache(templates.continuousColorScale, {a: a, b: b});
+        return mustache(templates.continuousColorStrip, {a: a, b: b});
     }
     function continuousColorScale(options){
         return mustache(templates.continuousColorScale, {

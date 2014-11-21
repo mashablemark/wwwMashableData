@@ -187,40 +187,45 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
 
     Graph.prototype.save = function saveGraph(callback) {
 //first save to db and than to $dtMyGraphs and oMyGraphs once we have a gid
-        var oGraph = this;
+        var oGraph = this, serieslist = [];
         if(oGraph.gid){
             oGraph.updatedt = (new Date()).getTime();
         } else {
             oGraph.createdt = (new Date()).getTime();
         }
         //create/update the series list
-        oGraph.serieslist = [];
-        oGraph.eachComponent(function(){oGraph.serieslist.push(oGraph.assets[this.handle()].name)});
-        oGraph.serieslist = oGraph.serieslist.join('; ');
+        this.eachComponent(function(){serieslist.push(this.name())});
+        var saveParams = {
+            command: "ManageMyGraphs",
+            serieslist:serieslist.join('; '),
+            end: this.end,
+            start: this.start,
+            annotations: serializeAnnotations(oGraph),
+            mapconfig: $.stringify(this.mapconfig),
 
-        var assets = oGraph.assets; //no need to send up the data ("plots" objects contains all the selection and configuration info)
-        var calculatedMapData = oGraph.calculatedMapData; //ditto
-        var controls = oGraph.controls; //ditto
-        delete oGraph.assets; //temporarily remove after making local reference
-        delete oGraph.calculatedMapData; //ditto
-        delete oGraph.controls; //ditto
+        };
 
-        var params = {command: 'ManageMyGraphs'};
-        var o = {}, nonTransmit = ['assts'];
-        $.extend(true, params, oGraph);
-        params.annotations = serializeAnnotations(oGraph);  // over write array of object with a single serialized field
-        params.mapconfig = $.stringify(oGraph.mapconfig);
         var plot, comp;
         oGraph.eachPlot(function(){
+            plot = this;
+            switch(plot.type){
+                case "S":
+                    saveParams.plots = saveParams.plots || [];
+
+                    $.stringify()
+                    break;
+                case "M":
+
+                    break;
+                case "X":
+
+            }
             this.options = $.stringify(this.options);
             this.eachComponent(function(){
                 this.options = $.stringify(this.options);
             });
         });
 
-        oGraph.assets = assets; //restore objects temporarily removed from oGraph
-        oGraph.calculatedMapData = calculatedMapData;
-        oGraph.controls = controls;
 
         callApi(params,
             function(jsoData, textStatus, jqXH){
@@ -228,13 +233,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
                 oGraph.ghash = jsoData.ghash;
                 oGraph.isDirty = false;
-                delete oGraph.assets; //but don't copy the potentially very large assets.   unattach and reattech instead
-                delete oGraph.calculatedMapData; //ditto
-                delete oGraph.controls; //ditto
                 var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
-                oGraph.assets = assets; //restore objects temporarily removed from oGraph
-                oGraph.calculatedMapData = calculatedMapData;
-                oGraph.controls = controls;
                 objForDataTable.updatedt = new Date().getTime();
                 if(('G' + oGraph.gid) in oMyGraphs){
                     var trMyGraph;
@@ -265,10 +264,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         }
     };
 
-    Graph.prototype.saveAs = function(newName){
+    Graph.prototype.saveAs = function(newName, callback){
         if(typeof newName != 'undefined') this.name = newName.trim();
         delete this.gid;
-        this.save();
+        delete this.ghash;
+        this.save(callback);
     };
 
     Graph.prototype.eachPlot = function eachPlot(callback){

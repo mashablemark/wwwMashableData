@@ -27,12 +27,11 @@
 $cl_config = [
     "CL_SEX" => [
         "hierarchy" => ["T" => ["M","F","UNK"]],
-        "names" => [ //name adjustments
+        "renames" => [ //name adjustments
             "UNK" => "Sex unknown", //e.g. migr_asyappctza
             "NAP" => null, //null = don't show anything (avoid hanging comma separator) form ef_ogadsexage
             "Y" => null //null = don't show anything (avoid hanging comma separator) form ef_ogadsexage
-        ],
-        "units"=> "persons"
+        ]
         //other codes:
         //  DIFF = Absolute difference between males and females (ilc_pnp9)
     ],
@@ -47,119 +46,122 @@ $cl_config = [
                             "B20-B24", //"Human immunodeficiency virus [HIV] disease",
                             "A_B_OTH" //"Other infectious and parasitic diseases (remainder of A00-B99)",
                         ],
-                    "C00-D48", //"Neoplasms",
-                    [
-                        "C", //"Malignant neoplasms (C00-C97)",
+                    "C00-D48"=> //"Neoplasms",
                         [
-                            "C00-C14", //"Malignant neoplasm of lip, oral cavity, pharynx",
-                            "C15", //"Malignant neoplasm of oesophagus",
-                            "C16", //"Malignant neoplasm of stomach",
-                            "C18-C21", //"Malignant neoplasm of colon, rectosigmoid junction, rectum, anus and anal canal",
-                            "C22", //"Malignant neoplasm of liver and intrahepatic bile ducts",
-                            "C25", //"Malignant neoplasm of pancreas",
-                            "C32", //"Malignant neoplasm of larynx",
-                            "C33_C34", //"Malignant neoplasm of trachea, bronchus and lung",
-                            "C43", //"Malignant melanoma of skin",
-                            "C50", //"Malignant neoplasm of breast",
-                            "C53", //"Malignant neoplasm of cervix uteri",
-                            "C54_C55", //"Malignant neoplasm of other parts of uterus",
-                            "C56", //"Malignant neoplasm of ovary",
-                            "C61", //"Malignant neoplasm of prostate",
-                            "C64", //"Malignant neoplasm of kidney, except renal pelvis",
-                            "C67", //"Malignant neoplasm of bladder",
-                            "C70-C72", //"Malignant neoplasm of brain and central nervous system",
-                            "C73", //"Malignant neoplasm of thyroid gland",
-                            "C81-C85", //"Hodgkin disease and lymphomas",
-                            "C91-C95", //"Leukaemia",
-                            "C88_C90_C96", //"Other malignant neoplasm of lymphoid, haematopoietic and related tissue",
-                            "C_OTH", //"Other malignant neoplasms (remainder of C00-C97)",
+                            "C"=> //"Malignant neoplasms (C00-C97)",
+                                [
+                                    "C00-C14", //"Malignant neoplasm of lip, oral cavity, pharynx",
+                                    "C15", //"Malignant neoplasm of oesophagus",
+                                    "C16", //"Malignant neoplasm of stomach",
+                                    "C18-C21", //"Malignant neoplasm of colon, rectosigmoid junction, rectum, anus and anal canal",
+                                    "C22", //"Malignant neoplasm of liver and intrahepatic bile ducts",
+                                    "C25", //"Malignant neoplasm of pancreas",
+                                    "C32", //"Malignant neoplasm of larynx",
+                                    "C33_C34", //"Malignant neoplasm of trachea, bronchus and lung",
+                                    "C43", //"Malignant melanoma of skin",
+                                    "C50", //"Malignant neoplasm of breast",
+                                    "C53", //"Malignant neoplasm of cervix uteri",
+                                    "C54_C55", //"Malignant neoplasm of other parts of uterus",
+                                    "C56", //"Malignant neoplasm of ovary",
+                                    "C61", //"Malignant neoplasm of prostate",
+                                    "C64", //"Malignant neoplasm of kidney, except renal pelvis",
+                                    "C67", //"Malignant neoplasm of bladder",
+                                    "C70-C72", //"Malignant neoplasm of brain and central nervous system",
+                                    "C73", //"Malignant neoplasm of thyroid gland",
+                                    "C81-C85", //"Hodgkin disease and lymphomas",
+                                    "C91-C95", //"Leukaemia",
+                                    "C88_C90_C96", //"Other malignant neoplasm of lymphoid, haematopoietic and related tissue",
+                                    "C_OTH", //"Other malignant neoplasms (remainder of C00-C97)",
+                                ],
+                            "D00-D48", //"Non-malignant neoplasms (benign and uncertain)",
                         ],
-                        "D00-D48", //"Non-malignant neoplasms (benign and uncertain)",
-                    ],
                     "D50-D89", //"Diseases of the blood and blood-forming organs and certain disorders involving the immune mechanism",
-                    "E", //"Endocrine, nutritional and metabolic diseases (E00-E90)",
-                    [
-                        "E10-E14", //"Diabetes mellitus",
-                        "E_OTH", //"Other endocrine, nutritional and metabolic diseases (remainder of E00-E90)",
-                    ],
-                    "F", //"Mental and behavioural disorders (F00-F99)",
-                    [
-                        "F01_F03", //"Dementia",
-                        "F10", //"Mental and behavioural disorders due to use of alcohol",
-                        "TOXICO", //"Drug dependence, toxicomania (F11-F16, F18-F19)",
-                        "F_OTH", //"Other mental and behavioural disorders (remainder of F00-F99)",
-                    ],
-                    "G_H", //"Diseases of the nervous system and the sense organs (G00-H95)",
-                    [
-                        "G20", //"Parkinson disease",
-                        "G30", //"Alzheimer disease",
-                        "G_H_OTH", //"Other diseases of the nervous system and the sense organs (remainder of G00-H95)",
-                    ],
-                    "I", //"Diseases of the circulatory system (I00-I99)",
-                    [
-                        "I20-I25", //"Ischaemic heart diseases",
-                        "I21_I22", //"Acute myocardial infarction including subsequent myocardial infarction",
-                        "I20_I23-I25", //"Other ischaemic heart diseases",
-                        "I30-I51", //"Other heart diseases",
-                        "I60-I69", //"Cerebrovascular diseases",
-                        "I_OTH", //"Other diseases of the circulatory system (remainder of I00-I99)",
-                    ],
-                    "J", //"Diseases of the respiratory system (J00-J99)",
-                    [
-                        "J09-J11", //"Influenza",
-                        "J12-J18", //"Pneumonia",
-                        "J40-J47", //"Chronic lower respiratory diseases",
-                        "J45_J46", //"Asthma and status asthmaticus",
-                        "J40-J44_J47", //"Other lower respiratory diseases",
-                        "J_OTH", //"Other diseases of the respiratory system (remainder of J00-J99)",
-                    ],
-                    "K", //"Diseases of the digestive system (K00-K93)",
-                    [
-                        "K25-K28", //"Ulcer of stomach, duodenum and jejunum",
-                        "K70_K73_K74", //"Chronic liver disease",
-                        "K_OTH", //"Other diseases of the digestive system (remainder of K00-K93)",
-                    ],
+                    "E"=> //"Endocrine, nutritional and metabolic diseases (E00-E90)",
+                        [
+                            "E10-E14", //"Diabetes mellitus",
+                            "E_OTH", //"Other endocrine, nutritional and metabolic diseases (remainder of E00-E90)",
+                        ],
+                    "F"=> //"Mental and behavioural disorders (F00-F99)",
+                        [
+                            "F01_F03", //"Dementia",
+                            "F10", //"Mental and behavioural disorders due to use of alcohol",
+                            "TOXICO", //"Drug dependence, toxicomania (F11-F16, F18-F19)",
+                            "F_OTH", //"Other mental and behavioural disorders (remainder of F00-F99)",
+                        ],
+                    "G_H"=> //"Diseases of the nervous system and the sense organs (G00-H95)",
+                        [
+                            "G20", //"Parkinson disease",
+                            "G30", //"Alzheimer disease",
+                            "G_H_OTH", //"Other diseases of the nervous system and the sense organs (remainder of G00-H95)",
+                        ],
+                    "I"=> //"Diseases of the circulatory system (I00-I99)",
+                        [
+                            "I20-I25", //"Ischaemic heart diseases",
+                            "I21_I22", //"Acute myocardial infarction including subsequent myocardial infarction",
+                            "I20_I23-I25", //"Other ischaemic heart diseases",
+                            "I30-I51", //"Other heart diseases",
+                            "I60-I69", //"Cerebrovascular diseases",
+                            "I_OTH", //"Other diseases of the circulatory system (remainder of I00-I99)",
+                        ],
+                    "J"=> //"Diseases of the respiratory system (J00-J99)",
+                        [
+                            "J09-J11", //"Influenza",
+                            "J12-J18", //"Pneumonia",
+                            "J40-J47", //"Chronic lower respiratory diseases",
+                            "J45_J46", //"Asthma and status asthmaticus",
+                            "J40-J44_J47", //"Other lower respiratory diseases",
+                            "J_OTH", //"Other diseases of the respiratory system (remainder of J00-J99)",
+                        ],
+                    "K"=> //"Diseases of the digestive system (K00-K93)",
+                        [
+                            "K25-K28", //"Ulcer of stomach, duodenum and jejunum",
+                            "K70_K73_K74", //"Chronic liver disease",
+                            "K_OTH", //"Other diseases of the digestive system (remainder of K00-K93)",
+                        ],
                     "L", //"Diseases of the skin and subcutaneous tissue (L00-L99)",
-                    "M", //"Diseases of the musculoskeletal system and connective tissue (M00-M99)",
-                    [
-                        "RHEUM_ARTHRO", //"Rheumatoid arthritis and arthrosis (M05-M06,M15-M19)",
-                        "M_OTH", //"Other diseases of the musculoskeletal system and connective tissue (remainder of M00-M99)",
-                    ],
-                    "N", //"Diseases of the genitourinary system (N00-N99)",
-                    [
-                        "N00-N29", //"Diseases of kidney and ureter",
-                        "N_OTH", //"Other diseases of the genitourinary system (remainder of N00-N99)",
-                    ],
+                    "M"=> //"Diseases of the musculoskeletal system and connective tissue (M00-M99)",
+                        [
+                            "RHEUM_ARTHRO", //"Rheumatoid arthritis and arthrosis (M05-M06,M15-M19)",
+                            "M_OTH", //"Other diseases of the musculoskeletal system and connective tissue (remainder of M00-M99)",
+                        ],
+                    "N"=> //"Diseases of the genitourinary system (N00-N99)",
+                        [
+                            "N00-N29", //"Diseases of kidney and ureter",
+                            "N_OTH", //"Other diseases of the genitourinary system (remainder of N00-N99)",
+                        ],
                     "O", //"Pregnancy, childbirth and the puerperium (O00-O99)",
                     "P", //"Certain conditions originating in the perinatal period (P00-P96)",
                     "Q", //"Congenital malformations, deformations and chromosomal abnormalities (Q00-Q99)",
-                    "R", //"Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified (R00-R99)",
-                    [
-                        "R95", //"Sudden infant death syndrome",
-                        "R96-R99", //"Ill-defined and unknown causes of mortality",
-                        "R_OTH", //"Other symptoms, signs and abnormal clinical and laboratory findings (remainder of R00-R99)",
-                    ],
-                    "V01-Y89", //"External causes of morbidity and mortality (V01-Y89)",
-                    [
-                        "ACC", //"Accidents (V01-X59, Y85, Y86)",
+                    "R"=> //"Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified (R00-R99)",
                         [
-                            "V_Y85", //"Transport accidents (V01-V99, Y85)",
-                            "W00-W19", //"Falls",
-                            "W65-W74", //"Accidental drowning and submersion",
-                            "X40-X49", //"Accidental poisoning by and exposure to noxious substances",
-                            "ACC_OTH", //"Other accidents (W20-W64, W75-X39, X50-X59, Y86)",
+                            "R95", //"Sudden infant death syndrome",
+                            "R96-R99", //"Ill-defined and unknown causes of mortality",
+                            "R_OTH", //"Other symptoms, signs and abnormal clinical and laboratory findings (remainder of R00-R99)",
                         ],
-                        "X60-X84_Y870", //"Intentional self-harm",
-                        "X85-Y09_Y871", //"Assault",
-                        "Y10-Y34_Y872", //"Event of undetermined intent",
-                        "V01-Y89_OTH", //"Other external causes of morbidity and mortality (remainder of V01-Y89)"}
-                    ]
+                    "V01-Y89"=> //"External causes of morbidity and mortality (V01-Y89)",
+                        [
+                            "ACC"=> //"Accidents (V01-X59, Y85, Y86)",
+                                [
+                                    "V_Y85", //"Transport accidents (V01-V99, Y85)",
+                                    "W00-W19", //"Falls",
+                                    "W65-W74", //"Accidental drowning and submersion",
+                                    "X40-X49", //"Accidental poisoning by and exposure to noxious substances",
+                                    "ACC_OTH", //"Other accidents (W20-W64, W75-X39, X50-X59, Y86)",
+                                ],
+                            "X60-X84_Y870", //"Intentional self-harm",
+                            "X85-Y09_Y871", //"Assault",
+                            "Y10-Y34_Y872", //"Event of undetermined intent",
+                            "V01-Y89_OTH", //"Other external causes of morbidity and mortality (remainder of V01-Y89)"}
+                        ]
                 ]
         ],
         "name" => "cause of death"
     ],
     "CL_AGE:hlth_cd_acdr"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
         "name"=> "age", // English name override
+        "renames" => [ //name adjustments
+            "TOTAL" => "all ages",
+        ],
         "ex"=> ["Y_LT15", "Y_LT65","Y_GE65"],  //list of codes to exclude from the cube viz, but still ingested
     ],
     "CL_AGE:hlth_cd_ynrt"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
@@ -448,6 +450,7 @@ $ingest = [
         "theme_name"=> "Causes of death - crude death rate", //overrides the TOC name.  Default is the name of codes[0] with "NUTS" references removed
         "mapping"=> [ //help with code list if needed.  Dimensionality follows order below or cell[0,0} if this section is missing
             "CL_AGE"=> "hlth_cd_acdr",
+            "CL_UNITS"=>["renames"=>["CDTH_RT"=>""]],  //avoid repeat of "Causes of death"
             "CL_ICD10" => "hlth_cd_acdr", //version of code list in $cl_config to use
         ],
         "units"=> "deaths per 100,000 inhabitants",  //units string or code list name (e.g. "CL_TYPE") that is actually a units field.  Default = <units> || "CL_UNIT" || "CL_CURRENCY"

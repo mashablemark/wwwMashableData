@@ -102,10 +102,7 @@ MashableData.common = {
                     udt.setUTCSeconds(mddt.substr(15,2));
                 }
             }
-        }else{
-            udt.period = 'A';
         }
-        udt.s = mddt;
         return udt
     },
 

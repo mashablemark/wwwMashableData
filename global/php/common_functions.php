@@ -533,9 +533,9 @@ function setPointsetCounts($setid="all", $apiid = "all"){
 function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null, $mastersetid=null){
     global $db;
     if($setKey){
-        $sql = "select s.* from sets where s.apiid=$apiid and s.setkey=".safeStringSQL($setKey)
+        $sql = "select s.* from sets s where s.apiid=$apiid and s.setkey=".safeStringSQL($setKey)
         ." union DISTINCT "
-        ."select distinct s.* from sets join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=".safeStringSQL($setKey);
+        ."select distinct s.* from sets s join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=".safeStringSQL($setKey);
     } else {
         $sql = "select * from sets where apiid=$apiid and name=".safeStringSQL($name, true)." and units =".safeStringSQL($units,false);
     }

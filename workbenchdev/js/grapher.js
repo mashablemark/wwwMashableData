@@ -396,32 +396,6 @@ MashableData.grapher = function(){
                 .slider("option", "max", maxIndex)
                 .slider("option", "values", [leftIndex, rightIndex]);
         },
-        dateFromMdDate: function dateFromMdDate(mddt){  //returns a data object
-            var udt;
-            udt = new Date('1/1/' + mddt.substr(0,4) + ' UTC'); //language & region independent
-            if(mddt.length>4){
-                switch(mddt.substr(4,1)){
-                    case 'Q':
-                        udt.setUTCMonth((mddt.substr(5,1)-1)*3);
-                        break;
-                    case 'H':
-                        udt.setUTCMonth((mddt.substr(5,1)-1)*6);
-                        break;
-                    default:
-                        udt.setUTCMonth(mddt.substr(4,2));
-                }
-                if(mddt.length>6){
-                    udt.setUTCDate(mddt.substr(6,2));
-                    if(mddt.length>8){
-                        udt.setUTCHours(mddt.substr(9,2));
-                        udt.setUTCMinutes(mddt.substr(12,2));
-                        udt.setUTCSeconds(mddt.substr(15,2));
-                    }
-                }
-            }
-            return udt
-        },
-
         closestDate: function closestDate(nearbyDate, seriesData, closestYet){
             var x;
             for(var i=0;i<seriesData.length;i++){
@@ -1477,7 +1451,7 @@ MashableData.grapher = function(){
                     $thisPanel.find('.graph-save').button("disable");
                 }
                 function saveThisGraph(){
-                    saveGraph(oGraph, enableComments);
+                    oGraph.save(enableComments);
                     $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
                     makeClean();
                 }
@@ -3429,11 +3403,7 @@ MashableData.grapher = function(){
     var chartPanel = grapher.chartPanel,
         intervalStartDt = grapher.intervalStartDt,
         setCropSlider = grapher.setCropSlider,
-        dateFromMdDate = grapher.dateFromMdDate,
         closestDate = grapher.closestDate,
-        assetNeeded = grapher.assetNeeded,
-        getAssets = grapher.getAssets,
-        fetchAssets = grapher.fetchAssets,
         createMyGraph = grapher.createMyGraph,
         makeChartOptionsObject = grapher.makeChartOptionsObject,
         buildGraphPanel = grapher.buildGraphPanel,
