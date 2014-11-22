@@ -402,7 +402,7 @@ function parseHash(newHash, oldHash){
                             }
                         }
                         if(!found){
-                            viewGraph(oH.graphcode);
+                            viewGraph(panelGraphs[g].ghash);
                         }
                     }
                 }
@@ -685,10 +685,10 @@ function setupMyGraphsTable(){
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
-                    return (obj.mapsets?(obj.mapsets[0].options.mode=='bubble'?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
-                        + (obj.pointsets?iconsHMTL.hasMarkerMap:'')
-                        + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
-                        + spanWithTitle(value)
+                    return (obj.plottypes.indexOf('M')!=-1?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap)
+                        + (obj.plottypes.indexOf('X')!=-1?iconsHMTL.hasMarkerMap:'')
+                        + ((obj.cubeid)?iconsHMTL.hasCubeViz:'')
+                        + spanWithTitle(globals.maps[value].name)
                 }
             },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value.trim())}},
@@ -708,11 +708,9 @@ function setupMyGraphsTable(){
         ]
     }).click(function(e){
             var $td = $(e.target).closest('td');
-            /*if($td.hasClass('title')){*/
             $dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
             var rowObject = $dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
-            viewGraph(rowObject.gid);
-            /*}*/
+            viewGraph(rowObject.ghash);
         });
     $('#my_graphs_table_filter')
         .prependTo('#myGraphsHeader')
@@ -904,8 +902,8 @@ function formatAsUrl(url, txt){
     txt = txt ||url.replace(/\b(http(s)*:\/\/)*(www.)*/gi,'').replace('/', ' /');
     return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span>'+txt+'</a>';
 }
-function viewGraph(gid){
-    createMyGraph(gid);
+function viewGraph(ghash){
+    createMyGraph(ghash);
     hideGraphEditor();
 }
 //DIALOG FUNCTIONS
@@ -1329,9 +1327,7 @@ function quickViewToMap(){
     }
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = globals.maps[map].legend;
-    oGraph.mapFile = globals.maps[map].jvectormap;
-    require(['/global/js/maps/' +  oGraph.mapFile + '.js']); //preload it
-
+    oGraph.fetchMap(); //preload
     var themeids = [], setids = [];
     for(var s=0;s<oQuickViewSeries.length;s++){
         var serie = oQuickViewSeries[s], seriesComp = new MD.Component(serie); //truely a series, as quickview does not support mapping
@@ -1401,9 +1397,8 @@ function quickViewToMap(){
     }
 
     function makeGraphAfterFetches(){
-        var mapFile = globals.maps[oGraph.map].jvectormap;  //map file already prefetched
         oGraph.fetchAssets(function(){
-            require(['/global/js/maps/' + oGraph.mapFile + '.js'],function(){
+            oGraph.fetch(function(){
                 oGraph.title = oGraph.title || (oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets[0].name());
                 if(panelId=="new"){
                     buildGraphPanel(oGraph);
@@ -2462,7 +2457,6 @@ function syncMyAccount(){ //called only after loggin and after initial report of
         function(results, textStatus, jqXH){
             for(var key in results.graphs){
                 oMyGraphs[key]=results.graphs[key];
-                grapher.inflateGraph(oMyGraphs[key]);
                 $dtMyGraphs.fnAddData(oMyGraphs[key]);
             }
         }

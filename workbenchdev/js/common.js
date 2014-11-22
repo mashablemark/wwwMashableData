@@ -427,25 +427,6 @@ MashableData.common = {
             newSets.push(new MashableData.Set(recordset[i]));
         }
         return newSets;
-    },
-    batchDataFetch: function(callback, sets, map){
-        //sets = array of Set objects to be looped through and checked for needing data (series, mapset or pointset)
-        //all sets (series and map/point sets) must have freq defined, as well as
-        //all series must have geoids|latlon defined (Geo ambiguity only supported by single Set.fetchData).
-        //optional map is used for both mapsets and pointsets only.
-        var set, handle, series = [], regionSets = [], markerSets = {}, directory = {};
-        for(var i=0;i<sets.length;i++){
-            set = sets[i];
-            handle = set.handle();
-            directory[handle] = i;
-            if(set.isSeries() && !set.data) series.push({handle: handle, setid: set.setid, freq: set.freq, geoid: set.geoid, latlon: set.latlon});
-            if(set.isMapSet() && (!set.data || set.mappedTo!=map)) regionSets.push({handle: handle, setid: set.setid, freq: set.freq});
-            if(set.isPointSet() && (!set.data || set.mappedTo!=map)) markerSets.push({handle: handle, setid: set.setid, freq: set.freq});
-        }
-        if(series.length+regionSets.length+markerSets.length>0){
-            var params = {command: 'batchDataFetch'};
-            callApi()
-        } else callback(sets);
     }
 };
 

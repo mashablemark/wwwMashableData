@@ -415,66 +415,29 @@ MashableData.grapher = function(){
 
 
 
-        createMyGraph: function createMyGraph(id, onComplete){ //id can either be a graph id (int) or a ghash
+        createMyGraph: function createMyGraph(ghash, onComplete){ //id can either be a graph id (int) or a ghash
             console.time('createMyGraph');
             //1. check to see if it is a gid of a graph that is already loaded in MyGraphs
-            var myGraph = oMyGraphs['G' + id];
-            if(myGraph){  //graph is found!
-                createGraph($.extend(true, {}, myGraph)); //make a working copy of myGraph and draw it
-            } else {
-                for(var gid in oMyGraphs){ //perhaps id is a ghash > search myGraphs
-                    if(oMyGraphs[gid].ghash==id){
-                        myGraph = oMyGraphs[gid]; //found!
-                        break;
+            callApi(
+                {command: globals.isEmbedded?'GetEmbeddedGraph':'GetFullGraph', ghash: ghash},
+                function(oReturn, textStatus, jqXH){
+                    for(var ghandle in oReturn.graphs){
+                        //if user wants to save, it must be saved as a copy if graph.userid <> this user (enforced in API too)
+                        var graphModel = new MD.Graph(oReturn.graphs[ghandle]);
+                        graphModel.fetchMap();  //prefetch:  gating fetch jsut before map draw
+                        createGraph(graphModel);  //new obj for API = no need to creat working copy
                     }
                 }
-                if(myGraph) {  //was only set if found
-                    createGraph($.extend(true, {}, myGraph)); //create the interaction instance using a working copy
-                } else {  //not found > id assumed to be the graphcode (ghash) of a public graph
-                    callApi(
-                        {command: globals.isEmbedded?'GetEmbeddedGraph':'GetPublicGraph', ghash: id},
-                        function(oReturn, textStatus, jqXH){
-                            for(var ghandle in oReturn.graphs){
-                                //if user wants to save, it must be saved as a copy if graph.userid <> this user (enforced in API too)
-                                grapher.inflateGraph(oReturn.graphs[ghandle]);
-                                createGraph(oReturn.graphs[ghandle]);  //new obj for API = no need to creat working copy
-                            }
-                        }
-                    );
-                }
-            }
+            );
             function createGraph(graph){
-                //TODO:  get maps from https://embedservice.mashabledata.com/global/js/maps/
-                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?[(globals.isEmbedded?'//remote.mashabledata.com/':'/global/js/maps/')+ graph.mapFile +'.js']:[]);  //get the map too if needed
-                require(fileAssets); //non-blocking parallel load while getting db assets
-                getAssets(graph, function(){
-                    require(fileAssets, function(){ //blocking check to ensure required libraries have loaded
-                        buildGraphPanel(graph);  //panelId not passed -> new panel
-                        if(onComplete) onComplete();
-                    });
+                //get the map too if needed
+                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?[(globals.isEmbedded?'//remote.mashabledata.com/':'/global/js/maps/')+ graph.mapFile +'.js']:[]);
+                require(fileAssets, function(){ //blocking check to ensure required libraries have loaded
+                    buildGraphPanel(graph);  //panelId not passed -> new panel
+                    if(onComplete) onComplete();
                 });
             }
             console.timeEnd('createMyGraph');
-        },
-
-        inflateGraph: function inflateGraph(graph){
-            if(graph.annotations){
-                graph.annotations=safeParse(graph.annotations,[]);
-            } else {
-                graph.annotations=[];
-            }
-            graph.eachPlot(function(p, plot){plot.options = safeParse(plot.options, {})});
-            graph.eachComponent(function(c, comp){comp.options = safeParse(comp.options, {})});
-            graph.mapconfig = safeParse(graph.mapconfig, {});
-
-            function safeParse(jsonString, emptyValue){
-                try{
-                    return JSON.parse(jsonString.replace(/u0022/g, '"'));
-                }
-                catch(e){
-                    return emptyValue;
-                }
-            }
         },
 
         makeChartOptionsObject: function makeChartOptionsObject(oGraph){
@@ -1200,10 +1163,10 @@ MashableData.grapher = function(){
                                     [ { text: "Confirm", click: function() {
                                         $( this ).dialog( "close" );
                                         $('#ghash-reset').button("disable");
-                                        callApi({command: 'resetGhash', gid: oGraph.gid}, function(oReturn, textStatus, jqXH){
+                                        var oldHash = oGraph.ghash;
+                                        oGraph.resetHash(function(){
                                             var $linkHtml = $('#link-html');
-                                            $linkHtml.html($linkHtml.html().replace(oGraph.ghash, oReturn.ghash));
-                                            oGraph.ghash = oReturn.ghash;
+                                            $linkHtml.html($linkHtml.html().replace(oldHash, oGraph.ghash));
                                             $('#link-ghash').html(oGraph.ghash);
                                         });
                                     }}, { text: "Cancel", click: function() { $( this ).dialog( "close" ); }} ]
@@ -1374,12 +1337,8 @@ MashableData.grapher = function(){
                         var newMapCode = $mapSelect.val();
                         $mapSelect.val(oGraph.map);  //for old graph, continue to show its map in its selector
 
-                        var fileAssets = ['/global/js/maps/'+ globals.maps[newMapCode].jvectormap +'.js'];
-                        require(fileAssets); //parallel load while getting db assets
-                        newGraph.changeMap(newMapCode, function(){
-                            require(fileAssets, function(){ //ensure that we have the new map file
-                                buildGraphPanel(newGraph); //panelId not passed -> new panel
-                            });
+                        newGraph.changeMap(newMapCode, function(){  //this will fire a non-blocking require file fetch for the map assets
+                            buildGraphPanel(newGraph); //panelId not passed -> new panel
                         });
                     });
 
@@ -1422,7 +1381,7 @@ MashableData.grapher = function(){
                             }
                             showChangeSelectors();
                             if(oGraph.mapsets||oGraph.pointsets){
-                                drawMap(); //shows the map div
+                                oGraph.fetchMap(drawMap); //ensures we have the map def and shows the map div
                                 if(oGraph.plots) $thisPanel.find('map-title').hide(); else $thisPanel.find('map-title').show();
                                 $thisPanel.find('select.change-map').html(fillChangeMapSelect());
                             } else {
@@ -1533,7 +1492,7 @@ MashableData.grapher = function(){
                 var $map = null, vectorMapSettings, val, mergablity;
 
                 console.time('buildGraphPanel:drawMap');
-                drawMap();
+                oGraph.fetchMap(drawMap); //ensures we have the map def and shows the map div
                 console.timeEnd('buildGraphPanel:drawMap');
 
                 setCropSlider(panelId); //needs to be called after the map is calculated

@@ -17,10 +17,11 @@ MashableData.Plot = function(components, options){
         this.options = options || {};
         return this
     };
-    Plot.prototype.destroy = function(){
+ /*   Plot.prototype.destroy = function(){
         delete this.components;
+        this.graph.removePlot(this);
         delete this.graph;
-    };
+    };*/
     Plot.prototype.name = function(newName){ //optionally sets and returns created or user-defined name
         var handle, comp, c, calcName='';
         if(typeof newName != 'undefined'){

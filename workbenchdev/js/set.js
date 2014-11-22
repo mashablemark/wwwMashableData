@@ -39,8 +39,14 @@ MashableData.Set = function(SetParams){
     MashableData.Set.prototype.parsedData = function(updatedData){
         if(updatedData) this.data = updatedData;
         if(this.data){
-            if(!Array.isArray(this.data)){
-                this.data = this.data.split('|');
+            if(this.isSeries()){
+                if(typeof this.data == "string") this.data = this.data.split('|');
+            } else {
+                for(var key in this.data){
+                    if(typeof this.data[key] == "string"){
+                        this.data[key] = this.data[key].split('|');
+                    } else break;
+                }
             }
             return this.data;
         } else {
@@ -145,10 +151,10 @@ MashableData.Set = function(SetParams){
 
 })();
 
-MashableData.Component = function(SetParams, compnentOptions){
+MashableData.Component = function(SetParams, componentOptions){
     //if(SetParams.clone)   <<< should accept
     MashableData.Set.call(this, SetParams);
-    this.options = $.extend({k:1, op:'+'}, compnentOptions||{});
+    this.options = $.extend({k:1, op:'+'}, componentOptions||{});
     return this;
 };
 

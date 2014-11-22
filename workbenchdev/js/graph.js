@@ -4,20 +4,55 @@
 
 
 MashableData.Graph = function(properties){ //replaces function emptyGraph
-    this.annotations = [];
-    this.title = '';
-    this.type = 'auto';
-    this.map = '';
-    this.assets = {};
-    this.analysis = null;
-    this.mapconfig = {};
-    this.start = null;
-    this.end = null;
-    this.published = 'N';
+    properties = properties || {};
+    this.annotations = properties.annotations || [];
+    this.title = properties.title || '';
+    this.type = properties.type || 'auto';
+    this.map = properties.map || '';
+    this.assets = properties.assets || {};
+    this.analysis = properties.analysis || null;
+    this.mapconfig = properties.mapconfig || {};
+    this.start = properties.start || null;
+    this.end = properties.end || null;
+    this.published = properties.published || 'N';
+
+    //inflations
+    if(typeof this.annotations =="string") this.annotations = safeParse(this.annotations, []);
+    if(typeof this.mapconfig =="string") this.mapconfig = safeParse(this.mapconfig, {});
+
+    //have allplot to inflate?
+    if(properties.allplots){
+        var p, c, comp, plot, handle, components, newComponet, newPlot;
+        for(p=0;p<properties.allplots.length;p++){
+            plot = properties.allplots[p];
+            components = [];
+            for(c=0;c<plot.components.length;c++){
+                comp = plot.components[c];
+                handle = comp.settype+comp.setid+comp.freq+(comp.geoid?'G'+comp.geoid:'')+(comp.latlon?'L'+comp.latlon:'');
+                if(properties.assets&&properties.assets[handle]){  //required
+                    components.push(new MashableData.Component(properties.assets[handle], safeParse(comp.options, {})));
+                } else return false;
+            }
+            this.addPlot(new MashableData.Plot(components, safeParse(plot.options, {})));
+        }
+        this.assets = properties.assets;
+    }
+
     return this;
+
+    function safeParse(jsonString, emptyValue){
+        try{
+            return $.parseJSON(jsonString.replace(/u0022/g, '"'));
+        }
+        catch(e){
+            return emptyValue;
+        }
+    }
 };
+
+
 (function(){
-    var Graph = MashableData.Graph, globals = MashableData.globals;
+    var MD = MashableData, Graph = MD.Graph, globals = MD.globals, common = MD.common;
     Graph.prototype.addPlot = function(componentsOrPlot, options){
         if(Array.isArray(componentsOrPlot)){
             var plot = new MashableData.Plot(componentsOrPlot, options);
@@ -71,6 +106,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     Graph.prototype.destroy = function(){
 
     };
+/*    Graph.prototype.removePlot = function(plot){
+        this.eachPlot(function(p, graph){
+            if(this==plot)
+        });
+    };*/
     Graph.prototype.draw = function(){
 
     };
@@ -82,7 +122,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     };
     Graph.prototype.fetchAssets = function(callback){
         //data will reside in the component after fully inflating.  However, the data and the properties need to create the Component object often start an asset
-        var assetsToFetch = {series:[], regionSets:[], markerSets:[]}, fetchTracker = [];
+        var assetsToFetch = {series:[], mapSets:[], pointSets:[]}, fetchTracker = [];
         var c, comp, plot, handle, graph = this;
         this.eachComponent(function(c, plot){
             var comp = this;
@@ -93,22 +133,29 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                         graph.assets[handle] = globals.MySets[handle].clone();
                     } else {
                         if(comp.isSeries()) assetsToFetch.series.push({setid: comp.setid, freq: comp.freq, geoid: comp.geoid, latlon: comp.latlon});
-                        if(comp.isMapSet()) assetsToFetch.regionSets.push({setid: comp.setid, freq: comp.freq});
-                        if(comp.isPointSet()) assetsToFetch.markerSets.push({setid: comp.setid, freq: comp.freq});
+                        if(comp.isMapSet()) assetsToFetch.mapSets.push({setid: comp.setid, freq: comp.freq});
+                        if(comp.isPointSet()) assetsToFetch.pointSets.push({setid: comp.setid, freq: comp.freq});
                         fetchTracker.push(handle);
                     }
                 }
             }
         });
-        if(assetsToFetch.series.length + assetsToFetch.regionSets.length  + assetsToFetch.markerSets.length >0){
+        if(assetsToFetch.series.length + assetsToFetch.mapSets.length  + assetsToFetch.pointSets.length >0){
             var params = {command:"GetSets", map: graph.map, modal:'persist'};
             $.extend(true, params, assetsToFetch);
-            callApi(params,
+            common.callApi(params,
                 function(jsoData, textStatus, jqXHR){
-                    for(handle in jsoData.sets) graph.assets[handle] = jsoData.sets[handle];
+                    for(handle in jsoData.assets) graph.assets[handle] = jsoData.assets[handle];
                     callback();
                 }
             );
+        } else callback();
+    };
+    Graph.prototype.fetchMap = function(callback){
+        if(this.map){
+            if(!this.mapFile) this.mapFile = globals.maps[this.map].jvectormap;
+            var requiredFile = ['/global/js/maps/'+ this.mapFile +'.js'];
+            require(requiredFile, callback);
         } else callback();
     };
     Graph.prototype.changeMap = function(mapCode, callback){
@@ -116,6 +163,9 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             var graph = this, comp;
             var oldMap = globals.maps[graph.map];
             var newMap = globals.maps[mapCode];
+            delete graph.mapFile;
+            graph.map = mapCode;
+            graph.fetchMap();  //prefetch map while executing database query
             var changedAssets = {};
             graph.eachComponent(function(){  //remove the region and market sets' data in assets
                 comp = this;
@@ -129,12 +179,12 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                     }
                 } else {
                     if(comp.isMapSet()) {
-                        changedAssets.regionSets = changedAssets.regionSets || {};
-                        changedAssets.regionSets [handle] = {setid: this.setid, freq: this.freq};
+                        changedAssets.mapSets = changedAssets.mapSets || {};
+                        changedAssets.mapSets [handle] = {setid: this.setid, freq: this.freq};
                     }
                     if(comp.isPointSet()) {
-                        changedAssets.markerSets = changedAssets.markerSets || {};
-                        changedAssets.markerSets [handle] = {setid: this.setid, freq: this.freq};
+                        changedAssets.pointSets = changedAssets.pointSets || {};
+                        changedAssets.pointSets [handle] = {setid: this.setid, freq: this.freq};
                     }
                     delete graph.assets[comp.handle];
                     delete comp.data;
@@ -142,7 +192,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 }
             });
             //get the assets
-            callApi(
+            common.callApi(
                 {
                     command:"ChangeMaps",
                     map: mapCode,
@@ -187,47 +237,49 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
 
     Graph.prototype.save = function saveGraph(callback) {
 //first save to db and than to $dtMyGraphs and oMyGraphs once we have a gid
-        var oGraph = this, serieslist = [];
-        if(oGraph.gid){
-            oGraph.updatedt = (new Date()).getTime();
-        } else {
-            oGraph.createdt = (new Date()).getTime();
-        }
+        var oGraph = this, serieslist = [], now = new Date().getTime(), mapseriespointplots = [], plotRepresentation;
+
         //create/update the series list
         this.eachComponent(function(){serieslist.push(this.name())});
+
+        //flatten the plot (map, series and point) into mapseriespointplots array
+        this.eachPlot(function(){
+            plotRepresentation = {
+                type: this.type(),
+                options: $.stringify(this.options),
+                components: []
+            };
+            this.eachComponent(function(){
+                plotRepresentation.components.push({
+                    setid: this.setid,
+                    freq: this.freq,
+                    geoid: this.geoid,
+                    latlon: this.latlon,
+                    options: $.stringify(this.options)
+                });
+            });
+            mapseriespointplots.push(plotRepresentation);
+        });
+
         var saveParams = {
             command: "ManageMyGraphs",
             serieslist:serieslist.join('; '),
             end: this.end,
             start: this.start,
             annotations: serializeAnnotations(oGraph),
+            map: this.map,
             mapconfig: $.stringify(this.mapconfig),
-
+            modifieddt: now,
+            intervals: this.intervals,
+            cubeid: this.cubeid,
+            type: this.type,
+            title: this.title,
+            analysis: this.analysis,
+            published: this.published || 'N',
+            allplots: mapseriespointplots
         };
 
-        var plot, comp;
-        oGraph.eachPlot(function(){
-            plot = this;
-            switch(plot.type){
-                case "S":
-                    saveParams.plots = saveParams.plots || [];
-
-                    $.stringify()
-                    break;
-                case "M":
-
-                    break;
-                case "X":
-
-            }
-            this.options = $.stringify(this.options);
-            this.eachComponent(function(){
-                this.options = $.stringify(this.options);
-            });
-        });
-
-
-        callApi(params,
+        callApi(saveParams,
             function(jsoData, textStatus, jqXH){
                 //first find to whether this is a new row or an update
                 oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
@@ -271,11 +323,18 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         this.save(callback);
     };
 
+    Graph.prototype.resetHash = function(callBack){
+        callApi({command: 'ResetGhash', gid: oGraph.gid}, function(oReturn, textStatus, jqXH){
+            this.ghash = oReturn.ghash;
+            callBack();
+        });
+    }
+
     Graph.prototype.eachPlot = function eachPlot(callback){
         var graph = this;
-        if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph)});
-        if(graph.pointsets) $.each(graph.pointsets, function(p){callback.call(this, p, graph)});
-        if(graph.plots) $.each(graph.plots, function(p){callback.call(this, p, graph)});
+        if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph, graph.mapsets)});
+        if(graph.pointsets) $.each(graph.pointsets, function(p){callback.call(this, p, graph, graph.pointsets)});
+        if(graph.plots) $.each(graph.plots, function(p){callback.call(this, p, graph, graph.plots)});
     };
     Graph.prototype.eachComponent = function eachComponent(callback){
         var graph = this;

@@ -13,7 +13,41 @@ header('Content-type: text/html; charset=utf-8');
 
 
 /* This is the sole API for the MashableData Workbench application connecting
- * the client application to the cloud.  All returns are JSON objects. Supports the following:
+ * the client application to the cloud.  All returns are JSON objects. Supports the following commands:
+ *
+ *
+exclusive Graph commands:
+	GetSet: Graph.fetchAssets()
+	ChangeMaps:  Graph.changeMap()
+	ManageMyGraphs: Graph.save()
+
+exclusive Set command:
+    GetMashableData: Set.
+
+GetSeries:  workbench.preview
+GetCubeList	:  workbench.quickViewToMap
+
+workbench data editing:
+GetAvailableMaps:  workbench.editSeries
+GetSet:  workbench.showSeriesEditor
+GetPointSets:  workbench.showSeriesEditor
+GetMashableData:  workbench.seriesEditor, Set.fetchData()
+GetMapGeographies:  workbench.configureUserSet
+SaveUserSeries:  workbench.saveSeriesEditor
+UploadMyMashableData:  workbench.loadMySeriesByKey, workbench.syncMyAccount
+
+browse by category:
+GetCatChains:  workbench.browseFromSeries
+GetCatSiblings:  workbench.showSiblingCats
+GetCatChildren:  workbench.showChildCats
+
+GetMyGraphs:  workbench.syncMyAccount
+GetMySets:  workbench.getMySets
+
+UNTESTED:
+ManageMySeries:  workbench.updateMySeries
+
+
  *
  * command: SearchSeries  (anonymous permitted)
  *   search
@@ -21,7 +55,7 @@ header('Content-type: text/html; charset=utf-8');
  * command: SearchGraphs  (anonymous permitted)
  *   search
  *
- * command: GetPublicGraph     (anonymous permitted)
+ * command: GetFullGraph     (anonymous permitted)
  *   g: hash of public graph requested, returning graph object with complete series objects
  *
  * command: GetApis     (anonymous permitted)
@@ -106,7 +140,7 @@ switch($command){
 
         $aColumns=array("name", "units", "firstdt", "lastdt");
 
-        //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as period, title, src, url, ";
+        //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
 
 
         $sql = "SELECT SQL_CALC_FOUND_ROWS
@@ -247,7 +281,7 @@ switch($command){
             "aaData" => array()
         );
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
-        while ($aRow = $result->fetch_assoc()) { //handle, setid, mastersetid, userid, name, units, period, title, src, url, firstdt, lastdt, apiid, maps, ghandles
+        while ($aRow = $result->fetch_assoc()) { //handle, setid, mastersetid, userid, name, units, freq, title, src, url, firstdt, lastdt, apiid, maps, ghandles
             $found = false;
             $aRow["maps"] = str_replace("M©","", $aRow["maps"]);
             $aRow["freqs"] = str_replace("F©","", $aRow["freqs"]);
@@ -276,7 +310,7 @@ switch($command){
             break;
         }
         $search =  $_POST['search'];
-        //$freq =  $_POST['period'];
+        //$freq =  $_POST['freq'];
         //$user_id =  intval($_POST['uid']);
         if(count($search) == 0) die("invalid call.  Err 106");
         $sLimit = " ";
@@ -360,12 +394,26 @@ switch($command){
         }
         break;
 
-    case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetMyGraph
+    case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetGraph
         requiresLogin();
         $user_id =  intval($_POST['uid']);
-        $output = getGraphs($user_id, '');
+        $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis,
+          g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type,
+          g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt,
+          group_concat(gp.plottype) as plottypes
+        FROM graphs g INNER JOIN graphplots gp ON g.graphid=gp.graphid
+        WHERE userid=$user_id
+        GROUP BY g.graphid, g.userid, g.title, g.text,
+          g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type,
+          g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt)
+        ORDER BY updatedt desc, title";
+
+        $result = runQuery($sql, "GetMyGraphs select");
+        $output = ["status"=>"ok","graphs" => []];
+        while ($aRow = $result->fetch_assoc()) $output["graphs"]["G".$aRow["gid"]] = $aRow;
         break;
-    case "GetPublicGraph":  //data and all: the complete protein!
+
+    case "GetFullGraph":  //data and all: the complete protein!
         $ghash =  $_REQUEST['ghash'];
         if(strlen($ghash)>0){
             //1. fetch
@@ -415,8 +463,8 @@ switch($command){
                             switch($atype){
                                 case "M":
                                     foreach($asset["data"] as $geo => $series){
-                                        $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["period"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                        /*                                        $output["period"]= $asset["period"];
+                                        $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                        /*                                        $output["freq"]= $asset["freq"];
                                                                                 $output["firstdt"]=$series["firstdt"];
                                                                                 $output["lastdt"]=$series["lastdt"];
                                                                                 $output["start"]=$graph["start"];
@@ -427,11 +475,11 @@ switch($command){
                                     break;
                                 case "U":
                                 case "S":
-                                    $asset["data"] = dataSliver($asset["data"], $asset["period"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                    $asset["data"] = dataSliver($asset["data"], $asset["freq"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                     break;
                                 case "X":
                                     foreach($asset["data"] as $latlon => $series){
-                                        $series["data"] = dataSliver($series["data"], $asset["period"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                        $series["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                     }
                                     break;
                             }
@@ -486,8 +534,8 @@ switch($command){
             $output = array("status"=>"Error:  Requested map sets not found.");
         }
         break;*/
-    case "GetSets": //used to perform all asset and data fetches in a single call (no ambiguous sets; for that use GetSeries)
-        $output = ["status"=>"ok", "sets"=>[]];
+    case "GetSets": //used by Graph.fetchAssets() only get all types of asset in a single call (no ambiguous sets; for that use GetSeries)
+        $output = ["status"=>"ok", "assets"=>[]];
         if($series = (isset($_POST["series"]) && count($_POST["series"])>0) ? $_POST["series"] : false){
             $sql = "select s.metadata as setmetadata, s.name, sd.setid, sd.geoid, sd.freq, s.freqs, sd.latlon, s.maps, g.name as geoname
             from sets s join setdata on s.setid=sd.setid left outer join geographies on sd.geoid=g.geoid where ";
@@ -504,31 +552,27 @@ switch($command){
             $result  = runQuery($sql, "GetSets: series");
             while($row=$result->fetch_assoc()){
                 $handle = $row["type"].$row["setid"].$row["freq"]."G".$row["setid"].($row["latlon"]?"L".$row["latlon"]:"");
-                $output["series"][$handle] = $row;
+                $output["assets"][$handle] = $row;
             }
         }
 
         if($map = isset($_POST["map"]) ? $_POST["map"] : false){
             $output["map"] = $map;
-            if($regionSets = (isset($_POST["regionSets"]) && count($_POST["regionSets"])>0) ? $_POST["regionSets"] : false){
-                getRegionSets($output, $map, $regionSets, true);
+            if($mapSets = (isset($_POST["mapSets"]) && count($_POST["mapSets"])>0) ? $_POST["mapSets"] : false){
+                getMapSets($output["assets"], $map, $mapSets, true);
             }
-            if($markerSets = (isset($_POST["markerSets"]) && count($_POST["markerSets"])>0) ? $_POST["markerSets"] : false){
-                getMarkerSets($output, $map, $markerSets, true);
+            if($pointSets = (isset($_POST["pointSets"]) && count($_POST["pointSets"])>0) ? $_POST["pointSets"] : false){
+                getPointSets($output["assets"], $map, $pointSets, true);
             }
         }
         break;
-    case "GetMapSets":  //called only by grapher.fetchAssets (commented out in seriesEditor)
-        $usageTracking = trackUsage("count_graphsave");
-        $map = $_POST["map"];
-        $output = array("status"=>"ok", "map"=>$map, "mapsets"=>getRegionSets($map, cleanIdArray($_POST["mapsetids"]), true));
-        break;
-    case "GetPointSets": //called by workbench showSeriesEditor and by grapher.fetchAssets
+
+ /*   case "GetPointSets": //workbench.showSeriesEditor() only
         $usageTracking = trackUsage("count_graphsave");
         $map = $_POST["map"];
         $output = array("status"=>"ok", "map"=>$map, "pointsets"=>getMarkerSets($map, cleanIdArray($_POST["pointsetids"]), true));
         break;
-    case "GetSet":  //called only in showSeriesEditor = left outer join to grab unused regions
+    case "GetSet":  //called only in workbench.showSeriesEditor()
         $mapsetid = intval($_POST["mapsetid"]);
         $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
         $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), setid) as handle, setid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
@@ -547,7 +591,7 @@ switch($command){
         } catch(Exception $e){
             $output["status"] = "failed to get set for editing";
         }
-        break;
+        break;*/
 
     case "GetAvailableMaps":
         $mapsetid = intval($_POST["mapsetid"]);
@@ -710,7 +754,7 @@ switch($command){
         foreach($bunnies as $bunny=>$set){
             $sid = substr($bunny,1); //remove the leading U or S
             $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.setid as id, lat, lon, geoid,  s.userid, "
-                . "s.title as graph, s.src, s.url, s.units, s.data, s.freq as period, 'S' as save, 'datetime' as type, firstdt, "
+                . "s.title as graph, s.src, s.url, s.units, s.data, s.freq as freq, 'S' as save, 'datetime' as type, firstdt, "
                 . "lastdt, hash as datahash, ms.counts as geocounts "
                 . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid "
                 . " WHERE s.pointsetid is null and s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetSeries to either be the owner or org or be part of a graph whose owner/org
@@ -738,7 +782,7 @@ switch($command){
         $output = array("status"=>"ok", "allfound"=>true, "assets"=>array());
         for($i=0;$i<count($mapsetids);$i++){
             $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.setid as id, lat, lon, geoid,  s.userid, "
-                . "s.title as graph, s.src, s.url, s.units, s.data, freq as period, 'S' as save, 'datetime' as type, firstdt, "
+                . "s.title as graph, s.src, s.url, s.units, s.data, freq as freq, 'S' as save, 'datetime' as type, firstdt, "
                 . "lastdt, hash as datahash "
                 . " FROM series s "
                 . " where mapsetid = " . intval($mapsetids[$i]) . " and pointsetid is null and geoid = " . $geoid;
@@ -1002,7 +1046,7 @@ EOS;
             $output = array("status" => "fail: no gids to delete");
         }
         break;
-    case "resetGhash":
+    case "ResetGhash":
         requiresLogin();
         $gid = intval($_POST["gid"]);
         $uid = intval($_POST["uid"]);
@@ -1019,8 +1063,6 @@ EOS;
         $gid =  (isset($_POST['gid']))?intval($_POST['gid']):0;
         $user_id =  isset($_POST['uid']) ? intval($_POST['uid']) : 0;
         if($_POST['published']=='Y'){$published = "Y";} else  {$published = "N";}
-        $createdt = isset($_POST['createdt'])?intval($_POST['createdt']/1000)*1000:null;  //WAMP 16bit math compatibility
-        $updatedt = isset($_POST['updatedt'])?intval($_POST['updatedt']/1000)*1000:null;
         $intervals = isset($_POST['intervals'])?intval($_POST['intervals']):'null';
         $from = (isset($_POST['start']) && is_numeric($_POST['start']))?intval($_POST['start']/1000)*1000:'null';
         $to = (isset($_POST['end']) && is_numeric($_POST['end']))?intval($_POST['end']/1000)*1000:'null';
@@ -1047,15 +1089,17 @@ EOS;
         $mapconfig = safeSQLFromPost("mapconfig");
         $title = safeSQLFromPost("title");
         $analysis = safeSQLFromPost("analysis");
+        $modifieddt = intval($_POST["modifieddt"]);
         //table structure = graphs <-> graphplots <-> plotcomponents
 
         if($gid==0){
             $ghash = makeGhash($user_id);  //ok to use uid instead of gid as ghash is really just a random number
-            $sql = "insert into graphs
-            (userid, published, title, text, type, intervalcount, fromdt, todt, annotations, serieslist, map, mapconfig, cubeid, views, createdt, ghash)
+            $sql = "INSERT INTO graphs
+              (userid, published, title, text, type, intervalcount, fromdt, todt, annotations, serieslist, map,
+              mapconfig, cubeid, views, createdt, updatedt, ghash)
             values (
-            $user_id, '$published',$title, $analysis, '$type', $intervals, $from, $to, $annotations,  $map, $mapconfig , $cubeid, 0, $createdt,'$ghash'
-            )";
+              $user_id, '$published',$title, $analysis, '$type', $intervals, $from, $to, $annotations, $serieslist, $map,
+              $mapconfig, $cubeid, 0, $modifieddt, $modifieddt,'$ghash')";
             if(!runQuery($sql, "ManageMyGraphs: insert graphs record")){$output = array("status" => "fail on graph record insert", "post" => $_POST);break;}
             $gid = $db->insert_id;
         } else {
@@ -1067,70 +1111,38 @@ EOS;
             $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id,"ManageMyGraphs: read the ghash when updating");
             $row = $result->fetch_assoc();
             $ghash = $row["ghash"];
-            //clear plots and componenets for fresh insert
-            $sql = "delete gp, pc from graphplots gp, plotcomponents pc where gp.plotid=pc.plotid and gp.graphid = " . $gid;
+
+            //clear plots and components for fresh insert (note:  wastful of plotids
+            $sql = "delete gp, pc from graphplots gp, plotcomponents pc where gp.graphid=pc.graphid and gp.graphid = " . $gid;
             runQuery($sql);
         }
         $output = array("status" => "ok", "gid" => $gid, "ghash"=> $ghash);
 
         //insert plot and plot components records
-        if(isset($_POST['plots'])){
-            $plots = $_POST['plots'];
-            for($i=0;$i<count($plots);$i++){
-                $plot = $plots[$i];
-                $sql = "insert into graphplots (graphid, type, options, legendorder) "
-                    . " values (".$gid.",'T',".safeStringSQL($plot["options"]).",".($i+1).")";
-                runQuery($sql, "ManageMyGraphs: insert new graphplots record");
-                $thisPlotId = $db->insert_id;
-                for($j=0;$j<count($plot["components"]);$j++){
-                    $component = $plot["components"][$j];
-                    $sql="insert into plotcomponents (plotid, comporder, objtype, objid, options) values "
-                        . "(".$thisPlotId.",".($j+1).",'".substr($component["handle"],0,1)."',"
-                        . intval(substr($component["handle"],1)).",".safeStringSQL($component["options"]).")";
+        if(isset($_POST['allplots'])){  //allplots contains the seriesplots, mapplots and pointplots
+            $allPlots = $_POST['allplots'];
+            foreach($allPlots as $plotOrder => $plot){  //plot order is global; does not restart at 0 for each plot type (mapplots/pointplots/seriesplots)
+                $plotType = safeStringSQL($plot["type"]);
+                $plotOptions = safeStringSQL($plot["options"]);
+                $sql = "insert into graphplots (graphid, plotorder, plottype, options)
+                    values ($gid, $plotOrder, $plotType, $plotOptions)";
+                runQuery($sql, "ManageMyGraphs: insert graphplots record");
+                foreach($plot["components"] as $compOrder=>$component){
+                    $setid = intval($component["setid"]);
+                    $freq = safeStringSQL($component["freq"]);
+                    $geoid = is_numeric($component["geoid"])?intval($component["geoid"]):"NULL";  //must be null if empty
+                    $latlon = safeStringSQL($component["latlon"]);
+                    $options = safeStringSQL($component["options"]);
+                    $sql="insert into plotcomponents (graphid, plotorder, comporder, setid, freq, geoid, latlon, options) values "
+                        . "($gid, $plotOrder, $compOrder, $setid, $freq, $geoid, $latlon, $options)";
                     runQuery($sql,"ManageMyGraphs: insert plotcomponents record");
-                }
-            }
-        }
-
-        //insert mapset and component records
-        if(isset($_POST['mapsets'])){
-            $mapsets = $_POST['mapsets'];
-            for($i=0;$i<count($mapsets);$i++){
-                $mapset = $mapsets[$i];
-                $sql = "insert into graphplots (graphid, type, options, legendorder) "
-                    . " values (".$gid.",'M',".safeStringSQL($mapset["options"]).",".($i+1).")";
-                runQuery($sql, "ManageMyGraphs: mapsets into graphplots");
-                $thisPlotId = $db->insert_id;
-                for($j=0;$j<count($mapset["components"]);$j++){
-                    $component = $mapset["components"][$j];
-                    $sql="insert into plotcomponents (plotid, comporder, objtype, objid, options) values "
-                        . "(".$thisPlotId.",".($j+1).",'".substr($component["handle"],0,1)."',"
-                        . intval(substr($component["handle"],1)).",".safeStringSQL($component["options"]).")";
-                    runQuery($sql,"ManageMyGraphs: insert plotcomponents record");
-                }
-            }
-        }
-        //insert pointsets and component records
-        if(isset($_POST['pointsets'])){
-            $xsets = $_POST['pointsets'];
-            for($i=0;$i<count($xsets);$i++){
-                $xset = $xsets[$i];
-                $sql = "insert into graphplots (graphid, type, options, legendorder) "
-                    . " values (".$gid.",'X',".safeStringSQL($xset["options"]).",".($i+1).")";
-                runQuery($sql, "ManageMyGraphs: pointset into graphplots");
-                $thisXSetId = $db->insert_id;
-                for($j=0;$j<count($xset["components"]);$j++){
-                    $component = $xset["components"][$j];
-                    $sql="insert into plotcomponents (plotid, comporder, objtype, objid, options) values "
-                        . "(".$thisXSetId.",".($j+1).",'".substr($component["handle"],0,1)."',"
-                        . intval(substr($component["handle"],1)).",".safeStringSQL($component["options"]).")";
-                    runQuery($sql,"ManageMyGraphs: pointset into plotcomponents");
                 }
             }
         }
         //clear the cache when a graph is saved (if new or not previously cached, nothing gets deleted)
         runQuery("delete from graphcache where ghash='$ghash'");
         break;
+
     case "ManageMySeries":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
@@ -1403,7 +1415,7 @@ EOS;
                     . ", namelen=". strlen(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"")
                     . ", units=".safeStringSQL(isset($arySeries[$i]["units"])?$arySeries[$i]["units"]:"")
                     . ", notes=".safeStringSQL(isset($arySeries[$i]["notes"])?$arySeries[$i]["notes"]:"")
-                    . ", period=".safeStringSQL(isset($arySeries[$i]["freq"])?$arySeries[$i]["freq"]:"")
+                    . ", freq=".safeStringSQL(isset($arySeries[$i]["freq"])?$arySeries[$i]["freq"]:"")
                     . ", data='" . $db->real_escape_string($data) . "'"
                     . ", hash='" . sha1($data)  . "'"
                     . ", firstdt=" . intval($arySeries[$i]['firstdt']/1000)*1000
@@ -1664,39 +1676,60 @@ function setGhash($gid){  //does not check permissions!
     return $newHash;
 };
 
-function getGraphs($userid, $ghash){
+function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEmbeddedGraph"
+    global $ft_join_char;
 //if $userid = 0, must be a public graph; otherwise must own graph
 //note that series data is returned only if ghash is specified (i.e. a single graph request)
 //mapset data is not returned.  Requires a call to getGraphMapSets
     if(strlen($ghash)==0 && intval($userid)==0){
         die('{"status":"Must provide valid a hash or user credentials."}');
     }
-    $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis, "
-        . " g.map, g.mapconfig,  g.cubeid,  g.serieslist, "
-        . " g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt, "
-        . " m.jvectormap, m.bunny, m.legend, "
-        . " s.name, s.units, setkey, s.src, s.freqs, s.metadata as setmetadata, s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, "
-        . " gp.plotid, gp.type as plottype, gp.options as plotoptions, gp.legendorder, pc.objtype as comptype, pc.setid, "
-        . " pc.options as componentoptions, pc.comporder, intervalcount, g.type, annotations "
-        . " from graphs g left outer join maps m on g.map=m.map, graphplots gp, plotcomponents pc left outer join sets s on pc.setid=s.setid "
-        . " where g.graphid=gp.graphid and gp.plotid=pc.plotid ";
+
     if(strlen($ghash)>0){
-        $sql .=  " and ghash=".safeStringSQL($ghash);  //used by GetPublicGraph
+        $where =  " WHERE ghash=".safeStringSQL($ghash);  //used by GetFullGraph
     }else{
         requiresLogin();
-        $sql .= " and g.userid=" . intval($userid);  //used by GetMyGraphs
+        $where = " WHERE g.userid=" . intval($userid);  //used by GetMyGraphs
     }
-    $sql .= " order by updatedt desc, gid, plottype, gp.legendorder, pc.comporder";
+    //mapsPrefix = $ft_join_char
+    $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis,
+        g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type, g.annotations,
+        g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt,
+        m.jvectormap, m.bunny, m.legend,
+        s.name as setname, s.settype, s.units, s.metadata as setmetadata, s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.mastersetid,
+        gp.plotorder, gp.plottype, gp.options as plotoptions,
+        pc.comporder, pc.setid, pc.freq, pc.geoid, pc.latlon, pc.options as componentoptions,
+        sd.data, sd.firstdt100k, sd.lastdt100k,
+        geo.name as geoname,
+        coalesce(s.src, a.name) as src,
+        coalesce(sd.url, s.url, a.url) as url,
+        coalesce(sd.skey, s.setkey) as sourcekey,
+        replace('M$ft_join_char', '', coalesce(s.maps, xs.maps)) as maps,
+        replace('M$ft_join_char', '', coalesce(s.freqs, xs.freqs)) as freqs,
+        concat(IFNULL(s.metadata ,''),' ',IFNULL(a.metadata,''),' ', IFNULL(t.meta,'')) as setmetadata
+        FROM graphs g
+          JOIN graphplots gp ON g.graphid=gp.graphid
+          JOIN plotcomponents pc ON g.graphid=pc.graphid and gp.plotorder=pc.plotorder
+          JOIN sets s ON pc.setid=s.setid
+          LEFT OUTER JOIN maps m ON g.map=m.map
+          LEFT OUTER JOIN setdata sd ON s.setid=sd.setid and pc.freq=sd.freq and pc.geoid=sd.geoid and pc.latlon=sd.latlon
+          LEFT OUTER JOIN geographies geo ON pc.geoid=geo.geoid
+          LEFT OUTER JOIN apis a ON s.apiid=a.apiid
+          LEFT OUTER JOIN themes t ON s.themeid=t.themeid
+          LEFT OUTER JOIN sets xs on s.setid=xs.mastersetid and sd.latlon=xs.latlon
+        $where
+        ORDER BY updatedt desc, gid, gp.plotorder, pc.comporder";
 
-    $result = runQuery($sql, "GetGraphs subfunc");
+    $result = runQuery($sql, "GetGraphs main selected");
     if($result->num_rows==0 && strlen($ghash)>0){
         die('{"status":"No graph found. The author may have changed its code or deleted it."}');
     }
     $output = array("status"=>"ok","graphs" => array());
     $gid = 0;
-    $plotid = 0;
+    $plotorder = -1;
     while ($aRow = $result->fetch_assoc()){
         if($gid != $aRow['gid']){ //avoid repeats due to the joined SQL recordset
+            //************* GRAPH OBJECT
             $gid = $aRow['gid'];
             $bunny = $aRow['gid'];
             $output['graphs']['G' . $gid] = array(
@@ -1713,124 +1746,75 @@ function getGraphs($userid, $ghash){
                 "views" =>  $aRow["views"],
                 "updatedt" =>  intval($aRow["updatedt"]),
                 "annotations" =>  $aRow["annotations"],
-                "intervals" => $aRow["intervalcount"]
+                "intervals" => $aRow["intervalcount"],
+                "allplots" => []  //added below (graph must have at least one plot
             );
             //if($aRow["map"]!=null){
             $output['graphs']['G' . $gid]["map"] = $aRow["map"];
+            $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             $output['graphs']['G' . $gid]["bunny"] = $aRow["bunny"];
             $mapconfig = $aRow["mapconfig"];
             if($aRow["legend"]){
                 $json = json_decode($mapconfig, true);
-                $json["legendLocation"] = $aRow["legend"] ? $aRow["legend"] : "TR";
+                $json["legendLocation"] = $aRow["legend"] ? $aRow["legend"] : "TR";  //why??  because embedded graphs will not have maplist
                 $mapconfig = json_encode($json);
             }
             $output['graphs']['G' . $gid]["mapconfig"] = $mapconfig;
             $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             //}
-            if(strlen($ghash)>0) $output['graphs']['G' . $gid]["assets"] = array();
+            if(strlen($ghash)>0) $output['graphs']['G' . $gid]["assets"] = [];
         }
-        //each record represents a new graph.plots.components object which are handle differently depending on whether it is a Line, Mapset or Pointset
-        switch($aRow['plottype']){  //note: a region plot may have series in its calculation and therefore components ->  plottype <> objtype!
-            case 'T':   //timeseries plot
-                if($plotid!=$aRow['plotid']){ //avoid repeats due to the joined SQL recordset
-                    $plotid =  $aRow['plotid'];
-                    if(!isset($output['graphs']['G' . $gid]["plots"])){$output['graphs']['G' . $gid]["plots"]=array();}
 
-                    array_push($output['graphs']['G' . $gid]["plots"], array(
-                        "handle"=>"P".$plotid,
-                        "options"=> $aRow["plotoptions"],
-                        "components" => array()
-                    ));
-                }
-                $thisPlotIndex = count($output['graphs']['G' . $gid]["plots"]) - 1;
-                array_push($output['graphs']['G' . $gid]["plots"][$thisPlotIndex]["components"], array(
-                        "handle"=> $aRow["comptype"].$aRow["objid"],
-                        "options"=> $aRow["componentoptions"]
-                    )
-                );
-                break;
-            case 'M':  //regions plot (map set)
-                if($plotid!=$aRow['plotid']){
-                    $plotid =  $aRow['plotid'];
-                    if(!isset($output['graphs']['G' . $gid]["mapsets"] )) $output['graphs']['G' . $gid]["mapsets"]=[];
-
-
-                    array_push($output['graphs']['G' . $gid]["mapsets"], array(
-                        "handle"=>"P".$plotid,
-                        "options"=> $aRow["plotoptions"],
-                        "components" => array()
-                    ));
-                }
-                $thisSetIndex = count($output['graphs']['G' . $gid]["mapsets"])-1;
-                array_push($output['graphs']['G' . $gid]["mapsets"][$thisSetIndex]["components"], array(
-                        "handle"=> $aRow["comptype"].$aRow["objid"],
-                        "options"=> $aRow["componentoptions"]
-                    )
-                );
-
-                break;
-            case 'X':  //marker plot (point set)
-                if($plotid!=$aRow['plotid']){
-                    $plotid =  $aRow['plotid'];
-                    if(!isset($output['graphs']['G' . $gid]["pointsets"])){$output['graphs']['G' . $gid]["pointsets"]=array();}
-
-                    array_push($output['graphs']['G' . $gid]["pointsets"], array(
-                        "handle"=>"P".$plotid,
-                        "options"=> $aRow["plotoptions"],
-                        "components" => array()
-                    ));
-                }
-                $thisSetIndex = count($output['graphs']['G' . $gid]["pointsets"])-1;
-                array_push($output['graphs']['G' . $gid]["pointsets"][$thisSetIndex]["components"], array(
-                        "handle"=> $aRow["comptype"].$aRow["objid"],
-                        "options"=> $aRow["componentoptions"]
-                    )
-                );
-                break;
-            default:
-                return(array("status"=>"unknown plot type"));
+        if($plotorder!=$aRow['plotorder']){ //this check avoids repeatedly adding the same plot due to the joined SQL recordset
+            $plotorder =  $aRow['plotorder'];  //add the plot
+            //************* PLOT OBJECT
+            $output['graphs']['G' . $gid]["allplots"][intval($plotorder)] =[
+                "handle"=>"P".$plotorder,
+                "options"=> $aRow["plotoptions"],
+                "components" => []
+            ];
         }
+        $output['graphs']['G' . $gid]["allplots"][intval($plotorder)]["components"][] =[  //add the component (data and other properties will be in assets = only if we are getting the full graph
+            "settype"=> $aRow["settype"],
+            "setid"=> $aRow["setid"],
+            "freq"=> $aRow["freq"],
+            "geoid"=> $aRow["geoid"],
+            "latlon"=> $aRow["latlon"],
+            "options"=> $aRow["componentoptions"]
+        ];
 
         //each may create a new series asset. Repeated assets simply get overwritten and output only once.
-        if(strlen($ghash)>0){
-            $handle = $aRow["comptype"].$aRow["objid"];
-            if($aRow["comptype"]=='S'||$aRow["comptype"]=='U'){
+        if(strlen($ghash)>0){  //returns the assets too
+            $handle = $aRow["settype"].$aRow["setid"].$aRow["freq"].(is_numeric($aRow["geoid"])?"G".$aRow["geoid"]:"").($aRow["latlon"]!=""?"L".$aRow["latlon"]:"");
+            if($aRow["geoid"]||$aRow["latlon"]!=""){
                 $output['graphs']['G' . $gid]["assets"][$handle] = array(
-                    "handle"=>$handle,
-                    "name"=>$aRow["name"],
+                    //don't overwrite Set.name()!  "handle"=>$handle,
+                    "setid" => $aRow["setid"],
+                    "settype" => $aRow["settype"],
+                    "geoid" => $aRow["geoid"],
+                    "latlon"=>$aRow["latlon"],
+                    "setname"=>$aRow["setname"],
                     "units"=>$aRow["units"],
                     "src"=>$aRow["src"],
-                    "lat"=>$aRow["lat"],
-                    "lon"=>$aRow["lon"],
-                    "notes"=>$aRow["notes"],
-                    "firstdt"=> $aRow["firstdt"],
-                    "lastdt"=> $aRow["lastdt"],
-                    "period"=> $aRow["freq"],
+                    "geoname"=>$aRow["geoname"],
+                    "setmetadata"=>$aRow["setmetadata"],
+                    "firstdt"=> $aRow["firstdt100k"]*100*1000,
+                    "lastdt"=> $aRow["lastdt100k"]*100*1000,
+                    "freq"=> $aRow["freq"],
+                    "url"=> $aRow["url"],
+                    "mastersetid"=> $aRow["mastersetid"],
                     "data" => $aRow["data"],
-                    "geoid" => $aRow["geoid"],
-                    "mapsetid" => $aRow["mapsetid"]
                 );
-                if($aRow["freqset"]!==null){
-                    $freqset = '{"a":{'.$aRow["freqset"].'}}';
-                    $ary = json_decode($freqset, true);
-                    $output['graphs']['G' . $gid]["assets"][$handle]["freqset"] = $ary["a"];
-                }
-                if($aRow["comptype"]=='S'){
-                    $output['graphs']['G' . $gid]["assets"][$handle]["sid"] = $aRow["objid"];
-                }  else {
-                    $output['graphs']['G' . $gid]["assets"][$handle]["usid"] = $aRow["objid"];
-                }
-            } elseif($aRow["comptype"]=='M'){
-                //map assets created separately;
-                $mapAsset = getMapSets($aRow["map"], array($aRow["objid"]));
-                $output['graphs']['G' . $gid]["assets"][$handle] = $mapAsset[$handle];
-            } elseif($aRow["comptype"]=='X'){
-
-                $mapAsset = getPointSets($aRow["map"], array($aRow["objid"]));
-                $output['graphs']['G' . $gid]["assets"][$handle] = $mapAsset[$handle];
+            } elseif($aRow["settype"]=='M' && $aRow["geoid"]===null && $aRow["latlon"]==""){
+                //each pointSet asset created separately (note:  routine adds the data structure to $output.assets
+                getMapSets($output['graphs']['G' . $gid]["assets"], $aRow["map"], [["setid"=>$aRow["setid"], "freq"=>$aRow["freq"]]]);
+            } elseif($aRow["settype"]=='X' && $aRow["geoid"]===null && $aRow["latlon"]==""){
+                //each pointSet asset created separately (note:  routine adds the data structure to $output.assets
+                getPointSets($output['graphs']['G' . $gid]["assets"], $aRow["map"], [["setid"=>$aRow["setid"], "freq"=>$aRow["freq"]]]);
             }
         }
     }
+
     if(strlen($ghash)>0){
         $mapconfig = isset($output["graphs"]["G" . $gid]["mapconfig"])?json_decode($output['graphs']['G' . $gid]["mapconfig"],true):null;
         if($mapconfig!==null){
@@ -1850,47 +1834,58 @@ function getGraphs($userid, $ghash){
     return $output;
 }
 
-function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = false){   //"GetMapSet" command (from QuickViewToMap and getGraphMapSets()
+function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
+//used by:
+//    "GetMapSet" command from workbench.QuickViewToMap and workbench.getGraphMapSets()
+//    "GetFullGraph" command (api.getGraphs()) from grapher.createMyGraph() only
+//    "GetEmbeddedGraph" command (api.getGraphs()) from grapher.createMyGraph() only
+
     global $db, $orgid;
     $setFilters = [];
+    //print_r($requestedSets);
     for($i=0;$i<count($requestedSets);$i++){
         $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
-    $sql = "SELECT s.setid, s.settype, s.name, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
-    g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
-    sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
-    FROM sets s, setdata sd, geographies g, mapgeographies mg, maps m
+    $mapCode = safeStringSQL($map);
+    $sql = "SELECT s.setid, s.settype, s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
+      g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
+      sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
+    FROM sets s JOIN setdata sd on s.setid=sd.setid
+      JOIN geographies g on sd.geoid=g.geoid
+      JOIN mapgeographies mg on sd.geoid = mg.geoid and mg.geoid=g.geoid
+      JOIN maps m on mg.map=m.map
     WHERE (" . implode(" OR ", $setFilters) . ")
-    and mg.map  = " . safeStringSQL($map)
-    ." and mg.geoid=sd.geoid and mg.geoid=g.geoid and mg.map=" . safeStringSQL($map);
+      and mg.map  = $mapCode and m.map = $mapCode";
     if($mustBeOwnerOrPublic){
         $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or orgid=" . $orgid . ")"; //assumes requiresLogin already run
     }
     $sql .= " ORDER by  setid";
     $result = runQuery($sql, "getMapSets");
+
     $currentMapSetId = 0;
     while($row = $result->fetch_assoc()){
         if($currentMapSetId!=$row["setid"]){
             //new mapset = need header
             $currentMapSetId=$row["setid"];
             $handle = "M".$currentMapSetId.$row["freq"];
-            $output["sets"][$handle] = array(
+            $assets[$handle] = array(
                 "setid"=>$currentMapSetId,
                 "maps"=>array(),
-                "name"=>$row["name"],
+                "setname"=>$row["setname"],
                 "units"=>$row["units"],
                 "freq"=>$row["freq"],
                 "src"=>$row["src"],
                 "themeid"=>$row["themeid"],
                 "setmetadata"=>$row["setmetadata"],
+                "settype"=>$row["settype"],
                 "firstdt"=>$row["firstdt100k"]*100000,
                 "lastdt"=>$row["lastdt100k"]*100000,
                 "data"=>array()
             );
-            $output["sets"][$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
-            $output["sets"][$handle]["maps"] = mapsFieldCleanup($row["maps"]);
+            $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
+            $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
         }
-        $output["sets"][$handle]["data"][$row["map_code"]] = [
+        $assets[$handle]["data"][$row["map_code"]] = [
             "handle"=>"S".$row["setid"].$row["freq"]."G".$row["geoid"],
             "geoid"=>$row["geoid"],
             "geoname"=>$row["geoname"],
@@ -1898,23 +1893,23 @@ function getRegionSets(&$output, $map, $requestedSets, $mustBeOwnerOrPublic = fa
             "firstdt"=>$row["firstdt100k"]*100000,
             "lastdt"=>$row["lastdt100k"]*100000
         ];
-        if($row["seriesmetadata"]!=null) $output["sets"][$handle][$row["map_code"]]["metadata"] = $row["seriesmetadata"];
-        if($row["seriesurl"]!=null) $output["sets"][$handle][$row["map_code"]]["url"] = $row["seriesurl"];
-        if($row["latlon"]!=null) $output["sets"][$handle][$row["map_code"]]["latlon"] = $row["latlon"];
-        $output["sets"][$handle]["firstdt"] = min($output["sets"][$handle]["firstdt"], $row["firstdt100k"]*100000);
-        $output["sets"][$handle]["lastdt"] = max($output["sets"][$handle]["lastdt"], $row["lastdt100k"]*100000);
+        if($row["seriesmetadata"]!=null) $assets[$handle][$row["map_code"]]["metadata"] = $row["seriesmetadata"];
+        if($row["seriesurl"]!=null) $assets[$handle][$row["map_code"]]["url"] = $row["seriesurl"];
+        if($row["latlon"]!=null) $assets[$handle][$row["map_code"]]["latlon"] = $row["latlon"];
+        $assets[$handle]["firstdt"] = min($assets[$handle]["firstdt"], $row["firstdt100k"]*100000);
+        $assets[$handle]["lastdt"] = max($assets[$handle]["lastdt"], $row["lastdt100k"]*100000);
     }
     /*//after reading the rows, indicate order (could be done client side...)
     for($i=0;$i<count($regionSets);$i++){
-        $output["M".$regionSets[$i]["setid"]."G".$regionSets[$i]["geoid"]]["order"]=$i+1;
+        $assets["M".$regionSets[$i]["setid"]."G".$regionSets[$i]["geoid"]]["order"]=$i+1;
     }*/
-    return $output;
+    //return $assets;
 }
 
 
-function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
+function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = false){
     global $db, $orgid;
-    $sql = "select ps.pointsetid, ps.name, ps.units, ps.freq as period, ps.freqset, ps.themeid, "
+    $sql = "select ps.pointsetid, ps.name, ps.units, ps.freq, ps.freqset, ps.themeid, "
         . " s.setid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
         . " from pointsets ps, series s, mapgeographies mg, maps m "
         . " where ps.pointsetid = s.pointsetid and s.mapsetid is null  and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
@@ -1930,11 +1925,11 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
     while($row = $result->fetch_assoc()){
         if($currentPointSetId!=$row["pointsetid"]){ //new pointset = need header
             $currentPointSetId=$row["pointsetid"];
-            $mapout["X".$currentPointSetId] = array(
+            $assets["X".$currentPointSetId] = array(
                 "handle"=>"X".$currentPointSetId,
                 "name"=>$row["name"],
                 "units"=>$row["units"],
-                "period"=>$row["period"],
+                "freq"=>$row["freq"],
                 "src"=>$row["src"],
                 "themeid"=>$row["themeid"],
                 "data"=>array()
@@ -1943,11 +1938,11 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
         if($row["freqset"]!==null){
             $freqset = '{"a":{'.$row["freqset"].'}}';
             $ary = json_decode($freqset, true);
-            $mapout["X".$currentPointSetId]["freqset"] = $ary["a"];
+            $assets["X".$currentPointSetId]["freqset"] = $ary["a"];
         }
         $latlon = $row["lat"].",".$row["lon"];
-        $mapout["X".$currentPointSetId]["coordinates"][$latlon] = array("latLng"=>array($row["lat"], $row["lon"]));
-        $mapout["X".$currentPointSetId]["data"][$latlon] = array(
+        $assets["X".$currentPointSetId]["coordinates"][$latlon] = array("latLng"=>array($row["lat"], $row["lon"]));
+        $assets["X".$currentPointSetId]["data"][$latlon] = array(
             "handle"=>"S".$row["setid"],
             "name"=>$row["seriesname"],
             "data"=>$row["data"],
@@ -1955,7 +1950,6 @@ function getPointSets($map,$aryPointsetIds, $mustBeOwnerOrPublic = false){
             "lastdt"=>$row["lastdt"]
         );
     }
-    return $mapout;
 }
 
 function freqsFieldToArray($freqs){
@@ -1975,32 +1969,6 @@ function handle(&$obj){
     return $obj["settype"].$obj["setid"].(isset($obj["freq"])?$obj["freq"]:"").(isset($obj["geoid"])?"G".$obj["geoid"]:"").(isset($obj["latlon"])?"L".$obj["latlon"]:"");
 }
 
-function getGraphMapSets($gid, $map){
-    $mapsets = array();
-    $mapsetids = array();
-    $sql="select * from graphmapsets where graphid=".$gid . " order by comporder";
-    $result=runQuery($sql);
-    if($result->num_rows==0) return false;
-    while($row = $result->fetch_assoc()){
-        $mapsets["M".$row["mapsetid"]] = array(
-            "order" => $row["comporder"],
-            "k" => $row["k"],
-            "op" => $row["op"],
-            "options" => $row["options"]
-        );
-        array_push($mapsetids,$row["mapsetid"]);
-    }
-    $mapsetdata = getMapSets($map, $mapsetids); //get the data only
-    foreach($mapsets as $mhandle => $header){ //add in the graph specific configuration info
-        if(isset($mapsetdata[$mhandle])){
-            $mapsetdata[$mhandle]["order"]=$header["order"];
-            $mapsetdata[$mhandle]["op"]=$header["op"];
-            $mapsetdata[$mhandle]["k"]=$header["k"];
-            $mapsetdata[$mhandle]["option"]=$header["option"];
-        }
-    }
-    return $mapsetdata;
-}
 function getCubeSeries(&$output, $cubeid, $geoid=0){
 
     //fetch cube and theme name (just in case)

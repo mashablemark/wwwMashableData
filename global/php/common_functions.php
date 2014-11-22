@@ -66,9 +66,10 @@ function safeRequest($key){
     return $val;
 }
 
-function safeSQLFromPost($key){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
-    return safeStringSQL(safePostVar($key));
+function safeSQLFromPost($key, $nullable = true){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
+    return safeStringSQL(safePostVar($key, $nullable));
 }
+
 function safePostVar($key){
     if(isset($_POST[$key])){
         $val = $_POST[$key];
@@ -209,12 +210,12 @@ function cleanIdArray($dirtyIds){
     return $cleanIds;
 }
 
-function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=null, $msKey=null){ //get a mapset id, creating a record if necessary
+function getMapSet($name, $apiid, $freq, $units, $meta=null, $themeid=null, $msKey=null){ //get a mapset id, creating a record if necessary
     global $db;
     if($msKey){
         $sql = "select mapsetid  from mapsets where apiid=$apiid and mskey=".safeStringSQL($msKey);
     } else {
-        $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  freq='".$db->escape_string($periodicity)."'  and apiid=".$apiid
+        $sql = "select mapsetid  from mapsets where name='".$db->escape_string($name)."' and  freq='".$db->escape_string($freq)."'  and apiid=".$apiid
             ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
     }
     $result = runQuery($sql, "getMapSet select");
@@ -222,7 +223,7 @@ function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=nul
         $row = $result->fetch_assoc();
         return $row["mapsetid"];
     } else {
-        $sql = "insert into mapsets set name='".$db->escape_string($name)."', freq='".$db->escape_string($periodicity)
+        $sql = "insert into mapsets set name='".$db->escape_string($name)."', freq='".$db->escape_string($freq)
             ."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid
             .", meta=".safeStringSQL($meta).", themeid=".safeStringSQL($themeid).", mskey=".safeStringSQL($msKey);
         $result = runQuery($sql, "getMapSet insert");
@@ -233,16 +234,16 @@ function getMapSet($name, $apiid, $periodicity, $units, $meta=null, $themeid=nul
         return false;
     }
 }
-function getPointSet($name, $apiid, $periodicity, $units){ //get a mapset id, creating a record if necessary
+function getPointSet($name, $apiid, $freq, $units){ //get a mapset id, creating a record if necessary
     global $db;
-    $sql = "select pointsetid  from pointsets where name='".$db->escape_string($name)."' and  freq='".$db->escape_string($periodicity)."'  and apiid=".$apiid
+    $sql = "select pointsetid  from pointsets where name='".$db->escape_string($name)."' and  freq='".$db->escape_string($freq)."'  and apiid=".$apiid
         ." and units ". (($units==null)?" is NULL":"=".safeStringSQL($units));
     $result = runQuery($sql, "getPointSet select");
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
         return $row["pointsetid"];
     } else {
-        $sql = "insert into pointsets set name='".$db->escape_string($name)."', freq='".$db->escape_string($periodicity)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
+        $sql = "insert into pointsets set name='".$db->escape_string($name)."', freq='".$db->escape_string($freq)."', units=".(($units==null)?"NULL":safeStringSQL($units)).", apiid=".$apiid;
         $result = runQuery($sql, "getPointSet insert");
         if($result!==false){
             $pointSetId = $db->insert_id;
@@ -588,7 +589,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
     }
 }
 
-function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
+function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
     if(!$apidt) $apidt =  date("Ymd");
     sort($arrayData);
     $firstPoint = explode(":", $arrayData[0]);
@@ -599,9 +600,9 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity,
     if($key && $apiid){ //if source or set key is given, that is used over the setid
         $result = runQuery("select sd.setid, sd.freq, sd.geoid, sd.latlon, sd.data
         from setdata sd join sets s on sd.setid=s.setid
-        where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.freq='$periodicity' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
+        where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.freq='$freq' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
     } else {
-        $result = runQuery("select data from setdata where setid=$setid and freq='$periodicity' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
+        $result = runQuery("select data from setdata where setid=$setid and freq='$freq' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
     }
     if($result->num_rows==0){
         $status["added"]++;
@@ -614,20 +615,20 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $periodicity,
             //printNow("updating setid: $setid, geoid:$geoid");
             $status["updated"]++;
         }
-        if($key && ($setData["setid"]!=$setid || $setData["freq"]!=$periodicity || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
+        if($key && ($setData["setid"]!=$setid || $setData["freq"]!=$freq || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
             //in the off chance that the identifying data for source key (such as latlon) has been updated, delete record and reinsert below
             runQuery("delete from setdata where setid='$setData[setid]' and freq='$setData[freq]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
         }
     }
 
     $sql = "insert into setdata (setid, freq, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt, skey)"
-        ." values($setid, '$periodicity', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
+        ." values($setid, '$freq', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
         ." on duplicate key update data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
     return runQuery($sql, $logAs);
 }
 
-function updateSetdataMetadata($setid, $periodicity, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
+function updateSetdataMetadata($setid, $freq, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
     $sql = "update setdata set metadata = ".  safeStringSQL($metadata)
-        ." where setid=$setid and freq='$periodicity' and geoid=$geoid and latlon='$latlon'";
+        ." where setid=$setid and freq='$freq' and geoid=$geoid and latlon='$latlon'";
     return runQuery($sql, $logAs);
 }
