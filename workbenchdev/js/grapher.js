@@ -766,7 +766,7 @@ MashableData.grapher = function(){
             }
             function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
                 var title, calculatedMapData, $thisPanel;
-
+                var activeMapTab = 0; //global variable to track and show different map tab (different mapsets)
                 //missing assets detect
                 var missingAssets = [];
                 oGraph.eachComponent(function(c, plot){
@@ -823,6 +823,7 @@ MashableData.grapher = function(){
                         '<div class="mashabledata_chart-map">' +
                             '<div class="mashabledata_chart"></div>' +
                             '<div class="mashabledata_map" style="display:none;">' +
+                            '<div class="mashabledata_maptabs"></div>' +
                             '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
                             '<div class="mashabledata_map-and-cub-viz">' +
                             '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
@@ -933,6 +934,7 @@ MashableData.grapher = function(){
                             '<div class="mashabledata_chart-map" style="width:70%;display:inline;float:right;">' +
                             '<div class="mashabledata_chart"></div>' +
                             '<div class="mashabledata_map" style="display:none;">' +
+                            '<div class="mashabledata_maptabs"></div>' +
                             '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
                             '<div class="mashabledata_map-and-cub-viz">' +
                             '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
@@ -986,7 +988,7 @@ MashableData.grapher = function(){
                                         });
                                     break;
                                 case 'graph-data':
-                                    provenance.provOk();  //applies any pending changes.  will only run once.
+                                    provenance.commitChanges();  //applies any pending changes.  will only run once.
                                     $thisPanel.find('.graph-data-inner')
                                         .tabs(oGraph.plots?"enable":"disable",0)
                                         .tabs(oGraph.mapsets?"enable":"disable",1)
@@ -998,7 +1000,7 @@ MashableData.grapher = function(){
                                     provenance.build();
                                     break;
                                 case 'graph-chart':
-                                    provenance.provOk();  //applies change if changes are waiting and have not been canceled.  only runs once.
+                                    provenance.commitChanges();  //applies change if changes are waiting and have not been canceled.  only runs once.
                             }
                         });
 
@@ -1357,7 +1359,7 @@ MashableData.grapher = function(){
                         var downloadOptions = '';
                         if(oGraph.plots) downloadOptions  += '<option value="chart">chart</option>';
                         if(oGraph.mapsets||oGraph.pointsets) downloadOptions  += '<option value="map" selected>map</option>';
-                        if(summationMap = isSummationMap(oGraph)){
+                        if(summationMap = oGraph.isSummationMap()){
                             if(!oGraph.cubeid) oGraph.mapconfig.summationCube = true;
                         } else {
                             delete oGraph.mapconfig.summationCube;
@@ -1451,7 +1453,8 @@ MashableData.grapher = function(){
                                         text: 'Delete',
                                         id: 'btn-dia-enable',
                                         click: function() {
-                                            deleteMyGraph(panelId);
+                                            oGraph.deleteGraph();
+                                            $('#canvas a[href="#'+visiblePanelId()+'"]').closest('li').find('span').click();
                                             $(this).dialog('close');
                                         }
                                     },
@@ -1492,10 +1495,16 @@ MashableData.grapher = function(){
                 var $map = null, vectorMapSettings, val, mergablity;
 
                 console.time('buildGraphPanel:drawMap');
-                oGraph.fetchMap(drawMap); //ensures we have the map def and shows the map div
-                console.timeEnd('buildGraphPanel:drawMap');
-
-                setCropSlider(panelId); //needs to be called after the map is calculated
+                oGraph.fetchMap(function(){  //needs to be called after the map is calculated
+                    drawMap();
+                    console.timeEnd('buildGraphPanel:drawMap');
+                    setCropSlider(panelId);
+                    console.timeEnd('buildGraphPanel: '+panelId);
+                    if(!isEmbedded){
+                        unmask();
+                        setPanelHash(oGraph.ghash, $thisPanel.get(0).id);
+                    }
+                }); //ensures we have the map def and shows the map div
 
                 function drawMap(){
                     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
@@ -1515,13 +1524,40 @@ MashableData.grapher = function(){
                             $thisPanel.find('.mashabledata_jvmap').removeAttr("style");
                         }
                         console.time('buildGraphPanel:drawMap:calcMap');
-                        calculatedMapData = calcMap(oGraph);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
+                        if(oGraph.mapsets && oGraph.mapsets.length>1){ //map tabs!!!
+                            var mapTabsHTML = '';
+                            for(var ms=0;ms<oGraph.mapsets.length;ms++){
+                                mapTabsHTML += '<div class="mashabledata_maptab'+(ms==activeMapTab?' mashabledata_activetab':'')+'" data="'+ms+'">'+oGraph.mapsets[ms].name()+'</div>';
+                            }
+                            $thisPanel.find('div.mashabledata_maptabs').html(mapTabsHTML).show().find('.mashabledata_maptab').click(function(){
+                                var i = $(this).attr('data');
+                                if(i!=activeMapTab){
+                                    $thisPanel.find('div.mashabledata_activetab').removeClass('mashabledata_activetab');
+                                    $(this).addClass("mashabledata_activetab");
+                                    activeMapTab = i;
+                                    drawMap();  //redraw me
+                                };
+                            });
+
+                        } else {
+                            $thisPanel.find('div.mashabledata_maptabs').hide();
+                        }
+                        calculatedMapData = calcMap(oGraph, activeMapTab);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
                         console.timeEnd('buildGraphPanel:drawMap:calcMap');
                         console.time('buildGraphPanel:drawMap:calcAttributes');
-                        calcAttributes(oGraph);
+                        if(oGraph.mapsets && oGraph.mapsets[activeMapTab].options.mode=='rectangles') {
+                            makeTreeMap(
+                                $thisPanel.find('div.mashabledata_map').height(mapHeight).show(),
+                                oGraph.mapsets[activeMapTab].calculatedMapData,
+                                oGraph.mapFile);
+                            return;
+                        } else {
+                            calcAttributes(oGraph);
+                        }
                         console.timeEnd('buildGraphPanel:drawMap:calcAttributes');
                         if(isBubble()) bubbleCalc();
                         console.time('buildGraphPanel:drawMap:fillScaling+Scaling');
+                        if(oGraph.mapsets) oGraph.mapsets[activeMapTab].calculatedMapData = calculatedMapData; //keep a reference when switching tabbed maps
                         var fillScaling = fillScalingCount(oGraph.pointsets);
                         var areaScaling = areaScalingCount(oGraph.pointsets);
                         console.timeEnd('buildGraphPanel:drawMap:fillScaling+Scaling');
@@ -1743,12 +1779,12 @@ MashableData.grapher = function(){
                                 }
                                 if(oGraph.mapconfig.cubeid == 'sum'){  //the cube must be made from the mapsets in assets
                                     if(!isNaN(geoKey)) geoKey = 'G'+geoKey; //don't show the map name for the bunny of a summation map:  only instructions
-                                    var oFormula = oGraph.mapsets[0].options.calculatedFormula;
+                                    var oFormula = oGraph.mapsets[activeMapTab].options.calculatedFormula;
                                     var signedNumArray = oFormula.numFormula.replace('-','+-').split('+');
                                     var unsignedNumArray = oFormula.numFormula.replace('-','+').split('+');
                                     //loop though components and build a values array
                                     var asset, seriesVal, symbolData = {}, names = [], i, numNamesAsWords = [], symbol, o = {}, nameTree = {};
-                                    $.each(oGraph.mapsets[0].components, function(c){
+                                    $.each(oGraph.mapsets[activeMapTab].components, function(c){
                                         asset = oGraph.assets[this.handle()];
                                         names.push(asset.name);
                                         symbol = mapsets[0].compSymbol(c);
@@ -1797,7 +1833,7 @@ MashableData.grapher = function(){
                                     var cube = oGraph.assets.cube;
                                     cube.theme =  peeledWords.join(' ');
                                     cube.name = '';
-                                    cube.units = oGraph.mapsets[0].units();
+                                    cube.units = oGraph.mapsets[activeMapTab].units();
                                     cube['G'+geoKey] = {facetedData: []};
                                     for(i=0;i<numNamesAsWords.length;i++){
                                         cube.dimensions[0].list.push({name: numNamesAsWords[i].join(' ')});
@@ -1892,7 +1928,7 @@ MashableData.grapher = function(){
                                 for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
                                     if(isBubble()){
                                         //get array of regions codes
-                                        plt = $.extend(true, {}, oGraph.mapsets[0]);
+                                        plt = $.extend(true, {}, oGraph.mapsets[activeMapTab]);
                                         delete plt.formula;
                                         delete plt.options.calculatedFormula;
                                         mapComps = plt.components;
@@ -1915,7 +1951,7 @@ MashableData.grapher = function(){
                                                 }
                                             }
                                         }
-                                        plt.options.name = oGraph.mapsets[0].name() + " for " + regionNames.join('+');
+                                        plt.options.name = oGraph.mapsets[activeMapTab].name() + " for " + regionNames.join('+');
                                         popGraph.plots.push(plt);
                                     } else {
                                         for(X=0;X<oGraph.pointsets.length;X++){
@@ -1941,7 +1977,7 @@ MashableData.grapher = function(){
                                     var sourceMapPlot, sourceComponent, popComponent, popComponents, mapAsset, regionSeries;
                                     for(i=0;i<selectedRegions.length;i++){
                                         if(typeof calculatedMapData.regionColors[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
-                                            sourceMapPlot = oGraph.mapsets[0];
+                                            sourceMapPlot = oGraph.mapsets[activeMapTab];
                                             popComponents = [];
                                             sourceMapPlot.eachComponent(function(){
                                                 sourceComponent = this;
@@ -2063,10 +2099,10 @@ MashableData.grapher = function(){
                                     break;
                                 }
                             }
-                            if(oGraph.mapsets[0].options.merges){
+                            if(oGraph.mapsets[activeMapTab].options.merges){
                                 for(i=0;i<selectedRegions.length;i++){
-                                    for(j=0;j<oGraph.mapsets[0].options.merges.length;j++){
-                                        if(oGraph.mapsets[0].options.merges[j].indexOf(selectedRegions[i])>=0) {
+                                    for(j=0;j<oGraph.mapsets[activeMapTab].options.merges.length;j++){
+                                        if(oGraph.mapsets[activeMapTab].options.merges[j].indexOf(selectedRegions[i])>=0) {
                                             mergablity.ungroupable = true;
                                             break;
                                         }
@@ -2102,8 +2138,8 @@ MashableData.grapher = function(){
                             $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).off()
                                 .click(function(){
                                     if(mergablity.newMerge){
-                                        if(!oGraph.mapsets[0].options.merges) oGraph.mapsets[0].options.merges = [];
-                                        oGraph.mapsets[0].options.merges.push($map.getSelectedRegions());
+                                        if(!oGraph.mapsets[activeMapTab].options.merges) oGraph.mapsets[activeMapTab].options.merges = [];
+                                        oGraph.mapsets[activeMapTab].options.merges.push($map.getSelectedRegions());
                                     }
                                     if(mergablity.growable){
                                         var i, j, newMerge = [];
@@ -2113,9 +2149,9 @@ MashableData.grapher = function(){
                                         for(i=0;i<selectedMarkers.length;i++){
                                             newMerge = newMerge.concat(selectedMarkers[i].split("+"));
                                             if(selectedMarkers[i].split("+").length>1){
-                                                for(j=0;j<oGraph.mapsets[0].options.merges.length;j++){
-                                                    if(selectedMarkers[i] == oGraph.mapsets[0].options.merges[j].join("+")){
-                                                        oGraph.mapsets[0].options.merges.splice(j, 1);
+                                                for(j=0;j<oGraph.mapsets[activeMapTab].options.merges.length;j++){
+                                                    if(selectedMarkers[i] == oGraph.mapsets[activeMapTab].options.merges[j].join("+")){
+                                                        oGraph.mapsets[activeMapTab].options.merges.splice(j, 1);
                                                         break;
                                                     }
                                                 }
@@ -2123,9 +2159,9 @@ MashableData.grapher = function(){
                                         }
                                         //step 2 add merges to which a selected region belongs
                                         for(i=0;i<selectedRegions.length;i++){
-                                            for(j=0;j<oGraph.mapsets[0].options.merges.length;j++){
-                                                if(oGraph.mapsets[0].options.merges[j].indexOf(selectedRegions[i])>-1){
-                                                    newMerge = newMerge.concat(oGraph.mapsets[0].options.merges.splice(j,1)[0]);
+                                            for(j=0;j<oGraph.mapsets[activeMapTab].options.merges.length;j++){
+                                                if(oGraph.mapsets[activeMapTab].options.merges[j].indexOf(selectedRegions[i])>-1){
+                                                    newMerge = newMerge.concat(oGraph.mapsets[activeMapTab].options.merges.splice(j,1)[0]);
                                                     break;
                                                 }
                                             }
@@ -2134,7 +2170,7 @@ MashableData.grapher = function(){
                                         for(i=0;i<selectedRegions.length;i++){
                                             if(newMerge.indexOf(selectedRegions[i])==-1) newMerge.push(selectedRegions[i]);
                                         }
-                                        oGraph.mapsets[0].options.merges.push(newMerge);
+                                        oGraph.mapsets[activeMapTab].options.merges.push(newMerge);
                                     }
                                     $map.removeAllMarkers();
                                     $map.clearSelectedRegions();
@@ -2155,21 +2191,21 @@ MashableData.grapher = function(){
 
                                     for(i=0;i<selectedMarkers.length;i++){
                                         if(selectedMarkers[i].split("+").length>1){
-                                            for(j=0;j<oGraph.mapsets[0].options.merges.length;j++){
-                                                if(selectedMarkers[i] == oGraph.mapsets[0].options.merges[j].join("+")){
-                                                    oGraph.mapsets[0].options.merges.splice(j, 1);
+                                            for(j=0;j<oGraph.mapsets[activeMapTab].options.merges.length;j++){
+                                                if(selectedMarkers[i] == oGraph.mapsets[activeMapTab].options.merges[j].join("+")){
+                                                    oGraph.mapsets[activeMapTab].options.merges.splice(j, 1);
                                                     break;
                                                 }
                                             }
                                         }
                                     }
                                     for(i=0;i<selectedRegions.length;i++){
-                                        for(j=0;j<oGraph.mapsets[0].options.merges.length;j++){
-                                            pos = oGraph.mapsets[0].options.merges[j].indexOf(selectedRegions[i]);
+                                        for(j=0;j<oGraph.mapsets[activeMapTab].options.merges.length;j++){
+                                            pos = oGraph.mapsets[activeMapTab].options.merges[j].indexOf(selectedRegions[i]);
                                             if(pos != -1){
-                                                oGraph.mapsets[0].options.merges[j].splice(pos, 1);
-                                                if(oGraph.mapsets[0].options.merges[j].length==0){
-                                                    oGraph.mapsets[0].options.merges.splice(j,1);
+                                                oGraph.mapsets[activeMapTab].options.merges[j].splice(pos, 1);
+                                                if(oGraph.mapsets[activeMapTab].options.merges[j].length==0){
+                                                    oGraph.mapsets[activeMapTab].options.merges.splice(j,1);
                                                 }
                                                 break;
                                             }
@@ -2280,12 +2316,12 @@ MashableData.grapher = function(){
                         var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;
 
                         if(oGraph.mapsets && !isBubble()){
-                            if(oGraph.mapsets[0].options.scale == 'discrete'){
+                            if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
                                 regionLegendWidth=185;
-                                regionHeight = lineHeight + 2*spacer + oGraph.mapsets[0].options.discreteColors.length*(spacer+20);
+                                regionHeight = lineHeight + 2*spacer + oGraph.mapsets[activeMapTab].options.discreteColors.length*(spacer+20);
                             } else {
                                 regionLegendWidth=100;
-                                if(oGraph.calculatedMapData.regionMin<0 && oGraph.calculatedMapData.regionMax>0) { //spans?
+                                if(calculatedMapData.regionMin<0 && calculatedMapData.regionMax>0) { //spans?
                                     regionHeight = 6*spacer+2*80+4*lineHeight; //yes = need two continuous scale segments
                                 } else {
                                     regionHeight = 4*spacer+80+3*lineHeight;  //no = just one continuous scale segment
@@ -2416,50 +2452,50 @@ MashableData.grapher = function(){
                                     'stroke-width': 1
                                 };
                                 hcr.circle(xOffset + spacer + maxRadius, yOffset + y, smallRadius).attr(MarkerSizeAttributes).add();
-                                hcr.text(formatRationalize((oGraph.calculatedMapData.radiusScale||oGraph.calculatedMapData.markerDataMax)/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                                hcr.text(formatRationalize((calculatedMapData.radiusScale||calculatedMapData.markerDataMax)/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
                                 y+= (smallRadius||5) + spacer + maxRadius;
 
                                 hcr.circle(xOffset + spacer + maxRadius, yOffset + y, maxRadius).attr(MarkerSizeAttributes).add();
-                                hcr.text(formatRationalize(oGraph.calculatedMapData.radiusScale||oGraph.calculatedMapData.markerDataMax), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                                hcr.text(formatRationalize(calculatedMapData.radiusScale||calculatedMapData.markerDataMax), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
 
-                                hcr.text(oGraph.calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + 2*spacer).css({fontSize: '12px'}).add();
+                                hcr.text(calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + 2*spacer).css({fontSize: '12px'}).add();
                             }
                         }
                         if(oGraph.mapsets && !isBubble()){
-                            hcr.text(oGraph.mapsets[0].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
-                            if(oGraph.mapsets[0].options.scale!='discrete' && oGraph.mapsets[0].options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
+                            hcr.text(oGraph.mapsets[activeMapTab].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+                            if(oGraph.mapsets[activeMapTab].options.scale!='discrete' && oGraph.mapsets[activeMapTab].options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
 
-                            if(oGraph.mapsets[0].options.scale == 'discrete'){
-                                for(i=0;i<oGraph.mapsets[0].options.discreteColors.length;i++){
-                                    y = spacer + (oGraph.mapsets[0].options.discreteColors.length-i)*(spacer+20);
+                            if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
+                                for(i=0;i<oGraph.mapsets[activeMapTab].options.discreteColors.length;i++){
+                                    y = spacer + (oGraph.mapsets[activeMapTab].options.discreteColors.length-i)*(spacer+20);
                                     hcr.rect(xOffset + markerLegendWidth + spacer, yOffset + y, lineHeight, lineHeight, 0).attr({
-                                        fill: oGraph.mapsets[0].options.discreteColors[i].color,
+                                        fill: oGraph.mapsets[activeMapTab].options.discreteColors[i].color,
                                         opacity: 1,
                                         stroke: 'black',
                                         'stroke-width': 1
                                     }).add();
-                                    hcr.text((i==oGraph.mapsets[0].options.discreteColors.length-1?'&gt; ':' ')+oGraph.mapsets[0].options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                    hcr.text((i==oGraph.mapsets[activeMapTab].options.discreteColors.length-1?'&gt; ':' ')+oGraph.mapsets[activeMapTab].options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                                 }
                             } else {
                                 //y = spacer;
                                 y += 2*lineHeight;
-                                hcr.text(formatRationalize(oGraph.calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                hcr.text(formatRationalize(calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                                 y += lineHeight + spacer;
 
 
-                                if(oGraph.calculatedMapData.regionMax>0){
-                                    gradient(xOffset + markerLegendWidth + spacer, yOffset + y, oGraph.mapsets[0].options.posColor||MAP_COLORS.POS, MAP_COLORS.MID);
+                                if(calculatedMapData.regionMax>0){
+                                    gradient(xOffset + markerLegendWidth + spacer, yOffset + y, oGraph.mapsets[activeMapTab].options.posColor||MAP_COLORS.POS, MAP_COLORS.MID);
                                     y += 80 + spacer;
-                                    if(oGraph.calculatedMapData.regionMin<0){
+                                    if(calculatedMapData.regionMin<0){
                                         hcr.text('0', xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                                         y += lineHeight + spacer;
                                     }
                                 }
-                                if(oGraph.calculatedMapData.regionMin<0){
-                                    gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets[0].options.negColor||MAP_COLORS.NEG);
+                                if(calculatedMapData.regionMin<0){
+                                    gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets[activeMapTab].options.negColor||MAP_COLORS.NEG);
                                     y += 80 + spacer;
                                 }
-                                hcr.text(formatRationalize(oGraph.calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                hcr.text(formatRationalize(calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
                                 y += lineHeight + spacer;
                             }
                         }
@@ -2493,9 +2529,9 @@ MashableData.grapher = function(){
                             calculatedMapData.markerDataMax = Number.MIN_VALUE;  //initialize; to be maxxed against merged and single point values below
 
                             //1A: calculate the merge values within the graph date range as determined by calculatedMapData.startDateIndex and .endDateIndex
-                            if(oGraph.mapsets[0].options.merges){
-                                for(i=0;i<oGraph.mapsets[0].options.merges.length;i++){
-                                    merge = oGraph.mapsets[0].options.merges[i];
+                            if(oGraph.mapsets[activeMapTab].options.merges){
+                                for(i=0;i<oGraph.mapsets[activeMapTab].options.merges.length;i++){
+                                    merge = oGraph.mapsets[activeMapTab].options.merges[i];
                                     mergeCode = merge.join('+');
                                     markerTitle = calculatedMapData.title + ' for ' + mergeCode ;
                                     calculatedMapData.markers[mergeCode] = {name: mergeCode, point: pnt, style: {fill: 'pink'}};
@@ -2553,7 +2589,7 @@ MashableData.grapher = function(){
                         var bBox, totalArea=0, xArm=0, yArm=0, center, regCenter, latLon;
                         for(var i=0;i<regions.length;i++){  //iterate through the list
                             latLon=null;
-                            $.each(oGraph.mapsets[0].components, function(c, comp){
+                            $.each(oGraph.mapsets[activeMapTab].components, function(c, comp){
                                 if(oGraph.assets[comp.handle()].data[regions[i]]&&comp.handle[0]=='M'&&oGraph.assets[comp.handle()].data[regions[i]].latLon){
                                     latLon = oGraph.assets[comp.handle()].data[regions[i]].latLon.split(',');
                                 }
@@ -2580,12 +2616,12 @@ MashableData.grapher = function(){
                         var center, latLng;
                         if(isBubble()){
                             var region, i=0, j, allMergedRegions = [];
-                            if(oGraph.mapsets[0].options.merges){
-                                for(i=0;i<oGraph.mapsets[0].options.merges.length;i++){
-                                    center = geometricCenter(oGraph.mapsets[0].options.merges[i]);
+                            if(oGraph.mapsets[activeMapTab].options.merges){
+                                for(i=0;i<oGraph.mapsets[activeMapTab].options.merges.length;i++){
+                                    center = geometricCenter(oGraph.mapsets[activeMapTab].options.merges[i]);
                                     latLng = $map.pointToLatLng(center.x, center.y);
-                                    calculatedMapData.markers[oGraph.mapsets[0].options.merges[i].join('+')].latLng = [latLng.lat, latLng.lng];
-                                    allMergedRegions = allMergedRegions.concat(oGraph.mapsets[0].options.merges[i]);
+                                    calculatedMapData.markers[oGraph.mapsets[activeMapTab].options.merges[i].join('+')].latLng = [latLng.lat, latLng.lng];
+                                    allMergedRegions = allMergedRegions.concat(oGraph.mapsets[activeMapTab].options.merges[i]);
                                 }
                             }
                             $g.find('path[data-code]').each(function(){
@@ -2605,15 +2641,11 @@ MashableData.grapher = function(){
                     }
                 }
                 function isBubble(){
-                    return  oGraph.mapsets && oGraph.mapsets[0].options.mode && oGraph.mapsets[0].options.mode=='bubble';
-                }
-                console.timeEnd('buildGraphPanel: '+panelId);
-                if(!isEmbedded){
-                    unmask();
-                    setPanelHash(oGraph.ghash, $thisPanel.get(0).id);
+                    return  oGraph.mapsets && oGraph.mapsets[activeMapTab].options.mode && oGraph.mapsets[activeMapTab].options.mode=='bubble';
                 }
 
-                function calcMap(graph){
+
+                function calcMap(graph, mapIndex){
                     //vars that will make up the return object
                     var mapTitle, mapFreq, mapUnits, mapDates={}, aMapDates=[], markers={}, dateKey;
                     var markerData = {}; //2D object array:  [mdDate][shandle]=value
@@ -2628,7 +2660,7 @@ MashableData.grapher = function(){
                     var expression, compSymbols, geo, geos, components, data, symbol, oComponentData;
                     if(graph.mapsets){
                         //THE BRAINS:
-                        var mapset = graph.mapsets[0];
+                        var mapset = graph.mapsets[mapIndex];
                         var formula = mapset.calculateFormula(); //make a fresh the formula obj
                         expression = 'return ' + mapset.calculatedFormula.formula.replace(patVariable,'values.$1') + ';';
                         var mapCompute = new Function('values', expression);
@@ -3046,11 +3078,12 @@ MashableData.grapher = function(){
                         markerData: markerData,  //
                         dates: aMapDates,  // [{a: mdDate (string), dt: intval for js UTC date,  regionMin: (optional float), regionMax: (optional float), markerMin; (optional float), markerMax: (optional float)}]
                         regionData: regionData,
-                        regionGrid:{columns: regionColumns, data: regionRows},
+                        regionGrid: {columns: regionColumns, data: regionRows},
                         markerGrid:{columns: markerColumns, data: markerRows},
                         fillUnits: fillUnits,
                         radiusUnits: radiusUnits
                     };
+                    if(graph.mapsets) graph.mapsets[mapIndex].calculatedMapData = graph.calculatedMapData; //keep a reference on the mapPlot to avoid recalculating
                     return graph.calculatedMapData;
                 }
 
@@ -3300,16 +3333,6 @@ MashableData.grapher = function(){
             }
         },
 
-        isSummationMap: function isSummationMap(oGraph){
-            if(!oGraph.mapsets) return false;  //todo:  pointsets (only mapsets for now)
-            if(!oGraph.mapsets[0].options.calculatedFormula) oGraph.mapsets[0].calculateFormula();
-            var formula = oGraph.mapsets[0].options.calculatedFormula;
-            for(var i=0;i<oGraph.mapsets[0].components.length;i++){
-                if(oGraph.mapsets[0].components[i].handle[0]!='M') return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
-            }
-            return (/[-+]/.test(formula.numFormula) && !/[*/]/.test(formula.numFormula));  //no division or multiplication TODO:  allow series multipliers/dividers
-        },
-
         visiblePanelId: function visiblePanelId(){  //uniform way of getting ID of active panel for user events
             var visPan = $('div.graph-panel:visible');
             if(visPan.length==1){
@@ -3366,7 +3389,6 @@ MashableData.grapher = function(){
         createMyGraph = grapher.createMyGraph,
         makeChartOptionsObject = grapher.makeChartOptionsObject,
         buildGraphPanel = grapher.buildGraphPanel,
-        isSummationMap = grapher.isSummationMap,
         visiblePanelId = grapher.visiblePanelId,
         formatDateByPeriod = grapher.formatDateByPeriod,
         fillScalingCount = grapher.fillScalingCount,
@@ -3436,7 +3458,7 @@ MashableData.grapher = function(){
                     if(this.callback) this.callback();
                 }
             }
-            this.changeCancel();
+            graphTitle.changeCancel();
         },
         changeCancel: function(){
             $.fancybox.close();

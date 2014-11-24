@@ -402,7 +402,7 @@ function parseHash(newHash, oldHash){
                             }
                         }
                         if(!found){
-                            viewGraph(panelGraphs[g].ghash);
+                            viewGraph(oH.graphcode);
                         }
                     }
                 }
@@ -691,7 +691,7 @@ function setupMyGraphsTable(){
                         + spanWithTitle(globals.maps[value].name)
                 }
             },
-            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle(value.trim())}},
+            {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle((value||'').trim())}},
             {"mData":"serieslist", "sTitle": "Series ploted or mapped<span></span>", "bSortable": true,  "sClass":"series", "sWidth": layoutDimensions.widths.myGraphsTable.columns.series+"px", "mRender": function(value, type, obj){return spanWithTitle(value)}},
             {"mData":null, "sTitle": "Views<span></span>", "bSortable": true, "sClass": 'dt-count', "sWidth": colWidths.views + "px",
                 "mRender": function(value, type, obj){
@@ -1262,7 +1262,7 @@ function quickViewToChart(btn){
     if(oQuickViewSeries.plots){  //we have a complete graph object!
         if(panelId!='new') {
             var plots = oQuickViewSeries.plots, oGraph = panelGraphs[panelId];
-            oGraph.controls.provenance.provOk(false); //commit any prov panel changes, but do not redraw graph
+            oGraph.controls.provenance.commitChanges(false); //commit any prov panel changes, but do not redraw graph
             if(!oGraph.plots) oGraph.plots=[];
             for(var p=0;p<plots.length;p++){
                 oGraph.plots.push(plots[p]);
@@ -1279,7 +1279,7 @@ function quickViewToChart(btn){
         if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
         if(panelId!='new'){
             graph = panelGraphs[panelId];
-            graph.controls.provenance.provOk(false); //commit any prov changes but do not redraw
+            graph.controls.provenance.commitChanges(false); //commit any prov changes but do not redraw
         } else {
             graph = new MD.Graph();
         }
@@ -1302,28 +1302,25 @@ function quickViewToChart(btn){
 function quickViewToMap(){
     var panelId =  $('#quick-view-to-graphs').val();
     var map = $("#quick-view-maps").val();
-    if(
-        panelGraphs[panelId]
-            && panelGraphs[panelId].map
-            && (
-            panelGraphs[panelId].map!=map
-                || (panelGraphs[panelId].mapsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].mapsets[0].components[0].handle].period)
-                ||(panelGraphs[panelId].pointsets && oQuickViewSeries[0].period!=panelGraphs[panelId].assets[panelGraphs[panelId].pointsets[0].components[0].handle].period)
-            )
-        ){
-        dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional map data can be added, but must use the same base map <i>and</i> data set must have same frequecy.");
+    if( panelGraphs[panelId]   //this graph already exists
+    && panelGraphs[panelId].map // ... and it already has a map
+    && ( //but its map and the map requested or the map/pointplot frequencies are different...
+        panelGraphs[panelId].map!=map || panelGraphs[panelId].mapFreq() != oQuickViewSeries[0].freq)
+    ){
+        dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional maps and map data can be added, but must use the same base map and frequency.");
         return null;
     }
     if(map=='other'){
         dialogShow("selection required","Please select a base map to graph this set.");
         return null;
     }
+
     var oGraph;
     if(panelId=="new"){
         oGraph = new MD.Graph();
     } else {
         oGraph = panelGraphs[panelId];
-        oGraph.controls.provenance.provOk(false);
+        oGraph.controls.provenance.commitChanges(false);
     }
     oGraph.map = map;
     oGraph.mapconfig.legendLocation = globals.maps[map].legend;
@@ -1393,12 +1390,11 @@ function quickViewToMap(){
             $.fancybox.close();
             makeGraphAfterFetches();
         }
-
     }
 
     function makeGraphAfterFetches(){
         oGraph.fetchAssets(function(){
-            oGraph.fetch(function(){
+            oGraph.fetchMap(function(){ //blocking map fetch
                 oGraph.title = oGraph.title || (oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets[0].name());
                 if(panelId=="new"){
                     buildGraphPanel(oGraph);
@@ -1409,10 +1405,11 @@ function quickViewToMap(){
                 mask('drawing');
                 setPanelHash();
             });
-            hideGraphEditor();
         });
+        hideGraphEditor();
     }
 }
+
 function quickViewClose(){
     quickChart.destroy();
     delete $quickViewRows;
@@ -2612,7 +2609,7 @@ function addTab(title) {
     return panelId;
 }
 //run when a graph tab is deleted.  Also checks and sets the edit graph button and global variable
-function removeTab(evt){
+function removeTab(evt){ //accept either the span event object or the panel
     var $span = $(evt.target);
     var panelRef = $span.parent().children("a").attr("href");
     var panelId = panelRef.substr(1);

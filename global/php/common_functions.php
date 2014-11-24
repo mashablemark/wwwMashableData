@@ -475,7 +475,7 @@ function setCatSet($catid, $setid, $geoid = 0){
     return true;
 }
 
-function setGhandlesPeriodicitiesFirstLast($apiid = "all"){
+function setGhandlesFreqsFirstLast($apiid = "all"){
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
     $sql = "insert into temp (id1, text1, text2, `int1`, `int2`)

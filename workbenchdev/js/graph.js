@@ -10,11 +10,14 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     this.type = properties.type || 'auto';
     this.map = properties.map || '';
     this.assets = properties.assets || {};
+    this.gid = properties.gid || null;
+    this.ghash = properties.ghash || null;
     this.analysis = properties.analysis || null;
     this.mapconfig = properties.mapconfig || {};
     this.start = properties.start || null;
     this.end = properties.end || null;
     this.published = properties.published || 'N';
+    this.userid = parseInt(properties.userid)||null
 
     //inflations
     if(typeof this.annotations =="string") this.annotations = safeParse(this.annotations, []);
@@ -49,7 +52,6 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         }
     }
 };
-
 
 (function(){
     var MD = MashableData, Graph = MD.Graph, globals = MD.globals, common = MD.common;
@@ -285,8 +287,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
                 oGraph.ghash = jsoData.ghash;
                 oGraph.isDirty = false;
-                var objForDataTable = $.extend(true,{from: "", to: ""}, oGraph);
+                var objForDataTable = $.extend({from: '', to: '', plottypes: ''}, oGraph);
                 objForDataTable.updatedt = new Date().getTime();
+                oGraph.eachPlot(function(){
+                    objForDataTable.plottypes += this.type();
+                });
                 if(('G' + oGraph.gid) in oMyGraphs){
                     var trMyGraph;
                     trMyGraph = $($dtMyGraphs).find('span.handle[data=G' + oGraph.gid + ']').closest('tr').get(0);
@@ -323,6 +328,12 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         this.save(callback);
     };
 
+    Graph.prototype.deleteGraph = function(callback){
+        if(this.userid == account.info.userId){
+            common.callApi({command: 'DeleteMyGraphs', gids: [this.gid]}, callback);
+        } else callback(false);
+    };
+
     Graph.prototype.resetHash = function(callBack){
         callApi({command: 'ResetGhash', gid: oGraph.gid}, function(oReturn, textStatus, jqXH){
             this.ghash = oReturn.ghash;
@@ -342,6 +353,29 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             var plot = this;
             plot.eachComponent(callback);
         });
+    };
+    Graph.prototype.mapFreq = function (){
+        var mapFreq = false, plotFreq;
+        this.eachPlot(function(){
+            if(this.type()!="S"){
+                plotFreq=this.freq();
+                if(mapFreq && mapFreq!=plotFreq) return "error";
+                mapFreq=plotFreq;
+            }
+        });
+        return mapFreq;
+    };
+    Graph.prototype.isSummationMap = function isSummationMap(){
+        if(!this.mapsets) return false;  //todo:  pointsets (only mapsets for now)
+        for(var ms=0;ms<this.mapsets.length;ms++){
+            if(!this.mapsets[ms].calculatedFormula) this.mapsets[ms].calculateFormula();
+            var formula = this.mapsets[ms].calculatedFormula;
+            if(!/[-+]/.test(formula.numFormula) || /[*/]/.test(formula.numFormula)) return false;  //no division or multiplication TODO:  allow series multipliers/dividers
+            this.mapsets[ms].eachComponent(function(){
+                if(!this.isMapSet()) return false;  //mapsets only (no series)  TODO:  allow series multipliers/dividers
+            });
+        }
+        return true;
     };
 })();
 

@@ -942,11 +942,10 @@ switch($command){
         $result = runQuery($sql);
         $output = array("status"=>"ok","series" => array());
         while ($aRow = $result->fetch_assoc()){
-            $aRow["handle"] = handle($aRow);
             $aRow["rawmaps"] = $aRow["maps"] ;
             $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
             $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
-            $output["sets"][$aRow["handle"]] = $aRow;
+            $output["sets"][handle($aRow)] = $aRow;
         }
         break;
     case "GetCatChains":
@@ -1036,8 +1035,8 @@ EOS;
             $user_id =  intval($_POST['uid']);
             $gid_list = implode($clean_gids,",");
             //multi-table delete
-            $sql = "delete g, gp, ps from graphs g, graphplots gp, plotcomponents ps
-                where g.graphid=gp.graphid and gp.plotid=ps.plotid
+            $sql = "delete g, gp, pc from graphs g, graphplots gp, plotcomponents pc
+                where g.graphid=gp.graphid and g.graphid=pc.graphid
                 and g.userid = $user_id and g.graphid in ( $gid_list )";
             logEvent("DeleteMyGraphs: delete graph and dependencies", $sql);
             runQuery($sql);
@@ -1130,8 +1129,8 @@ EOS;
                 foreach($plot["components"] as $compOrder=>$component){
                     $setid = intval($component["setid"]);
                     $freq = safeStringSQL($component["freq"]);
-                    $geoid = is_numeric($component["geoid"])?intval($component["geoid"]):"NULL";  //must be null if empty
-                    $latlon = safeStringSQL($component["latlon"]);
+                    $geoid = isset($component["geoid"]) && is_numeric($component["geoid"])?intval($component["geoid"]):"NULL";  //must be null if empty
+                    $latlon = isset($component["latlon"])? safeStringSQL($component["latlon"],false): "''";
                     $options = safeStringSQL($component["options"]);
                     $sql="insert into plotcomponents (graphid, plotorder, comporder, setid, freq, geoid, latlon, options) values "
                         . "($gid, $plotOrder, $compOrder, $setid, $freq, $geoid, $latlon, $options)";

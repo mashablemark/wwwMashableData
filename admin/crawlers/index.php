@@ -168,8 +168,10 @@ END;
         break;
 
     case "SetCounts":
-        setMapsetCounts();
-        setPointsetCounts();
+        if($api_id>0){
+            setGhandlesFreqsFirstLast($api_id );
+            setMapsetCounts("all", $api_id);
+        }
         break;
 
     case "FindSets":  //universal mapset and pointset finder

@@ -398,7 +398,7 @@ MashableData.common = {
                         if(jsoData.msg) dialogShow('', jsoData.msg);
                         console.info(params.command+': '+jsoData.exec_time+' (total server time: '+globals.totalServerTime+'ms)');
                     }
-                    callBack(jsoData, textStatus, jqXHR);
+                    if(callBack) callBack(jsoData, textStatus, jqXHR);
                     if(params.modal!='persist' && !embed) unmask();
                 } else {
                     if(embed){
