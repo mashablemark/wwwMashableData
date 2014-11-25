@@ -13,7 +13,7 @@
         {"map":"eu28","name":"European Union - countries","geographycount":"28","bunny":"307","jvectormap":"eu_mill_en","legend":"BL","level":0},
         {"map":"eu_nuts1","name":"European Union - NUTS1 regions","geographycount":"104","bunny":"307","jvectormap":"eu_nuts1_mill_en","legend":"BL","level":1},
         {"map":"eu_nuts2","name":"European Union - NUTS2 regions","geographycount":"289","bunny":"307","jvectormap":"eu_nuts2_mill_en","legend":"BL","level":1},
-        {"map":"eu_nuts2","name":"European Union - NUTS3 regions","geographycount":"1373","bunny":"307","jvectormap":"eu_nuts3_mill_en","legend":"BL","level":1},
+        {"map":"eu_nuts3","name":"European Union - NUTS3 regions","geographycount":"1373","bunny":"307","jvectormap":"eu_nuts3_mill_en","legend":"BL","level":1},
         {"map":"at_nuts2","name":"Austria/Österreich NUTS2 regions","geographycount":"9","bunny":"16","jvectormap":"at_nuts2_mill_en","legend":"BR","level":2},
         {"map":"at_nuts3","name":"Austria/Österreich NUTS3 regions","geographycount":"35","bunny":"16","jvectormap":"at_nuts3_mill_en","legend":"BR","level":2},
         {"map":"be_nuts2","name":"Belgium/Belgique-België NUTS2 regions","geographycount":"11","bunny":"19","jvectormap":"be_nuts2_mill_en","legend":"BR","level":2},
@@ -175,6 +175,17 @@
 
 
 
+/*
+insert into mapgeographies
+(select mg.map, gn.geoid
+from geographies g join mapgeographies mg on g.geoid=mg.geoid
+join geographies gn on concat(gn.iso3166_2,'000') = g.iso3166_2
+where g.geoset like 'nuts_' and g.iso3166_2 like '%000');
 
+delete from mapgeographies where geoid in (
+select g.geoid
+from geographies g where g.geoset like 'nuts_' and g.iso3166_2 like '%000'
+);
 
+delete from geographies where geoset like 'nuts_' and iso3166_2 like '%000';*/
 

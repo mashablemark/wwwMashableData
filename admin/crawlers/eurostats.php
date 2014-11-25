@@ -851,7 +851,7 @@ function iso2Lookup($iso2LetterCode, $set = "ALL"){
         $geos["EL"] = $geos["GR"];  //Greece
         $geos["UK"] = $geos["GB"];  //Great Britain
     }
-
+    $iso2LetterCode = preg_replace ("#0+\b#","",$iso2LetterCode);  //eliminate trailing zeros for lower level NTUS region which are equavilent to higher level regions
     if(isset($geos[$iso2LetterCode])){
         return $geos[$iso2LetterCode];
     } else {
