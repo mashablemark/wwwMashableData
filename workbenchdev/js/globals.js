@@ -109,7 +109,7 @@ var MashableData = {
             "cssClass": {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
         },
         mapBackground: '#AAAAAA',
-        graphScriptFiles: ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/colour/Colour.js","/global/js/jvectormap/jquery-jvectormap-1.2.2.min.js"],
+        graphScriptFiles: ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/colour/Colour.js","/global/js/jvectormap/jquery-jvectormap-2.0.1.min.js"],
         rowPosition: {
             name: 0,
             units: 1,
@@ -123,7 +123,17 @@ var MashableData = {
         patVariable: /(\b[A-Z]{1,2}\b)/g,  //used to search and replace formula to use a passed in values object
         //SVGNS: "http://www.w3.org/2000/svg",
         isIE: /msie/i.test(navigator.userAgent) && !window.opera,
-        months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+        mapModes: {
+            "heat":  'colored heat map of values',
+            "abs-change": 'colored heat map of changes',
+            "percent-change": 'colored heat map of percent changes',
+            "bubbles": 'overlay circles to show values',
+            "change-bubbles": 'overlay circles to show changes',
+            "correlation": 'correlation (requires two maps)',
+            "treemap": 'abstract values to rectangles',
+            "change-treemap": 'abstract change to rectangles'
+        }
     }
 };
 

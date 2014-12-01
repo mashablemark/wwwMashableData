@@ -5,8 +5,12 @@
     var orderedMapList = [
         {"map":"none","name":"no map filter","level":0},
         {"map":"world","name":"world","geographycount":"172","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":0},
-        {"map":"wb_incomes","name":"World Bank income levels","geographycount":"11","bunny":"321","jvectormap":"wb_incomes","legend":"BL","level":1},
-        {"map":"wb_regions","name":"World Bank regions","geographycount":"13","bunny":"321","jvectormap":"wb_regions","legend":"BL","level":1},
+        {"map":"wb_incomes","name":"World Bank income levels","geographycount":"11","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":1,
+            redef: {"regions":[{"name":"High income: nonOECD","code":"NOC","components":["AD","AG","AW","BH","BB","BM","BN","KY","","HR","CW","CY","GQ","FO","PF","GL","GU","HK","IM","KW","LV","LI","LT","MO","MT","MC","NC","MP","OM","PR","QA","RU","SM","SA","SG","SX","KN","MF","BS","TT","TC","AE","UY","VI"]},{"name":"High income: OECD","code":"OEC","components":["AU","AT","BE","CA","CL","CZ","DK","EE","FI","FR","DE","GR","IS","IE","IL","IT","JP","KR","LU","NL","NZ","NO","PL","PT","SK","SI","ES","SE","CH","GB","US"]},{"name":"Low income","code":"LIC","components":["AF","BD","BJ","BF","BI","KH","CF","TD","KM","KP","CD","ER","ET","GN","GW","HT","KE","LR","MG","MW","ML","MZ","MM","NP","NE","RW","SL","SO","TJ","TZ","GM","TG","UG","ZW"]},{"name":"Lower middle income","code":"LMC","components":["AM","BT","BO","CV","CM","CG","CI","DJ","EG","SV","GE","GH","GT","GY","HN","IN","ID","KI","","KG","LA","LS","MR","FM","MD","MN","MA","NI","NG","PK","PG","PY","PH","WS","ST","SN","SB","SS","LK","SD","SZ","SY","TL","UA","UZ","VU","VN","PS","YE","ZM"]},{"name":"Upper middle income","code":"UMC","components":["AL","DZ","AS","AO","AR","AZ","BY","BZ","BA","BW","BR","BG","CN","CO","CR","CU","DM","DO","EC","FJ","GA","GD","HU","IR","IQ","JM","JO","KZ","LB","LY","MK","MY","MV","MH","MU","MX","ME","NA","PW","PA","PE","RO","RS","SC","ZA","LC","VC","SR","TH","TO","TN","TR","TM","TV","VE"]}]}
+        },
+        {"map":"wb_regions","name":"World Bank regions","geographycount":"13","bunny":"321","jvectormap":"world_mill_en","legend":"BL","level":1,
+            redef: {"regions":[{"name":"East Asia & Pacific","code":"EAS","components":["BN","PF","GU","HK","MO","NC","MP","SG","AU","JP","KR","NZ","KH","KP","MM","ID","KI","LA","FM","MN","PG","PH","WS","SB","TL","VU","VN","AS","CN","FJ","MY","MH","PW","TH","TO","TV"]},{"name":"Europe & Central Asia","code":"ECS","components":["AD","","HR","CY","FO","GL","IM","LV","LI","LT","MC","RU","SM","AT","BE","CZ","DK","EE","FI","FR","DE","GR","IS","IE","IT","LU","NL","NO","PL","PT","SK","SI","ES","SE","CH","GB","TJ","AM","GE","","KG","MD","UA","UZ","AL","AZ","BY","BA","BG","HU","KZ","MK","ME","RO","RS","TR","TM"]},{"name":"Latin America & Caribbean","code":"LCN","components":["AG","AW","BB","KY","CW","PR","SX","KN","MF","BS","TT","TC","UY","VI","CL","HT","BO","SV","GT","GY","HN","NI","PY","AR","BZ","BR","CO","CR","CU","DM","DO","EC","GD","JM","MX","PA","PE","LC","VC","SR","VE"]},{"name":"Middle East & North Africa","code":"MEA","components":["BH","KW","MT","OM","QA","SA","AE","IL","DJ","EG","MA","SY","PS","YE","DZ","IR","IQ","JO","LB","LY","TN"]},{"name":"North America","code":"NAC","components":["BM","CA","US"]},{"name":"South Asia","code":"SAS","components":["AF","BD","NP","BT","IN","PK","LK","MV"]},{"name":"Sub-Saharan Africa","code":"SSA","components":["GQ","BJ","BF","BI","CF","TD","KM","CD","ER","ET","GN","GW","KE","LR","MG","MW","ML","MZ","NE","RW","SL","SO","TZ","GM","TG","UG","ZW","CV","CM","CG","CI","GH","LS","MR","NG","ST","SN","SS","SD","SZ","ZM","AO","BW","GA","MU","NA","SC","ZA"]}]}
+        },
         {"map":"africa","name":"Africa","geographycount":"57","bunny":"3837","jvectormap":"africa_mill_en","legend":"BL","level":0},
         {"map":"europe_nafrica","name":"Europe and North Africa","geographycount":"53","bunny":null,"jvectormap":"europe_nafrica_mill_en","legend":"BL","level":0},
         {"map":"europe","name":"Europe","geographycount":"41","bunny":"3841","jvectormap":"europe_mill_en","legend":"BL","level":0},
@@ -63,9 +67,15 @@
         {"map":"uk_nuts3","name":"United Kingdom NUTS3 regions","geographycount":"139","bunny":"80","jvectormap":"uk_nuts3_mill_en","legend":"BR","level":2},
         {"map":"us","name":"USA (states)","geographycount":"51","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":0},
         {"map":"us_counties","name":"US counties","geographycount":"3145","bunny":"235","jvectormap":"us_counties_merc_en","legend":"BL","level":1},
-        {"map":"eia_regions","name":"US by EIA statistical regions","geographycount":"10","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
-        {"map":"padds","name":"US Petroleum Districts","geographycount":"5","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
-        {"map":"padds_sub","name":"US Petroleum Districts - detailed","geographycount":"7","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1},
+        {"map":"eia_regions","name":"US by EIA statistical regions","geographycount":"10","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1,
+            redef: {"regions":[{"name":"New England","code":"EIA_NE","components":["US-CT","US-ME","US-MA","US-NH","US-RI","US-VT"]},{"name":"Middle Atlantic","code":"EIA_MA","components":["US-NJ","US-NY","US-PA"]},{"name":"East North Central","code":"EIA_ENC","components":["US-IL","US-IN","US-MI","US-OH","US-WI"]},{"name":"West North Central","code":"EIAWNC","components":["US-IA","US-KS","US-MN","US-MO","US-NE","US-ND","US-SD"]},{"name":"South Atlantic","code":"EIA_SA","components":["US-DE","US-DC","US-FL","US-GA","US-MD","US-NC","US-SC","US-VA","US-WV"]},{"name":"East South Central","code":"EIA_ESC","components":["US-AL","US-KY","US-MS","US-TN"]},{"name":"West South Central","code":"EIA_WSC","components":["US-AR","US-LA","US-OK","US-TX"]},{"name":"Mountain","code":"EIA_MTN","components":["US-AZ","US-CO","US-ID","US-MT","US-NV","US-NM","US-UT","US-WY"]},{"name":"Pacific Contiguous","code":"EIA_PC","components":["US-CA","US-OR","US-WA"]},{"name":"Pacific Noncontiguous","code":"EIA_PNC","components":["US-AK","US-HI"]}]}
+        },
+        {"map":"padds","name":"US Petroleum Districts","geographycount":"5","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1,
+            redef: {"regions":[{"name":"PADD I (East Coast)","code":"PADD1","components":["US-CT","US-ME","US-MA","US-NH","US-RI","US-VT","US-DE","US-DC","US-MD","US-NJ","US-NY","US-PA","US-FL","US-GA","US-NC","US-SC","US-VA","US-WV"]},{"name":"PADD II (Midwest)","code":"PADD2","components":["US-IL","US-IN","US-IA","US-KS","US-KY","US-MI","US-MN","US-MO","US-NE","US-ND","US-SD","US-OH","US-OK","US-TN","US-WI"]},{"name":"PADD III (Gulf Coast)","code":"PADD3","components":["US-AL","US-AR","US-LA","US-MS","US-NM","US-TX"]},{"name":"PADD IV (Rocky Mountain)","code":"PADD4","components":["US-CO","US-ID","US-MT","US-UT","US-WY"]},{"name":"PADD V (West Coast)","code":"PADD5","components":["US-AK","US-AZ","US-CA","US-HI","US-NV","US-OR","US-WA"]}]}
+        },
+        {"map":"padds_sub","name":"US Petroleum Districts - detailed","geographycount":"7","bunny":"235","jvectormap":"us_aea_en","legend":"BL","level":1,
+            redef: {"regions":[{"name":"PADD I, Subdistrict A (New England): Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, and Vermont.","code":"PADD1a","components":["US-CT","US-ME","US-MA","US-NH","US-RI","US-VT"]},{"name":"PADD I, Subdistrict B (Central Atlantic): Delaware, District of Columbia, Maryland, New Jersey, New York, and Pennsylvania.","code":"PADD1b","components":["US-DE","US-DC","US-MD","US-NJ","US-NY","US-PA"]},{"name":"PADD I, Subdistrict C (Lower Atlantic): Florida, Georgia, North Carolina, South Carolina, Virginia, and West Virginia.","code":"PADD1c","components":["US-FL","US-GA","US-NC","US-SC","US-VA","US-WV"]},{"name":"PADD II (Midwest): Illinois, Indiana, Iowa, Kansas, Kentucky, Michigan, Minnesota, Missouri, Nebraska, North Dakota, South Dakota, Ohio, Oklahoma, Tennessee, and Wisconsin.","code":"PADD2","components":["US-IL","US-IN","US-IA","US-KS","US-KY","US-MI","US-MN","US-MO","US-NE","US-ND","US-SD","US-OH","US-OK","US-TN","US-WI"]},{"name":"PADD III (Gulf Coast): Alabama, Arkansas, Louisiana, Mississippi, New Mexico, and Texas","code":"PADD3","components":["US-AL","US-AR","US-LA","US-MS","US-NM","US-TX"]},{"name":"PADD IV (Rocky Mountain): Colorado, Idaho, Montana, Utah, and Wyoming.","code":"PADD4","components":["US-CO","US-ID","US-MT","US-UT","US-WY"]},{"name":"PADD V (West Coast): Alaska, Arizona, California, Hawaii, Nevada, Oregon, and Washington.","code":"PADD5","components":["US-AK","US-AZ","US-CA","US-HI","US-NV","US-OR","US-WA"]}]}
+        },
         {"map":"us_ak","name":"Alaska","geographycount":"29","bunny":"251","jvectormap":"usak_merc_en","legend":"TR","level":2},
         {"map":"us_al","name":"Alabama","geographycount":"67","bunny":"250","jvectormap":"usal_merc_en","legend":"BR","level":2},
         {"map":"us_ar","name":"Arkansas","geographycount":"75","bunny":"253","jvectormap":"usar_merc_en","legend":"BR","level":2},
@@ -128,8 +138,8 @@
         {"map":"ve","name":"Venezuela","geographycount":"25","bunny":"239","jvectormap":"ve_mill_en","legend":"BR","level":0},
         {"map":"za","name":"South Africa","geographycount":"9","bunny":"247","jvectormap":"za_mill_en","legend":"BR","level":0}
     ];
-        
-        
+
+
 
     MashableData.globals.orderedMapList = orderedMapList;
     MashableData.globals.maps = {};
@@ -170,22 +180,42 @@
         }
     };
 
+    MashableData.common.makeMap = function(newMap, fromMap, mapDef){ //makes a new map definition by reconfiguring/merging paths from an existing map
+        if(!jvm.Map.maps[newMap] || mapDef){ //don't rerun if this is a standard map that has already been created
+            mapDef = mapDef || MashableData.globals.maps[newMap].redef; //if not provided, must be in standard definitions
+            fromMap = fromMap || MashableData.globals.maps[newMap].jvectormap; //if not provided, must be in standard definitions
+
+            jvm.Map.maps[newMap] = $.extend(true, {}, jvm.Map.maps[fromMap]);
+            var newMapObject = jvm.Map.maps[newMap];
+            for(var i=0;i<mapDef.regions.length;i++){
+                var regionDef = mapDef.regions[i];
+                newMapObject.paths[regionDef.code] = {name: regionDef.name, path: ""};
+                for(var j=0;j<regionDef.components.length;j++){
+                    if(newMapObject.paths[regionDef.components[j]]){
+                        newMapObject.paths[regionDef.code].path += (j==0?'':' ') + newMapObject.paths[regionDef.components[j]].path;
+                    } else {
+                        //console.info(regionDef.components[j]+' not found in '+mapDef.derivedFrom);
+                    }
+                    delete newMapObject.paths[regionDef.components[j]];
+                }
+            }
+        }
+    };
 
 })();
 
 
 
 /*
-insert into mapgeographies
-(select mg.map, gn.geoid
-from geographies g join mapgeographies mg on g.geoid=mg.geoid
-join geographies gn on concat(gn.iso3166_2,'000') = g.iso3166_2
-where g.geoset like 'nuts_' and g.iso3166_2 like '%000');
+ insert into mapgeographies
+ (select mg.map, gn.geoid
+ from geographies g join mapgeographies mg on g.geoid=mg.geoid
+ join geographies gn on concat(gn.iso3166_2,'000') = g.iso3166_2
+ where g.geoset like 'nuts_' and g.iso3166_2 like '%000');
 
-delete from mapgeographies where geoid in (
-select g.geoid
-from geographies g where g.geoset like 'nuts_' and g.iso3166_2 like '%000'
-);
+ delete from mapgeographies where geoid in (
+ select g.geoid
+ from geographies g where g.geoset like 'nuts_' and g.iso3166_2 like '%000'
+ );
 
-delete from geographies where geoset like 'nuts_' and iso3166_2 like '%000';*/
-
+ delete from geographies where geoset like 'nuts_' and iso3166_2 like '%000';*/

@@ -17,21 +17,21 @@ MashableData.Plot = function(components, options){
         this.options = options || {};
         return this
     };
- /*   Plot.prototype.destroy = function(){
-        delete this.components;
-        this.graph.removePlot(this);
-        delete this.graph;
-    };*/
-    Plot.prototype.name = function(newName){ //optionally sets and returns created or user-defined name
+    /*   Plot.prototype.destroy = function(){
+     delete this.components;
+     this.graph.removePlot(this);
+     delete this.graph;
+     };*/
+    Plot.prototype.name = function(newName){ //optionally sets and returns created or user-defined name; if newName === false, returns the default (calculated) name
         var handle, comp, c, calcName='';
-        if(typeof newName != 'undefined'){
+        if(typeof newName != 'undefined' && newName!==false){
             if(newName && newName.trim()){
                 this.options.name = newName;
             } else {
                 delete this.options.name;
             }
         }
-        if(this.options.name){
+        if(this.options.name && newName!==false){
             return this.options.name;
         } else {
             //calculate from components
@@ -226,7 +226,7 @@ MashableData.Plot = function(components, options){
         console.time('createHighSeries');
         var valuesObject, y, i, j, highSeries, data, point, plotData=[], dateKey, oComponentData = {};
         var plot = this, components = plot.components;
-        
+
         highSeries = {name: plot.name(), units: plot.units()};
         components = plot.components;
         //note freq in a plot must be the same, either natively or through transformations
@@ -327,6 +327,13 @@ MashableData.Plot = function(components, options){
             if(this.isMapSet()) plotType = "M";
         });
         return plotType;
+    };
+    Plot.prototype.mapMode = function(){ //accounts for downshifting
+        if(!this.type()=='M' || !this.graph){
+            return false;
+        } else {
+            return (this.graph.mapconfig && this.graph.mapconfig.mapMode) || this.options.mapMode || 'heat';
+        }
     };
     Plot.prototype.clone = function(callback){
         var plot = this, components = [];

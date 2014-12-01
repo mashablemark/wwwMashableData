@@ -154,11 +154,15 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         } else callback();
     };
     Graph.prototype.fetchMap = function(callback){
-        if(this.map){
-            if(!this.mapFile) this.mapFile = globals.maps[this.map].jvectormap;
-            var requiredFile = ['/global/js/maps/'+ this.mapFile +'.js'];
-            require(requiredFile, callback);
-        } else callback();
+        var graph = this;
+        if(graph.map){
+            if(!graph.mapFile) graph.mapFile = globals.maps[graph.map].redef?graph.map:globals.maps[graph.map].jvectormap;
+            var requiredFile = ['/global/js/maps/'+ graph.mapFile +'.js'];
+            require(requiredFile, function(){
+                if(globals.maps[graph.map].redef) common.makeMap(graph.map);  //if this a regional map derived from a master map (eg. world -> WB regions)
+                if(callback) callback();
+            });
+        } else if(callback) callback();
     };
     Graph.prototype.changeMap = function(mapCode, callback){
         if(this.map && this.map!=mapCode) {

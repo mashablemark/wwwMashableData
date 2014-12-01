@@ -1,28 +1,26 @@
 
-
-    $(document).ready(function(){
-        var rect = [0,0,1000,500];
-        var vals = [0.0950300,0.0601331,0.0589323,0.0569567,0.0548303,0.0530166,0.0485597,0.0457261,0.0358271,0.0297933,0.0297074,0.0293906,0.0292638,0.0276639,0.0254094,0.0252954,0.0216112,0.0216094,0.0202284,0.0199215,0.0199127,0.0189336,0.0188394,0.0176348,0.0168130,0.0154234,0.0153578,0.0144095,0.0132578,0.0132372,0.0097916,0.0093485,0.0055345,0.0042640,0.0033422,0.0028972,0.0025559,0.0023909,0.0018822,0.0012859,0.0010117,0.0009318,0.0008633,0.0004704,0.0004329,0.0002489,0.0000224,];
-        var states = ['TEXAS','OHIO','INDIANA','PENNSYLVANIA','ILLINOIS','KENTUCKY','MISSOURI','WEST VIRGINIA','MICHIGAN','ALABAMA','NORTH CAROLINA','FLORIDA','WYOMING','ARIZONA','WISCONSIN','GEORGIA','UTAH','COLORADO','ARKANSAS','IOWA','TENNESSEE','KANSAS','OKLAHOMA','NORTH DAKOTA','NEBRASKA','SOUTH CAROLINA','NEW MEXICO','MINNESOTA','LOUISIANA','VIRGINIA','MARYLAND','MONTANA','MISSISSIPPI','WASHINGTON','NEVADA','NEW YORK','MASSACHUSETTS','OREGON','SOUTH DAKOTA','NEW JERSEY','DELAWARE','NEW HAMPSHIRE','HAWAII','CALIFORNIA','CONNECTICUT','ALASKA','MAINE',];
-        var squarified = MashableData.common.squarify(rect,vals);
-        console.log(vals);
-        console.log(squarified);
-    });
-        //console.log(squarified);
-    function makeTreeMap($div, calculatedMapData, mapFile, dateKey){
+    function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
+        $div.html(''); //clear anything there
         var renderer = new Highcharts.Renderer(
             $div[0],
             $div.width(),
             $div.height()
         );
         var rect = [0, 0, $div.width(), $div.height()];
-        if(!dateKey) dateKey = calculatedMapData.dates[0].s;
-        var sortedCodes = [], i, code, value, total= 0, sortedValues = [];
+        if(!dateKey) dateKey = calculatedMapData.dates[calculatedMapData.dates.length-1].s;
+        var sortedCodes = [], i, code, value, total= 0, sortedValues = [], valueObject;
         for(code in calculatedMapData.regionData[dateKey]){
-            value = calculatedMapData.regionData[dateKey][code];
-            if(!isNaN(value)){
-                total += Math.abs(value);
-                sortedCodes.push({code: code, value: value});
+            valueObject = {code: code}
+            if(fromDateKey){
+                valueObject.fromValue = calculatedMapData.regionData[fromDateKey][code];
+                valueObject.toValue = calculatedMapData.regionData[dateKey][code];
+                valueObject.value = valueObject.toValue - valueObject.fromValue;
+            } else {
+                valueObject.value = calculatedMapData.regionData[dateKey][code];
+            }
+            if(!isNaN(valueObject.value)){
+                total += Math.abs(valueObject.value);
+                sortedCodes.push(valueObject);
             }
         }
         sortedCodes.sort(function(a,b){return b.value-a.value;});
@@ -40,17 +38,20 @@
                 })
                 .on('mouseover', treeOver(i))
                 .add();
-            renderer.text(sortedCodes[i].code, squarified[i][0]+2, squarified[i][1]+10).attr({
-                rotation: 0
-            }).css({
-                    fontSize: '6pt',
-                    color: 'black'
-                }).add();
+            renderer.text(
+                    jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name+ '<br>'
+                        + Highcharts.numberFormat(sortedCodes[i].value)
+                        + (calculatedMapData.fillUnits?' '+calculatedMapData.fillUnits:''),
+                    squarified[i][0]+2,
+                    squarified[i][1]+10)
+                .attr({rotation: 0})
+                .css({fontSize: '6pt', color: 'black'}).
+                add();
         }
 
         function treeOver(i){
             return function(){
-                var regionName = jvm.WorldMap.maps[mapFile].paths[sortedCodes[i].code].name;
+                var regionName = jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name;
                 console.info(regionName+': '+ sortedCodes[i].value);
                 //$('#statBox').html(jvm.states[i]+'<br>'+vals[i]);
             }

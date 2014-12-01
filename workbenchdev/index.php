@@ -14,7 +14,7 @@
     <link  rel="stylesheet" href="/global/css/colorPicker.css?v=<?=$workbenchVersion?>" />
     <link  rel="stylesheet" href="/global/js/handsontable/jquery.handsontable.0.7.5.css" />
     <link rel="stylesheet" media="screen" href="/global/css/jquery.contextMenu.css?v=<?=$workbenchVersion?>">
-    <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-1.2.2.css">
+    <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-2.0.1.css">
     <link rel="stylesheet" href="/global/js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link  rel="stylesheet" href="workbench.css?v=<?=$workbenchVersion?>" />
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css?v=<?=$workbenchVersion?>" type="text/css">

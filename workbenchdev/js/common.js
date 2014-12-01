@@ -31,7 +31,9 @@ MashableData.common = {
         s = s.toString(16);
         return (s.length==1?0:'') + s;
     },
+    mustacheRegex: /{{([^}]+)}}/g,
     mustache: function(template, valuesObject){ //single level simplistic mustache-like templating
+        rep = template.match(this.mustacheRegex);
         if(valuesObject){
             var key, searchRegex;
             for(key in valuesObject){
