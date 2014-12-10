@@ -142,6 +142,10 @@ td.dte{
     overflow:hidden;
     white-space:nowrap;
 }
+td.maps-to{
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 span.handle{
     display: none;
 }
@@ -407,6 +411,14 @@ div.graph_control_panel{
     margin:5px 5px 0 0;
     position: relative;
     z-index: 1;
+}
+div.graph-map-mode, div.graph-type, div.change-basemap{
+  padding: 5px 5px;
+}
+select.graph-map-mode, select.graph-type, select.change-basemap{
+  max-width: 200px;
+  right: 5px;
+  position: absolute;
 }
 div.chart-plots h4{
     margin: 10px;
