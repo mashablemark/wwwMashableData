@@ -1,9 +1,11 @@
-/**
- * Created with JetBrains PhpStorm.
- * User: mark__000
- * Date: 2/17/13
- * Time: 11:13 PM
- * To change this template use File | Settings | File Templates.
+/*
+ drag and drop rules:
+ 1. plot lis can only be dragged within type ol (ie. li.plot within ol.plots; li.mapplot within ol.mapplots; and li.pointplot within ol.pointplots)
+ 2. series components can be dragged to any plot's 'ol.components'
+ 3. pointset component can be dragged to any 'li.pointplot ol.components'
+ 4. mapset component can be dragged to any 'li.pointplot ol.components'
+
+
  */
 
 //PROVENANCE PANEL CREATOR AND HELPER FUNCTIONS
@@ -180,7 +182,7 @@ function ProvenanceController(panelId){
                 + '<span class="comp-edit-k" style="display:none;"><input class="short" value="{{k}}"> * </span>'
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
-            okcancel: '<button class="config-cancel">cancel edits</button>'
+            okcancel: '<button class="config-ok">ok</button><button class="config-cancel">cancel edits</button>'
         },
         controller = {
             build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
@@ -189,7 +191,7 @@ function ProvenanceController(panelId){
                     if($prov.find('.chart-plots').length==0) $prov.find('.config-cancel').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div');
                     $prov.find('ol.plots').append(controller.seriesPlotHTML(plotIndex) );
                 } else {  //initialize!!!
-                    $prov = $('#'+panelId + ' .provenance').show(); //compensation for margins @ 15px + borders
+                    $prov = $('#'+panelId + ' div.provenance').show(); //compensation for margins @ 15px + borders
                     panelGraph = globals.panelGraphs[panelId]; //reference kept for duration
                     controller.isDirty = false;
 
@@ -236,9 +238,14 @@ function ProvenanceController(panelId){
 
                     //main buttons
                     $prov.find("button.config-cancel")
-                        .button({disabled: true, icons: {secondary: 'ui-icon-closethick'}}).addClass('ui-state-error')
+                        .button({icons: {secondary: 'ui-icon-close'}}).addClass('ui-state-highlight')
                         .click(function(){
                             controller.provClose();
+                        });
+                    $prov.find("button.config-ok")
+                        .button({disabled: true, icons: {secondary: 'ui-icon-check'}})
+                        .click(function(){
+                            controller.commitChanges()
                         });
                 }
 

@@ -1,15 +1,16 @@
 
-    function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
-        $div.html(''); //clear anything there
-        var renderer = new Highcharts.Renderer(
-            $div[0],
-            $div.width(),
-            $div.height()
-        );
-        var rect = [0, 0, $div.width(), $div.height()];
-        if(!dateKey) dateKey = calculatedMapData.dates[calculatedMapData.dates.length-1].s;
-        var sortedCodes = [], i, code, value, total= 0, sortedValues = [], valueObject;
-        for(code in calculatedMapData.regionData[dateKey]){
+function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
+    $div.html(''); //clear anything there
+    var renderer = new Highcharts.Renderer(
+        $div[0],
+        $div.width(),
+        $div.height()
+    );
+    var rect = [0, 0, $div.width(), $div.height()];
+    if(!dateKey) dateKey = calculatedMapData.dates[calculatedMapData.dates.length-1].s;
+    var sortedCodes = [], i, code, value, total= 0, sortedValues = [], valueObject;
+    for(code in calculatedMapData.regionData[dateKey]){
+        if(jvm.Map.maps[mapFile].paths[code]){
             valueObject = {code: code}
             if(fromDateKey){
                 valueObject.fromValue = calculatedMapData.regionData[fromDateKey][code];
@@ -22,42 +23,45 @@
                 total += Math.abs(valueObject.value);
                 sortedCodes.push(valueObject);
             }
+        } else {
+            console.info(code+' code in fetched mapset is not found in '+mapFile);
         }
-        sortedCodes.sort(function(a,b){return b.value-a.value;});
-        for(i=0;i<sortedCodes.length;i++){
-            sortedValues.push(Math.abs(sortedCodes[i].value)/total);
-        }
-        var squarified = MashableData.common.squarify(rect, sortedValues);
-
-        for(i=0;i<squarified.length;i++){
-            renderer.rect(squarified[i][0], squarified[i][1], squarified[i][2], squarified[i][3], 0)
-                .attr({
-                    fill: sortedCodes[i].value>0?'#99CCFF':'red',
-                    stroke: 'black',
-                    'stroke-width': 1
-                })
-                .on('mouseover', treeOver(i))
-                .add();
-            renderer.text(
-                    jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name+ '<br>'
-                        + Highcharts.numberFormat(sortedCodes[i].value)
-                        + (calculatedMapData.fillUnits?' '+calculatedMapData.fillUnits:''),
-                    squarified[i][0]+2,
-                    squarified[i][1]+10)
-                .attr({rotation: 0})
-                .css({fontSize: '6pt', color: 'black'}).
-                add();
-        }
-
-        function treeOver(i){
-            return function(){
-                var regionName = jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name;
-                console.info(regionName+': '+ sortedCodes[i].value);
-                //$('#statBox').html(jvm.states[i]+'<br>'+vals[i]);
-            }
-        }
-
     }
+    sortedCodes.sort(function(a,b){return b.value-a.value;});
+    for(i=0;i<sortedCodes.length;i++){
+        sortedValues.push(Math.abs(sortedCodes[i].value)/total);
+    }
+    var squarified = MashableData.common.squarify(rect, sortedValues);
+
+    for(i=0;i<squarified.length;i++){
+        renderer.rect(squarified[i][0], squarified[i][1], squarified[i][2], squarified[i][3], 0)
+            .attr({
+                fill: sortedCodes[i].value>0?'#99CCFF':'red',
+                stroke: 'black',
+                'stroke-width': 1
+            })
+            .on('mouseover', treeOver(i))
+            .add();
+        renderer.text(
+                jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name+ '<br>'
+                    + Highcharts.numberFormat(sortedCodes[i].value)
+                    + (calculatedMapData.fillUnits?' '+calculatedMapData.fillUnits:''),
+                squarified[i][0]+2,
+                squarified[i][1]+10)
+            .attr({rotation: 0})
+            .css({fontSize: '6pt', color: 'black'}).
+            add();
+    }
+
+    function treeOver(i){
+        return function(){
+            var regionName = jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name;
+            console.info(regionName+': '+ sortedCodes[i].value);
+            //$('#statBox').html(jvm.states[i]+'<br>'+vals[i]);
+        }
+    }
+
+}
 
 
 //
@@ -87,7 +91,7 @@ MashableData.common.sumArray = (function() {
 // Includes tips and tricks from:
 // http://ejohn.org/blog/fast-javascript-maxmin/#postcomment
 //
-    MashableData.common.squarify = function(rect,vals) {
+MashableData.common.squarify = function(rect,vals) {
 
     // "We assume a datatype Rectangle that contains the layout during the computation and
 // is global to the procedure squarify. It supports a function width() that gives the length of

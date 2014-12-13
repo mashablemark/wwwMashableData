@@ -108,11 +108,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     Graph.prototype.destroy = function(){
 
     };
-/*    Graph.prototype.removePlot = function(plot){
-        this.eachPlot(function(p, graph){
-            if(this==plot)
-        });
-    };*/
+    /*    Graph.prototype.removePlot = function(plot){
+     this.eachPlot(function(p, graph){
+     if(this==plot)
+     });
+     };*/
     Graph.prototype.draw = function(){
 
     };
@@ -181,7 +181,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                         changedAssets.series = changedAssets.series || {};
                         changedAssets.series [handle] = {setid: this.setid, freq: this.freq, geoid: newMap.bunny};
                         delete comp.data;
-                        delete graph.assets[comp.handle]
+                        delete graph.assets[handle]
                     }
                 } else {
                     if(comp.isMapSet()) {
@@ -210,27 +210,22 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 function(jsoData, textStatus, jqXHR){
                     var regex = new RegExp(jsoData.regex);
                     graph.title = graph.title.replace(regex, jsoData.replacement);
+                    graph.notes = graph.notes.replace(regex, jsoData.replacement);
                     graph.eachPlot(function(){
                         if(this.options.name) this.options.name = this.options.name.replace(regex, jsoData.replacement);
-                        this.eachComponent(function(){
-                            var handle = this.handle();
-                            if(this.isSeries()){
-                                if(!this.latlon){
-                                    if(changedAssets.series[handle]){
-                                        //find the new asset
-                                        for(var sHandle in jsoData.series){
-                                            if(jsoData.series[sHandle].setid == this.setid){
-                                                this.geoid = jsoData.series[sHandle].geoid;
-                                                this.parseData(jsoData.series[sHandle].data);
-                                                this.geoname = jsoData.series[sHandle].geoname;
-                                            }
-                                        }
-                                    }
+                        if(jsoData.bunnies){
+                            this.eachComponent(function(){
+                                var oldBunnyHandle = this.handle();
+                                if(jsoData.bunnies[oldBunnyHandle]){
+                                    this.parseData(jsoData.bunnies[oldBunnyHandle].data);
+                                    this.geoname = jsoData.replacement;
+                                    this.geoid = jsoData.bunnies[oldBunnyHandle].geoid;
                                 }
-                            }
-                        });
+                                delete graph.assets[oldBunnyHandle];
+                            });
+                        }
                     });
-                    for(var handle in jsoData.sets){
+                    for(var handle in jsoData.assets){
                         graph.assets[handle] = jsoData.sets[handle];
                         graph.assets[handle].mappedTo = mapCode;
                     }
@@ -382,4 +377,3 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         return true;
     };
 })();
-

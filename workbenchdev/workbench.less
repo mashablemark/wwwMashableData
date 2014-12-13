@@ -371,9 +371,9 @@ div.graph-chart{
     display: inline;
 }
 button.download-data{
-    right: 10px;
+/*    right: 10px;
     position: absolute;
-    top: 10px;
+    top: 10px;*/
 }
 div.graph-subpanel, div.graph-data-inner{
     height: 100%;
@@ -412,6 +412,16 @@ div.graph_control_panel{
     position: relative;
     z-index: 1;
 }
+div.configuration{
+  padding: 3px;
+}
+div.crop-tool fieldset{
+  border-color: white;
+}
+button.provenance{
+  margin: 3px;
+  font-weight: bold;
+}
 div.graph-map-mode, div.graph-type, div.change-basemap{
   padding: 5px 5px;
 }
@@ -429,6 +439,7 @@ ol.plots li.plot, ol.pointplots li.pointplot, ol.mapplots li.mapplot{
     padding: 5px;
     border: 1px solid #fcefa1;
     background: #fbf9ee url(/global/css/smoothness/images/ui-bg_glass_55_fbf9ee_1x400.png) 50% 50% repeat-x;
+  cursor: move;
 }
 ul.series li.serie{
     margin: 5px;
@@ -734,6 +745,10 @@ li.component, li.mapset {
     padding: 5px;
     border: 1px solid #d3d3d3;
 }
+li.component{
+  background: #f0ffff !important;
+  cursor: move;
+}
 button.edit-mapset, button.edit-plot{
     margin-right: 5px;
 }
@@ -803,7 +818,7 @@ ol.blank-plot{
     border: #2e83ff thin solid;
     padding: 1px 3px;
     position: relative;
-    top: -2px;
+    top: 1px;
     margin-left: 10px;
 }
 input.plot-name{
@@ -830,9 +845,6 @@ div.marker{
 span.edit-label {
     padding-right: 10px;
     display: inline-block;
-}
-li.component{
-    background: #f0ffff !important;
 }
 .link {
     color: #2e83ff;

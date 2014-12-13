@@ -7,11 +7,7 @@ $cache_TTL = 60; //public_graph and cube cache TTL in minutes
 include_once($web_root . "/global/php/common_functions.php");
 date_default_timezone_set('UTC');
 header('Content-type: text/html; charset=utf-8');
-
 //$usageTracking = trackUsage("count_datadown");
-
-
-
 /* This is the sole API for the MashableData Workbench application connecting
  * the client application to the cloud.  All returns are JSON objects. Supports the following commands:
  *
@@ -20,13 +16,10 @@ exclusive Graph commands:
 	GetSet: Graph.fetchAssets()
 	ChangeMaps:  Graph.changeMap()
 	ManageMyGraphs: Graph.save()
-
 exclusive Set command:
     GetMashableData: Set.
-
 GetSeries:  workbench.preview
 GetCubeList	:  workbench.quickViewToMap
-
 workbench data editing:
 GetAvailableMaps:  workbench.editSeries
 GetSet:  workbench.showSeriesEditor
@@ -35,19 +28,14 @@ GetMashableData:  workbench.seriesEditor, Set.fetchData()
 GetMapGeographies:  workbench.configureUserSet
 SaveUserSeries:  workbench.saveSeriesEditor
 UploadMyMashableData:  workbench.loadMySeriesByKey, workbench.syncMyAccount
-
 browse by category:
 GetCatChains:  workbench.browseFromSeries
 GetCatSiblings:  workbench.showSiblingCats
 GetCatChildren:  workbench.showChildCats
-
 GetMyGraphs:  workbench.syncMyAccount
 GetMySets:  workbench.getMySets
-
 UNTESTED:
 ManageMySeries:  workbench.updateMySeries
-
-
  *
  * command: SearchSeries  (anonymous permitted)
  *   search
@@ -129,20 +117,14 @@ switch($command){
         $apiid =  $_POST['apiid'];
         $catid =  intVal($_POST['catid']);
         $setType =  $_POST['settype'];
-
         if(count($search) == 0 || count($freq)== 0) die("invalid call.  Err 101");
-
         $sLimit = " ";
         if ( isset( $_POST['iDisplayStart'] ) && $_POST['iDisplayLength'] != '-1' ) {
             $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
         }
-
         $aColumns=array("name", "units", "firstdt", "lastdt");
-
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
-
-
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         s.settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.freqs, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
         s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'F©','') as maps, s.ghandles
@@ -186,10 +168,8 @@ switch($command){
                     ];
                 }
             }
-
             //SEARCH AND FILTER SECTION
             $sql = $sql . " WHERE 1 ";
-
             //2. search for sets with matching geo or all
             if(strpos($search,'title:"')===0){ //ideally, use a regex like s.match(/(title|name|skey):"[^"]+"/i)
                 $title = substr($search, strlen("title")+2,strlen($search)-strlen("title")-3);
@@ -218,15 +198,12 @@ switch($command){
                 }
             }
         }
-
         //type of set detection = done by additional field
         $mapsSearch = isset($_POST['map']) && strlen($_POST['map'])>0 ? "+".$_POST['map'] : "";
         if($setType!="all") $mapsSearch .= " +".$setType;  //setType = S|MS|XS
-
         if($mapsSearch){
             $sql = $sql . " AND match(s.maps, s.settype) against('$mapsSearch' IN BOOLEAN MODE)";
         }
-
         /*
          * Ordering
          */
@@ -242,7 +219,6 @@ switch($command){
                 }
             }
             $sOrder = substr_replace($sOrder, "", -2 );
-
             if(strlen($search)>0 && $sOrder == " ORDER BY") {  // show shortest results first, but only if the user actually entered keywords
                 $sOrder = " ORDER BY s.namelen asc ";
             }
@@ -255,9 +231,7 @@ switch($command){
             }
         }
         $sql = $sql . $sOrder . $sLimit;
-
         $result = runQuery($sql, "SearchSeries");
-
         /* Data set length after filtering */
         $sQuery = "
             SELECT FOUND_ROWS()
@@ -265,14 +239,12 @@ switch($command){
         $rResultFilterTotal = runQuery( $sQuery) or die($db->error());
         $aResultFilterTotal = $rResultFilterTotal->fetch_array();
         $iFilteredTotal = $aResultFilterTotal[0];
-
         /* Total data set length */
-       /* $sQuery = "SELECT COUNT(setid)FROM series";
-        $rResultTotal = runQuery( $sQuery ) or die($db->error());
-        $aResultTotal = $rResultTotal->fetch_array();
-        $iTotal = $aResultTotal[0];*/
+        /* $sQuery = "SELECT COUNT(setid)FROM series";
+         $rResultTotal = runQuery( $sQuery ) or die($db->error());
+         $aResultTotal = $rResultTotal->fetch_array();
+         $iTotal = $aResultTotal[0];*/
         $iTotal = 10000000;  // no need to run the count everytime as the workbench does not display it
-
         $output = array("status"=>"ok",
             "sEcho" => intval($_POST['sEcho']),
             "iTotalRecords" => $iTotal,
@@ -319,7 +291,6 @@ switch($command){
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
         }
         $aColumns=array("g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
-
         $sql = "SELECT g.graphid, g.title, map, text as analysis, g.cubeid, serieslist, ghash, views, "
             //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
             . " ifnull(updatedt, createdt) as modified "
@@ -349,7 +320,6 @@ switch($command){
                     $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." ".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
                 }
             }
-
             $sOrder = substr_replace( $sOrder, "", -2 );
             if ( $sOrder == "ORDER BY" )
             {
@@ -358,14 +328,11 @@ switch($command){
         } else {
             $sOrder = " ORDER BY createdt desc ";
         }
-
         $sql = $sql . $sOrder . $sLimit;
-
         $log="";
         foreach($_POST as $key => $value){$log = $log . $key.": ".$value.';'; };
         logEvent("SearchGraphs POST", $log);
         $result = runQuery($sql, "SearchGraphs");
-
         /* Data set length after filtering */
         $sQuery = "
            SELECT FOUND_ROWS()
@@ -374,14 +341,12 @@ switch($command){
         $rResultFilterTotal = runQuery( $sQuery) or die($db->error());
         $aResultFilterTotal = $rResultFilterTotal->fetch_array();
         $iFilteredTotal = $aResultFilterTotal[0];
-
         /* Total data set length */
         /*      $sQuery = "SELECT COUNT(graphid) FROM graphs";
               $rResultTotal = runQuery( $sQuery ) or die($db->error());
               $aResultTotal = $rResultTotal->fetch_array();
               $iTotal = $aResultTotal[0];*/
         $iTotal = 0;  //don't bother fetching this value as it is not displayed or otherwise used
-
         $output = array("status"=>"ok",
             "sEcho" => intval($_POST['sEcho']),
             "iTotalRecords" => $iTotal,
@@ -393,7 +358,6 @@ switch($command){
             $output['aaData'][] = $aRow;
         }
         break;
-
     case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetGraph
         requiresLogin();
         $user_id =  intval($_POST['uid']);
@@ -407,18 +371,15 @@ switch($command){
           g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type,
           g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt)
         ORDER BY updatedt desc, title";
-
         $result = runQuery($sql, "GetMyGraphs select");
         $output = ["status"=>"ok","graphs" => []];
         while ($aRow = $result->fetch_assoc()) $output["graphs"]["G".$aRow["gid"]] = $aRow;
         break;
-
     case "GetFullGraph":  //data and all: the complete protein!
         $ghash =  $_REQUEST['ghash'];
         if(strlen($ghash)>0){
             //1. fetch
             $output = getGraphs(0, $ghash);
-
             //2. check credential
             if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
@@ -434,7 +395,6 @@ switch($command){
         if(strlen($ghash)>0){
             $ghash_var = safeStringSQL($ghash);
             $currentmt = microtime(true);
-
             //1. check cache
             $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefresh, graphjson from graphcache where ghash=$ghash_var";
             $result = runQuery($sql);
@@ -486,7 +446,6 @@ switch($command){
                         }
                     }
                 }
-
                 //3. insert or update cache
                 $global_sql_logging = $sql_logging;  //don't log these massive inserts
                 $sql_logging = false;
@@ -496,7 +455,6 @@ switch($command){
                 runQuery("delete from graphcache where ghash=$ghash_var");
                 runQuery($sql);
                 $sql_logging = $global_sql_logging;
-
             }
             //4. log embedded usage
             //if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
@@ -509,7 +467,6 @@ switch($command){
                 ";
                 runQuery($sql);
             }
-
             //5. carry on...
             if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
@@ -520,20 +477,20 @@ switch($command){
             $output = array("status"=>"The graph requested not available.  The author may have unpublished or deleted it.");
         }
         break;
-/*    case "GetGraphMapSet":
-        $gid =  intval($_POST['gid']);
-        $uid = intval($_POST["uid"]);
-        $sql="select map, mapsetid from graphmapsets gms, graphs "
-            . " where gms.graphid=g.graphid and g.userid=" . $uid;
-        $result = runQuery($sql);
-        if($result->num_rows>0){
-            $row = $result->fetch_assoc();
-            $mapsets = getGraphMapSets($gid,$row["map"]);
-            $output = array("status"=>"OK", "mapsets"=>$mapsets);
-        } else {
-            $output = array("status"=>"Error:  Requested map sets not found.");
-        }
-        break;*/
+    /*    case "GetGraphMapSet":
+            $gid =  intval($_POST['gid']);
+            $uid = intval($_POST["uid"]);
+            $sql="select map, mapsetid from graphmapsets gms, graphs "
+                . " where gms.graphid=g.graphid and g.userid=" . $uid;
+            $result = runQuery($sql);
+            if($result->num_rows>0){
+                $row = $result->fetch_assoc();
+                $mapsets = getGraphMapSets($gid,$row["map"]);
+                $output = array("status"=>"OK", "mapsets"=>$mapsets);
+            } else {
+                $output = array("status"=>"Error:  Requested map sets not found.");
+            }
+            break;*/
     case "GetSets": //used by Graph.fetchAssets() only get all types of asset in a single call (no ambiguous sets; for that use GetSeries)
         $output = ["status"=>"ok", "assets"=>[]];
         if($series = (isset($_POST["series"]) && count($_POST["series"])>0) ? $_POST["series"] : false){
@@ -544,7 +501,7 @@ switch($command){
                 $filter = "(s.setid= $serie[setid] and sd.freq=$serie[freq]";
                 if(isset($serie["geoid"])) $filter .= " and sd.geoid=$serie[geoid]";
                 if(isset($serie["latlon"])) $filter .= " and sd.latlon=$serie[latlon]";
-                    elseif(!isset($serie["geoid"])) $filter .= " and sd.geoid=0"; //cannot havea  series without a defining geo or latlon
+                elseif(!isset($serie["geoid"])) $filter .= " and sd.geoid=0"; //cannot havea  series without a defining geo or latlon
                 $filter .= ")";
                 $filters[] = $filter;
             }
@@ -555,7 +512,6 @@ switch($command){
                 $output["assets"][$handle] = $row;
             }
         }
-
         if($map = isset($_POST["map"]) ? $_POST["map"] : false){
             $output["map"] = $map;
             if($mapSets = (isset($_POST["mapSets"]) && count($_POST["mapSets"])>0) ? $_POST["mapSets"] : false){
@@ -566,33 +522,31 @@ switch($command){
             }
         }
         break;
-
- /*   case "GetPointSets": //workbench.showSeriesEditor() only
-        $usageTracking = trackUsage("count_graphsave");
-        $map = $_POST["map"];
-        $output = array("status"=>"ok", "map"=>$map, "pointsets"=>getMarkerSets($map, cleanIdArray($_POST["pointsetids"]), true));
-        break;
-    case "GetSet":  //called only in workbench.showSeriesEditor()
-        $mapsetid = intval($_POST["mapsetid"]);
-        $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
-        $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), setid) as handle, setid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
-            . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
-            . " left outer join (select * from series s where mapsetid=".$mapsetid." and pointsetid is null) s on g.geoid=s.geoid "
-            . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
-        $headerResult = runQuery($sqlHeader,"GetSet: header");
-        $setResult = runQuery($sqlSetSeries,"GetSet: series");
-        $output = array("status"=>"ok");
-        try{
-            $output["setData"] = $headerResult->fetch_assoc();
-            $output["setData"]["geographies"] = array();
-            while($row=$setResult->fetch_assoc()){
-                array_push($output["setData"]["geographies"], $row);
-            }
-        } catch(Exception $e){
-            $output["status"] = "failed to get set for editing";
-        }
-        break;*/
-
+    /*   case "GetPointSets": //workbench.showSeriesEditor() only
+           $usageTracking = trackUsage("count_graphsave");
+           $map = $_POST["map"];
+           $output = array("status"=>"ok", "map"=>$map, "pointsets"=>getMarkerSets($map, cleanIdArray($_POST["pointsetids"]), true));
+           break;
+       case "GetSet":  //called only in workbench.showSeriesEditor()
+           $mapsetid = intval($_POST["mapsetid"]);
+           $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
+           $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), setid) as handle, setid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
+               . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
+               . " left outer join (select * from series s where mapsetid=".$mapsetid." and pointsetid is null) s on g.geoid=s.geoid "
+               . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
+           $headerResult = runQuery($sqlHeader,"GetSet: header");
+           $setResult = runQuery($sqlSetSeries,"GetSet: series");
+           $output = array("status"=>"ok");
+           try{
+               $output["setData"] = $headerResult->fetch_assoc();
+               $output["setData"]["geographies"] = array();
+               while($row=$setResult->fetch_assoc()){
+                   array_push($output["setData"]["geographies"], $row);
+               }
+           } catch(Exception $e){
+               $output["status"] = "failed to get set for editing";
+           }
+           break;*/
     case "GetAvailableMaps":
         $mapsetid = intval($_POST["mapsetid"]);
         $pointsetid = intval($_POST["pointsetid"]);
@@ -628,9 +582,7 @@ switch($command){
                 from `geographies` g1, (select count(*) as geographycount, left(jvectormap,2) ccode FROM `geographies` where jvectormap like '__-%' group by left(jvectormap,2)) g2
                 where ccode = jvectormap and ccode = 'XX')
             3. insert into mapgeographies (SELECT  geoid, map from geographies g, maps m where g.jvectormap like '__-%' and g.jvectormap not like 'US-%' and m.jvectormap like concat(left(g.jvectormap,2),'__%')  )
-
         */
-
         $sql = "select * from maps order by map";
         $result = runQuery($sql,"GetMapsList");
         $output = array("status"=>"ok", "maps"=>array());
@@ -653,11 +605,9 @@ switch($command){
             $output = ["status"=>"must provide  valid set and theme id"];
             break;
         }
-
         $setids = implode(",", cleanIdArray($_POST["setids"]));
         $themeids = implode(",", cleanIdArray($_POST["themeids"]));
         $output = ["status"=>"ok", "cubes"=>[]];
-
         //totset cubes UNION sibling cubes
         $sql = "(select totsetid as setid, 'drill-down' as rel, t.themeid, t.name as themename, c.cubeid, c.name
         from cubes c inner join themes t on t.themeid=c.themeid
@@ -668,7 +618,6 @@ switch($command){
         from cubes c inner join themes t on t.themeid=c.themeid join cubecomponents cc on cc.cubeid=c.cubeid
         where cc.setid in ($setids) and c.themeid in ($themeids)
         order by themename, c.name, c.units)";
-
         $result = runQuery($sql,"GetCubeList root totals");
         while($row = $result->fetch_assoc()){
             if(!isset($output["cubes"]["S".$row["setid"]])) $output["cubes"]["S".$row["setid"]] = ["themename"=>$row["themename"], "cubes"=>[]];
@@ -681,7 +630,6 @@ switch($command){
         } else {
             $cubeid = intval($_REQUEST["cubeid"]);
             $geokey = $_REQUEST["geokey"];
-
             //1. check cache
             $currentmt = microtime(true);
             $ghash_var = safeStringSQL($cubeid.":".$geokey);
@@ -704,7 +652,6 @@ switch($command){
                 //2. fetch if not in cache or needs refreshing
                 $output = ["status"=>"ok", "cubeid"=>$cubeid, "geokey"=>$geokey];
                 //todo:  check for latlon geokey and geoid geokey. For now, aussume jvectormap code
-
                 if(is_numeric($geokey)){
                     $geoid = $geokey;
                 } else {
@@ -719,8 +666,6 @@ switch($command){
                     }
                 }
                 getCubeSeries($output, $cubeid, $geoid);
-
-
                 //3. insert or update cache
                 $global_sql_logging = $sql_logging;  //don't log these massive inserts
                 $sql_logging = false;
@@ -730,7 +675,6 @@ switch($command){
                 runQuery("delete from graphcache where ghash=$ghash_var");
                 runQuery($sql);
                 $sql_logging = $global_sql_logging;
-
             }
             //4. log embedded usage
             if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
@@ -744,24 +688,49 @@ switch($command){
         }
         break;
     case "ChangeMaps":
+        /*        parameters:
+                    "map": mapCode string,
+                    "fromgeoid": int,
+                    "togeoid":  int,
+                    "sets" => [
+                        "series" => [
+                            handle1 => ["setid"=> int, "geoid"=> nowgeoid (different from handle) int, "freq"=> string ], ...
+                        ],
+                        "mapSets"=>[
+                            handle3=> ["setid"=> int, "freq"=> char], ...
+                        ],
+                        "pointSets"=>[
+                            handle4=> ["setid"=> int, "freq"=> char], ...
+                        ]
+                    ]*/
+        $fromGeoId = intval($_POST["fromgeoid"]);
+        $toGeoId = intval($_POST["togeoid"]);
         $sql = "select g1.regexes as regex, g2.name as replacement from geographies g1, geographies g2 "
-            ." where g1.geoid=".intval($_POST["fromgeoid"])." and g2.geoid=".intval($_POST["togeoid"]);
+            ." where g1.geoid=$fromGeoId and g2.geoid=$toGeoId";
         $result = runQuery($sql, "ChangeMaps: get bunny regex");
         $output = $result->fetch_assoc();
         $output["status"] = "ok";
-        $output["bunnies"] = array();
-        $bunnies = isset($_POST["bunnies"])?$_POST["bunnies"]:[];
-        foreach($bunnies as $bunny=>$set){
-            $sid = substr($bunny,1); //remove the leading U or S
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.setid as id, lat, lon, geoid,  s.userid, "
-                . "s.title as graph, s.src, s.url, s.units, s.data, s.freq as freq, 'S' as save, 'datetime' as type, firstdt, "
-                . "lastdt, hash as datahash, ms.counts as geocounts "
-                . " FROM series s left outer join mapsets ms on s.mapsetid=ms.mapsetid "
-                . " WHERE s.pointsetid is null and s.mapsetid =" . intval($set["mapsetid"])." and geoid=".intval($_POST["togeoid"]);  //todo: add security here and to GetSeries to either be the owner or org or be part of a graph whose owner/org
-            $result = runQuery($sql, "ChangeMaps: get series");
-            if($result->num_rows==1){
-                $output["bunnies"][$bunny] = $result->fetch_assoc();
-                $output["bunnies"][$bunny]["handle"] = ($output["bunnies"][$bunny]["userid"]===null?"S":"U").$output["bunnies"][$bunny]["id"];
+        if(isset($_POST["sets"]["series"])){
+            $output["bunnies"] = [];
+            foreach($bunnies as $oldBunnyHandle=>$set){
+                $setid = intval($set["setid"]);
+                $freq = intval($set["freq"]);
+                $sql = "SELECT sd.*  FROM setdata sd WHERE setid=$setid and freq='$freq' and geoid=$toGeoId and latlon=''";  //todo: add security here and to GetSeries to either be the owner or org or be part of a graph whose owner/org
+                $result = runQuery($sql, "ChangeMaps: get series data");
+                if($result->num_rows==1){
+                    $output["bunnies"][$oldBunnyHandle] = $result->fetch_assoc();
+                }
+            }
+        }
+        $output["assets"] = [];
+        if(isset($_POST["sets"]["mapSets"])){
+            foreach($_POST["sets"]["mapSets"] as $handle=>$set){
+                getMapSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]]);
+            }
+        }
+        if(isset($_POST["sets"]["mapSets"])){
+            foreach($_POST["sets"]["pointSets"] as $handle=>$set){
+                getPointSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]]);
             }
         }
         break;
@@ -846,7 +815,6 @@ switch($command){
         //3. nothing found
         $output =  array("status"=>"ok", "invited"=>false, "eligible"=>false);
         break;
-
     case "EmailVerify":
         $validEmailCode = validationCode($_POST["email"]);
         if($validEmailCode == $_POST["verification"]){
@@ -888,7 +856,6 @@ switch($command){
                 $user = $result->fetch_assoc();
                 if($uid>0 && $uid!=$user["userid"]){ //logged account different from invitation account
                     if($user[""]){
-
                     }
                     //delete invitation user and transfer
                 }
@@ -928,7 +895,6 @@ switch($command){
                         cardStateProv: $screen.find('input.cardStateProv').val(),
                         cardPostal: $screen.find('input.cardPostal').val(),
                         cardCountry: $screen.find('input.cardCountry').val()*/
-
     case "GetMySets":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
@@ -1090,7 +1056,6 @@ EOS;
         $analysis = safeSQLFromPost("analysis");
         $modifieddt = intval($_POST["modifieddt"]);
         //table structure = graphs <-> graphplots <-> plotcomponents
-
         if($gid==0){
             $ghash = makeGhash($user_id);  //ok to use uid instead of gid as ghash is really just a random number
             $sql = "INSERT INTO graphs
@@ -1110,13 +1075,11 @@ EOS;
             $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id,"ManageMyGraphs: read the ghash when updating");
             $row = $result->fetch_assoc();
             $ghash = $row["ghash"];
-
             //clear plots and components for fresh insert (note:  wastful of plotids
             $sql = "delete gp, pc from graphplots gp, plotcomponents pc where gp.graphid=pc.graphid and gp.graphid = " . $gid;
             runQuery($sql);
         }
         $output = array("status" => "ok", "gid" => $gid, "ghash"=> $ghash);
-
         //insert plot and plot components records
         if(isset($_POST['allplots'])){  //allplots contains the seriesplots, mapplots and pointplots
             $allPlots = $_POST['allplots'];
@@ -1141,7 +1104,6 @@ EOS;
         //clear the cache when a graph is saved (if new or not previously cached, nothing gets deleted)
         runQuery("delete from graphcache where ghash='$ghash'");
         break;
-
     case "ManageMySeries":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
@@ -1153,10 +1115,7 @@ EOS;
             $output = array("status" => "invalid call.  Err 103");
             break;
         }
-
-
         if($type=="S"){    //series
-
             $sql = "select * from mysets where setid = " . $id . " and userid = " . $user_id;
             $result = runQuery($sql);
             $from = "";
@@ -1197,7 +1156,6 @@ EOS;
                 runQuery($sql);
             }
         }
-
         $output = array("status" => "ok");
         break;
     case "GetUserId":
@@ -1211,7 +1169,6 @@ EOS;
             $output = array("status" => "invalid user name");
             break;
         }
-
         if($authmode=='FB'){
             $fb_command = "https://graph.facebook.com/".$username."/permissions?access_token=".(($accesstoken==null)?'null':$accesstoken);
             logEvent("GetUserId: fb call", $fb_command);
@@ -1334,10 +1291,8 @@ EOS;
                 }
             }
             $output['handles'][$local_handle] = 'U'.$setid;
-
         }
         break;
-
     case "SaveUserSeries":
         requiresLogin();  //sets global $orgid
         $usageTracking = trackUsage("count_userseries");
@@ -1345,14 +1300,11 @@ EOS;
             $output = array("status"=>$usageTracking["msg"]);
             break;
         }
-
         $set = $_POST['set'];  //either "U" or a mapset or pointset handle
         $setid = (strlen($set)>1) ? intval(substr($set,1)) : 0;
         $user_id =  intval($_POST['uid']);
         $setType = substr($set, 0, 1);
         $arySeries = $_POST['series'];
-
-
         $output = array(
             "status" => "ok",
             "series" => array()
@@ -1391,7 +1343,6 @@ EOS;
                 $setid = $db->insert_id;
             }
         }
-
         for($i=0;$i<count($arySeries);$i++){
             $series_name = $arySeries[$i]['name'];
             $graph_title =  '';
@@ -1404,7 +1355,6 @@ EOS;
             //$orgid = intval($_POST['orgid']);
             $usid = isset($arySeries[$i]['handle'])&&substr($arySeries[$i]['handle'],0,1)=="U"?intval(substr($arySeries[$i]['handle'],1)):0;
             $src =  isset($arySeries[$i]['src'])?$arySeries[$i]['src']:null;
-
             if(count($data)==0){ //need to insert records, but we do not have the data > issue data request
                 $output = array("status" => "Error:  no data provided");
                 break;
@@ -1465,7 +1415,6 @@ EOS;
         }
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         break;
-
     case "GetSeries":  //formerly GetMashableData
         //takes sets and get a series in that set, guessing at geo and latlon as needed (note: workbench should already have guessed at freq
         $usageTracking = trackUsage("count_seriesview");
@@ -1519,9 +1468,8 @@ EOS;
                             }
                         }
                     }
-
                 } else {
-                   //2. if no map as a guide, look for a prominent geography (world=321, africa=3837, europe=3841,307,306, us=235, china=44, uk=80)
+                    //2. if no map as a guide, look for a prominent geography (world=321, africa=3837, europe=3841,307,306, us=235, china=44, uk=80)
                     $primeGeos = [321, 235, 306,307,3841,80,44,3837];
                     $sql = "select geoid, latlon
                             from setdata
@@ -1588,7 +1536,6 @@ EOS;
             }
         }
         //don't get cubes here
-
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         //log embedded usage
         if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
@@ -1633,7 +1580,6 @@ $output["exec_time"] = $time_elapsed . 'ms';
 $output["command"] = $command;
 echo json_encode($output);
 closeConnection();
-
 //shared routines
 function BuildChainLinks(&$chains){
     $recurse = false;
@@ -1674,7 +1620,6 @@ function setGhash($gid){  //does not check permissions!
     runQuery($sql, "setGhash");
     return $newHash;
 };
-
 function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEmbeddedGraph"
     global $ft_join_char;
 //if $userid = 0, must be a public graph; otherwise must own graph
@@ -1683,7 +1628,6 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
     if(strlen($ghash)==0 && intval($userid)==0){
         die('{"status":"Must provide valid a hash or user credentials."}');
     }
-
     if(strlen($ghash)>0){
         $where =  " WHERE ghash=".safeStringSQL($ghash);  //used by GetFullGraph
     }else{
@@ -1718,7 +1662,6 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
           LEFT OUTER JOIN sets xs on s.setid=xs.mastersetid and sd.latlon=xs.latlon
         $where
         ORDER BY updatedt desc, gid, gp.plotorder, pc.comporder";
-
     $result = runQuery($sql, "GetGraphs main selected");
     if($result->num_rows==0 && strlen($ghash)>0){
         die('{"status":"No graph found. The author may have changed its code or deleted it."}');
@@ -1763,7 +1706,6 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
             //}
             if(strlen($ghash)>0) $output['graphs']['G' . $gid]["assets"] = [];
         }
-
         if($plotorder!=$aRow['plotorder']){ //this check avoids repeatedly adding the same plot due to the joined SQL recordset
             $plotorder =  $aRow['plotorder'];  //add the plot
             //************* PLOT OBJECT
@@ -1781,7 +1723,6 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
             "latlon"=> $aRow["latlon"],
             "options"=> $aRow["componentoptions"]
         ];
-
         //each may create a new series asset. Repeated assets simply get overwritten and output only once.
         if(strlen($ghash)>0){  //returns the assets too
             $handle = $aRow["settype"].$aRow["setid"].$aRow["freq"].(is_numeric($aRow["geoid"])?"G".$aRow["geoid"]:"").($aRow["latlon"]!=""?"L".$aRow["latlon"]:"");
@@ -1813,7 +1754,6 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
             }
         }
     }
-
     if(strlen($ghash)>0){
         $mapconfig = isset($output["graphs"]["G" . $gid]["mapconfig"])?json_decode($output['graphs']['G' . $gid]["mapconfig"],true):null;
         if($mapconfig!==null){
@@ -1832,13 +1772,11 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
     }
     return $output;
 }
-
 function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
 //used by:
 //    "GetMapSet" command from workbench.QuickViewToMap and workbench.getGraphMapSets()
 //    "GetFullGraph" command (api.getGraphs()) from grapher.createMyGraph() only
 //    "GetEmbeddedGraph" command (api.getGraphs()) from grapher.createMyGraph() only
-
     global $db, $orgid;
     $setFilters = [];
     //print_r($requestedSets);
@@ -1860,7 +1798,6 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     }
     $sql .= " ORDER by  setid";
     $result = runQuery($sql, "getMapSets");
-
     $currentMapSetId = 0;
     while($row = $result->fetch_assoc()){
         if($currentMapSetId!=$row["setid"]){
@@ -1904,8 +1841,6 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     }*/
     //return $assets;
 }
-
-
 function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = false){
     global $db, $orgid;
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.freq, ps.freqset, ps.themeid, "
@@ -1950,7 +1885,6 @@ function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = fa
         );
     }
 }
-
 function freqsFieldToArray($freqs){
     global $ft_join_char;
     if(!$freqs) return [];
@@ -1967,9 +1901,7 @@ function mapsFieldCleanup($mapsField){
 function handle(&$obj){
     return $obj["settype"].$obj["setid"].(isset($obj["freq"])?$obj["freq"]:"").(isset($obj["geoid"])?"G".$obj["geoid"]:"").(isset($obj["latlon"])?"L".$obj["latlon"]:"");
 }
-
 function getCubeSeries(&$output, $cubeid, $geoid=0){
-
     //fetch cube and theme name (just in case)
     $sql = "select c.units, c.name as cubename, t.name as themename from cubes c join themes t on t.themeid=c.themeid where cubeid=$cubeid";
     $result = runQuery($sql,"GetCubeSeries dimensions");
@@ -1978,7 +1910,6 @@ function getCubeSeries(&$output, $cubeid, $geoid=0){
         $output["theme"] = $row["themename"];
         $output["units"] = $row["units"];
     }
-
     $output["dimensions"] = [];
     //fetch cube dimensions (just in case)
     $sql = "select json from cubedims where cubeid=$cubeid order by dimorder";
@@ -2049,7 +1980,6 @@ function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=
     }
     return $data;
 }
-
 function validationCode($email){return md5('mashrocks'.$email."lsadljjsS_df!4323kPlkfs");}
 function emailAdminInvite($email, $name='', $adminid=0, $orgid=0){
 //resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
@@ -2100,7 +2030,6 @@ function emailAdminInvite($email, $name='', $adminid=0, $orgid=0){
 }
 /*
 function emailRootInvite($email, $orgid){
-
     if($makeUserAccount){
         //1. get info for admin and org based on userid = adminid  (not checking o.userid = billing account.  multiple admins possible)
         $sql = "select name, orgid, u.orgid, orgname from users u, organizations o where u.orgid=o.orgid and u.userid = ". $adminid;
@@ -2110,7 +2039,6 @@ function emailRootInvite($email, $orgid){
         }
         $adminRow = $result->fetch_assoc();
         $orgid = $adminRow["orgid"];
-
         $sql = "select * from users where orgid = ".$adminRow["orgid"] . " and email=".safeStringSQL($email);
         $userResult = runQuery($sql, "invite");
         if($userResult->num_rows==0){
@@ -2122,23 +2050,18 @@ function emailRootInvite($email, $orgid){
             $userRow = $userResult->fetch_assoc();
             $userid = $userRow["userid"];
         }
-
     }
-
     $sql = "insert into invitations (email, invdate, regcode) values ('".safeStringSQL("email")."', NOW(), '" . md5("mashrocks".microtime())."'";
     $result = runQuery($sql, "invite");
     mail()
-
     $msg =
 }*/
-
 function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none open; adds a paymentdetails record, and either queue for nightly batch processing or call payBill() for immediately processing
     //note:  for ind, $userid and $payerid will be the same.
     //for an invitation, $userid will be null
     //extending the users subscription level and expiration date is done in payBill() if called.
     //Returns true on success; false on failure or if user has > 15 days left
     global $db, $SUBSCRIPTION_RATE;
-
     //1. get payerinfo:  if not payerid provided, userid is the payer
     $sql = "select userid, orgid, name, email, ccname, cctype, ccadresss, cccity, ccstateprov, ccpostal cccountry, ccnumber, ccexpiration, ccstatus "
         ." where userid = ".$payerid;
@@ -2148,8 +2071,6 @@ function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none 
         return false;
     }
     $payerInfo = $result->fetch_assoc();
-
-
     //2. if No card or 3 or more failures, do not create any records.  Return false.
     //  Note the when user modifies thier CC info, the ccstatus will be changed to 'U' for unverified.
     //  This will permit future payment attempts after the user is notifiied and changes thier CC info
@@ -2160,7 +2081,6 @@ function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none 
         logEvent("billing failure","no cc on record for payerid=".$payerInfo["userid"]);
         return false;
     }
-
     //3. get either user info or invite info...
     if($userid>0){ //  We are billing for a user > get user info
         //2. get user info
@@ -2192,7 +2112,6 @@ function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none 
         logEvent("billing failure","attempted to bill payerid ".$payerInfo["userid"]." but no user or invite supplied");
         return false;
     }
-
     //4.get a payments record
     //4A. check to see if open payment record exists
     $sql = "select * from payments where userid = ".$payerInfo["userid"]." and status = 'open'";
@@ -2247,14 +2166,12 @@ function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none 
         logEvent("billing failure","paymentdetails record create failure for payerid  ".$payerInfo["userid"]);
         return false;
     }
-
     //6. process if individual or credit card is unverified or has prior failure
     if(intval($payerInfo["orgid"])==0 || $payerInfo["ccstatus"]!="U" || intval($payerInfo["ccstatus"])>0){
         return payBill($paymentid);
     }
     return true;
 }
-
 function payBill($paymentid){
     //TODO: merchant credit card processing here
     return true;
