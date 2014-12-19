@@ -728,7 +728,7 @@ switch($command){
                 getMapSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]]);
             }
         }
-        if(isset($_POST["sets"]["mapSets"])){
+        if(isset($_POST["sets"]["pointSets"])){
             foreach($_POST["sets"]["pointSets"] as $handle=>$set){
                 getPointSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]]);
             }

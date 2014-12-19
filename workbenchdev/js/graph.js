@@ -93,8 +93,8 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     Graph.prototype.clone = function(){
         var thisGraph = this, clone = new Graph();
         clone.map = thisGraph.map;
-        clone.start = thisGraph.map;
-        clone.end = thisGraph.map;
+        clone.start = thisGraph.start;
+        clone.end = thisGraph.end;
         clone.mapconfig = $.extend(true, {}, thisGraph.mapconfig);
         clone.title = thisGraph.title;
         clone.type = thisGraph.type;
@@ -209,8 +209,10 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 },
                 function(jsoData, textStatus, jqXHR){
                     var regex = new RegExp(jsoData.regex);
-                    graph.title = graph.title.replace(regex, jsoData.replacement);
-                    graph.notes = graph.notes.replace(regex, jsoData.replacement);
+                    if(jsoData.replacement){
+                        if(graph.title) graph.title = graph.title.replace(regex, jsoData.replacement);
+                        if(graph.analysis) graph.analysis = graph.analysis.replace(regex, jsoData.replacement);
+                    }
                     graph.eachPlot(function(){
                         if(this.options.name) this.options.name = this.options.name.replace(regex, jsoData.replacement);
                         if(jsoData.bunnies){
@@ -226,7 +228,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                         }
                     });
                     for(var handle in jsoData.assets){
-                        graph.assets[handle] = jsoData.sets[handle];
+                        graph.assets[handle] = jsoData.assets[handle];
                         graph.assets[handle].mappedTo = mapCode;
                     }
                     this.map = newMap;

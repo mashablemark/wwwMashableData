@@ -1,11 +1,15 @@
 
 function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
+    console.time('makeTreeMap');
     $div.html(''); //clear anything there
     var renderer = new Highcharts.Renderer(
         $div[0],
         $div.width(),
         $div.height()
     );
+    $div.hide(); //hide it for faster drawing
+
+    console.time('makeTreeMap calc');
     var rect = [0, 0, $div.width(), $div.height()];
     if(!dateKey) dateKey = calculatedMapData.dates[calculatedMapData.dates.length-1].s;
     var sortedCodes = [], i, code, value, total= 0, sortedValues = [], valueObject;
@@ -33,6 +37,7 @@ function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
     }
     var squarified = MashableData.common.squarify(rect, sortedValues);
 
+    console.timeEnd('makeTreeMap calc');
     for(i=0;i<squarified.length;i++){
         renderer.rect(squarified[i][0], squarified[i][1], squarified[i][2], squarified[i][3], 0)
             .attr({
@@ -60,7 +65,8 @@ function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
             //$('#statBox').html(jvm.states[i]+'<br>'+vals[i]);
         }
     }
-
+    $div.show();
+    console.timeEnd('makeTreeMap');
 }
 
 

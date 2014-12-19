@@ -491,18 +491,39 @@ function setGhandlesFreqsFirstLast($apiid = "all"){
     runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
 }
 
-function setMapsetCounts($setid="all", $apiid){
-    //1.  update set.maps of all mapsets
-    runQuery("truncate temp;","setMapsetCounts");
-    runQuery("SET SESSION group_concat_max_len = 8000;");
-    $subQuery = "select s.setid, concat('\"M©',mg.map, '\":', count(distinct sd.geoid)) as mapcount FROM sets s join setdata sd on  s.setid=sd.setid join mapgeographies mg on sd.geoid=mg.geoid where sd.latlon='' and sd.geoid<>0 ";
-    if($apiid != "all") $subQuery .= " and s.apiid=".$apiid;
-    if($setid != "all") $subQuery .= " and sd.setid=".$setid;
-    $subQuery .= " and map <>'worldx' group by s.setid, map";
+function setMapsetCounts($setid="all", $apiid, $themeid = false){
+//step1:  determine  (8.6s for 6024 sets = 1 million setdata rows)
+    $themeFilter = $themeid?" and themeid=$themeid ":"";
+    $sqlSetMaxCov = "UPDATE sets s join (SELECT setid, max(coverage) as maxcov from (SELECT
+          s.setid, mg.map,
+          ceiling(count(distinct sd.geoid)*100/max(m.geographycount)) as coverage
+        FROM sets s
+            JOIN setdata sd ON s.setid=sd.setid
+            JOIN mapgeographies mg ON sd.geoid=mg.geoid
+            JOIN maps m ON m.map=mg.map
+        WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter and mg.map <>'worldx'
+        GROUP BY s.setid, mg.map) mc group by setid) mc2
+         ON s.setid=mc2.setid
+        SET s.maxmapcoverage=least(100,maxcov)";
+    runQuery($sqlSetMaxCov,"set Max MapSet coverage");
 
-    runQuery("insert into temp (id1, text1) select setid, group_concat(mapcount) from ($subQuery) mc group by setid;","setMapsetCounts");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;","setMapsetCounts");
-    runQuery("truncate temp;","setMapsetCounts");
+//step 2: set the sets.maps field (exec time 13.1s for 6024 sets = 1 million setdata rows)
+    $sqlSetMaps = "update sets s join
+            (select setid, group_concat(mapcount) as mapcounts from
+            (SELECT
+            s.setid,
+            concat('\"M©',mg.map, '\":', ceiling(count(distinct sd.geoid)*100/m.geographycount)) as mapcount
+          FROM sets s
+            JOIN setdata sd ON s.setid=sd.setid
+            JOIN mapgeographies mg ON sd.geoid=mg.geoid
+            JOIN maps m ON m.map=mg.map
+          WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$$apiid $themeFilter and mg.map <>'worldx'
+          GROUP BY s.setid, mg.map, geographycount, maxmapcoverage
+          HAVING count(distinct sd.geoid)/geographycount/maxmapcoverage>0.0025) mc
+        GROUP BY setid
+        ) mc2 on s.setid=mc2.setid
+        set s.maps=mapcounts";
+    runQuery($sqlSetMaps,"set Mapset map Counts (sets.maps)");
 }
 
 function setPointsetCounts($setid="all", $apiid = "all"){

@@ -621,8 +621,8 @@ function setupFindDataTable(){
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
             { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
             { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
-            { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
-            { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.period))}},
+            { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.freqs[0]))}},
+            { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){return spanWithTitle(formatDateByPeriod(value, obj.freqs[0]))}},
             { "mData":"titles", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
@@ -853,7 +853,8 @@ function seriesCloudSearch(noHashChange){
         searchText = (' ' + searchText + ' ').replace(/[\s]+/g,' ');
         //if(searchText==' ')return false; //no search on empty strings
         searchText = searchText.substring(1, searchText.length-1);
-        searchText = '+' + searchText.replace(/ /g,' +');
+        searchText = '+' + searchText.replace(/\s+/g,' +');
+        searchText = searchText.replace('+-', '-');
     }
     $('#tblPublicSeries_filter input').val(searchText);
     $dtFindDataTable.fnFilter(searchText);
@@ -1197,7 +1198,7 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             for(j=0;j<aoSeries.length;j++){  //synthetic series will get their mapsets' map property
                 serie = aoSeries[j];
                 if(serie.maps[mapList[i].map]>1){ //this map is match!
-                    setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+')</option>');
+                    setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+'%)</option>');
                     break;
                 }
             }

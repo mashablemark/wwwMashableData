@@ -767,7 +767,7 @@ MashableData.grapher = function(){
             }
             function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
                 var title, calculatedMapData, $thisPanel;
-                var activeMapTab = 0; //global variable to track and show different map tab (different mapsets)
+                var activeMapTab = 0, mapMode; //global variable to track and show different map tab (different mapsets)
                 //missing assets detect
                 var missingAssets = [];
                 oGraph.eachComponent(function(c, plot){
@@ -815,7 +815,7 @@ MashableData.grapher = function(){
                     annotations: annotations,
                     $thisPanel: $thisPanel,
                     provenance: {},
-                    _redraw: (typeof _redraw == 'undefined'?null:_redraw)
+                    redraw: (typeof _redraw == 'undefined'?null:_redraw)
                 };
                 console.timeEnd('buildGraphPanel:header');
 
@@ -845,60 +845,63 @@ MashableData.grapher = function(){
                             '</div>';
                 } else {
                     panelHTML =
-                        '<div class="graph-nav">' +
-                            '<ol class="graph-nav">' +
-                            '<li class="graph-nav-talk" data="graph-talk"></li>' +
-                            '<li class="graph-nav-data" data="graph-data"></li>' +
-                            '<li class="graph-nav-sources"  data="graph-sources"></li>' +
-                            '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
-                            '</ol>' +
-                            '</div>'+
-                            '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to enable Facebook comments.</p></div>' +
-                            '<div class="graph-data graph-subpanel" style="display: none;">' +
-                            '<div class="graph-data-inner">' +
-                            '<ul>' +
-                            '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
-                            '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
-                            '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
-                            '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-                            '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                            '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                            '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                            '</div>' +
-                            '</div>' +
-                            '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
+                        /*'<div class="graph-nav">' +
+                         '<ol class="graph-nav">' +
+                         '<li class="graph-nav-talk" data="graph-talk"></li>' +
+                         '<li class="graph-nav-data" data="graph-data"></li>' +
+                         '<li class="graph-nav-sources"  data="graph-sources"></li>' +
+                         '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
+                         '</ol>' +
+                         '</div>'+
+                         '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to enable Facebook comments.</p></div>' +
+                         '<div class="graph-data graph-subpanel" style="display: none;">' +
+                         '<div class="graph-data-inner">' +
+                         '<ul>' +
+                         '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
+                         '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
+                         '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
+                         '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
+                         '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                         '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                         '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
+                         '</div>' +
+                         '</div>' +*/
+
+                        '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
                             '<div class="graph-chart graph-subpanel">' +
                             '<div class="graph_control_panel" style="font-size: 11px !important;">' +
                             //default series type (line, column..)
+                            '<div class="configuration" style="border: solid thin black;">' +
                             '<div class="graph-type">default graph type ' +
                             '<select class="graph-type">' +
-                            '<option value="auto">auto (line &amp; column)</option>' +
-                            '<option value="line">line</option>' +
-                            '<option value="marker">line with markers</option>' +
-                            '<option value="column">column</option>' +
-                            '<option value="stacked-column">stacked column</option>' +
-                            '<option value="area-percent">stacked percent</option>' +
-                            '<option value="area">stacked area</option>' +
-                            '<option value="logarithmic">logarithmic</option>' +
-                            '<option value="normalized-line">normalized line</option>' +
-                            '<option value="pie">pie</option>' +
+                                '<option value="auto">auto (line &amp; column)</option>' +
+                                '<option value="line">line</option>' +
+                                '<option value="marker">line with markers</option>' +
+                                '<option value="column">column</option>' +
+                                '<option value="stacked-column">stacked column</option>' +
+                                '<option value="area-percent">stacked percent</option>' +
+                                '<option value="area">stacked area</option>' +
+                                '<option value="logarithmic">logarithmic</option>' +
+                                '<option value="normalized-line">normalized line</option>' +
+                                '<option value="pie">pie</option>' +
                             '</select>' +
                             '</div>' +
                             '<div class="graph-map-mode">default map type ' +
                             '<select class="graph-map-mode">' +
-                            '<option value="heat">colored heat map of values</option>' +
-                            '<option value="abs-change">colored heat map of changes</option>' +
-                            '<option value="percent-change">colored heat map of percent changes</option>' +
-                            '<option value="bubbles">overlay circles to show values</option>' +
-                            '<option value="change-bubbles">overlay circles to show changes</option>' +
-                            '<option value="correlation">correlation (requires two maps)</option>' +
-                            '<option value="treemap">abstract values to rectangles</option>' +
-                            '<option value="change-treemap">abstract change to rectangles</option>' +
+                                '<option value="heat">colored heat map of values</option>' +
+                                '<option value="abs-change">colored heat map of changes</option>' +
+                                '<option value="percent-change">colored heat map of percent changes</option>' +
+                                '<option value="bubbles">overlay circles to show values</option>' +
+                                '<option value="change-bubbles">overlay circles to show changes</option>' +
+                                '<option value="max">shows when max value was reached</option>' +
+                                '<option value="min">shows when min value was reached</option>' +
+                                '<option value="treemap">abstract values to rectangles</option>' +
+                                '<option value="change-treemap">abstract change to rectangles</option>' +
                             '</select>' +
                             '</div>' +
                             //change map selector and default
                             '<div class="change-basemap">change base map ' +
-                            '<select class="change-basemap"></select>' +
+                                '<select class="change-basemap"></select>' +
                             '</div>' +
                             '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
                             '<table>' +
@@ -912,18 +915,22 @@ MashableData.grapher = function(){
                             '</table>' +
                             '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
                             '</div>' +
+                            '<button class="provenance ui-state-highlight">more configurations</button>' +
+                            '</div>' +
                             '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
                             '<table class="annotations"></table>' +
-                            '</fieldset></div>' +
+                            '</fieldset>'+
+                            '</div>' +
                             '<div class="downloads">' +
                             '<fieldset>' +
-                            '<legend>&nbsp;Download visualization&nbsp;</legend>' +
+                            '<legend>&nbsp;Download&nbsp;</legend>' +
                             '<select class="download-selector"></select> ' +
                             'format: ' +
                             '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
                             //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
                             '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
                             '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
+                            '<button class="download-data" title="Download the graph data as an Excel workbook">download data</button>' +
                             '</fieldset>' +
                             '</div>' +
                             '<div class="sharing">' +
@@ -936,7 +943,8 @@ MashableData.grapher = function(){
                             '<button class="graph-link">link </button>' +
                             '<button class="graph-embed">embed </button>' +
                             //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
-                            '</div><div class="searchability">' +
+                            '</div>'+
+                            '<div class="searchability">' +
                             '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">Public Graphs searchable</label>' +
                             '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'private') + '</label>' +
                             '</div>' +
@@ -944,7 +952,7 @@ MashableData.grapher = function(){
                             '</div>' +
                             '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
                             '</div>' +
-                            '<div class="mashabledata_chart-map" style="width:70%;display:inline;float:right;">' +
+                            '<div class="mashabledata_chart-map" style="width:75%;display:inline;float:left;">' +
                             '<div class="mashabledata_chart"></div>' +
                             '<div class="mashabledata_map" style="display:none;">' +
                             '<div class="mashabledata_maptabs"></div>' +
@@ -967,8 +975,8 @@ MashableData.grapher = function(){
                             '</div>' +
                             '</div>' +
                             '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
-                            '</div>' +
-                            '</div>';
+                            '</div>'
+                    //'</div>';
                 }
                 $thisPanel.html(panelHTML);
 
@@ -980,50 +988,56 @@ MashableData.grapher = function(){
                     $thisPanel.find('div.mashabledata_graph-analysis').html(oGraph.analysis);
                 } else {
 
-                    _enableFacebookComments();
+                    //_enableFacebookComments();
 
-                    $thisPanel.find('ol.graph-nav').children('li')
-                        .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
-                            var $this = $(this);
-                            $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
-                            $thisPanel.find('.graph-subpanel').hide();
-                            var $div = $thisPanel.find('.' + $this.attr('data')).show();
-                            $this.addClass('graph-nav-active');
-                            switch($this.attr('data')){
-                                case 'graph-talk':
-                                    FB.XFBML.parse($div.get(0),
-                                        function(){  //set size and margin in callback
-                                            $thisPanel.find('iframe')
-                                                .width($thisPanel.find('.graph-talk.graph-subpanel').width()*0.9+'px')
-                                                .css('margin','15px');
-                                        });
-                                    break;
-                                case 'graph-data':
-                                    provenance.commitChanges();  //applies any pending changes.  will only run once.
-                                    $thisPanel.find('.graph-data-inner')
-                                        .tabs(oGraph.plots?"enable":"disable",0)
-                                        .tabs(oGraph.mapsets?"enable":"disable",1)
-                                        .tabs(oGraph.pointsets?"enable":"disable",2);
-                                    var dataTabLink = $thisPanel.find('.graph-data-inner li:not(.ui-state-disabled)').first().find('a').click();
-                                    if(dataTabLink.html()=='chart data') makeSlickDataGrid(grid, panelId, $(dataTabLink.attr('href')));
-                                    break;
-                                case 'graph-sources':
-                                    provenance.build();
-                                    break;
-                                case 'graph-chart':
-                                    provenance.commitChanges();  //applies change if changes are waiting and have not been canceled.  only runs once.
-                            }
-                        });
+                    $thisPanel.find('button.provenance').button().click(function(){
+                        provenance.build();
+                        $thisPanel.find('div.provenance').show();
+                        $thisPanel.find('div.graph-chart').hide();
+                    });
 
-                    $thisPanel.find('.graph-data-inner')
-                        .tabs({
-                            activate: function( event, ui ) {
-                                console.timeEnd("complete grid data into table");
-                                makeSlickDataGrid(grid, panelId, ui.newPanel);
-                                console.timeEnd("complete grid data into table");
-                            }
-                        });
+                    /*$thisPanel.find('ol.graph-nav').children('li')
+                     .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
+                     var $this = $(this);
+                     $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
+                     $thisPanel.find('.graph-subpanel').hide();
+                     var $div = $thisPanel.find('.' + $this.attr('data')).show();
+                     $this.addClass('graph-nav-active');
+                     switch($this.attr('data')){
+                     case 'graph-talk':
+                     FB.XFBML.parse($div.get(0),
+                     function(){  //set size and margin in callback
+                     $thisPanel.find('iframe')
+                     .width($thisPanel.find('.graph-talk.graph-subpanel').width()*0.9+'px')
+                     .css('margin','15px');
+                     });
+                     break;
+                     case 'graph-data':
+                     provenance.commitChanges();  //applies any pending changes.  will only run once.
+                     $thisPanel.find('.graph-data-inner')
+                     .tabs(oGraph.plots?"enable":"disable",0)
+                     .tabs(oGraph.mapsets?"enable":"disable",1)
+                     .tabs(oGraph.pointsets?"enable":"disable",2);
+                     var dataTabLink = $thisPanel.find('.graph-data-inner li:not(.ui-state-disabled)').first().find('a').click();
+                     if(dataTabLink.html()=='chart data') makeSlickDataGrid(grid, panelId, $(dataTabLink.attr('href')));
+                     break;
+                     case 'graph-sources':
+                     provenance.build();
+                     break;
+                     case 'graph-chart':
+                     provenance.commitChanges();  //applies change if changes are waiting and have not been canceled.  only runs once.
+                     }
+                     });
 
+                     $thisPanel.find('.graph-data-inner')
+                     .tabs({
+                     activate: function( event, ui ) {
+                     console.timeEnd("complete grid data into table");
+                     makeSlickDataGrid(grid, panelId, ui.newPanel);
+                     console.timeEnd("complete grid data into table");
+                     }
+                     });
+                     */
                     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
                         .click(function(){
                             var grids = [];
@@ -1040,7 +1054,8 @@ MashableData.grapher = function(){
                                 url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
                             });
                         });
-                    var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height()).find('.mashabledata_chart-map').width($thisPanel.width()-40-350).end().innerHeight();
+                    var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
+                        .find('.mashabledata_chart-map').width($thisPanel.width()-365).end().innerHeight();
                     $thisPanel.find('.graph-data-subpanel').height($thisPanel.innerHeight()-60);  //account for chart/region/markers tabs
                     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
                     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
@@ -1335,7 +1350,7 @@ MashableData.grapher = function(){
                             } else {
                                 oGraph.mapconfig.mapMode = this.value;
                             }
-                            _redraw();
+                            _redraw();  //note: _redraw() calls _drawMap() which updates mapMode variable
                         });
                     $thisPanel.find('select.change-basemap').html(_fillChangeMapSelect()).change(function(){
                         //create new map panel!
@@ -1501,9 +1516,11 @@ MashableData.grapher = function(){
                         $thisPanel.find('div.mashabledata_maptabs').hide();
                     }
                 }
+
                 function _drawMap(){
                     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
                         if($map) $map.remove();
+
                         //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
                         var mapHeight = (oGraph.controls.$thisPanel.height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1);
                         if(parseInt(oGraph.mapconfig.cubeid) || oGraph.mapconfig.cubeid == 'sum'){
@@ -1527,256 +1544,248 @@ MashableData.grapher = function(){
                         if(oGraph.mapsets) {
                             oGraph.mapsets[activeMapTab].calculatedMapData = calculatedMapData; //keep a reference when switching tabbed maps
 
-                            var mapMode = oGraph.mapsets[activeMapTab].mapMode();
+                            mapMode = oGraph.mapsets[activeMapTab].mapMode();
                             switch(mapMode){
                                 case 'heat':
                                 case 'abs-change':
                                 case 'percent-change':
                                     _calcAttributes(oGraph);
                                     break;
+                                case 'min':
+                                case 'max':
+                                    _calcMinMax(mapMode);
+                                    break;
                                 case 'bubbles':  //_drawMap_isBubble()?????
                                 case 'change-bubbles':
                                     _drawMap_bubbleCalc();
                                     break;
                                 case 'treemap':
-                                    //calculate the squarified matrix, draws the SVG, and assigns tool tips on the fly
-                                    if($map){
-                                        $map.remove();
-                                        $map = false;
-                                    }
-                                    makeTreeMap(
-                                        $thisPanel.find('div.mashabledata_jvmap').html(''),
-                                        oGraph.mapsets[activeMapTab].calculatedMapData,
-                                        oGraph.mapFile,
-                                        oGraph.mapsets[activeMapTab].calculatedMapData.dates[val].s
-                                    );
-                                    break;
                                 case 'change-treemap':
+                                    //real work done in _drawMap_setRegionsMarkersAtribute()
                                     if($map){
                                         $map.remove();
                                         $map = false;
                                     }
-                                    makeTreeMap(
-                                        $thisPanel.find('div.mashabledata_jvmap').html(''),
-                                        oGraph.mapsets[activeMapTab].calculatedMapData,
-                                        oGraph.mapFile,
-                                        oGraph.mapsets[activeMapTab].calculatedMapData.dates[val].s,
-                                        oGraph.mapsets[activeMapTab].calculatedMapData.dates[0].s //fromDate for delta calc
-                                    );
-                                    //calculate the squarified matrix, draws the SVG, and assigns tool tips on the fly
+                                    _setStartEndDateIndexes();
                                     break;
                             }
                         }
                         console.timeEnd('buildGraphPanel:_drawMap:_calcAttributes');
 
                         if(mapMode!='treemap'&&mapMode!='change-treemap'){
-
-                        }
-                        console.time('buildGraphPanel:_drawMap:fillScaling+Scaling');
-                        var fillScaling = fillScalingCount(oGraph.pointsets);
-                        var areaScaling = areaScalingCount(oGraph.pointsets);
-                        console.timeEnd('buildGraphPanel:_drawMap:fillScaling+Scaling');
-                        //console.info(calculatedMapData);
-                        console.time('buildGraphPanel:_drawMap:jvm call');
-                        var minScale = /us.._merc_en/.test(oGraph.mapFile)?0.9:1; //HACK!!!!!
-                        vectorMapSettings = {
-                            map: oGraph.mapFile,
-                            zoomMin: minScale,
-                            focusOn: {
-                                scale: minScale,
-                                x: 0.5,
-                                y: 0.5
-                            },
-                            backgroundColor: mapBackground,
-                            zoomOnScroll: false,
-                            zoomAnimate: true,
-                            markersSelectable: true,
-                            markerStyle: {
-                                initial: {r: 5},
-                                selected: {
-                                    "stroke-width": 4,
-                                    stroke: 'yellow'
-                                }
-                            }, //default for null values in the data
-                            regionStyle: {
-                                selected: {
-                                    "stroke-width": 2,
-                                    stroke: 'black',
-                                    fill: "#ffff80"
+                            console.time('buildGraphPanel:_drawMap:fillScaling+Scaling');
+                            var fillScaling = fillScalingCount(oGraph.pointsets);
+                            var areaScaling = areaScalingCount(oGraph.pointsets);
+                            console.timeEnd('buildGraphPanel:_drawMap:fillScaling+Scaling');
+                            //console.info(calculatedMapData);
+                            console.time('buildGraphPanel:_drawMap:jvm call');
+                            var minScale = /us.._merc_en/.test(oGraph.mapFile)?0.9:1; //HACK!!!!!
+                            vectorMapSettings = {
+                                map: oGraph.mapFile,
+                                zoomMin: minScale,
+                                focusOn: {
+                                    scale: minScale,
+                                    x: 0.5,
+                                    y: 0.5
                                 },
-                                hover: {
-                                    "stroke-width": 2,
-                                    stroke: 'black',
-                                    "fill-opacity": 1
-                                }
-                            },
-                            series: {
-                                regions:  [
-                                    {
-                                        attribute: "fill"
-                                        /* values: _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
-                                         scale: ['#C8EEFF', '#ff0000'],
-                                         normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
-                                         min: calculatedMapData.regionDataMin,
-                                         max: calculatedMapData.regionDataMax*/
+                                backgroundColor: mapBackground,
+                                zoomOnScroll: false,
+                                zoomAnimate: true,
+                                markersSelectable: true,
+                                markerStyle: {
+                                    initial: {r: 5},
+                                    selected: {
+                                        "stroke-width": 4,
+                                        stroke: 'yellow'
                                     }
-                                ],
-                                markers:  [
-                                    {
-                                        attribute: 'r'
-                                        //scale: [1, (_drawMap_isBubble()?50:20)]
-                                        //values: _getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[calculatedMapData.dates.length-1].s),
+                                }, //default for null values in the data
+                                regionStyle: {
+                                    selected: {
+                                        "stroke-width": 2,
+                                        stroke: 'black',
+                                        fill: "#ffff80"
                                     },
-                                    {
-                                        attribute: 'fill'
-                                    },
-                                    {
-                                        attribute: 'stroke'
+                                    hover: {
+                                        "stroke-width": 2,
+                                        stroke: 'black',
+                                        "fill-opacity": 1
                                     }
-                                ]
-                            },
-                            onViewportChange: function(event, scale){
-                                console.info(event);
-                            },
-                            onRegionTipShow: function(event, label, code){
-                                var i, sparkData=[], currentIndex, containingDateData = _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
-                                if(calculatedMapData.regionColors){
-                                    var containingDateColor = _getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
-                                    if(containingDateColor && typeof containingDateColor[code] != 'undefined'){
-                                        for(i=0;i<calculatedMapData.dates.length;i++){
-                                            if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') {
-                                                sparkData.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.regionData[calculatedMapData.dates[i].s][code]]);
-                                                if(i==val) currentIndex = sparkData.length-1;
-                                            }
+                                },
+                                series: {
+                                    regions:  [
+                                        {
+                                            attribute: "fill"
+                                            /* values: _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.dates.length-1].s), //val=aMapDates.length-1 will need to be harmonized with pointsets' most recent date
+                                             scale: ['#C8EEFF', '#ff0000'],
+                                             normalizeFunction: (calculatedMapData.regionDataMin>0)?'polynomial':'linear', //jVMap's polynominal scaling routine goes haywire with neg min
+                                             min: calculatedMapData.regionDataMin,
+                                             max: calculatedMapData.regionDataMax*/
                                         }
-                                        var y = containingDateData[code];
-                                        var valueReport, startingDateDate, y0;
-                                        switch(mapMode){
-                                            case 'heat':
-                                                valueReport = typeof y== 'undefined'?'no data available': common.numberFormat(y, (parseInt(y)==y)?0:2) + ' ' + (calculatedMapData.mapUnits||'');
-                                                break;
-                                            case 'abs-change':
-                                                startingDateDate  =  _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.startDateIndex].s);
-                                                y0 = startingDateDate[code];
-                                                valueReport = typeof y== 'undefined' || typeof y0== 'undefined' ? 'no data available': (y-y0>0?'+':'') + common.numberFormat(y-y0, (parseInt(y-y0)==y-y0)?0:2) + ' ' + (calculatedMapData.mapUnits||'') + ' from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s;
-                                                break;
-                                            case 'percent-change':
-                                                startingDateDate  =  _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.startDateIndex].s);
-                                                y0 = startingDateDate[code];
-                                                valueReport = typeof y== 'undefined' || typeof y0== 'undefined' ? 'no data available': common.numberFormat(100*(y-y0)/y0, 1) + '% change from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s;
-                                                break;
+                                    ],
+                                    markers:  [
+                                        {
+                                            attribute: 'r'
+                                            //scale: [1, (_drawMap_isBubble()?50:20)]
+                                            //values: _getMapDataByContainingDate(calculatedMapData.markerData,calculatedMapData.dates[calculatedMapData.dates.length-1].s),
+                                        },
+                                        {
+                                            attribute: 'fill'
+                                        },
+                                        {
+                                            attribute: 'stroke'
                                         }
-                                        label.html(
-                                            '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+' in '+ calculatedMapData.dates[val].s +'</b> '
-                                                + valueReport
-                                                + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*sparkData.length)+'px;margin:0 5px;"></div>'
-                                        ).css("z-Index",400);
-
-                                        var sparkOptions = {
-                                            grid: {show: false}
-                                        };
-                                        // main series
-                                        var series = [{
-                                            data: sparkData,
-                                            color: '#ddddff',
-                                            lines: {lineWidth: 0.8, fill: true},
-                                            shadowSize: 0
-                                        }];
-                                        if(sparkData.length<10) series.bars = {show: true};
-
-                                        // colour the current point red
-                                        if(typeof currentIndex != 'undefined'){
-                                            series.push({
-                                                data: [ sparkData[currentIndex] ],
-                                                points: {show: true, radius: 1, fillColor: '#ff0000'},
-                                                color: '#ff0000'
-                                            });
-                                        }
-
-                                        label.find('div.inlinesparkline').plot(series, sparkOptions);  // draw the sparkline
-                                    }
-                                }
-                            },
-                            regionsSelectable: (typeof oGraph.mapsets != "undefined"),
-                            markers: calculatedMapData.markers,
-                            onMarkerTipShow: function(event, label, code){
-                                var i, sparkData=[], dateKey = calculatedMapData.dates[val].s, containingDateData = _getMapDataByContainingDate(calculatedMapData.markerData, dateKey);
-                                for(i=0;i<calculatedMapData.dates.length;i++){
-                                    //show sparkline of radius data if exists; else fill data
-                                    if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') sparkData.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f);
-                                }
-                                if(containingDateData && containingDateData[code]){
-                                    var html, y0, y = containingDateData[code].r;
-                                    if(_drawMap_isBubble()){
-                                        var regionNames = [], regionCodes = code.split('+');
-                                        for(i=0;i<regionCodes.length;i++){
-                                            regionNames.push($map.getRegionName(regionCodes[i]));
-                                        }
-                                        html = '<div><b>'+calculatedMapData.title+': '+regionNames.join(' + ') + '</b> ';
-                                    } else {
-                                        html = '<div><b>'+label.html()+':</b> ';
-                                    }
-                                    if(oGraph.mapsets && mapMode=='change-bubbbles'){
-                                        var startDateKey = calculatedMapData.dates[calculatedMapData.startDateIndex].s
-                                        var startDateData = _getMapDataByContainingDate(calculatedMapData.markerData,startDateKey);
-                                        y=containingDateData[code].r; //change bubble have to have an r attribute
-                                        y0=startDateData[code].r;  //and a valid start or no bubble to click on!
-                                        html += (y-y0>0?'+':'') + common.numberFormat(y-y0, (parseInt(y-y0)==y-y0)?0:2) + " " + (calculatedMapData.radiusUnits||'')+' change from '+startDateKey+' to '+dateKey+'<br>';
-                                        html += common.numberFormat(y, (parseInt(y)==y)?0:2) + " " + (calculatedMapData.radiusUnits||'')+' in '+dateKey+'<br>';
-                                        html += common.numberFormat(y0, (parseInt(y0)==y0)?0:2) + " " + (calculatedMapData.radiusUnits||'')+' in '+startDateKey+'<br>';
-                                    } else {
-                                        if(containingDateData[code].r) html += common.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
-                                        if(containingDateData[code].f) html += common.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
-                                    }
-                                    html += '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
-                                    label.html(html).css("z-Index",400);
-                                    var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
-                                    sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
-                                    $('.inlinesparkline').sparkline(sparkData, sparkOptions);
-                                }
-                            },
-                            onRegionClick: function(){
-                                if(!$graphSelected.is(':visible')) $map.clearSelectedRegions();
-                            },
-                            onRegionSelected: function(e, code, isSelected){
-                                _drawMap_cubeVizFromMap(code, isSelected);
-                                _drawMap_setMergablity();
-                                var selectedMarkers = $map.getSelectedMarkers();
-                                if(selectedMarkers.length>0){
-                                    $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
-                                    return;
-                                }
-                                var selectedRegions = $map.getSelectedRegions();
-                                console.info('onRegionSelected ' + selectedRegions.length);
-                                if($graphSelected.is(':visible')){
-                                    for(var i=0;i<selectedRegions.length;i++){
-                                        if(calculatedMapData.regionColors){
-                                            for(var dateKey in calculatedMapData.regionColors){ //only need a single valid region date key
-                                                if(typeof calculatedMapData.regionColors[dateKey][selectedRegions[i]]!='undefined'){
-                                                    $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
-                                                    return;
+                                    ]
+                                },
+                                onViewportChange: function(event, scale){
+                                    console.info(event);
+                                },
+                                onRegionTipShow: function(event, label, code){
+                                    var i, sparkData=[], currentIndex, containingDateData = _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
+                                    if(calculatedMapData.regionColors){
+                                        var containingDateColor = _getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
+                                        if(containingDateColor && typeof containingDateColor[code] != 'undefined'){
+                                            for(i=0;i<calculatedMapData.dates.length;i++){
+                                                if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') {
+                                                    sparkData.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.regionData[calculatedMapData.dates[i].s][code]]);
+                                                    if(i==val) currentIndex = sparkData.length-1;
                                                 }
-                                                break;
                                             }
+                                            var y = containingDateData[code];
+                                            var valueReport, startingDateDate, y0;
+                                            switch(mapMode){
+                                                case 'heat':
+                                                    valueReport = typeof y== 'undefined'?'no data available': common.numberFormat(y, (parseInt(y)==y)?0:2) + ' ' + (calculatedMapData.mapUnits||'');
+                                                    break;
+                                                case 'abs-change':
+                                                    startingDateDate  =  _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.startDateIndex].s);
+                                                    y0 = startingDateDate[code];
+                                                    valueReport = typeof y== 'undefined' || typeof y0== 'undefined' ? 'no data available': (y-y0>0?'+':'') + common.numberFormat(y-y0, (parseInt(y-y0)==y-y0)?0:2) + ' ' + (calculatedMapData.mapUnits||'') + ' from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s;
+                                                    break;
+                                                case 'percent-change':
+                                                    startingDateDate  =  _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.startDateIndex].s);
+                                                    y0 = startingDateDate[code];
+                                                    valueReport = typeof y== 'undefined' || typeof y0== 'undefined' ? 'no data available': common.numberFormat(100*(y-y0)/y0, 1) + '% change from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s;
+                                                    break;
+                                            }
+                                            label.html(
+                                                '<div><b>'+calculatedMapData.title+': '+$map.getRegionName(code)+' in '+ calculatedMapData.dates[val].s +'</b> '
+                                                    + valueReport
+                                                    + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*sparkData.length)+'px;margin:0 5px;"></div>'
+                                            ).css("z-Index",400);
+
+                                            var sparkOptions = {
+                                                grid: {show: false}
+                                            };
+                                            // main series
+                                            var series = [{
+                                                data: sparkData,
+                                                color: '#ddddff',
+                                                lines: {lineWidth: 0.8, fill: true},
+                                                shadowSize: 0
+                                            }];
+                                            if(sparkData.length<10) series.bars = {show: true};
+
+                                            // colour the current point red
+                                            if(typeof currentIndex != 'undefined'){
+                                                series.push({
+                                                    data: [ sparkData[currentIndex] ],
+                                                    points: {show: true, radius: 1, fillColor: '#ff0000'},
+                                                    color: '#ff0000'
+                                                });
+                                            }
+
+                                            label.find('div.inlinesparkline').plot(series, sparkOptions);  // draw the sparkline
                                         }
                                     }
-                                    //default if no markers selected or region that have data are selected:
-                                    $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('disable');
+                                },
+                                regionsSelectable: (typeof oGraph.mapsets != "undefined"),
+                                markers: calculatedMapData.markers,
+                                onMarkerTipShow: function(event, label, code){
+                                    var i, sparkData=[], dateKey = calculatedMapData.dates[val].s, containingDateData = _getMapDataByContainingDate(calculatedMapData.markerData, dateKey);
+                                    for(i=0;i<calculatedMapData.dates.length;i++){
+                                        //show sparkline of radius data if exists; else fill data
+                                        if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') sparkData.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f);
+                                    }
+                                    if(containingDateData && containingDateData[code]){
+                                        var html, y0, y = containingDateData[code].r;
+                                        if(_drawMap_isBubble()){
+                                            var regionNames = [], regionCodes = code.split('+');
+                                            for(i=0;i<regionCodes.length;i++){
+                                                regionNames.push($map.getRegionName(regionCodes[i]));
+                                            }
+                                            html = '<div><b>'+calculatedMapData.title+': '+regionNames.join(' + ') + '</b> ';
+                                        } else {
+                                            html = '<div><b>'+label.html()+':</b> ';
+                                        }
+                                        if(oGraph.mapsets && mapMode=='change-bubbbles'){
+                                            var startDateKey = calculatedMapData.dates[calculatedMapData.startDateIndex].s
+                                            var startDateData = _getMapDataByContainingDate(calculatedMapData.markerData,startDateKey);
+                                            y=containingDateData[code].r; //change bubble have to have an r attribute
+                                            y0=startDateData[code].r;  //and a valid start or no bubble to click on!
+                                            html += (y-y0>0?'+':'') + common.numberFormat(y-y0, (parseInt(y-y0)==y-y0)?0:2) + " " + (calculatedMapData.radiusUnits||'')+' change from '+startDateKey+' to '+dateKey+'<br>';
+                                            html += common.numberFormat(y, (parseInt(y)==y)?0:2) + " " + (calculatedMapData.radiusUnits||'')+' in '+dateKey+'<br>';
+                                            html += common.numberFormat(y0, (parseInt(y0)==y0)?0:2) + " " + (calculatedMapData.radiusUnits||'')+' in '+startDateKey+'<br>';
+                                        } else {
+                                            if(containingDateData[code].r) html += common.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
+                                            if(containingDateData[code].f) html += common.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
+                                        }
+                                        html += '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
+                                        label.html(html).css("z-Index",400);
+                                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
+                                        sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                                        $('.inlinesparkline').sparkline(sparkData, sparkOptions);
+                                    }
+                                },
+                                onRegionClick: function(){
+                                    if(!$graphSelected.is(':visible')) $map.clearSelectedRegions();
+                                },
+                                onRegionSelected: function(e, code, isSelected){
+                                    _drawMap_cubeVizFromMap(code, isSelected);
+                                    _drawMap_setMergablity();
+                                    var selectedMarkers = $map.getSelectedMarkers();
+                                    if(selectedMarkers.length>0){
+                                        $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
+                                        return;
+                                    }
+                                    var selectedRegions = $map.getSelectedRegions();
+                                    console.info('onRegionSelected ' + selectedRegions.length);
+                                    if($graphSelected.is(':visible')){
+                                        for(var i=0;i<selectedRegions.length;i++){
+                                            if(calculatedMapData.regionColors){
+                                                for(var dateKey in calculatedMapData.regionColors){ //only need a single valid region date key
+                                                    if(typeof calculatedMapData.regionColors[dateKey][selectedRegions[i]]!='undefined'){
+                                                        $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
+                                                        return;
+                                                    }
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        //default if no markers selected or region that have data are selected:
+                                        $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('disable');
+                                    }
+                                },
+                                onMarkerSelected: function(e, code, isSelected){
+                                    vectorMapSettings.onRegionSelected(e, code, isSelected);
+                                },
+                                onZoom: function(e, scale){
+                                    transferTransform();  //unsure how this is supposed to work.  perhaps for bubble.
                                 }
-                            },
-                            onMarkerSelected: function(e, code, isSelected){
-                                vectorMapSettings.onRegionSelected(e, code, isSelected);
-                            },
-                            onZoom: function(e, scale){
-                                transferTransform();  //unsure how this is supposed to work.  perhaps for bubble.
-                            }
-                        };
+                            };
+
+                            $thisPanel
+                                .find('div.mashabledata_map').show()
+                                .find('div.mashabledata_jvmap').html('').show().height(mapHeight).vectorMap(vectorMapSettings);
+                            $map = $thisPanel.find('div.mashabledata_jvmap').vectorMap('get', 'mapObject');
+
+                        } else {
+                            $map = false;
+                            $thisPanel
+                                .find('div.mashabledata_map').show()
+                                .find('div.mashabledata_jvmap').show().height(mapHeight)
+                        }
 
                         val = calculatedMapData.endDateIndex; //initial value
-                        $thisPanel.find('div.mashabledata_map').show();
-
-                        $thisPanel.find('div.mashabledata_jvmap').show().height(mapHeight).vectorMap(vectorMapSettings);
-                        $map = $thisPanel.find('div.mashabledata_jvmap').vectorMap('get', 'mapObject');
 
                         console.timeEnd('buildGraphPanel:_drawMap:jvm call');
 
@@ -1795,6 +1804,7 @@ MashableData.grapher = function(){
 
                         var $mapSlider = $thisPanel.find('.mashabledata_map-slider');
                         if(calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){
+                            if($mapSlider.hasClass("ui-slider")) $mapSlider.slider('destroy');
                             $mapSlider
                                 .show()
                                 .slider({  //removed .off() because slider not working when reintialized
@@ -2430,12 +2440,18 @@ MashableData.grapher = function(){
 
                             //initialize markerData variable object
                             var merge, mergeCode, markerData = {}, markerAttr = {r: {}, stroke: {}}, bubbleValue, y, y0;
+
+                            _setStartEndDateIndexes();
+
+                            //initalize markerData and markerAttr
                             for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
                                 dateKey = calculatedMapData.dates[d].s;
-                                markerData[dateKey] = {};  //initalize
+                                markerData[dateKey] = {};
                                 markerAttr.r[dateKey] = {};
                                 markerAttr.stroke[dateKey] = {};
                             }
+
+                            //calculate values and marker min and max
                             calculatedMapData.markerDataMin = Number.MAX_VALUE; //initialized; to be minned against merged and single point values below
                             calculatedMapData.markerDataMax = Number.MIN_VALUE;  //initialize; to be maxxed against merged and single point values below
 
@@ -2502,7 +2518,7 @@ MashableData.grapher = function(){
                                     y = markerData[dateKey][markerId].r;
                                     if(mapMode=='change-bubbles'){
                                         y0 = markerData[startDateKey][markerId].r;
-                                        rData = (!isNaN(y) && !isNaN(y0) && y!==null && y0!==null)? y-yo : null;
+                                        rData = (!isNaN(y) && !isNaN(y0) && y!==null && y0!==null)? y-y0 : null;
                                     } else {
                                         rData = y || null;
                                     }
@@ -2810,8 +2826,6 @@ MashableData.grapher = function(){
                             break;
                     }
                 }
-
-
 
                 function _calcMap(graph, mapIndex){
                     //vars that will make up the return object
@@ -3255,6 +3269,24 @@ MashableData.grapher = function(){
                     return graph.calculatedMapData;
                 }
 
+                function _setStartEndDateIndexes(){
+                    //determine startDateIndex and endDateIndex
+                    if(oGraph.intervals){
+                        calculatedMapData.startDateIndex = calculatedMapData.dates.length-parseInt(oGraph.intervals);
+                        calculatedMapData.endDateIndex = calculatedMapData.dates.length-1;
+                    } else {
+                        calculatedMapData.startDateIndex = calculatedMapData.dates.length-1; //set to max
+                        calculatedMapData.endDateIndex=0; //set end to min and advance in loop below
+                        for(i=0;i<calculatedMapData.dates.length;i++){
+                            if( (!oGraph.start || parseInt(oGraph.start)<=calculatedMapData.dates[i].dt.getTime())
+                                &&  (!oGraph.end || parseInt(oGraph.end)>=calculatedMapData.dates[i].dt.getTime()) ){
+                                if(calculatedMapData.startDateIndex>i) calculatedMapData.startDateIndex = i;
+                                if(calculatedMapData.endDateIndex<i) calculatedMapData.endDateIndex = i;
+                            }
+                        }
+                    }
+                }
+
                 function _calcAttributes(graph){
                     var i, y, firstDateKey, dateKey, geo, geos = {}, min, max, calcData = graph.calculatedMapData;
 
@@ -3286,13 +3318,15 @@ MashableData.grapher = function(){
                                     calcData.regionMin = Math.min(calcData.dates[i].regionMin, calcData.regionMin);
                                     calcData.regionMax = Math.max(calcData.regionMax, calcData.dates[i].regionMax);
                                 } else {
-                                    if(i!=calcData.endDateIndex ){
+                                    if(i!=calcData.startDateIndex ){
                                         for(geo in calcData.regionData[calcData.dates[i].s]){
-                                            var startValue = calcData.regionData[calcData.dates[startDateIndex].s][geo];
+                                            var startValue = calcData.regionData[calcData.dates[calcData.startDateIndex].s][geo];
                                             var endValue = calcData.regionData[calcData.dates[i].s][geo];
                                             var changeValue = changeCalc(startValue, endValue);
-                                            calcData.regionMin = Math.min(changeValue, calcData.regionMin);
-                                            calcData.regionMax = Math.max(calcData.regionMax, changeValue);
+                                            if(!isNaN(changeValue)){
+                                                calcData.regionMin = Math.min(changeValue, calcData.regionMin);
+                                                calcData.regionMax = Math.max(calcData.regionMax, changeValue);
+                                            }
                                         }
                                     }
                                 }
@@ -3311,13 +3345,15 @@ MashableData.grapher = function(){
                                         calcData.regionMin = Math.min(calcData.dates[i].regionMin, calcData.regionMin);
                                         calcData.regionMax = Math.max(calcData.regionMax, calcData.dates[i].regionMax);
                                     } else {
-                                        if(i!=calcData.endDateIndex ){
+                                        if(i!=calcData.startDateIndex ){
                                             for(geo in calcData.regionData[calcData.dates[i].s]){
-                                                var startValue = calcData.regionData[calcData.dates[startDateIndex].s][geo];
+                                                var startValue = calcData.regionData[calcData.dates[calcData.startDateIndex].s][geo];
                                                 var endValue = calcData.regionData[calcData.dates[i].s][geo];
                                                 var changeValue = changeCalc(startValue, endValue);
-                                                calcData.regionMin = Math.min(changeValue, calcData.regionMin);
-                                                calcData.regionMax = Math.max(calcData.regionMax, changeValue);
+                                                if(!isNaN(changeValue)){
+                                                    calcData.regionMin = Math.min(changeValue, calcData.regionMin);
+                                                    calcData.regionMax = Math.max(calcData.regionMax, changeValue);
+                                                }
                                             }
                                         }
                                     }
@@ -3538,6 +3574,39 @@ MashableData.grapher = function(){
                         g = octet(Math.round(percent * (rgb2.g-rgb1.g) + rgb1.g));
                         b = octet(Math.round(percent * (rgb2.b-rgb1.b) + rgb1.b));
                         return '#' + r + g + b;
+                    }
+                }
+
+                function _calcMinMax(mode){
+                    //_caclMap should already have been run; mode must either be 'min' or 'max'
+                    var calcData = oGraph.calculatedMapData, extremes = {}, value;
+                    calcData['region'+mode] = {};
+                    for(dateKey in calcData.regionData){
+                        for(geo in calcData.regionData[dateKey]){
+                            if(calcData.regionData[dateKey]){
+                                value = calcData.regionData[dateKey][geo];
+                                if(value!==null){
+                                    if(typeof extremes[geo] == 'undefined' || (mode=='min'?value<extremes[geo]:value>extremes[geo])){
+                                        extremes[geo] = value;
+                                        calcData['region'+mode][geo] = dateKey;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    calcData['marker'+mode] = {};
+                    for(dateKey in calcData.markerData){
+                        for(geo in calcData.markerData[dateKey]){
+                            if(calcData.markerData[dateKey]){
+                                value = calcData.markerData[dateKey][geo];
+                                if(value!==null){
+                                    if(typeof extremes[geo] == 'undefined' || (mode=='min'?value<extremes[geo]:value>extremes[geo])){
+                                        extremes[geo] = value;
+                                        calcData['marker'+mode][geo] = dateKey;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
