@@ -155,7 +155,7 @@ $cl_config = [
                         ]
                 ]
         ],
-        "name" => "cause of death"
+        "name" => "cause"
     ],
     "CL_AGE:hlth_cd_acdr"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
         "name"=> "age", // English name override
@@ -447,7 +447,7 @@ $skip_codes =[
 $ingest = [
     [
         "codes"=> ["hlth_cd_acdr"],  //Causes of death by NUTS 2 regions - crude death rate per 100 000 inhabitants - annual data
-        "theme_name"=> "Causes of death - crude death rate", //overrides the TOC name.  Default is the name of codes[0] with "NUTS" references removed
+        "theme_name"=> "Crude death rate", //overrides the TOC name.  Default is the name of codes[0] with "NUTS" references removed
         "mapping"=> [ //help with code list if needed.  Dimensionality follows order below or cell[0,0} if this section is missing
             "CL_AGE"=> "hlth_cd_acdr",
             "CL_UNITS"=>["renames"=>["CDTH_RT"=>""]],  //avoid repeat of "Causes of death"

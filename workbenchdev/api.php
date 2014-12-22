@@ -133,7 +133,7 @@ switch($command){
         //handle may be modified in read loop depending on detected geographies and
         if($catid>0){
             //1. if category search, this is simple
-            $sql .= " INNER JOIN categoryseries cs on s.setid = cs.setid WHERE catid=$catid";
+            $sql .= " INNER JOIN categorysets cs on s.setid = cs.setid WHERE catid=$catid";
         } else {
             //2. look for geo matching and search sets if
             $foundGeos = [];
@@ -917,27 +917,24 @@ switch($command){
     case "GetCatChains":
         $setid = intval($_POST["sid"]);
         if($setid == 0){ //get list of APIs to browse = select children of root category
-            $sql = <<<EOS
-                SELECT c.catid, c.name, COUNT( DISTINCT cs2.setid ) AS scount, COUNT( DISTINCT cc2.childid ) AS children
+            $sql = "SELECT c.catid, c.name, COUNT( DISTINCT cs2.setid ) AS scount, COUNT( DISTINCT cc2.childid ) AS children
                 FROM categories c
                 INNER JOIN catcat cc ON c.catid = cc.childid
-                LEFT OUTER JOIN categoryseries cs2 ON c.catid = cs2.catid
+                LEFT OUTER JOIN categorysets cs2 ON c.catid = cs2.catid
                 LEFT OUTER JOIN catcat cc2 ON cc.childid = cc2.parentid
-                WHERE cc.parentid =5506
-                GROUP BY c.catid, c.apicatid, c.name
-EOS;
+                WHERE cc.parentid =1
+                GROUP BY c.catid, c.apicatid, c.name";
         } else {
-            $sql = <<<EOS
-            SELECT c.catid, c.name, COUNT(DISTINCT cs2.setid ) AS scount,
+            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.setid ) AS scount,
              COUNT(DISTINCT childid ) AS children
             FROM categories c
-              INNER JOIN categoryseries cs ON  c.catid = cs.catid
-              INNER JOIN categoryseries cs2 ON  c.catid = cs2.catid
+              INNER JOIN categorysets cs ON  c.catid = cs.catid
+              INNER JOIN categorysets cs2 ON  c.catid = cs2.catid
               LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid
-            WHERE cs.setid = $setid and c.catid<>5506
-            GROUP BY c.catid, c.apicatid, c.name
-EOS;
-//don't get the root category
+            WHERE cs.setid = $setid and c.catid<>1
+            GROUP BY c.catid, c.apicatid, c.name";
+            //don't get the root category (catid=1)
+
         }
         logEvent("GetCatChains: get series cats", $sql);
         $catrs = runQuery($sql);
@@ -946,9 +943,6 @@ EOS;
             $chains["C".$catinfo["catid"]] = array(array("catid"=>$catinfo["catid"], "name"=>$catinfo["name"], "scount"=>$catinfo["scount"], "children"=>$catinfo["children"]));
         }
         while(BuildChainLinks($chains)){}  //work occurs in BuildChains (note: $chains passed by ref)
-        /* foreach($chains as $name => $chain){
-             array_pop($chain); // get rid of terminal cats added in BuildChainLinks
-         }*/
         $output = array("chains"=>$chains);
         $output["sid"] = $setid;
         $output["status"] = "ok";
@@ -960,7 +954,7 @@ EOS;
             FROM catcat parent
             INNER JOIN catcat siblings ON siblings.parentid = parent.parentid
             INNER JOIN  categories c  ON c.catid = siblings.childid
-            LEFT OUTER JOIN categoryseries cs ON  siblings.childid = cs.catid
+            LEFT OUTER JOIN categorysets cs ON  siblings.childid = cs.catid
             LEFT OUTER JOIN catcat kids ON siblings.childid = kids.parentid
             WHERE parent.childid =  $catid
             GROUP BY c.catid, c.name
@@ -978,7 +972,7 @@ EOS;
             c.catid, c.name, COUNT(DISTINCT cs.setid ) AS scount, COUNT(DISTINCT kids.childid ) AS children
             FROM catcat siblings
             INNER JOIN  categories c  ON c.catid = siblings.childid
-            LEFT OUTER JOIN categoryseries cs ON  siblings.childid = cs.catid
+            LEFT OUTER JOIN categorysets cs ON  siblings.childid = cs.catid
             LEFT OUTER JOIN catcat kids ON siblings.childid = kids.parentid
             WHERE siblings.parentid =  $catid
             GROUP BY c.catid, c.name
@@ -1586,16 +1580,16 @@ function BuildChainLinks(&$chains){
     foreach($chains as $name => $chain){
         $lastcat = $chain[count($chain)-1];
         if($lastcat["catid"]!=0){
-            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT childrenseries.setid ) AS scount "
+            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT childrensets.setid ) AS scount "
                 . ", COUNT(DISTINCT childrencats.childid ) AS children   "
                 //. ", COUNT(DISTINCT silbingcats.childid ) AS sbilings   "
                 . " FROM catcat current "
                 . " INNER JOIN categories c ON c.catid = current.parentid "
-                . " LEFT OUTER JOIN categoryseries childrenseries ON c.catid = childrenseries.catid "
+                . " LEFT OUTER JOIN categorysets childrensets ON c.catid = childrensets.catid "
                 . " LEFT OUTER JOIN catcat childrencats ON c.catid = childrencats.parentid "
                 //. " LEFT OUTER JOIN catcat parentcat ON c.catid = parentcat.childid "
                 //. " LEFT OUTER JOIN catcat silbingcats ON parentcat.parentid = silbingcats.childid "
-                . " WHERE current.childid =" . $lastcat["catid"]  //."  and c.catid<>5506 " //don't select root cat
+                . " WHERE current.childid =" . $lastcat["catid"]
                 . " GROUP BY c.catid, c.name limit 0, 1";
             $children  = runQuery($sql, "BuildChainLinks");
             $firstrow = true;

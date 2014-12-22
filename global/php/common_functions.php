@@ -390,7 +390,11 @@ function printNow($msg){ //print with added carriage return and flushes buffer s
     ob_flush();
     flush();
 }
-
+function preprint($var){
+    print("<pre>");
+    print_r($var);
+    print("</pre>");
+}
 function timeOut($msg){
     printNow(microtime(true)."ms: ".$msg);
 }
@@ -567,6 +571,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         if($row["name"]!=$name || $row["apidt"]!=$apidt || $row["units"]!=$units || $row["latlon"]!=$latlon
             || $row["lasthistoricaldt"]!=$lasthistoricaldt || $row["themeid"]!=$themeid || $row["metadata"]!=$metadata || $row["src"]!=$src  || $row["url"]!=$url ){
             $sql = "update sets set name = " .  safeStringSQL($name)
+                . ", namelen = " .  strlen($name)
                 . ", apidt = " .  safeStringSQL($apidt)
                 . ", units = " .  safeStringSQL($units, false)
                 . ", latlon = " .  safeStringSQL($latlon, false)
