@@ -185,8 +185,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         $themeConfig["geoIndex"] = $geoIndex;
 
         $setDims = $tsvDims;
-        array_slice($setDims, $timeIndex, 1); //but not the TIME code
-        if($geoIndex!==false) array_slice($setDims, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
+        array_splice($setDims, $timeIndex, 1); //but not the TIME code
+        if($geoIndex!==false) array_splice($setDims, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
         $themeConfig["setDims"] = $setDims;
 
         //determine units:
@@ -234,17 +234,14 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             for($c=1;$c<count($dataFields);$c++){
                 //point codes = all tsv codes (side & top) that uniquely determine the point (includes TIME code)
                 $pointCodes = array_merge($lineCodes, [$headerFields[$c]]);
-
                 //determine the unique facet and codes for this set.  If TIME is not the dimension across the page, this must be done for each point, else once per line
                 if($c==1 || $topDim!="TIME"){
                     //codes are more permissive, and can include unit codes
                     $seriesCodes = $pointCodes;
                     array_splice($seriesCodes, $timeIndex, 1); //but not the TIME code
-
                     //set codes are the series codes - geocode
                     $setCodes = $seriesCodes;
                     if($geoIndex!==false) array_splice($setCodes, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
-
                     //facets are the english language equivalents, and exclude units (since units has its own special field and display)
                     $setFacets = [];
                     $unit = $fixedUnits; //default.  Chenaged in loop if using a units code list
@@ -361,9 +358,6 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             sexMF: T/F
             tsvDims: []
     */
-
-    preprint($themeConfig["sets"]);
-    
     //ADD CUBES (im memory)
     if($themeConfig["cubable"]){  //set in master $config or calculated in mergeConfig()
 
@@ -681,10 +675,6 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
             return;
         } else {
             if($dimensions[$left_out_dim]["rootCode"]!=$code && (!isset($themeConfig["unitIndex"]) || $themeConfig["tsvDims"][$themeConfig["unitIndex"]]!=$left_out_dim)){
-                /*preprint($code);
-                preprint($left_out_dims);
-                preprint($left_out_dim);
-                die();*/
                 $qualifiers[] = $dimensions[$left_out_dim]["allCodes"][$code];
             }
             $leftOutKeys[] = $left_out_dim . "=" . $code;
@@ -714,7 +704,7 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
         $totSetCodes[$barDimIndex] = $barRootCode;
         if($stackDim) $totSetCodes[$stackDimIndex] = $dimensions[$stackDim]["rootCode"];
         if($sideDim) $totSetCodes[$sideDimIndex] = $dimensions[$sideDim]["rootCode"];
-        $totSetKey = implode(",", $totSetCodes); //$themeConfig["tKey"] . ":"  prefix not added to setkeys to save memory
+        $totSetKey = $themeConfig["tKey"] . ":" . implode(",", $totSetCodes); //$themeConfig["tKey"] . ":"  prefix not added to setkeys to save memory
     } else $totSetKey = false;
     $themeConfig["cubes"][$localCubeKey] = [
         "by"=> $cubedBy,
@@ -728,7 +718,6 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
         "components"=>[]
     ];
     printNow($localCubeKey);
-    preprint($themeConfig["cubes"]);
     $dimNames = [[],[],[]];
     //loop through the bar, stack and side codes and add ordered arrays of localSetKeys
     $components = []; $stackLabeled = false; $sideLabeled = false;
@@ -745,6 +734,7 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
                     foreach($side_codes as $sideCode){
                         $componentSetKeyCodes[$sideDimIndex] = $sideCode;
                         if(!$sideLabeled) $dimNames[2][] = $dimensions[$sideDim]["allCodes"][$sideCode];
+                        ksort($componentSetKeyCodes);
                         $setKey = $themeConfig["tKey"] . ":" . implode(",", $componentSetKeyCodes);
                         if(!isset($themeConfig["sets"][$setKey])){
                             unset($themeConfig["cubes"][$localCubeKey]);
@@ -754,6 +744,7 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
                     }
                     $sideLabeled = true;
                 } else {
+                    ksort($componentSetKeyCodes);
                     $setKey = $themeConfig["tKey"] . ":" . implode(",", $componentSetKeyCodes);
                     if(!isset($themeConfig["sets"][$setKey])){
                         unset($themeConfig["cubes"][$localCubeKey]);
@@ -769,6 +760,7 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
             foreach($side_codes as $sideCode){
                 $componentSetKeyCodes[$sideDimIndex] = $sideCode;
                 if(!$sideLabeled) $dimNames[2][] = $dimensions[$sideDim]["allCodes"][$sideCode];
+                ksort($componentSetKeyCodes);
                 $setKey = $themeConfig["tKey"] . ":" . implode(",", $componentSetKeyCodes);
                 if(!isset($themeConfig["sets"][$setKey])){
                     unset($themeConfig["cubes"][$localCubeKey]);
@@ -780,10 +772,9 @@ function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
             $components[] = $side;
         } else {
             //1D cube
+            ksort($componentSetKeyCodes);
             $setKey = $themeConfig["tKey"] . ":" . implode(",", $componentSetKeyCodes);
             if(!isset($themeConfig["sets"][$setKey])){
-                preprint($setKey);
-                preprint($localCubeKey);
                 unset($themeConfig["cubes"][$localCubeKey]);
                 return;
             }
@@ -921,7 +912,6 @@ function  updateCubes(&$themeConfig, &$dimensions, $deleteOldCubes = true){
     $dimDefs =& $themeConfig["dimDefs"];
     $tKey = $themeConfig["tKey"];
     $cubes =& $themeConfig["cubes"];
-    preprint($cubes);
     foreach($cubes as $localCubeKey=> &$cube){
         $sqlName = safeStringSQL($cube["name"]);
         $sqlUnits = safeStringSQL($cube["units"]);

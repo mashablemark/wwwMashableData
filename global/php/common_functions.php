@@ -564,6 +564,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         ."select distinct s.* from sets s join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=".safeStringSQL($setKey);
     } else {
         $sql = "select * from sets where apiid=$apiid and name=".safeStringSQL($name, true)." and units =".safeStringSQL($units,false);
+        if(strtolower($themeid)!='null') $sql .= " and themeid = $themeid";
     }
     $result = runQuery($sql, "getSet select");
     if($result->num_rows==1){
@@ -572,6 +573,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
             || $row["lasthistoricaldt"]!=$lasthistoricaldt || $row["themeid"]!=$themeid || $row["metadata"]!=$metadata || $row["src"]!=$src  || $row["url"]!=$url ){
             $sql = "update sets set name = " .  safeStringSQL($name)
                 . ", namelen = " .  strlen($name)
+                . ", setkey = " .  safeStringSQL($setKey)
                 . ", apidt = " .  safeStringSQL($apidt)
                 . ", units = " .  safeStringSQL($units, false)
                 . ", latlon = " .  safeStringSQL($latlon, false)
