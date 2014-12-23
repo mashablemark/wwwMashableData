@@ -278,9 +278,9 @@ $(document).ready(function(){
     hasher.init(); //initialize hasher (start listening for history changes)
     //TODO uncomment after testing!!!
     /*window.onbeforeunload = function() {
-        return "Your work will be lost.";
-    };
-*/
+     return "Your work will be lost.";
+     };
+     */
     $('body').resize(resizeCanvas);
     $('#series_search_periodicity, #series_search_source, #series-search-button').click(seriesCloudSearch);
     $('#show-hide-pickers').click(function(){
@@ -1304,10 +1304,10 @@ function quickViewToMap(){
     var panelId =  $('#quick-view-to-graphs').val();
     var map = $("#quick-view-maps").val();
     if( panelGraphs[panelId]   //this graph already exists
-    && panelGraphs[panelId].map // ... and it already has a map
-    && ( //but its map and the map requested or the map/pointplot frequencies are different...
+        && panelGraphs[panelId].map // ... and it already has a map
+        && ( //but its map and the map requested or the map/pointplot frequencies are different...
         panelGraphs[panelId].map!=map || panelGraphs[panelId].mapFreq() != oQuickViewSeries[0].freq)
-    ){
+        ){
         dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional maps and map data can be added, but must use the same base map and frequency.");
         return null;
     }
@@ -2888,25 +2888,25 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
         var showComponentsAndPlot = (plot.calculatedFormula && plot.calculatedFormula.formula.length>1) || plot.options.units || plot.options.name;
         for(c=0;c<plot.components.length;c++){
             colId = 'P'+p+'-C'+c;
-            component = assets[plot.components[c].handle];
+            component = plot.components[c];
             columns.push({
                     id: colId,
                     field: colId,
-                    name:'<b>' + component.name + '</b><br>'
+                    name:'<b>' + component.name() + '</b><br>'
                         + (component.units||'') + '<br>'
                         + (component.src||'') + '<br>'
                         + (component.notes||'') + '<br>'
-                        + (component.iso3166||'') + '<br>'
-                        + (component.lat ? component.lat + ', ' + component.lon : '') + '<br>'
-                        + '<br>component '+compSymbol(c),
+                        + (component.geoname||'') + '<br>'
+                        + (component.latlon) + '<br>'
+                        + '<br>component ' + plot.compSymbol(c),
                     cssClass: 'grid-series-column'}
             );
 
 
             //loop through the data, adding rows for new dates as needed and then setting the column values
-            compData = component.data.split('|');
-            for(d=0;d<compData.length;d++){
-                mdPoint = compData[d].split(':');
+            compData = component.data;
+            for(d=0;d<component.data.length;d++){
+                mdPoint = component.data[d].split(':');
                 jsdt = dateFromMdDate( mdPoint[0]);
                 readableDate = formatDateByPeriod(jsdt.getTime(), serie.options.period);
                 if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
@@ -2938,7 +2938,7 @@ function gridDataForChart(panelId){  //create tables in data tab of data behind 
             for(d=0;d<serie.options.data.length;d++){
                 pnt = serie.options.data[d];
                 readableDate = formatDateByPeriod(pnt[0], serie.options.period);
-                mdDate = MD.common.mashableDate(pnt[0], serie.options.period);
+                mdDate = common.mashableDate(pnt[0], serie.options.period);
                 //search to see if this date is in gridArray
                 if((!oGraph.start || oGraph.start<=pnt[0]) && (!oGraph.end || oGraph.end>=pnt[0])){
                     //search to see if this date is in rows

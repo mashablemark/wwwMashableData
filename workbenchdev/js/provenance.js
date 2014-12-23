@@ -92,7 +92,7 @@ function ProvenanceController(panelId){
                 + '{{components}}'
                 + '</li>',
             landing:  '<ol class="blank-plot landing components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.</i></li></ol></div>',
-            mapProv: '<div class="map-prov">{{cubeSelector}}<h3>Map of {{map}}</h3>'
+            mapProv: '<div class="map-prov"><h3>Map of {{map}}</h3>'
                 + '{{mapPlots}}{{pointPlots}}'
                 + '</div>',
             pointPlots: '<div class="pointsets"><h4>'+iconsHMTL.pointset+' mapped set of markers (defined latitude and longitude)</h4>'
@@ -231,10 +231,6 @@ function ProvenanceController(panelId){
                          makeDirty();
                          });*/
                     }
-                    $prov.find('select.cubeSelector').change(function(){
-                        controller.set(provMapconfig, $(this));
-                        delete panelGraph.assets.cube;
-                    });
 
                     //main buttons
                     $prov.find("button.config-cancel")
@@ -992,33 +988,10 @@ function ProvenanceController(panelId){
                     pointPlot,
                     ms,
                     mapPlot,
-                    setids = [],
-                    cubeSelector='',
                     summationMap = panelGraph.isSummationMap();
 
 
                 if(panelGraph.map && (provMapPlots || provPointPlots)){ //map!!
-                    //TODO:  move this fetch into selector click event to avoid unnecessary db fetch
-                    //find the setids that (1) are mapped and (2) are part of a theme
-                    panelGraph.eachComponent(function(){
-                        if(this.isMapSet()=='M' && this.themeid) {
-                            if(setids.indexOf(this.setid)===-1) setids.push(this.setid);
-                        }
-                    });
-                    setids.sort();
-                    if(setids.length>0 || summationMap){
-                        if(setids.length>0 && (!panelGraph.possibleCubes || !panelGraph.possibleCubes.setsids!=setids.join("S"))) {
-                            callApi({command: "GetCubeList", setids: setids}, function(jsoData, textStatus, jqXH){
-                                panelGraph.possibleCubes = {  //save on the main graph to ensure availibility betweeon prove panel ops.
-                                    setsids: setids.join("S"),
-                                    cubes: jsoData.cubes
-                                };
-                                $prov.find('select.cubeSelector').html(cubeOptions());
-                            });
-                        }
-                        cubeSelector = '<div class="cubeSelector right">supplemental visualization: <select class="cubeSelector" data="cubeid">' + cubeOptions() + '</select></div>';
-                    }
-
                     if(provMapPlots){
                         var mapPlotsInnerHTML = '';
                         for(ms=0;ms<provMapPlots.length;ms++){
@@ -1054,7 +1027,6 @@ function ProvenanceController(panelId){
                     }
 
                     mapProvHTML =  mustache(templates.mapProv, {
-                        cubeSelector: cubeSelector,
                         map:  globals.maps[panelGraph.map].name,
                         mapPlots: mapPlotsHTML,
                         pointPlots: pointPlotsHTML

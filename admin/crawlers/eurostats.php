@@ -405,6 +405,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     //note: when a theme has multiple codes, each of the TSVs must have the same dimensions
     //combining codes is used when Eurostats splits the NUTS levels or male, female, and totals across several codes
 
+    preprint($themeConfig["cubes"]);
     //5. save the cubes their  components
     updateCubes($themeConfig, $dsdCodeLists);
 
@@ -657,7 +658,7 @@ function addCubeSet(&$themeConfig, &$dimensions, $barDim, &$barBranch = null, $s
 //addLeftOutCubes adds a cube for each combination of left out dimension's values (if any).
 //The parameters fully described the cube's dimensions and code list snippets
 //Each left out will be used to add qualifiers to the cube name (derived from theme name) if not a root total or a units list
-function addCubesOverLeftOuts($themeConfig, $dimensions, $qualifiers, $cubedBy,
+function addCubesOverLeftOuts(&$themeConfig, &$dimensions, $qualifiers, $cubedBy,
                               $barDim, $barDimKey, $bar_codes, $barRootCode,
                               $stackDim, $stackDimKey, $stack_codes,
                               $sideDim, $sideDimKey, $side_codes, $left_out_dims){

@@ -874,34 +874,46 @@ MashableData.grapher = function(){
                             '<div class="configuration" style="border: solid thin black;">' +
                             '<div class="graph-type">default graph type ' +
                             '<select class="graph-type">' +
-                                '<option value="auto">auto (line &amp; column)</option>' +
-                                '<option value="line">line</option>' +
-                                '<option value="marker">line with markers</option>' +
-                                '<option value="column">column</option>' +
-                                '<option value="stacked-column">stacked column</option>' +
-                                '<option value="area-percent">stacked percent</option>' +
-                                '<option value="area">stacked area</option>' +
-                                '<option value="logarithmic">logarithmic</option>' +
-                                '<option value="normalized-line">normalized line</option>' +
-                                '<option value="pie">pie</option>' +
+                            '<option value="auto">auto (line &amp; column)</option>' +
+                            '<option value="line">line</option>' +
+                            '<option value="marker">line with markers</option>' +
+                            '<option value="column">column</option>' +
+                            '<option value="stacked-column">stacked column</option>' +
+                            '<option value="area-percent">stacked percent</option>' +
+                            '<option value="area">stacked area</option>' +
+                            '<option value="logarithmic">logarithmic</option>' +
+                            '<option value="normalized-line">normalized line</option>' +
+                            '<option value="pie">pie</option>' +
                             '</select>' +
                             '</div>' +
                             '<div class="graph-map-mode">default map type ' +
                             '<select class="graph-map-mode">' +
-                                '<option value="heat">colored heat map of values</option>' +
-                                '<option value="abs-change">colored heat map of changes</option>' +
-                                '<option value="percent-change">colored heat map of percent changes</option>' +
-                                '<option value="bubbles">overlay circles to show values</option>' +
-                                '<option value="change-bubbles">overlay circles to show changes</option>' +
-                                '<option value="max">shows when max value was reached</option>' +
-                                '<option value="min">shows when min value was reached</option>' +
-                                '<option value="treemap">abstract values to rectangles</option>' +
-                                '<option value="change-treemap">abstract change to rectangles</option>' +
+                            '<option value="heat">colored heat map of values</option>' +
+                            '<option value="abs-change">colored heat map of changes</option>' +
+                            '<option value="percent-change">colored heat map of percent changes</option>' +
+                            '<option value="bubbles">overlay circles to show values</option>' +
+                            '<option value="change-bubbles">overlay circles to show changes</option>' +
+                            '<option value="max">shows when max value was reached</option>' +
+                            '<option value="min">shows when min value was reached</option>' +
+                            '<option value="treemap">abstract values to rectangles</option>' +
+                            '<option value="change-treemap">abstract change to rectangles</option>' +
+                            '</select>' +
+                            '</div>' +
+                            '<div class="map-viz-select">map driven vizualization ' +
+                            '<select class="map-viz-select">' +
+                            '<option value="none">none</option>' +
+                            '<option value="scatter">scatter plot of maps with linear regression and correlation coefficient</option>' +
+                            '<option value="line">line chart on geography mouseover</option>' +
+                            '<option value="line-bunnies">line chart with national data on geography mouseover</option>' +
+                            '<option value="component-bar">bar chart of map components on geography mouseover</option>' +
+                            '<option value="components-line">line chart of summed map components on geography mouseover</option>' +
+                            '<option value="list-asc">ordered list (ascending)</option>' +
+                            '<option value="list-desc">ordered list (descending)</option>' +
                             '</select>' +
                             '</div>' +
                             //change map selector and default
                             '<div class="change-basemap">change base map ' +
-                                '<select class="change-basemap"></select>' +
+                            '<select class="change-basemap"></select>' +
                             '</div>' +
                             '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
                             '<table>' +
@@ -1054,6 +1066,7 @@ MashableData.grapher = function(){
                                 url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
                             });
                         });
+
                     var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
                         .find('.mashabledata_chart-map').width($thisPanel.width()-365).end().innerHeight();
                     $thisPanel.find('.graph-data-subpanel').height($thisPanel.innerHeight()-60);  //account for chart/region/markers tabs
@@ -1317,6 +1330,7 @@ MashableData.grapher = function(){
                             - $thisPanel.find('div.graph-type').height()
                             - $thisPanel.find('div.change-basemap').height()
                             - $thisPanel.find('div.graph-map-mode').height()
+                            - $thisPanel.find('div.map-viz-select').height()
                             - $thisPanel.find('div.crop-tool').height()
                             - $thisPanel.find('div.downloads').height()
                             - $thisPanel.find('div.sharing').height()
@@ -1363,6 +1377,56 @@ MashableData.grapher = function(){
                             buildGraphPanel(newGraph); //panelId not passed -> new panel
                         });
                     });
+                    $thisPanel.find('select.map-viz-select')
+                        .append(oGraph.cubeid?'<optgroup label="show supplementary data on geography click"><select value="' + oGraph.cubeid + '">' + oGraph.cubename || 'data cube' + '</select></optgroup>' : '')
+                        .val(oGraph.cubeid || oGraph.mapconfig.mapViz || 'none')
+                        .click(function(){
+                            //1. make a list of grpah's map and point setids that are part of a theme (only these can be part of cubes)
+                            var setids = [];
+                            oGraph.eachComponent(function(){
+                                if((this.isMapSet() || this.isPointSet()) && this.themeid) {
+                                    if(setids.indexOf(this.setid)===-1) setids.push(this.setid);
+                                }
+                            });
+                            setids.sort(); //ensure the array joins to a predictable string
+                            //fetch a list of applicable cubes (if they have not already been fetched for these setids)
+                            if(setids.length>0 && (!oGraph.possibleCubes || !oGraph.possibleCubes.setsids!=setids.join())) {
+                                callApi({command: "GetCubeList", setids: setids}, function(jsoData, textStatus, jqXH){
+                                    oGraph.possibleCubes = {  //save on the main graph to ensure availibility betweeon prove panel ops.
+                                        setsids: setids.join(),
+                                        cubes: jsoData.cubes
+                                    };
+                                    var i, currentCubeAccountedFor = false, cubeOptions = '';
+                                    for(i=0;i<jsoData.cubes.length;i++){
+                                        cubeOptions += '<select value="'+jsoData.cubes[i].cubeid+'"'+(jsoData.cubes[i].cubeid==oGraph.cubeid?' selected':'')+'>'+jsoData.cubes[i].name+'</select>';
+                                        if(jsoData.cubes[i].cubeid==oGraph.cubeid) currentCubeAccountedFor = true;
+                                    }
+                                    if(!currentCubeAccountedFor && oGraph.cubeid) cubeOptions = '<select value="' + oGraph.cubeid + '" selected>' + oGraph.cubename || 'data cube' + '</select>' + cubeOptions;
+                                    $thisPanel.find('select.map-viz-select').find('optgroup').remove().end()
+                                        .append('<optgroup label="show supplementary data on geography click">'+cubeOptions+'</optgroup>');
+                                });
+                            }
+                        })
+                        .change(function(){
+                            var val = $(this).val();
+                            if(!isNaN(val) && val!=oGraph.cubeid){
+                                //new cubeid
+                                oGraph.cubeid = val;
+                                oGraph.cubename = this.options[this.selectedIndex].text;
+                                _redraw();
+                            }
+                            if(val!=oGraph.mapconfig.mapViz||'none'){
+                                //new supplemental map vizualization which is not a data cube
+                                delete oGraph.cubeid;
+                                delete oGraph.cubename;
+                                if(val=='none'){
+                                    delete oGraph.mapconfig.mapViz
+                                } else {
+                                    oGraph.mapconfig.mapViz = val;
+                                }
+                                _redraw();
+                            }
+                        })
 
                     _showChangeSelectors();
                 }
@@ -1480,9 +1544,9 @@ MashableData.grapher = function(){
                         $thisPanel.find('div.graph-type').hide();
                     }
                     if(oGraph.mapsets||oGraph.pointsets){
-                        $thisPanel.find('div.change-basemap').show();
+                        $thisPanel.find('div.change-basemap, div.graph-map-mode, div.map-viz-select').show();
                     } else {
-                        $thisPanel.find('div.change-basemap').hide();
+                        $thisPanel.find('div.change-basemap, div.graph-map-mode, div.map-viz-select').hide();
                     }
                     var downloadOptions = '';
                     if(oGraph.plots) downloadOptions  += '<option value="chart">chart</option>';
