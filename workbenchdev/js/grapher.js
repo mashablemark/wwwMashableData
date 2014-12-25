@@ -1052,19 +1052,7 @@ MashableData.grapher = function(){
                      */
                     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
                         .click(function(){
-                            var grids = [];
-                            if(oGraph.plots) {
-                                var chartDataObject = gridDataForChart(panelId);
-                                grids.push({name: 'chart', grid: {columns: chartDataObject.columns,  data: chartDataObject.rows}});
-                            }
-                            if(oGraph.mapsets) grids.push({name: 'regions', grid: {columns: calculatedMapData.regionGrid.columns, data: calculatedMapData.regionGrid.data}});
-                            if(oGraph.pointsets) grids.push({name: 'markers', grid: {columns: calculatedMapData.markerGrid.columns, data: calculatedMapData.markerGrid.data}});
-                            //do the highcharts trick to download a file
-                            downloadMadeFile({
-                                filename: oGraph.title,
-                                data: JSON.stringify(grids),
-                                url: 'excel.php'  //page of server that use PHPExcel library to create a workbook
-                            });
+                            downloadGraphData(panelId);
                         });
 
                     var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
@@ -1797,6 +1785,7 @@ MashableData.grapher = function(){
                                         label.html(html).css("z-Index",400);
                                         var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
                                         sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
+                                        //TODO: replace jqSparkline with Flot as per onRegionTipShow
                                         $('.inlinesparkline').sparkline(sparkData, sparkOptions);
                                     }
                                 },
@@ -3036,43 +3025,6 @@ MashableData.grapher = function(){
                                 delete regionData[dateKey];
                             }
                         }
-
-                        //3.create slickgrid objects for REGIONS
-                        //create a list of geographies sort by name
-                        if(!isEmbedded){
-                            var regionColumns = [{id: 'date', width: 100, field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
-                            var regionRows = []; //initialize empty grid
-                            var hasCalc = (mapset.calculatedFormula.formula != 'A'); //used to skip calculated column when plot = component
-                            sortedGeoList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                            var id, asset, row, firstDateKey = true, jsDateTime, mapsetName = mapset.name(), mapsetUnits = mapset.units();
-                            for(dateKey in regionData){  //loop through the date (note:  order not guaranteed > regionRows.sort after loop)
-                                //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
-                                jsDateTime = dateFromMdDate(dateKey).getTime();
-                                row = {"order": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle()].freq)}; //TODO: handle down-shifted period
-                                for(i=0;i<sortedGeoList.length;i++){ //first each date row, loop through geos
-                                    for(j=0;j<compSymbols.length;j++){  //for each geo, loop through components
-                                        geo = sortedGeoList[i].geo;
-                                        id = compSymbols[j]+'_'+i;
-                                        asset = graph.assets[components[j].handle()];
-                                        //add columns on first date key loop through
-                                        if(firstDateKey) regionColumns.push({id: id, field: id, name:'<b>'+((asset.maps&&asset.data[geo])?asset.data[geo].name:asset.name)+'</b><br>'+((asset.maps&&asset.data[geo])?asset.data[geo].geoname:asset.geoname||'')+'<br>'+asset.units+'<br>'+asset.src+'<br>'+((asset.maps&&asset.data[geo])?asset.data[geo].notes:asset.notes||'not available')+(hasCalc?'<br>component '+compSymbols[j]:''), cssClass: 'grid-series-column'});
-                                        if(components[j].handle[0]=='M'){
-                                            row[id] = oComponentData[dateKey][compSymbols[j]][geo];
-                                        } else {
-                                            row[id] = oComponentData[dateKey][compSymbols[j]];
-                                        }
-                                        if(typeof row[id] == 'undefined') row[id] = '-';
-                                    }
-                                    if(hasCalc){  //special
-                                        if(firstDateKey) regionColumns.push({id: geo, field: geo, name: '<b>' + mapsetName + ': '+ sortedGeoList[i].name + '</b><br>'+mapsetUnits+'<br><br>'+(hasCalc?'<br>value = '+mapset.calculatedFormula.formula:''), cssClass: 'grid-calculated-column'});
-                                        row[geo] = typeof regionData[dateKey][geo] == 'undefined'?'-':regionData[dateKey][geo];
-                                    }
-                                }
-                                regionRows.push(row);
-                                firstDateKey = false;  //used to detect first pass through = build the columns array
-                            }
-                            regionRows.sort(function(a,b){return b.order - a.order});  //guarentee order
-                        }
                     }
 
                     var fillUnits, radiusUnits;
@@ -3081,12 +3033,7 @@ MashableData.grapher = function(){
                         var latlon, latlons={}, Xdata;
                         var index = 0, pointset, cmp, k;
 
-                        //all pointsets in single grid
-                        var markerColumns = [{id: 'date', field: 'date', name:'name:<br>location:<br>units:<br>source:<br>notes:<br>formula:', cssClass: 'grid-date-column'}]; //initialize with left most dat col
-                        var markerRows = [];
-
                         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
-                            var sortedLatlonList = [];
                             pointset = graph.pointsets[i];
                             if(!pointset.options.color) pointset.options.color = nextColor(graph.pointsets);
                             pointset.formula(pointset);
@@ -3103,10 +3050,9 @@ MashableData.grapher = function(){
                                 if(components[j].handle[0]=='X'){
                                     Xdata = graph.assets[components[j].handle()].data; //shortcut
                                     for(latlon in Xdata){
-                                        //"markers" object and "latlons" array is common for all pointsets in graph, but "sortedLatlonList" is per pointset
+                                        //"markers" object and "latlons" array is common for all pointsets in graph
                                         if(!latlons[latlon]){
                                             latlons[latlon] = true;  //latlons will be used later to loop over the points and square up the final set (i.e. add nulls for missing values)
-                                            sortedLatlonList.push({latlon: latlon, name: Xdata[latlon].name}); //will be sorted and used to generate the slickgrid columns and rows
                                         }
                                         if(markers[latlon]){
                                             markers[latlon].name += '<br>' + Xdata[latlon].name;
@@ -3239,60 +3185,6 @@ MashableData.grapher = function(){
                                     delete markerData[dateKey];
                                 }
                             }
-                            //C.  markerColumns and markerRows to drive slick grids in data tab (inside the pointsets loop)
-                            if(!isEmbedded){
-                                sortedLatlonList.sort(function(a,b){return (a.name> b.name);}); //added to main calc routine to assist in ordering columns
-                                var pointsetHasCalc = (pointset.calculatedFormula.formula != 'A'); //used to skip calculated column when plot = component
-
-                                var id, asset, row, firstDateKey = true, jsDateTime, pointsetName = pointset.name(), pointsetUnits = pointset.units();
-                                for(dateKey in markerData){  //loop through the date (note:  order not guaranteed > markerRows.sort after loop)
-                                    //add row (pointsets will need to check if row exists first / create now row with '' values to square it up)
-                                    jsDateTime = dateFromMdDate(dateKey).getTime();
-                                    row = {"id": jsDateTime, "date": formatDateByPeriod(jsDateTime, graph.assets[components[0].handle()].freq)}; //TODO: handle down-shifted period
-                                    for(var ll=0;ll<sortedLatlonList.length;ll++){ //first each date row, loop through geos
-                                        for(j=0;j<compSymbols.length;j++){  //for each latlon, loop through components
-                                            latlon = sortedLatlonList[ll].latlon;
-                                            id = compSymbols[j]+'_'+ll;
-                                            asset = graph.assets[components[j].handle()];
-
-                                            //add columns on first date key loop through
-                                            if(firstDateKey) markerColumns.push({
-                                                id: id,
-                                                field: id,
-                                                name:        //  name | location | units | source | notes | formula
-                                                    '<b>'+((asset.coordinates&&asset.data[latlon])?asset.data[latlon].name:asset.name) + '</b>'
-                                                        + '<br>'+ ((asset.coordinates&&asset.data[latlon])? latlon : asset.geoname||'')
-                                                        + '<br>' + asset.units
-                                                        + '<br>'+ asset.src
-                                                        + '<br>'+((asset.maps&&asset.data[latlon])?asset.data[latlon].notes:asset.notes||'')
-                                                        + (hasCalc?'<br>component '+compSymbols[j]:''),
-                                                cssClass: 'grid-series-column'});
-
-                                            if(components[j].handle[0]=='X'){
-                                                row[id] = oComponentData[dateKey][compSymbols[j]][latlon];
-                                            } else {
-                                                row[id] = oComponentData[dateKey][compSymbols[j]];
-                                            }
-                                            if(typeof row[id] == 'undefined') row[id] = '-';
-                                        }
-                                        if(pointsetHasCalc){  //special
-                                            if(firstDateKey) markerColumns.push({id: latlon+'-'+i, field: latlon+'-'+i, name: '<b>' + pointsetName + ': '+ sortedLatlonList[ll].name + '</b><br>'+pointsetUnits+'<br><br>'+(hasCalc?'<br>value = '+pointset.calculatedFormula.formula:''), cssClass: 'grid-calculated-column'});
-                                            row[latlon+'-'+i] = typeof markerData[dateKey][latlon] == 'undefined'?'-':markerData[dateKey][latlon];
-                                        }
-                                    }
-                                    for(var found=false, r=0;r<markerRows.length;r++){ //see if date row exists, else add
-                                        if(markerRows[r].id == row.id){
-                                            $.extend(markerRows[r], row);
-                                            found = true;
-                                            break;
-                                        }
-                                    }
-                                    if(!found) markerRows.push(row);
-                                    firstDateKey = false;  //used to detect first pass through = build the columns array
-                                }
-                                markerRows.sort(function(a,b){return b.id - a.id});  //guaranteed order because id is the getTime() of the row date
-                            }
-
                         }
 
                         //fill holes in the matrix with nulls, otherwise jVectorMap leaves the last valid value when changing date
@@ -3324,8 +3216,6 @@ MashableData.grapher = function(){
                         markerData: markerData,  //
                         dates: aMapDates,  // [{a: mdDate (string), dt: intval for js UTC date,  regionMin: (optional float), regionMax: (optional float), markerMin; (optional float), markerMax: (optional float)}]
                         regionData: regionData,
-                        regionGrid: {columns: regionColumns, data: regionRows},
-                        markerGrid:{columns: markerColumns, data: markerRows},
                         fillUnits: fillUnits,
                         radiusUnits: radiusUnits
                     };

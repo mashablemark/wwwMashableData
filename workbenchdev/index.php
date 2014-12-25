@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="/global/js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link  rel="stylesheet" href="workbench.css?v=<?=$workbenchVersion?>" />
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css?v=<?=$workbenchVersion?>" type="text/css">
-    <link rel="stylesheet" href="/global/js/slickgrid/slick.grid.css?v=<?=$workbenchVersion?>" type="text/css">
     <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
         <!--domestic JavaScript files-->
         <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script>
@@ -32,7 +31,6 @@
     <!--script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery-ajaxtransport-xdomainrequest/1.0.1/jquery.xdomainrequest.min.js"></script--->
 
     <script type="text/javascript" src="/global/js/datatables/jquery.dataTables.1.9.4.js"></script><!-- latest version is 1.9.4-->
-    <!--script type="text/javascript" src="/global/js/sparklines/jquery.sparkline.js"></script--><!-- version 2.1-->
     <script type="text/javascript" src="/global/js/flot/jquery.flot.min.js"></script><!-- version 0.8.3-->
     <script type="text/javascript" src="/global/js/flot/excanvas.min.js"></script>
     <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
@@ -58,11 +56,6 @@
         <script type="text/javascript" src="/workbench/js/workbench.min.js?v=<?=$workbenchVersion?>"></script>
     <?php }  ?>
     <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script>
-    <script type="text/javascript" src="/global/js/slickgrid/jquery.event.drag-2.0.min.js"></script>
-    <script type="text/javascript" src="/global/js/slickgrid/slick.core.js"></script>
-    <script type="text/javascript" src="/global/js/slickgrid/slick.grid.js"></script>
-    <script type="text/javascript" src="/global/js/slickgrid/slick.dataview.js"></script>
-
 
     <!--immediate dynamic loading
     <script type="text/javascript" src="js/highcharts.js"></script>
