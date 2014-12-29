@@ -1055,9 +1055,12 @@ MashableData.grapher = function(){
                             downloadGraphData(panelId);
                         });
 
-                    var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height())
-                        .find('.mashabledata_chart-map').width($thisPanel.width()-365).end().innerHeight();
-                    $thisPanel.find('.graph-data-subpanel').height($thisPanel.innerHeight()-60);  //account for chart/region/markers tabs
+                    var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2)
+                        .height($thisPanel.height())
+                        .find('.mashabledata_chart-map')
+                        .width($thisPanel.width()-365).end()
+                        .height();
+                    $thisPanel.find('.graph-data-subpanel').height($thisPanel.height()-60);  //account for chart/region/markers tabs
                     $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
                     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
                     $thisPanel.find('select.download-selector').change(function(){
@@ -1315,13 +1318,9 @@ MashableData.grapher = function(){
                     //the annotations height must be set after the jQuery UI changes to buttons, spinners, ...
                     $thisPanel.find('div.annotations fieldset').height(
                         innerHeight //from graph subpanel
-                            - $thisPanel.find('div.graph-type').height()
-                            - $thisPanel.find('div.change-basemap').height()
-                            - $thisPanel.find('div.graph-map-mode').height()
-                            - $thisPanel.find('div.map-viz-select').height()
-                            - $thisPanel.find('div.crop-tool').height()
-                            - $thisPanel.find('div.downloads').height()
-                            - $thisPanel.find('div.sharing').height()
+                            - $thisPanel.find('div.configuration').outerHeight()
+                            - $thisPanel.find('div.downloads').outerHeight()
+                            - $thisPanel.find('div.sharing').outerHeight()
                             - 50 //save close buttons
                     );
 
@@ -1574,7 +1573,7 @@ MashableData.grapher = function(){
                         if($map) $map.remove();
 
                         //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
-                        var mapHeight = (oGraph.controls.$thisPanel.height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1);
+                        var mapHeight = (oGraph.controls.$thisPanel.height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1) + 'px';
                         if(parseInt(oGraph.mapconfig.cubeid) || oGraph.mapconfig.cubeid == 'sum'){
                             $thisPanel.find('.mashabledata_cube-viz').show().height(mapHeight); //css('display', 'inline-block');
                             $thisPanel.find('.mashabledata_jvmap').css('width', '70%');
@@ -1828,7 +1827,8 @@ MashableData.grapher = function(){
 
                             $thisPanel
                                 .find('div.mashabledata_map').show()
-                                .find('div.mashabledata_jvmap').html('').show().height(mapHeight).vectorMap(vectorMapSettings);
+                                .find('div.mashabledata_jvmap').html('').show().height(mapHeight)
+                                .vectorMap(vectorMapSettings);
                             $map = $thisPanel.find('div.mashabledata_jvmap').vectorMap('get', 'mapObject');
 
                         } else {

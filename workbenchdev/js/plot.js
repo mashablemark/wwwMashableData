@@ -10,7 +10,7 @@ MashableData.Plot = function(components, options){
 };
 
 (function(){
-    var MD = MashableData, globals = MD.globals, grapher = MD.grapher, Plot = MD.Plot;
+    var MD = MashableData, common = MD.common, globals = MD.globals, grapher = MD.grapher, Plot = MD.Plot;
     Plot.prototype.removeCompnent  = function(components, options){
         //this.graph set in graph.addPlot
         this.components = components || [];

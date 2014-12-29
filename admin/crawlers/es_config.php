@@ -25,13 +25,21 @@
 
 //default code list hierarchies (array_merge_recursive() with any code specific values in $config)
 $cl_config = [
-    "CL_SEX" => [
+    "CL_SEX" => [  //!!! will not produce cubes with sex if no UNK component
         "hierarchy" => ["T" => ["M","F","UNK"]],
         "renames" => [ //name adjustments
             "UNK" => "Sex unknown", //e.g. migr_asyappctza
             "NAP" => null, //null = don't show anything (avoid hanging comma separator) form ef_ogadsexage
             "Y" => null //null = don't show anything (avoid hanging comma separator) form ef_ogadsexage
         ]
+        //other codes:
+        //  DIFF = Absolute difference between males and females (ilc_pnp9)
+    ],
+    "CL_SEX:basic" => [
+        "hierarchy" => ["T" => ["M","F"]],
+       /* "renames" => [ //name adjustments
+            "T" => null, //null = don't show anything (avoid hanging comma separator)
+        ]*/
         //other codes:
         //  DIFF = Absolute difference between males and females (ilc_pnp9)
     ],
@@ -452,6 +460,7 @@ $ingest = [
             "CL_AGE"=> "hlth_cd_acdr",
             "CL_UNITS"=>["renames"=>["CDTH_RT"=>""]],  //avoid repeat of "Causes of death"
             "CL_ICD10" => "hlth_cd_acdr", //version of code list in $cl_config to use
+            "CL_SEX" => "basic"
         ],
         "units"=> "deaths per 100,000 inhabitants",  //units string or code list name (e.g. "CL_TYPE") that is actually a units field.  Default = <units> || "CL_UNIT" || "CL_CURRENCY"
         "cube"=> true  //make viz cubes records for theme. defaults to true if missing

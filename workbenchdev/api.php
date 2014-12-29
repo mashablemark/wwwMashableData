@@ -417,8 +417,9 @@ switch($command){
                 $output = getGraphs(0, $ghash);
                 //trim data based on graph end, start and interval dates using dataSliver()
                 foreach($output["graphs"] as $ghandle => $graph){
-                    if($graph["start"] || $graph["end"] || $graph["intervals"]){
-                        foreach($graph["assets"] as $ahandle => $asset){
+                    foreach($graph["assets"] as $ahandle => $asset){
+                        unset($output["graphs"][$ghandle]["assets"][$ahandle]["maps"]);
+                        if($graph["start"] || $graph["end"] || $graph["intervals"]){
                             $atype = (substr($ahandle, 0, 1));
                             switch($atype){
                                 case "M":
@@ -461,7 +462,7 @@ switch($command){
             if(isset($_REQUEST["host"])){
                 $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
                 $sql = "
-                    insert into embedlog (host, obj, objfetches) values ($ghash_var, $host, 1)
+                    insert into embedlog (host, obj, objfetches) values ($host, $ghash_var, 1)
                     on duplicate key
                     update embedlog set objfetches=objfetches+1 where host=$host and obj=$ghash_var
                 ";
@@ -1642,7 +1643,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         coalesce(sd.url, s.url, a.url) as url,
         coalesce(sd.skey, s.setkey) as sourcekey,
         replace('M$ft_join_char', '', coalesce(s.maps, xs.maps)) as maps,
-        replace('M$ft_join_char', '', coalesce(s.freqs, xs.freqs)) as freqs,
+        replace('F$ft_join_char', '', coalesce(s.freqs, xs.freqs)) as freqs,
         concat(IFNULL(s.metadata ,''),' ',IFNULL(a.metadata,''),' ', IFNULL(t.meta,'')) as setmetadata
         FROM graphs g
           JOIN graphplots gp ON g.graphid=gp.graphid

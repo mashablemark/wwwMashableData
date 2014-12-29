@@ -439,7 +439,7 @@ function unixDateFromMd($mdDate){
                 $uDate = new DateTime(substr($mdDate,0,4)."-0". (substr($mdDate,5,1)==1?"1":"7") ."-01");
                 return $uDate->getTimestamp();
             case "Q":
-                $uDate = new DateTime(substr($mdDate,0,4)."-0". sprintf("%02d", intval(substr($mdDate,5,1))*3-2) ."-01");
+                $uDate = new DateTime(substr($mdDate,0,4)."-". sprintf("%02d", intval(substr($mdDate,5,1))*3-2) ."-01");
                 return $uDate->getTimestamp();
             default:  //month
                 $uDate = new DateTime(substr($mdDate,0,4)."-". substr($mdDate,4,2)."-01");
@@ -620,6 +620,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
 function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
     if(!$apidt) $apidt =  date("Ymd");
     sort($arrayData);
+
     $firstPoint = explode(":", $arrayData[0]);
     $lastPoint = explode(":", $arrayData[count($arrayData)-1]);
     $firstDate100k = unixDateFromMd($firstPoint[0])/100;
