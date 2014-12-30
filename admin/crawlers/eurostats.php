@@ -967,7 +967,7 @@ function  updateCubes(&$themeConfig, &$dimensions, $deleteOldCubes = true){
         if($cube["sideDimKey"]){
             $sideDimKeyParts = explode(">", $cube["sideDimKey"]);
             $sideDim = $sideDimKeyParts[0];
-            $sideDimId = saveDimDef($themeId, $cube["stackDimKey"], $dimensions[$sideDim]["name"], $dimDefs);
+            $sideDimId = saveDimDef($themeId, $cube["sideDimKey"], $dimensions[$sideDim]["name"], $dimDefs);
         } else {
             $sideDim = false;
             $sideDimId = "null";
@@ -985,7 +985,9 @@ function  updateCubes(&$themeConfig, &$dimensions, $deleteOldCubes = true){
         if($result->num_rows==1){
             $row = $result->fetch_assoc();
             $cubeid = $row["cubeid"];
-            $sql = "update cubes set themeid=$themeId, totsetid=$totsetid, name=$sqlName, units=$sqlUnits where cubeid=$cubeid";
+            $sql = "update cubes
+                set themeid=$themeId, totsetid=$totsetid, name=$sqlName, units=$sqlUnits, bardimid=$barDimId, stackdimid=$stackDimId, sidedimid=$sideDimId
+                where cubeid=$cubeid";
             runQuery($sql);
         } else {
             $sql = "insert into cubes (themeid, totsetid, ckey, name, units, bardimid, stackdimid, sidedimid)
@@ -1030,8 +1032,9 @@ function  updateCubes(&$themeConfig, &$dimensions, $deleteOldCubes = true){
     if($deleteOldCubes){
         $result = runQuery("select ckey, cubeid from cubes where themeid=$themeId");
         while ($row = $result->fetch_assoc()){
-            if(!isset($cubes[$row["ckey"]])){
-                die("deleting cube for cubekey = $row[ckey] (cubeid = $row[cubeid])");
+            $themeKeyParts = explode(":", $row["ckey"]);
+            if(!isset($cubes[$themeKeyParts[1].":".$themeKeyParts[2]])){
+                printNow("deleting cube for cubekey = $themeKeyParts[1]:$themeKeyParts[2] (cubeid = $row[cubeid])");
                 //cube is in the database that is not in our cubes array
                 runQuery("delete from cubecomponents where cubeid=".$row["cubeid"]);
                 runQuery("delete from cubes where cubeid=".$row["cubeid"]);

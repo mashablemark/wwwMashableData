@@ -1343,6 +1343,66 @@ MashableData.grapher = function(){
                             oGraph.type=$(this).val();
                             _redraw();
                         });
+                    $thisPanel.find('select.map-viz-select')
+                        .append(oGraph.cubeid?'<optgroup label="show supplementary data on geography click"><select value="' + oGraph.cubeid + '">' + oGraph.cubename || 'data cube' + '</select></optgroup>' : '')
+                        .val(oGraph.cubeid || oGraph.mapconfig.mapViz || 'none')
+                        .click(function(){
+                            //1. make a list of grpah's map and point setids that are part of a theme (only these can be part of cubes)
+                            var setids = [], themeids = [];
+                            oGraph.eachComponent(function(){
+                                if((this.isMapSet() || this.isPointSet()) && this.themeid) {
+                                    if(setids.indexOf(this.setid)===-1) setids.push(this.setid);
+                                    if(themeids.indexOf(this.themeid)===-1) themeids.push(this.themeid);
+                                }
+                            });
+                            setids.sort(); //ensure the array joins to a predictable string
+                            //fetch a list of applicable cubes (if they have not already been fetched for these setids)
+                            if(setids.length>0 && (!oGraph.possibleCubes || oGraph.possibleCubes.setsids!=setids.join())) {
+                                callApi({command: "GetCubeList", setids: setids, themeids: themeids},
+                                    function(jsoData, textStatus, jqXH){
+                                        oGraph.possibleCubes = {  //save on the main graph to ensure availibility betweeon prove panel ops.
+                                            setsids: setids.join(),
+                                            cubes: jsoData.cubes
+                                        };
+                                        var i, currentCubeAccountedFor = false, cube, cubeOptions = '', type = false;
+                                        for(i=0;i<jsoData.cubes.length;i++){
+                                            cube = jsoData.cubes[i];
+                                            if(type!=cube.type){
+                                                cubeOptions += (type?'</optgroup>':'') + '<optgroup label="show supplementary data '+cube.type+' on geography click">';
+                                                type = cube.type;
+                                            }
+                                            cubeOptions += '<option value="'+cube.cubeid+'"'+(cube.cubeid==oGraph.cubeid?' selected':'')+'>'+cube.name+'</option>';
+                                            if(cube.cubeid==oGraph.cubeid) currentCubeAccountedFor = true;
+                                        }
+                                        if(!currentCubeAccountedFor && oGraph.cubeid) cubeOptions = '<select value="' + oGraph.cubeid + '" selected>' + oGraph.cubename || 'data cube' + '</select>' + cubeOptions;
+                                        $thisPanel.find('select.map-viz-select').find('optgroup').remove().end()
+                                            .append(cubeOptions+'</optgroup>');
+                                    });
+                            }
+                        })
+                        .change(function(){
+                            var val = $(this).val();
+                            if(!isNaN(val)){
+                                if(val!=oGraph.cubeid){
+                                    //new cubeid
+                                    oGraph.cubeid = val;
+                                    oGraph.cubename = this.options[this.selectedIndex].text;
+                                    _redraw();
+                                }
+                            } else {
+                                if(val!=oGraph.mapconfig.mapViz||'none'){
+                                    //new supplemental map vizualization which is not a data cube
+                                    delete oGraph.cubeid;
+                                    delete oGraph.cubename;
+                                    if(val=='none'){
+                                        delete oGraph.mapconfig.mapViz
+                                    } else {
+                                        oGraph.mapconfig.mapViz = val;
+                                    }
+                                    _redraw();
+                                }
+                            }
+                        });
                     $thisPanel.find('select.graph-map-mode')
                         .val(oGraph.mapconfig.mapMode || 'default')
                         .change(function(){
@@ -1364,56 +1424,6 @@ MashableData.grapher = function(){
                             buildGraphPanel(newGraph); //panelId not passed -> new panel
                         });
                     });
-                    $thisPanel.find('select.map-viz-select')
-                        .append(oGraph.cubeid?'<optgroup label="show supplementary data on geography click"><select value="' + oGraph.cubeid + '">' + oGraph.cubename || 'data cube' + '</select></optgroup>' : '')
-                        .val(oGraph.cubeid || oGraph.mapconfig.mapViz || 'none')
-                        .click(function(){
-                            //1. make a list of grpah's map and point setids that are part of a theme (only these can be part of cubes)
-                            var setids = [];
-                            oGraph.eachComponent(function(){
-                                if((this.isMapSet() || this.isPointSet()) && this.themeid) {
-                                    if(setids.indexOf(this.setid)===-1) setids.push(this.setid);
-                                }
-                            });
-                            setids.sort(); //ensure the array joins to a predictable string
-                            //fetch a list of applicable cubes (if they have not already been fetched for these setids)
-                            if(setids.length>0 && (!oGraph.possibleCubes || !oGraph.possibleCubes.setsids!=setids.join())) {
-                                callApi({command: "GetCubeList", setids: setids}, function(jsoData, textStatus, jqXH){
-                                    oGraph.possibleCubes = {  //save on the main graph to ensure availibility betweeon prove panel ops.
-                                        setsids: setids.join(),
-                                        cubes: jsoData.cubes
-                                    };
-                                    var i, currentCubeAccountedFor = false, cubeOptions = '';
-                                    for(i=0;i<jsoData.cubes.length;i++){
-                                        cubeOptions += '<select value="'+jsoData.cubes[i].cubeid+'"'+(jsoData.cubes[i].cubeid==oGraph.cubeid?' selected':'')+'>'+jsoData.cubes[i].name+'</select>';
-                                        if(jsoData.cubes[i].cubeid==oGraph.cubeid) currentCubeAccountedFor = true;
-                                    }
-                                    if(!currentCubeAccountedFor && oGraph.cubeid) cubeOptions = '<select value="' + oGraph.cubeid + '" selected>' + oGraph.cubename || 'data cube' + '</select>' + cubeOptions;
-                                    $thisPanel.find('select.map-viz-select').find('optgroup').remove().end()
-                                        .append('<optgroup label="show supplementary data on geography click">'+cubeOptions+'</optgroup>');
-                                });
-                            }
-                        })
-                        .change(function(){
-                            var val = $(this).val();
-                            if(!isNaN(val) && val!=oGraph.cubeid){
-                                //new cubeid
-                                oGraph.cubeid = val;
-                                oGraph.cubename = this.options[this.selectedIndex].text;
-                                _redraw();
-                            }
-                            if(val!=oGraph.mapconfig.mapViz||'none'){
-                                //new supplemental map vizualization which is not a data cube
-                                delete oGraph.cubeid;
-                                delete oGraph.cubename;
-                                if(val=='none'){
-                                    delete oGraph.mapconfig.mapViz
-                                } else {
-                                    oGraph.mapconfig.mapViz = val;
-                                }
-                                _redraw();
-                            }
-                        })
 
                     _showChangeSelectors();
                 }

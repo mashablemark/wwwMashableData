@@ -91,7 +91,7 @@ function ProvenanceController(panelId){
                 + '<span class="plot-formula">= {{formula}}</span><br>'
                 + '{{components}}'
                 + '</li>',
-            landing:  '<ol class="blank-plot landing components" style=""><li class="not-sortable">Drag and drop to plot lines to reorder them.  Drag and drop multiple series into a plot to create sums and ratios. Drag a series here to create a new plot line.</i></li></ol></div>',
+            landing:  '<ol class="components landing" style="list-style-type: none;"><li class="not-sortable">Drag plot to reorder them.  Drag multiple data series into a single plot to create sums and ratios. Drag a data series here to create a new plot line.</i></li></ol></div>',
             mapProv: '<div class="map-prov"><h3>Map of {{map}}</h3>'
                 + '{{mapPlots}}{{pointPlots}}'
                 + '</div>',
@@ -182,7 +182,7 @@ function ProvenanceController(panelId){
                 + '<span class="comp-edit-k" style="display:none;"><input class="short" value="{{k}}"> * </span>'
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
-            okcancel: '<button class="config-ok">ok</button><button class="config-cancel">cancel edits</button>'
+            okcancel: '<button class="config-cancel">cancel edits</button><button class="right config-ok">ok</button>'
         },
         controller = {
             build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
@@ -191,7 +191,8 @@ function ProvenanceController(panelId){
                     if($prov.find('.chart-plots').length==0) $prov.find('.config-cancel').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div');
                     $prov.find('ol.plots').append(controller.seriesPlotHTML(plotIndex) );
                 } else {  //initialize!!!
-                    $prov = $('#'+panelId + ' div.provenance').show(); //compensation for margins @ 15px + borders
+                    $panel = $('#'+panelId);
+                    $prov = $panel.find('div.provenance').show(); //compensation for margins @ 15px + borders
                     panelGraph = globals.panelGraphs[panelId]; //reference kept for duration
                     controller.isDirty = false;
 
@@ -348,8 +349,11 @@ function ProvenanceController(panelId){
                     .sortable({
                         containment: $prov.get(0),
                         connectWith: ".components",
+                        helper: 'clone',
+                        placeholder: "ui-state-highlight",
+                        forcePlaceholderSize: true,
                         disabled: false,
-                        cancel: ".component-landing",
+                        cancel: ".landing, .not-sortable",
                         axis: "y",
                         delay: 150,   //in ms to prevent accidentally drags
                         start: function(event, ui){
@@ -381,7 +385,10 @@ function ProvenanceController(panelId){
                                 $ol: ui.item.parent()
                             }
                         },
-                        update: function(event, ui){ controller.componentMoved(ui)}
+                        update: function(event, ui){
+                            console.info('updated');
+                            controller.componentMoved(ui)
+                        }
                     })
                     .disableSelection();
                 $prov.find("ol.plots")
@@ -593,65 +600,64 @@ function ProvenanceController(panelId){
                 delete provPointPlots;
                 delete provMapconfig;
                 delete provGraph;  //don't graph.destroy() as that would destroy the transferred plots
-                $prov.html('');  //remove of HTML elements and their events
+                $prov.html('').hide();  //remove of HTML elements and their events
                 controller.isDirty = false;
-                $prov.closest('div.graph-panel').find('.graph-nav-graph').click();
+                $panel.find('.graph-chart').show();
             },
             compIndex: function(liComp){
                 var $liComp = $(liComp);
                 var cmpIndex = $liComp.index();
                 return cmpIndex;
             },
-            getModels: function(li){ //li can be a plot of a component list item (DOM or jQuery object)
-                var models = {}, $li = $(li), $liPlot;
-                if($li.hasClass('component')){
+            getModel: function(li){ //li can be a plot of a component list item (DOM or jQuery object)
+                var $li = $(li), $liComp, $liPlot, plot, plotIndex, isComponent = $li.hasClass('component'), component, compIndex = false;
+                if(isComponent){
                     $liComp = $li;
                     $liPlot.closest('li');
+                    compIndex = $liComp.index();
                 } else {
-                    $liPlot = $liComp;
                     $liComp = false;
+                    $liPlot = $li;
                 }
-                if($liPlot.hasClass('plot')){}
-                if($liPlot.hasClass('mapplot')){}
-                if($liPlot.hasClass('pointPlot')){}
-                models.plot = d;
+                plotIndex = $liPlot.index();
+                if($liPlot.hasClass('plot')) plot = provPlots[plotIndex];
+                if($liPlot.hasClass('mapplot')) plot = provMapPlots[plotIndex];
+                if($liPlot.hasClass('pointPlot')) plot = provPointPlots[plotIndex];
+                if(isComponent){
+                    compIndex = $liComp.index();
+                    component = plot.components[compIndex];
+                }
 
-
-                return models;
-            },
-            getComponent$li: function(plot, comp){
-
-            },
-            getPlot$li: function(plot){
-
+                return {
+                    plot: plot,
+                    plotIndex: plotIndex,
+                    component: component,
+                    compIndex: compIndex
+                }
             },
             showComponentEditor:  function showComponentEditor(liComp, plotType){
-                var plotObject, components, $liComp = $(liComp);
-                var plotIndex = $(liComp).closest('li.plot, li.pointPlot, li.mapplot').index();
-                if(plotType=="mapPlot") plotObject = provMapPlots[plotIndex];
-                if(plotType=="pointPlot") plotObject = provPointPlots[plotIndex];
-                if(plotType=="plot") plotObject = provPlots[plotIndex];
-                var iComp = controller.compIndex($liComp); //could have just gotten index of liComp as the object should be in sync
-                var component = plotObject.components[iComp];
-                var compHandle = component .handle();
+                var $liComp = $(liComp);
+                var model = controller.getModel(liComp);
+                var component = model.component;
+                var handle = component .handle();
                 var editDiv = (component.isSeries()?'<button class="comp-copy prov-float-btn">make copy</button>':'')
                     + '<button class="comp-delete prov-float-btn">remove series</button>'
                 var $editDiv = $(editDiv);
                 $liComp.find(".plot-op").hide().after(
                     '<div class="op">'
-                        +       '<input type="radio" data="+"  id="op-addition'+compHandle+'" value="+" name="op-radio'+compHandle+'" /><label for="op-addition'+compHandle+'">+</label>'
-                        +       '<input type="radio" data="-"  id="op-subtraction'+compHandle+'" value="-" name="op-radio'+compHandle+'" /><label for="op-subtraction'+compHandle+'">-</label>'
-                        +       '<input type="radio" data="*"  id="op-multiply'+compHandle+'" value="*" name="op-radio'+compHandle+'" /><label for="op-multiply'+compHandle+'">*</label>'
-                        +       '<input type="radio" data="/"  id="op-divide'+compHandle+'" value="/" name="op-radio'+compHandle+'" /><label for="op-divide'+compHandle+'">/</label>'
+                        +       '<input type="radio" data="+"  id="op-addition'+handle+'" value="+" name="op-radio'+handle+'" /><label for="op-addition'+handle+'">+</label>'
+                        +       '<input type="radio" data="-"  id="op-subtraction'+handle+'" value="-" name="op-radio'+handle+'" /><label for="op-subtraction'+handle+'">-</label>'
+                        +       '<input type="radio" data="*"  id="op-multiply'+handle+'" value="*" name="op-radio'+handle+'" /><label for="op-multiply'+handle+'">*</label>'
+                        +       '<input type="radio" data="/"  id="op-divide'+handle+'" value="/" name="op-radio'+handle+'" /><label for="op-divide'+handle+'">/</label>'
                         +   '</div>');
                 $liComp.find("div.op").find("input[data='"+component.options.op+"']").attr('checked','checked')
                     .end()
                     .buttonset()
                     .find('input:radio')
                     .change(function(){
-                        controller.set(plotObject.components[iComp].options, 'op', $(this).val());
-                        controller.setFormula(plotObject, $liComp.closest(".plot"));
-                        $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.cssClass[plotObject.components[iComp].options.op]);
+                        controller.set(model.component.options, 'op', $(this).val());
+                        controller.setFormula(model.plot, $liComp.closest(".plot"));
+                        $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.cssClass[model.plot.components[model.compIndex].options.op]);
                     });
 
                 $editDiv.appendTo($liComp).slideDown();  //add the new comp editor and animate it open
@@ -667,17 +673,17 @@ function ProvenanceController(panelId){
                             component.options.k = Math.abs(parseFloat(this.value));
                             if(component.options.k==0) component.options.k=1;
                             makeDirty();
-                            controller.setFormula(plotObject,$liComp.closest('ol').parent());
+                            controller.setFormula(model.plot, $liComp.closest('ol').parent());
                         }  else {
                             dialogShow('Error','Scalors must be numerical');
                         }
                         $(this).val(component.options.k);
                     });
                 $liComp.find(".comp-delete").button({icons: {secondary: 'ui-icon-trash'}}).addClass('ui-state-error').click(function(){
-                    if(plotObject.components.length==1) {
+                    if(model.plot.components.length==1) {
                         $liComp.closest('li.plot').find('.plot-delete').click();
                     } else {
-                        plotObject.components.splice(iComp,1);
+                        model.plot.components.splice(model.compIndex, 1);
                         $liComp.remove();
                         makeDirty();
                     }
@@ -685,7 +691,6 @@ function ProvenanceController(panelId){
                 $liComp.find(".comp-copy").button({icons: {secondary: 'ui-icon-copy'}}).click(function(){ //copy make a new plot, even if in X or M
                     var newPlot = {options: {}, components: [$.extend(true, {}, component, {options: {op: '+'}})]};
                     provPlots.push(newPlot);
-                    var name = panelGraph.assets[compHandle].name;
                     $prov.find("ol.plots").append(controller.componentsHTML(newPlot));
                 });
             },
@@ -1520,7 +1525,7 @@ function ProvenanceController(panelId){
     //private provence methods
     function makeDirty(){
         controller.isDirty = true;
-        $prov.find('.config-cancel').button('enable');
+        $prov.find('.config-ok').button('enable');
     }
     function continuousColorStrip(a, b){
         return mustache(templates.continuousColorStrip, {a: a, b: b});

@@ -610,19 +610,24 @@ switch($command){
         $themeids = implode(",", cleanIdArray($_POST["themeids"]));
         $output = ["status"=>"ok", "cubes"=>[]];
         //totset cubes UNION sibling cubes
-        $sql = "(select totsetid as setid, 'drill-down' as rel, t.themeid, t.name as themename, c.cubeid, c.name
+        $sql = "(select totsetid as setid, 'series breakdown' as relation, t.themeid, t.name as themename, c.cubeid, c.name, c.units
         from cubes c inner join themes t on t.themeid=c.themeid
         where c.totsetid in ($setids) and c.themeid in ($themeids)
         order by themename, c.name, c.units)
         UNION ALL
-        (select distinct setid, 'context' as rel,  t.themeid, t.name as themename, c.cubeid, c.name
+        (select distinct setid, 'series context' as relation,  t.themeid, t.name as themename, c.cubeid, c.name, c.units
         from cubes c inner join themes t on t.themeid=c.themeid join cubecomponents cc on cc.cubeid=c.cubeid
         where cc.setid in ($setids) and c.themeid in ($themeids)
-        order by themename, c.name, c.units)";
+        order by themename, c.name, c.units)
+        UNION ALL
+        (select distinct rootsetid, 'set information' as relation,  t.themeid, t.name as themename, c.cubeid, c.name, c.units
+        from cubes c inner join themes t on t.themeid=c.themeid and t.rootsetid = c.totsetid
+        where t.themeid in ($themeids)
+        order by themename, c.name, c.units)
+        ";
         $result = runQuery($sql,"GetCubeList root totals");
         while($row = $result->fetch_assoc()){
-            if(!isset($output["cubes"]["S".$row["setid"]])) $output["cubes"]["S".$row["setid"]] = ["themename"=>$row["themename"], "cubes"=>[]];
-            $output["cubes"]["S".$row["setid"]]["cubes"][] = ["name"=>$row["name"], "cubeid"=>$row["cubeid"], "type"=>$row["relation"]];  //organize by setid because they will be attached to components and available for graph level op
+            $output["cubes"][] = ["name"=>$row["name"], "units"=>$row["units"],  "cubeid"=>$row["cubeid"], "type"=>$row["relation"]];  //organize by setid because they will be attached to components and available for graph level op
         }
         break;
     case "GetCubeSeries":
@@ -631,6 +636,7 @@ switch($command){
         } else {
             $cubeid = intval($_REQUEST["cubeid"]);
             $geokey = $_REQUEST["geokey"];
+            $freq = safePostVar("freq");
             //1. check cache
             $currentmt = microtime(true);
             $ghash_var = safeStringSQL($cubeid.":".$geokey);
@@ -666,7 +672,7 @@ switch($command){
                         break;
                     }
                 }
-                getCubeSeries($output, $cubeid, $geoid);
+                getCubeSeries($output, $cubeid, $geoid, $freq);
                 //3. insert or update cache
                 $global_sql_logging = $sql_logging;  //don't log these massive inserts
                 $sql_logging = false;
@@ -935,7 +941,6 @@ switch($command){
             WHERE cs.setid = $setid and c.catid<>1
             GROUP BY c.catid, c.apicatid, c.name";
             //don't get the root category (catid=1)
-
         }
         logEvent("GetCatChains: get series cats", $sql);
         $catrs = runQuery($sql);
@@ -1575,6 +1580,8 @@ $output["exec_time"] = $time_elapsed . 'ms';
 $output["command"] = $command;
 echo json_encode($output);
 closeConnection();
+
+
 //shared routines
 function BuildChainLinks(&$chains){
     $recurse = false;
@@ -1606,15 +1613,18 @@ function BuildChainLinks(&$chains){
     }
     return $recurse;
 }
+
 function makeGhash($gid){
     return md5($gid . "mashrocks".microtime());
 }
+
 function setGhash($gid){  //does not check permissions!
     $newHash = makeGhash($gid);
     $sql = "update graphs set ghash = '" . $newHash . "' where graphid = " . $gid;
     runQuery($sql, "setGhash");
     return $newHash;
-};
+}
+
 function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEmbeddedGraph"
     global $ft_join_char;
 //if $userid = 0, must be a public graph; otherwise must own graph
@@ -1750,7 +1760,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         }
     }
     if(strlen($ghash)>0){
-        $mapconfig = isset($output["graphs"]["G" . $gid]["mapconfig"])?json_decode($output['graphs']['G' . $gid]["mapconfig"],true):null;
+        $mapconfig = isset($output["graphs"]["G" . $gid]["mapconfig"])?json_decode($output["graphs"]["G" . $gid]["mapconfig"],true):null;
         if($mapconfig!==null){
             if(isset($mapconfig["cubeid"])){
                 $output['graphs']['G' . $gid]["assets"]["cube"]=[];
@@ -1761,12 +1771,20 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
                 } else {
                     $cubegeoid = 0;
                 }
+
+                if(isset($mapconfig["cubefreq"])){
+                    $cubefreq = safeStringSQL($mapconfig["cubefreq"]);
+                } else {
+                    $cubegeoid = 0;
+                }
+
                 getCubeSeries($output['graphs']['G' . $gid]["assets"], $mapconfig["cubeid"], $cubegeoid);
             }
         }
     }
     return $output;
 }
+
 function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
 //used by:
 //    "GetMapSet" command from workbench.QuickViewToMap and workbench.getGraphMapSets()
@@ -1836,6 +1854,7 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     }*/
     //return $assets;
 }
+
 function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = false){
     global $db, $orgid;
     $sql = "select ps.pointsetid, ps.name, ps.units, ps.freq, ps.freqset, ps.themeid, "
@@ -1880,11 +1899,13 @@ function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = fa
         );
     }
 }
+
 function freqsFieldToArray($freqs){
     global $ft_join_char;
     if(!$freqs) return [];
     return explode(" ", str_replace("F".$ft_join_char, "", $freqs));
 }
+
 function mapsFieldCleanup($mapsField){
     global $ft_join_char;
     if($mapsField) {
@@ -1893,38 +1914,53 @@ function mapsFieldCleanup($mapsField){
         return null;
     }
 }
+
 function handle(&$obj){
     return $obj["settype"].$obj["setid"].(isset($obj["freq"])?$obj["freq"]:"").(isset($obj["geoid"])?"G".$obj["geoid"]:"").(isset($obj["latlon"])?"L".$obj["latlon"]:"");
 }
-function getCubeSeries(&$output, $cubeid, $geoid=0){
+
+function getCubeSeries(&$output, $cubeid, $geoid=0, $sqlFreq=false){
     //fetch cube and theme name (just in case)
-    $sql = "select c.units, c.name as cubename, t.name as themename from cubes c join themes t on t.themeid=c.themeid where cubeid=$cubeid";
-    $result = runQuery($sql,"GetCubeSeries dimensions");
+    $sql = "select c.units, c.name as cubename, t.name as themename, cd1.name as baraxis, cd1.json as barnames, cd2.name as stackaxis, cd2.json as stacknames, cd3.name as sideaxis, cd3.json as sidenames
+    from cubes c join themes t on t.themeid=c.themeid
+    left outer join cubedims cd1 on cd1.dimid=c.bardimid
+    left outer join cubedims cd2 on cd2.dimid=c.stackdimid
+    left outer join cubedims cd3 on cd3.dimid=c.sidedimid
+    where cubeid=$cubeid";
+    $result = runQuery($sql,"GetCubeSeries cube and dimensions");
     while($row = $result->fetch_assoc()){
         $output["name"] = $row["cubename"];
         $output["theme"] = $row["themename"];
         $output["units"] = $row["units"];
-    }
-    $output["dimensions"] = [];
-    //fetch cube dimensions (just in case)
-    $sql = "select json from cubedims where cubeid=$cubeid order by dimorder";
-    $result = runQuery($sql,"GetCubeSeries dimensions");
-    $output["dimensions"] = [];
-    while($row = $result->fetch_assoc()){
-        array_push($output["dimensions"], ["list"=>json_decode($row["json"], true)]);
+        $output["baraxis"] = $row["baraxis"];
+        $output["barnames"] = $row["barnames"];
+        $output["stackaxis"] = $row["stackaxis"];
+        $output["stacknames"] = $row["stacknames"];
+        $output["sideaxis"] = $row["sideaxis"];
+        $output["sidenames"] = $row["sidenames"];
     }
     //fetch cube series
     if(intval($geoid)>0){
         $output["series"] = [];
-        $sql = "select name, data from series s inner join cubeseries cs on s.setid=cs.setid where cs.geoid = $geoid and cs.cubeid=$cubeid";
-        $result = runQuery($sql,"GetCubeSeries data");
+        $sql = "select s.name, sd.data, barorder, stackorder, sideorder
+        from cubecomponents cc
+        inner join sets s on cc.setid=s.setid
+        inner join setdata sd on s.setid=sd.setid
+        where sd.geoid = $geoid and cc.cubeid=$cubeid";
+        if($sqlFreq){
+            $sql .= " and sd.freq=$sqlFreq";
+        } else {
+            $sql .= " and sd.freq=substring(s.freqs, 3, 1)";  //first matching frequency after the 'F©'
+        }
+        $result = runQuery($sql." order by barorder, stackorder, sideorder","GetCubeSeries data");
         while($row = $result->fetch_assoc()){
-            array_push($output["series"], $row);
+            $output["series"][] = $row;
         }
     } else {
         $output["status"] = "invalid geoid $geoid";
     }
 }
+
 function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=false){ //call only if jsStart and jsEnd are valid
     if($intervals){
         $points = explode('|', $data);
