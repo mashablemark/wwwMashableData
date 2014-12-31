@@ -6,7 +6,7 @@ MashableData.grapher = function(){
     var MD = MashableData,
         globals = MD.globals,
         common = MD.common,
-        mapsList = common.maps,
+        mapsList = globals.maps,
         panelGraphs = globals.panelGraphs,
         months = globals.months,
         period = globals.period,
@@ -2225,7 +2225,7 @@ MashableData.grapher = function(){
                                 units = calculatedMapData.mapUnits;
                                 var regionData = _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
                                 for(id in regionData){
-                                    if(regionData[id] !== null){
+                                    if(regionData[id] !== null && $map.mapData.paths[id]){ //exclude regions (bunnies, over seas terriories) included in mapset data but not on basemap
                                         list.push({name: $map.getRegionName(id), value: regionData[id]});
                                     }
                                 }
@@ -2246,11 +2246,11 @@ MashableData.grapher = function(){
                             }
                             list.sort(function(a,b){return (oGraph.mapconfig.mapViz=='list-desc'?-1:1)*(b.value - a.value);});
 
-                            var html='<table><thead><th>Rank <br>' + $thisPanel.find('div.mashabledata_map-date').html() + '</th><th>' + calculatedMapData.title + '</th><th>' + units + '</th></thead><tbody>';
+                            var html='<div class="mashabledata_map-list"><table><thead><th>Rank <br>' + $thisPanel.find('div.mashabledata_map-date').html() + '</th><th>' + calculatedMapData.title + '</th><th>' + units + '</th></thead><tbody>';
                             for(var i=0;i<list.length;i++){
                                 html += '<tr data="'+list[i].code+'"><td>'+ (i+1) +'</td><td>'+ list[i].name +'</td><td>'+ list[i].value +'</td></tr>';
                             }
-                            html += '</tbody></table>';
+                            html += '</tbody></table></div>';
                             $thisPanel.find('.mashabledata_cube-viz').html(html);
                         }
                         if(code){
@@ -2633,6 +2633,7 @@ MashableData.grapher = function(){
                         //LISTS
                         if(!oGraph.cubeid && (oGraph.mapconfig.mapViz=='list-asc' || oGraph.mapconfig.mapViz=='list-desc')){
                             _drawMap_makeList(code?false:'new', code);
+                            return;
                         }
 
                         //COMMON TO ALL OTHER CUBE VIZES
