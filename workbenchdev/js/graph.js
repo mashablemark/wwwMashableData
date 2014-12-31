@@ -19,13 +19,13 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     this.published = properties.published || 'N';
     this.userid = parseInt(properties.userid)||null
 
-    //inflations
+    //inflaters
     if(typeof this.annotations =="string") this.annotations = safeParse(this.annotations, []);
     if(typeof this.mapconfig =="string") this.mapconfig = safeParse(this.mapconfig, {});
 
     //have allplot to inflate?
     if(properties.allplots){
-        var p, c, comp, plot, handle, components, newComponet, newPlot;
+        var p, c, comp, plot, handle, components;
         for(p=0;p<properties.allplots.length;p++){
             plot = properties.allplots[p];
             components = [];
@@ -239,7 +239,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     };
 
     Graph.prototype.save = function saveGraph(callback) {
-//first save to db and than to $dtMyGraphs and oMyGraphs once we have a gid
+        //first save to db and than to $dtMyGraphs and oMyGraphs once we have a gid
         var oGraph = this, serieslist = [], now = new Date().getTime(), mapseriespointplots = [], plotRepresentation;
 
         //create/update the series list
@@ -340,7 +340,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             this.ghash = oReturn.ghash;
             callBack();
         });
-    }
+    };
 
     Graph.prototype.eachPlot = function eachPlot(callback){
         var graph = this;
@@ -365,6 +365,26 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             }
         });
         return mapFreq;
+    };
+    Graph.prototype.hasMapViz = function hasMapViz(){
+        if(!this.mapsets || (!this.cubeid && !this.mapconfig.mapViz)) return false;  //todo:  pointsets (only mapsets for now)
+        if(this.cubeid) return true;
+        switch (this.mapconfig.mapViz){ //some visualization selections have supplementary requirement that must be met
+            case "scatter":
+                return this.mapsets.count==2; //must have two maps!
+            case "line":
+                return true; //always possible
+            case "line-bunnies":
+                return true; //will degrade to "line" if no bunny, but a mapViz will always be always possible
+            case "components-bar": //will show a single bar for a single component mapset, but a mapViz will always be always possible
+            case "components-line":  //will show a single line for a single component mapset, but a mapViz will always be always possible
+                return true;
+            case "list-asc": //lists are always possible
+            case "list-desc": //lists are always possible
+                return true;
+            default:
+                return false
+        }
     };
     Graph.prototype.isSummationMap = function isSummationMap(){
         if(!this.mapsets) return false;  //todo:  pointsets (only mapsets for now)

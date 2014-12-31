@@ -332,7 +332,7 @@ MashableData.Plot = function(components, options){
         if(!this.type()=='M' || !this.graph){
             return false;
         } else {
-            return (this.graph.mapconfig && this.graph.mapconfig.mapMode) || this.options.mapMode || 'heat';
+            return this.options.mapMode || this.graph.mapconfig.mapMode || 'heat';
         }
     };
     Plot.prototype.clone = function(callback){
