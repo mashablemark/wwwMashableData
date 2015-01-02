@@ -99,7 +99,7 @@ function ProvenanceController(panelId){
                 // NO SIMPLE MARKERS = FINISH CURRENT FUNCTIONALITY !!!  + '<span class="edit-label marker-scaling right"><label><input type="checkbox" '+(provMapconfig.markerScaling=='none'?'checked':'')+'> do not scale markers </label></span>'
                 + '<div class="pointsets-colors" style="margin-bottom:5px;"></div>'
                 + '<ol class="pointsets">{{pointPlotsHTML}}</ol></div>',
-            pointPlot: '<li class="pointPlot">'
+            pointPlot: '<li class="pointplot">'
                 + '<button class="edit-pointPlot right">configure</button>'
                 + '<div class="plot-info" style="display:inline-block;">'
                 + '<div class="marker" style="background-color: {{color}}"></div>'
@@ -287,7 +287,7 @@ function ProvenanceController(panelId){
                     .click(function(){
                         var $liPlot = $(this).closest("li");
                         $liPlot.find("ol li.component").each(function(){
-                            controller.showComponentEditor(this, 'pointPlot');
+                            controller.showComponentEditor(this, 'pointplot');
                         });
                         controller.showPointPlotEditor($liPlot);
                     });
@@ -613,7 +613,7 @@ function ProvenanceController(panelId){
                 var $li = $(li), $liComp, $liPlot, plot, plotIndex, isComponent = $li.hasClass('component'), component, compIndex = false;
                 if(isComponent){
                     $liComp = $li;
-                    $liPlot.closest('li');
+                    $liPlot = $li.closest('li.plot, li.mapplot, li.pointplot');
                     compIndex = $liComp.index();
                 } else {
                     $liComp = false;
@@ -622,7 +622,7 @@ function ProvenanceController(panelId){
                 plotIndex = $liPlot.index();
                 if($liPlot.hasClass('plot')) plot = provPlots[plotIndex];
                 if($liPlot.hasClass('mapplot')) plot = provMapPlots[plotIndex];
-                if($liPlot.hasClass('pointPlot')) plot = provPointPlots[plotIndex];
+                if($liPlot.hasClass('pointplot')) plot = provPointPlots[plotIndex];
                 if(isComponent){
                     compIndex = $liComp.index();
                     component = plot.components[compIndex];

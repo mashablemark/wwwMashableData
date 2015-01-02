@@ -1397,6 +1397,7 @@ MashableData.grapher = function(){
                                 if(val!=oGraph.cubeid){
                                     //new cubeid
                                     oGraph.cubeid = val;
+                                    delete oGraph.assets.cube;
                                     oGraph.cubename = this.options[this.selectedIndex].text;
                                     _redraw();
                                 }
@@ -2827,7 +2828,7 @@ MashableData.grapher = function(){
                                     action = 'summation';
                                 }
                             }
-                            vizualizeCube(oGraph, geoKey, mapDate, action);
+                            vizualizeCube(oGraph, activeMapTab, geoKey, mapDate, action);
 
                             console.time('vizChart._redraw');
                             if(!noCubeRedraw && action=='remove') oGraph.controls.vizChart._redraw();
@@ -3848,28 +3849,27 @@ MashableData.grapher = function(){
         return common.numberFormat(y, (order>1?0:2-order))
     }
 
-    function vizualizeCube(graph, geoKey, mapDate, action){
+    function vizualizeCube(graph, activeMapTab, geoKey, mapDate, action){
         if(typeof action == 'undefined') action = 'new';
-        var serie, i, j, k, cubeid = graph.cubeid;
-        if(!graph.assets.cube) graph.assets.cube = {};
+        var j, k, cubeid = graph.cubeid, mapPlot = graph.mapsets[activeMapTab];
+        if(!graph.assets.cube) graph.assets.cube = {data: {}, id:cubeid};
         var cube = graph.assets.cube;
-        if(!cube['G'+geoKey]){
+        if(!cube.data['G'+geoKey]){
             var $cubViz = graph.controls.$thisPanel.find('div.mashabledata_cube-viz');
             $cubViz.mask('loading...');
             callApi(
-                {command:"GetCubeSeries", ghash: graph.ghash||'', cubeid: cubeid, geokey: geoKey, freq: mapPlot.frq(), modal:'none'},  //geoKey can be a "lat,lon" or the jVectorMaps code (requiring a lookup) or a geoid
+                {command:"GetCubeSeries", ghash: graph.ghash||'', cubeid: cubeid, geokey: geoKey, freq: mapPlot.freq(), modal:'none'},  //geoKey can be a "lat,lon" or the jVectorMaps code (requiring a lookup) or a geoid
                 function(jsoData, textStatus, jqXHR){
-                    cube['G'+geoKey] = {series: jsoData.series};
-                    cube.dimensions = jsoData.dimensions;
+                    cube.data['G'+geoKey] = jsoData.series;
                     cube.theme = jsoData.theme;
                     cube.name = jsoData.name;
                     cube.units = jsoData.units;
-                    cube.barAxis = jsoData.barAxis;
-                    cube.barNames = jsoData.barNames;
-                    cube.stackAxis = jsoData.stackAxis;
-                    cube.stackNames = jsoData.stackNames;
-                    cube.sideAxis = jsoData.sideAxis;
-                    cube.sideNames = jsoData.sideNames;
+                    cube.barAxis = jsoData.baraxis;
+                    cube.barNames = jsoData.barnames?JSON.parse(jsoData.barnames.replace(/u0022/g,'"')):false;
+                    cube.stackAxis = jsoData.stackaxis;
+                    cube.stackNames = jsoData.stacknames?JSON.parse(jsoData.stacknames.replace(/u0022/g,'"')):false;
+                    cube.sideAxis = jsoData.sideaxis;
+                    cube.sideNames = jsoData.sidenames?JSON.parse(jsoData.sidenames.replace(/u0022/g,'"')):false;
                     $cubViz.unmask();
                     makeCubeChart();
                 }
@@ -3878,9 +3878,7 @@ MashableData.grapher = function(){
             makeCubeChart();
         }
         function makeCubeChart(){
-            //1. detect order
-            var dimensions = cube.dimensions;
-            var n = dimensions.length;
+            //1. detect order no longer possible (it complicated!)
 
             //2. find geoName from assets geoKey
             var geoName = null;
@@ -3896,49 +3894,9 @@ MashableData.grapher = function(){
 
             //if not already organized...
             //organize into nested arrays of facets (= unique combo of dims) which will be used to organize the series and to create the chart object
-            var cubeData = cube['G'+geoKey];
-            if(cubeData.series){
-                var cubeSeries = cubeData.series;
-                cubeData.facetedData = [];
-                function makeFacetedData(d, facetArray, facetsItem){
-                    var i, newFactetsItem;
-                    for(i=0;i<dimensions[d].list.length;i++){
-                        if(d==n-1){
-                            newFactetsItem = facetsItem.slice();
-                            newFactetsItem.push(dimensions[d].list[i]);
-                            facetArray.push(getCubeSeries(newFactetsItem));
-                        } else {
-                            var facetSubArray = [];
-                            facetArray.push(facetSubArray);
-                            newFactetsItem = facetsItem.slice();
-                            newFactetsItem.push(dimensions[d].list[i]);
-                            makeFacetedData(d+1, facetSubArray, newFactetsItem);
-                        }
-                    }
-                    function getCubeSeries(facetsItem){
-                        var s, match, serie;
-                        for(s=0;s<cubeSeries.length;s++){
-                            match = true;
-                            serie = cubeSeries[s];
-                            for(var d=0;d<n;d++){
-                                if(serie.name.toLowerCase().indexOf(' '+facetsItem[d].name.toLowerCase())===-1){ //start of word; requires space
-                                    match = false;
-                                    break;
-                                }
-                            }
-                            if(match){
-                                cubeSeries.splice(s,1);
-                                return serie.data;
-                            }
-                        }
-                        return null;
-                    }
-                }
-                makeFacetedData(0, cubeData.facetedData, []); //fills cubeFacets
-                delete cubeData.series;
-            }
+            var cubeData = cube.data['G'+geoKey];
 
-            //3. make chart base chart object
+            //3. make base chart options object
             var vizChart = {
                 chart: {
                     type: 'bar',
@@ -4015,75 +3973,53 @@ MashableData.grapher = function(){
                     }
                 }
             };
-            var facetedData = cubeData.facetedData;
-            //4. switch on dimension order n for 3 different routines:  fill chart objects series from faceted
-            var point, varData;
-            switch(n){
-                case 1:
-                    barData = [];
-                    for(i=0;i<dimensions[0].list.length;i++){
-                        point = {
-                            y:  seriesValue(facetedData[i], mapDate),
-                            name: dimensions[0].list[i].name
-                        };
-                        if(dimensions[0].list[i].color) point.color = dimensions[0].list[i].color;
-                        barData.push(point);
-                        vizChart.xAxis.categories.push(dimensions[0].list[i].short||dimensions[0].list[i].name);
+
+            //4. loop through the cubeData (note:  setdata must be left outer joined to cubecompents to produce NULL placeholders when missing for certain geographies)
+            //TODO: bar-side with no stack
+            var point, barName, barOrder, stackOrder, sideOrder, barData = [], stackData = [[],[]], lastBar = -1;
+            for(var i=0;i<cubeData.length;i++){
+                barOrder =  parseInt(cubeData[i].barorder);
+                barName = graph.mapconfig.barNames||cube.barNames[barOrder];
+                sideOrder = parseInt(cubeData[i].sideorder);
+                stackOrder = parseInt(cubeData[i].stackorder);
+                point = {
+                    y:  ((cube.sideAxis && sideOrder==0)?-1:1) * seriesValue(cubeData[i].data, mapDate),
+                    name: barName + (cube.stackNames?'<br>'+cube.stackNames[stackOrder]:'') + (cube.sideNames?'<br>'+cube.sideNames[cubeData[i].sideorder]:'')
+                };
+                if(cube.stackNames){
+                    if(lastBar!=barOrder){
+                        lastBar = barOrder;
+                        //if(barData.length>0){
+                            vizChart.series.push({data: stackData[0], name: barName});
+                            if(stackData[1]) vizChart.series.push({data: stackData[1], name: barName});  //side
+                            stackData = [[],[]]; //sides
+                        //}
+                        vizChart.xAxis.categories.push(graph.mapconfig.stackNames||cube.stackNames[stackOrder]);  //TODO: implement the bar, stack and side names editor
                     }
-                    //vizChart.legend = {enabled: false};
-                    vizChart.series.push({
-                        id: geoKey,
-                        name: geoName,
-                        data: barData,
-                        showInLegend: false
-                    });
-                    vizChart.plotOptions.bar.dataLabels.enabled = true;
-                    break;
-                case 2:
-                    for(i=0;i<dimensions[0].list.length;i++){
-                        barData = [];
-                        for(j=0;j<dimensions[1].list.length;j++){
-                            if(i==0) vizChart.xAxis.categories.push(dimensions[1].list[j].short||dimensions[1].list[j].name);
-                            point = {
-                                y:  seriesValue(facetedData[i][j], mapDate),
-                                name: dimensions[0].list[i].name + '<br>and ' + dimensions[1].list[j].name
-                            };
-                            barData.push(point);
-                        }
-                        serie = {
-                            name: dimensions[0].list[i].name,
-                            data: barData
-                        };
-                        if(dimensions[0].list[i].color) serie.color = dimensions[0].list[i].color;
-                        vizChart.series.push(serie);
-                        vizChart.plotOptions.bar.stacking = 'normal';
-                    }
-                    break;
-                case 3:  //only 3-cube is demographics: sex x age x race
-                    for(i=0;i<dimensions[0].list.length;i++){
-                        for(k=0;k<dimensions[2].list.length;k++){
-                            barData = [];
-                            for(j=0;j<dimensions[1].list.length;j++){
-                                if(i==0&&k==0) vizChart.xAxis.categories.push(dimensions[1].list[j].short||dimensions[1].list[j].name);
-                                point = {
-                                    y: (i==0?-1:1) * seriesValue(facetedData[i][j][k], mapDate),
-                                    name: dimensions[0].list[i].name + '<br>and ' + dimensions[1].list[j].name + '<br>and ' + dimensions[2].list[k].name
-                                };
-                                barData.push(point);
-                            }
-                            serie = {
-                                name: dimensions[2].list[k].name,
-                                data: barData
-                            };
-                            if(dimensions[2].list[k].color) serie.color = dimensions[2].list[k].color;
-                            vizChart.series.push(serie);
-                        }
-                    }
-                    vizChart.legend.enabled = false;  //todo:  have only have the series show
-                    vizChart.plotOptions.bar.stacking = 'normal';
-                    vizChart.xAxis.lineWidth = 0;
-                    break;
+                    stackData[sideOrder].push(point);
+                } else {
+                    barData.push(point);
+                    vizChart.xAxis.categories.push(barName);  //TODO: implement the bar, stack and side names editor
+                }
             }
+            //vizChart.legend = {enabled: false};
+            if(cube.stackNames){
+                vizChart.series.push({data: stackData[0], name: barName});
+                if(stackData[1].length) vizChart.series.push({data: stackData[1], name: barName});
+                vizChart.plotOptions.bar.stacking = 'normal';
+            } else {
+                vizChart.series.push({
+                    id: geoKey,
+                    name: geoName,
+                    data: barData,
+                    showInLegend: false
+                });
+                vizChart.plotOptions.bar.dataLabels.enabled = true;
+            }
+            if(cube.sideAxis) vizChart.xAxis.lineWidth = 0;
+
+console.info(vizChart);
+
             switch(action){
                 case 'add':
                     vizChart.series[0].showInLegend = true;

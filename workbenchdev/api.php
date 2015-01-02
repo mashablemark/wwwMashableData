@@ -636,7 +636,7 @@ switch($command){
         } else {
             $cubeid = intval($_REQUEST["cubeid"]);
             $geokey = $_REQUEST["geokey"];
-            $freq = safePostVar("freq");
+            $freq = safeSQLFromPost("freq");
             //1. check cache
             $currentmt = microtime(true);
             $ghash_var = safeStringSQL($cubeid.":".$geokey);
