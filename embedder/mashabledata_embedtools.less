@@ -32,7 +32,35 @@
 .mashabledata_map-title{
     color:black;
 }
-
+.mashabledata_maptabs{
+  display: none;
+  height: 20px;
+  font-size: 16px;
+  border: none;
+}
+.mashabledata_maptab{
+  display: inline-block;
+  padding: 5px 5px;
+  border-left: thin solid #808080;
+  border-right: thin solid #808080;
+  border-top: thin solid #808080;
+  color: #808080;
+  background: none;
+  cursor: pointer;
+  z-index: 100000;
+  top: -6px;
+  position: relative;
+  margin-right: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-x: hidden;
+}
+.mashabledata_maptab.mashabledata_activetab{
+  border-color: black;
+  color: #000000;
+  background-color: rgb(170, 170, 170);
+  cursor: auto;
+}
 .mashabledata_map-and-cub-viz{
     
 }
@@ -82,7 +110,22 @@ div.jvectormap-container{
   margin: 0 5px;
 }
 
-.mashabledata_legend{}
+.mashabledata_legend_BR{
+  bottom: 0;
+  left: 0;
+}
+.mashabledata_legend_BL{
+  bottom: 0;
+  right: 0;
+}
+.mashabledata_legend_TR{
+  top: 0;
+  left: 0;
+}
+.mashabledata_legend_TL{
+  top: 0;
+  right: 0;
+}
 div.mashabledata_map-list{
     float:right;
     background-color: white;

@@ -371,7 +371,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         if(this.cubeid) return true;
         switch (this.mapconfig.mapViz){ //some visualization selections have supplementary requirement that must be met
             case "scatter":
-                return this.mapsets.count==2; //must have two maps!
+                return this.mapsets.length==2; //must have two maps!
             case "line":
                 return true; //always possible
             case "line-bunnies":

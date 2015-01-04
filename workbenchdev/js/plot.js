@@ -85,7 +85,7 @@ MashableData.Plot = function(components, options){
             //4. swap in units (removing any + signs)
             var patPlus = /\+/g;
             for(c=0;c<plot.components.length;c++){  //application requirements:  (1) array is sorted by op (2) + and - op have common units
-                replaceFormula('{{'+this.compSymbol(c)+'}}', (graph.assets[plot.components[c].handle].units||'').replace(patPlus,' '));
+                replaceFormula('{{'+this.compSymbol(c)+'}}', (plot.components[c].units||'').replace(patPlus,' '));
             }
             var error = false;
             if(numerUnits!=''){

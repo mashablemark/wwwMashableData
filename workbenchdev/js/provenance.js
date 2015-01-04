@@ -84,7 +84,7 @@ function ProvenanceController(panelId){
             seriesPlots:  '<div class="chart-plots"><H4>Chart</H4><ol class="plots">'
                 + '{{seriesPlots}}'
                 + '</ol>',
-            seriesPlot: '<li class="plot" data="P{{i}}">'
+            seriesPlot: '<li class="plot">'
                 + '<button class="edit-plot">configure</button>'
                 + '<div class="line-sample" style="background-color:{{plotColor}};height:{{lineHeight}}px;"><img src="images/{{lineStyle}}.png" height="{{lineHeight}}px" width="{{lineWidth}}px"></div>'
                 + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">{{name}}</span> ({{plotPeriodicity}}) in <span class="plot-units">{{units}}</span></div>'
@@ -107,32 +107,33 @@ function ProvenanceController(panelId){
                 + '<span class="plot-formula">= {{formula}}</span></div>'
                 + '{{components}}'
                 + '</li>',
-            mapModeOptions: '<option value="heat">colored heat map of values</option>'
-                + '<option value="abs-change">colored heat map of changes</option>'
-                + '<option value="percent-change">colored heat map of percent changes</option>'
-                + '<option value="bubbles">overlay circles to show values</option>'
-                + '<option value="change-bubbles">overlay circles to show changes</option>'
-                + '<option value="correlation">correlation (requires two maps)</option>'
-                + '<option value="treemap">abstract values to rectangles</option>'
-                + '<option value="change-treemap">abstract change to rectangles</option>',
+            mapModeOptions: '<option value="default">graph default ({{graphMapMode}})</option>'
+                + '<option value="heat">'+globals.mapModes.heat+'</option>'
+                + '<option value="abs-change">'+globals.mapModes['abs-change']+'</option>'
+                + '<option value="percent-change">'+globals.mapModes['percent-change']+'</option>'
+                + '<option value="bubbles">'+globals.mapModes.bubbles+'</option>'
+                + '<option value="change-bubbles">'+globals.mapModes['change-bubbles']+'</option>'
+                + '<option value="correlation">'+globals.mapModes.correlation+'</option>'
+                + '<option value="treemap">'+globals.mapModes.treemap+'</option>'
+                + '<option value="change-treemap">'+globals.mapModes['change-treemap']+'</option>',
             mapPlots: '<div class="mapplots">'
-                + '<h4>' + iconsHMTL.mapset + ' Mapped set of regions (country, state, or county)</h4>'
-                + '<span class="map-mode ehide">default mode: {{mode}}</span>'
+                + '<h4>' + iconsHMTL.mapset + ' Mapped set of geographical regions</h4>'
                 + '<ol class="mapplots">{{mapPlots}}</ol></div>'
                 + '</div>',
             mapPlot: '<li class="mapplot">'
                 + '<div class="mapplot-colors" style="margin-bottom:5px;"></div>'
                 + '<div class="plot-info">'
-                + '<button class="edit-mapplot right ehide">configure</button>'
-                + '<div class="edit-block ehide">'
+                + '<button class="edit-mapplot right">configure</button>'
+                + '<div class="edit-block">'
                 +   '<span class="plot-title">{{name}}</span> ({{readableFrequency}}) in <span class="plot-units">{{units}}</span>'
-                + '<span class="plot-formula">= {{formula}}</span><br>'
                 /*                        + '<span class="map-legend ehide">-'
                  +    continuousColorScale(provMapPlots.options)
                  + '+</span>'*/
                 + '</div>' //editor controls added here  (after the plot-info div)
                 + '<div class="editor"></div>'
-                + '</div>{{components}}'
+                + '</div>'
+                + '<span class="plot-formula">= {{formula}}</span><br>'
+                + '{{components}}'
                 + '</li>',
             seriesPlotEditor: '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
@@ -342,7 +343,8 @@ function ProvenanceController(panelId){
             sortableOff: function(){
                 $prov.find("ol.plots").sortable('disable').enableSelection();
                 $prov.find("ol.components").sortable('disable').enableSelection();
-                $prov.find("ol.pointsets").sortable('disable').enableSelection();
+                $prov.find("ol.pointplots").sortable('disable').enableSelection();
+                $prov.find("ol.mapplots").sortable('disable').enableSelection();
             },
             sortableOn: function(){
                 $prov.find("ol.components")
@@ -359,29 +361,18 @@ function ProvenanceController(panelId){
                         start: function(event, ui){
                             var plotIndex, compIndex, type, obj;
                             //determinate source type
-                            if(ui.item.parent().hasClass("M-comp")){type="map"; obj = provMapPlots[ui.item.closest("li.plot").index()]}
-                            if(ui.item.parent().hasClass("S-comp")){type="plot"; obj = provPlots[ui.item.closest("li.plot").index()]}
-                            if(ui.item.parent().hasClass("X-comp")){type="point"; obj = provPointPlots[ui.item.closest("li.plot").index()]}
-                            //determine source model obj
-                            if(type=='plot'||type=='point'){
-                                plotIndex = ui.item.closest("li.plot").index();
-                            } else {
-                                plotIndex = null;
-                            }
-                            //determine comp index
-                            compIndex = ui.item.index();
+                            if(ui.item.parent().hasClass("M-comp")) type="map";
+                            if(ui.item.parent().hasClass("S-comp")) type="plot";
+                            if(ui.item.parent().hasClass("X-comp")) type="point";
 
-                            /*else {  //THIS WILL NEVER HAPPEN:  MOVE TO PLOTS START
-                             if(ui.item.hasClass("plot"))type="plot";
-                             if(ui.item.hasClass("pointset"))type="point";
-                             compIndex = null;
-                             plotIndex = ui.item.closest("li.plot").index();
-                             }*/
+                            //determine source model obj
+                            var modelOfDragged = controller.getModel(ui.item);
                             controller.dragging = {
                                 type: type,
-                                plotIndex: plotIndex,
-                                compIndex: compIndex,
-                                obj: obj,
+                                plotIndex: modelOfDragged.plotIndex,
+                                compIndex: modelOfDragged.compIndex,
+                                component: modelOfDragged.component,
+                                obj: modelOfDragged.plot,
                                 $ol: ui.item.parent()
                             }
                         },
@@ -424,15 +415,15 @@ function ProvenanceController(panelId){
                         }
                     })
                     .disableSelection();
-                $prov.find("ol.pointsets")
+                $prov.find("ol.mapplots")
                     .sortable({
                         axis: "y",
                         dropOnEmpty: false,
-                        connectWith: ".pointsets",
+                        connectWith: ".mapplots",
                         disabled: false,
                         start: function(event, ui){
                             controller.dragging = {
-                                type: "point",
+                                type: "mapplot",
                                 plotIndex: ui.item.index(),
                                 compIndex: null,
                                 $ol: ui.item.parent(),
@@ -441,8 +432,31 @@ function ProvenanceController(panelId){
                         },
                         update: function(event, ui){  //only within!
                             if(ui.sender==null) return;
-                            var movedPointset = provPointPlots.splice(controller.dragging.plotIndex,1);
-                            provPointPlots.splice(ui.item.index(),0,movedPointset);
+                            var movedMapPlot = provMapPlots.splice(controller.dragging.plotIndex,1);
+                            provMapPlots.splice(ui.item.index(), 0, movedMapPlot);
+                            makeDirty();
+                        }
+                    })
+                    .disableSelection();
+                $prov.find("ol.pointplots")
+                    .sortable({
+                        axis: "y",
+                        dropOnEmpty: false,
+                        connectWith: ".pointplots",
+                        disabled: false,
+                        start: function(event, ui){
+                            controller.dragging = {
+                                type: "pointplot",
+                                plotIndex: ui.item.index(),
+                                compIndex: null,
+                                $ol: ui.item.parent(),
+                                obj: provPointPlots[ui.item.index()]
+                            }
+                        },
+                        update: function(event, ui){  //only within!
+                            if(ui.sender==null) return;
+                            var movedPointPlot = provPointPlots.splice(controller.dragging.plotIndex,1);
+                            provPointPlots.splice(ui.item.index(), 0, movedPointPlot);
                             makeDirty();
                         }
                     })
@@ -456,13 +470,12 @@ function ProvenanceController(panelId){
             },
             componentMoved:  function componentMoved(ui){  //triggered when an item is move between lists or sorted within.  Note that moving between plot lists triggers two calls
                 //first find out whether a sort or a move, and whether that move empty or created a new component.
-                var $targetSeriesList, pFromHandle, draggedComponent;
-                var i, handle, thisHandle, from, fromC, toC, fromP, toP, toOp, toType, toPlotObject;  //indexes
+                var i, thisHandle, from, toC, toP, toType, toPlotObject;  //indexes
                 //sortable's update event gets triggered for each OL of components involved.  If the ui.sender is null, the event is trigger by the sending OL.
                 if(ui.sender==null && ui.item.closest('ol')[0]!=controller.dragging.$ol[0]) return; //prevent double call, but allow when sorting within
 
                 //cancel if adding to a plot that already has the same series
-                toP = ui.item.closest('.plot').index();
+                toP = ui.item.closest('.plot, .mapplot, .pointplot').index();
 
                 //check to see if this is a new plot
                 var newPlot = ui.item.parent().hasClass('blank-plot');
@@ -482,19 +495,19 @@ function ProvenanceController(panelId){
                 }
 
                 //pointset and mapset type series must belong to a pointPlot or a mapPlot respectively
-                thisHandle = ui.item.attr('data');
-                if(thisHandle[0]=='M' && toType!='map'){
+                if(controller.dragging.component.isMapSet() && toType!='map'){
                     $prov.find("ol.components").sortable("cancel");
                     dialogShow('mapset restrictions', 'A mapset is a grouping of series, each correspond to an area on a map, such as a state or country.  Mapsets cannot be mixed with marker sets or displayed on a line graph.<br><br>Note that from from the map, you can easily select and chart any of this mapsets\' component series.');
                     return;
                 }
-                if(thisHandle[0]=='M' && toType!='map'){
+                if(controller.dragging.component.isPointSet()  && toType!='point'){
                     $prov.find("ol.components").sortable("cancel");
                     dialogShow('pointset restrictions', 'A pointset is a grouping of series, each correspond to a precise location determined by longitude and latitude values.  Pointsets cannot be mixed with area mapsets or displayed a line graph.<br><br>Note that from from the map, you can easily select and chart any of this pointsets\' component series.');
                     return;
                 }
 
                 //duplicate series in same plot not permitted
+                thisHandle = ui.item.attr('data');
                 if(toP!=controller.dragging.plotIndex && controller.dragging.type==toType && ui.item.closest('ol')[0]!=controller.dragging.$ol[0]){
                     for(i=0;i<toPlotObject.components.length;i++){
                         if(toPlotObject.components[i].handle() == thisHandle) {
@@ -508,7 +521,7 @@ function ProvenanceController(panelId){
                 //frequency must be the same
                 if(toP!=controller.dragging.plotIndex && controller.dragging.type==toType && !newPlot){
                     for(i=0;i<toPlotObject.components.length;i++){
-                        if(panelGraph.assets[thisHandle].freq!=toPlotObject.components[i].freq){
+                        if(controller.dragging.component.freq!=toPlotObject.components[i].freq){
                             $prov.find("ol.components").sortable("cancel");
                             dialogShow('frequency discrepancy', 'When performing array math, the sample frequency of all component series must be the same.');
                             return;
@@ -540,7 +553,7 @@ function ProvenanceController(panelId){
                 } else {
                     toPlotObject.components.splice(toC,0,cmp);
                 }
-                controller.setFormula(toPlotObject, ui.item.closest(".plot"));
+                controller.setFormula(toPlotObject, ui.item.closest(".plot, .mapplot, .pointplot"));
 
                 //5. check for no components > delete object; remove plot; adjust annotations
                 if(controller.dragging.obj.components.length==0){
@@ -564,9 +577,12 @@ function ProvenanceController(panelId){
                     }
                     if(controller.dragging.type=='point'){
                         provPointPlots.splice(controller.dragging.plotIndex,1);
-                        $prov.find("ol.pointsets li.plot")[controller.dragging.plotIndex].remove();
+                        $prov.find("ol.pointplots li.pointplot")[controller.dragging.plotIndex].remove();
                     }
-                    //not possible to kill a mapPlot by dragging off its mapset components
+                    if(controller.dragging.type=='map'){
+                        provMapPlots.splice(controller.dragging.plotIndex,1);
+                        $prov.find("ol.mapplots li.mapplot")[controller.dragging.plotIndex].remove();
+                    }
                 } else { //recalc the formula of the sender
                     controller.setFormula(controller.dragging.obj, controller.dragging.$ol.parent());
                 }
@@ -656,7 +672,7 @@ function ProvenanceController(panelId){
                     .find('input:radio')
                     .change(function(){
                         controller.set(model.component.options, 'op', $(this).val());
-                        controller.setFormula(model.plot, $liComp.closest(".plot"));
+                        controller.setFormula(model.plot, $liComp.closest(".plot, .mapplot, .pointplot"));
                         $liComp.find('.plot-op').attr('class','plot-op ui-icon ' + op.cssClass[model.plot.components[model.compIndex].options.op]);
                     });
 
@@ -1011,8 +1027,7 @@ function ProvenanceController(panelId){
                             });
                         }
                         mapPlotsHTML = mustache(templates.mapPlots,{
-                            mapPlots: mapPlotsInnerHTML,
-                            mode: (!mapPlot.options.mode || mapPlot.options.mode!='bubble')?'heat map':'bubbles with user defined regions'
+                            mapPlots: mapPlotsInnerHTML
                         });
                     }
 
@@ -1114,7 +1129,6 @@ function ProvenanceController(panelId){
                 //close any open editors
                 $prov.find("button.plot-close").click();
 
-                controller.editPlotFormula(oMapPlot, $liMapPlot);
                 $prov.find("button.plot-close").click();  //close any open editors
                 $liMapPlot.find('button.edit-mapplot').hide();
                 //The TYPE AND MERGE MODE WILL BE AVAILABLE IN CONFIGURATION MODE, NOT THE INITIAL VIEW
@@ -1124,6 +1138,7 @@ function ProvenanceController(panelId){
                 })
                 );
 
+                controller.editPlotFormula(oMapPlot, $liMapPlot);
                 //bunny
                 $editDiv.find('button.add-bunny').button({icons: {secondary: 'ui-icon-plus'}}).click(function(){  //this is a multifunction selector: delete bunny, use existing plot, or create bunny
                     var val = "add";
@@ -1255,7 +1270,7 @@ function ProvenanceController(panelId){
             setFormula: function(plot, $container){
                 var formula = plot.calculateFormula();
                 if($container) {
-                    $container.find('span.plot-formula').html('= '+ formula);
+                    $container.find('span.plot-formula').html('= '+ formula.formula);
                     //if plot units are calculated, change those
                     if(!plot.options.units) $container.find('input.plot-units').val(plot.units());
                     if(!plot.options.name) $container.find('input.plot-name').val(plot.name());
@@ -1271,10 +1286,7 @@ function ProvenanceController(panelId){
 
                 var $legend = $(mustache(templates.legendEditor, {
                     id: objCounter++,
-                    mapModeOptions: templates.mapModeOptions,
-                    //fill: ((!options.mode || options.mode =='fill')?'checked':''),
-                    //bubbles:((options.mode && options.mode=='bubble')?'checked':''),
-                    //rectangles:((options.mode && options.mode=='rectangles')?'checked':''),
+                    mapModeOptions: mustache(templates.mapModeOptions, {graphMapMode: globals.mapModes[provMapconfig.mapMode||'heat']}),
                     markerType: (type=='X'?'marker':'bubble'),
                     maxRadius: options.attribute=='fill'?provMapconfig.fixedRadius||DEFAULT_RADIUS_FIXED:provMapconfig.maxRadius||DEFAULT_RADIUS_SCALE,
                     negColor: options.negColor||MAP_COLORS.NEG,
