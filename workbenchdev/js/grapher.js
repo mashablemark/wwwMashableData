@@ -2308,7 +2308,7 @@ MashableData.grapher = function(){
                                 html += '<tr data="'+list[i].id+'"><td>'+ (i+1) +'</td><td>'+ list[i].name +'</td><td>'+ list[i].value +'</td></tr>';
                             }
                             html += '</tbody></table></div>';
-                            $thisPanel.find('.mashabledata_cube-viz').html(html)
+                            var vizHeight = $thisPanel.find('.mashabledata_cube-viz').html(html)
                                 .find('tbody tr').hover(
                                     function(){//mouse enter
                                         var code = $(this).attr('data');
@@ -2324,7 +2324,9 @@ MashableData.grapher = function(){
                                             $map.setSelectedRegions(selection);
                                         }
                                     }
-                                );
+                                )
+                                .end().innerHeight();
+                            $thisPanel.find('.mashabledata_cube-viz tbody').css("height", (vizHeight-$thisPanel.find('.mashabledata_cube-viz thead').height())+'px');
                         }
                         if(code){
                             $thisPanel.find('.mashabledata_cube-viz table tr').removeClass('ui-selected').find("tr[data='"+code+"']").addClass('ui-selected');

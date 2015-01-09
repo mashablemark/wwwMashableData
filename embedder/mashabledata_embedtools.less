@@ -130,16 +130,17 @@ div.mashabledata_map-list{
     float:right;
     background-color: white;
     border:  thin solid black;
-    width: 400px;
-    position: absolute;
-    height: 100%;
-    top: -1px;
-    right: 0;
+    //position: absolute;
+    //top: -1px;
+    //right: 0;
     z-index: 100;
-    overflow-x: hidden;
-    overflow-y: auto;
 }
+div.mashabledata_map-list thead, div.mashabledata_map-list tbody { display: block; }
 
+div.mashabledata_map-list tbody {
+  overflow-y: auto;    /* Trigger vertical scroll    */
+  overflow-x: hidden;  /* Hide the horizontal scroll */
+}
     div.mashabledata_map-list button{
         margin: 2px 10px;
     }
