@@ -1748,52 +1748,12 @@ MashableData.grapher = function(){
                                 },
                                 onRegionOver: function(event, code){
                                     //handle mouse over changes any supplementary map visualizations
-                                    if(!oGraph.cubeid){ //data cube override that mapViz settings!
-                                        switch(oGraph.mapconfig.mapViz){
-                                            case 'scatter':
-                                                if(oGraph.mapsets.length==2 && oGraph.controls.vizChart){
-                                                    var pointOver = oGraph.controls.vizChart.get(code);
-                                                    if(pointOver) pointOver.select(true, true);
-                                                }
-                                                break;
-                                            case 'line':
-                                            case 'line-bunnies':
-                                            case 'list-asc':
-                                            case 'list-desc':
-                                                _drawMap_updateCubeVizFromMap(code, true);
-                                                break;
-                                            case 'components-bar':
-
-                                                break;
-                                            case 'components-line':
-
-                                                break;
-                                        }
-                                    }
+                                    _drawMap_updateCubeVizFromMap(code, true);
                                 },
                                 onRegionOut: function(event, code){
-                                    if(!oGraph.cubeid){ //data cube override that mapViz settings!
-                                        switch(oGraph.mapconfig.mapViz){
-                                            case 'scatter':
-                                                if(oGraph.mapsets.length==2 && oGraph.controls.vizChart){
-                                                    var pointOver = oGraph.controls.vizChart.get(code);
-                                                    if(pointOver) pointOver.select(false, true);
-                                                }
-                                                break;
-                                            case 'line':
-                                            case 'line-bunnies':
-                                            case 'list-asc':
-                                            case 'list-desc':
-                                                _drawMap_updateCubeVizFromMap(code, false);
-                                                break;
-                                            case 'components-bar':
-
-                                                break;
-                                            case 'components-line':
-
-                                                break;
-                                        }
-                                    }
+                                    //if(!oGraph.cubeid && oGraph.hasMapViz(){  //this check is in _drawMap_updateCubeVizFromMap
+                                        _drawMap_updateCubeVizFromMap(code, false);
+                                    //}
                                 },
                                 onRegionTipShow: function(event, label, code){
                                     var i, sparkData=[], currentIndex, containingDateData = _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
@@ -2742,10 +2702,16 @@ MashableData.grapher = function(){
 
                             switch(oGraph.mapconfig.mapViz){
                                 case 'scatter':
-                                    if(oGraph.mapsets.length==2 && oGraph.controls.vizChart){
-
-                                        /*var pointOver = oGraph.controls.vizChart.get(code);
-                                        if(pointOver) pointOver.select(true, true);*/
+                                    if(vizChartGeos.length){
+                                        for(i=0;i<vizChartGeos.length;i++){
+                                            var pointOver = oGraph.controls.vizChart.get(vizChartGeos[i].code);
+                                            if(pointOver.select) pointOver.select(true, i>0);
+                                        }
+                                    } else {
+                                        var selectedPoints = oGraph.controls.vizChart.getSelectedPoints();
+                                        for(i=0;i<selectedPoints.length;i++){
+                                            selectedPoints[i].select(false);
+                                        }
                                     }
                                     break;
                                 case 'line':
@@ -2923,7 +2889,7 @@ MashableData.grapher = function(){
                             oGraph.controls.vizChart = new Highcharts.Chart(vizChart);
                         }
 
-                        //SCATTER / X-CORRELATION
+                        //SCATTER / CROSS-CORRELATION
                         if(!oGraph.cubeid &&  oGraph.mapconfig.mapViz=='scatter' && oGraph.mapsets.length==2){
                             var mapPlotX = oGraph.mapsets[0], mapPlotY = oGraph.mapsets[1], scatterData = [];
                             if(!mapPlotX.calculatedMapData) _calcMap(oGraph, 0);
@@ -2945,30 +2911,48 @@ MashableData.grapher = function(){
                                 regionSel[point.id] = active;
                                 $map.setSelectedRegions(regionSel);
                             }
-                            var highChartOptions = {
-                                chart: {
-                                    type: 'scatter',
-                                    spacingRight: 50,
-                                    renderTo: oGraph.controls.$thisPanel.find('.mashabledata_cube-viz').get(0)
-                                },
-                                series: [{
-                                    data: scatterData.sort(function(a,b){return a.x- b.x}),
-                                    name: mapPlotX.name() + ' vs. ' + mapPlotY.name()
-                                }],
-                                plotOptions:  {
-                                    series: {
-                                        point: {
-                                            events: {
-                                                mouseOver: function(){pointMouse(this, true)},
-                                                mouseOut: function(){pointMouse(this, false)}
+                            var xName = mapPlotX.name(), yName = mapPlotY.name(),
+                                xUnits = mapPlotX.units(), yUnits = mapPlotY.units(),
+                                highChartOptions = {
+                                    chart: {
+                                        type: 'scatter',
+                                        spacingRight: 50,
+                                        renderTo: oGraph.controls.$thisPanel.find('.mashabledata_cube-viz').get(0)
+                                    },
+                                    title: {text: ''},
+                                    subtitle: {text: 'click on map or scatter plot to compare'},
+                                    series: [{
+                                        data: scatterData.sort(function(a,b){return a.x- b.x}),
+                                        name:  xName + ' vs. ' + yName
+                                    }],
+                                    exporting: {enabled: false},
+                                    tooltip: {
+                                        formatter: function(){
+                                            return '<b>'+$map.getRegionName(this.point.id) +'</b><br/><br/>' +
+                                                '<b>'+ xName + ':</b><br/>' +
+                                                common.numberFormat(this.point.x, 0) + ' ' + xUnits + '<br/><br/>' +
+                                                '<b>'+ yName + ':</b><br/>' +
+                                                common.numberFormat(this.point.y, 0) + ' ' + yUnits;
+                                        },
+                                        useHTML: true,
+                                        style: {
+                                            "max-width": "200px"
+                                        }
+                                    },
+                                    plotOptions:  {
+                                        series: {
+                                            point: {
+                                                events: {
+                                                    mouseOver: function(){pointMouse(this, true)},
+                                                    mouseOut: function(){pointMouse(this, false)}
+                                                }
                                             }
                                         }
-                                    }
-                                },
-                                legend: {enabled: false},
-                                xAxis: {title: {text: mapPlotX.name() + ' ('+mapPlotX.calculatedMapData.mapUnits+')'}},
-                                yAxis: {title: {text: mapPlotY.name() + ' ('+mapPlotY.calculatedMapData.mapUnits+')'}}
-                            };
+                                    },
+                                    legend: {enabled: false},
+                                    xAxis: {title: {text: mapPlotX.name() + '<br>'+mapPlotX.calculatedMapData.mapUnits+''}},
+                                    yAxis: {title: {x:-20, text: mapPlotY.name() + '<br>'+mapPlotY.calculatedMapData.mapUnits+''}}
+                                };
                             oGraph.controls.vizChart = new Highcharts.Chart(highChartOptions);
                         }
 
