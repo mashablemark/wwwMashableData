@@ -5,7 +5,7 @@ $dataFolder = "bulkfiles/eurostat/";
 $dsdFolder = "bulkfiles/eurostat/dsd/";
 $tsvFolder = "bulkfiles/eurostat/tsv/";
 $tocFile = "table_of_contents.xml";
-$tocURL = "http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?sort=1&file=".$tocFile;
+$tocURL = "http://ec.europa.eu/eurostat/estat-navtree-portlet-prod/BulkDownloadListing?sort=1&file=".$tocFile;
 $dsdRootUrl = "http://ec.europa.eu/eurostat/SDMX/diss-web/rest/datastructure/ESTAT/DSD_";
 $processedCodes = [];
 $explicitUnitCount = 0;
@@ -100,7 +100,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     $hasNegatives = false;
 
     $themeConfig["tKey"] = implode("+", $themeConfig["codes"]);
-
+    if(!isset($themeConfig["processUnknownGeos"])) $themeConfig["processUnknownGeos"] = true;
     //2. loop through codes
     foreach($themeConfig["codes"] as $code){
         //2a. get the code leaf in TOC
@@ -113,6 +113,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         $lastModifiedDate = (string) $firstLeaf->xpath("lastModified")[0];
         $title = (string) $firstLeaf->xpath("title[@language='en']")[0];
         $metadataLink = (string) $firstLeaf->xpath("metadata[@format='html']")[0];
+        $dsdLink = (string) $firstLeaf->xpath("metadata[@format='sdmx']")[0];
         $tsvLink = (string) $firstLeaf->xpath("downloadLink[@format='tsv']")[0];
         $tocUnits = (string) $firstLeaf->xpath("unit[@language='en']")[0]; //note: units is almost always blank in the table of contents XML doc
         $tsvPeriod = false;
@@ -124,7 +125,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
 
         //2b. get the DSD = DIMENSIONS AND PARSE CODELISTS
         if($fetchNew || !file_exists($dsdFolder.$code.".dsd.xml")){
-            getDsd($code);
+            getDsd($code, $dsdLink);
         }
 
         //remove pesky namespaces and parse DSD XML
@@ -161,7 +162,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         }
 
         //2c. get the TSV data file and detect the codelist order across and down
-        getTSV($code, $fetchNew);
+        getTSV($code, $tsvLink, $fetchNew);
         $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
         //fetch the first row and decode the dimension
         $headerLine = gzgets($gz);
@@ -215,17 +216,13 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                 }
                 $themeConfig["unitListName"] = "CURRENCY";
             }
-            if($themeConfig["unitListName"] && count($dsdCodeLists[$themeConfig["unitListName"]])==1) {
-                foreach($dsdCodeLists[$themeConfig["unitListName"]] as $listCode=>$val) $fixedUnits = $val; //simply treat as fixed units
-            }
         }
 
-        //global $cl_config;print("<pre>"); print_r(array_merge([],$cl_config["CL_ICD10:hlth_cd_acdr"])); print("</pre>"); die();
-        //print("<pre>"); print_r($dsdCodeLists); print("</pre>");die();
         mergeConfig($themeConfig, $dsdCodeLists); //also makes any name changes
-        //print("<pre>"); print_r($dsdCodeLists); print("</pre>"); die();
+        preprint($themeConfig);preprint($dsdCodeLists);
 
         //2d.  parse the TSV into the $themeConfig["sets"] array of skeys => [name, data, mskey]
+        $unknownGeoCodes = [];
         while($gz && !gzeof($gz)){  //loop through the non-header rows and ingest the series
             $dataLine = gzgets($gz);
             $dataFields = explode("\t", $dataLine);
@@ -249,17 +246,20 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                     foreach($tsvDims as $index=>$tsvDim){
                         if($index!==$timeIndex){ //skip TIME dim
                             if($index===$geoIndex){
-                                $iso2 = $pointCodes[$index];  //Eurostats uses 2 letter iso codes for countries
+                                $iso2 = trim($pointCodes[$index]);  //Eurostats uses 2 letter iso codes for countries
                                 $geo = iso2Lookup($iso2);
                                 if($geo){
                                     $geoName = $geo["name"];
                                     $geoId = $geo["geoid"]; //either int or "null" (string)
                                 } else {
-                                    //if(!isset($iso2)) return "geocode $iso2 not found in GEO codelist";
                                     $geoName = $dsdCodeLists["GEO"]["allCodes"][$iso2];
                                     $geoId = 0;
+                                    if(!in_array($iso2, $unknownGeoCodes)){
+                                        $unknownGeoCodes[] = $iso2;
+                                        printNow("$iso2, \"$geoName\" not found in geographies table (iso2Lookup)");
+                                    }
                                 }
-                            } elseif ($index===$themeConfig["unitIndex"] && !$fixedUnits) {
+                            } elseif (($index===$themeConfig["unitIndex"]) && !$fixedUnits) {
                                 //unit logic priority (continued): 1. explicit settings, 2. master TOC, 3. CL_UNIT, 4. CL_CURRENCY
                                 $unit = $dsdCodeLists[$tsvDims[$index]]["allCodes"][$pointCodes[$index]];
                             } else {
@@ -278,7 +278,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                             "name" =>  $themeName.": ".implode("; ", $setFacets). ($geoId!=0 ? "" : " - ".$geoName),
                             "units" => $unit,
                             "freqs" => [],
-                            "masterkey" => ($geoId==0 && $geoIndex!==false)? $themeConfig["tKey"] . ":" . implode(",", $seriesCodes) : null
+                            "masterkey" => ($geoId==0 && $geoIndex!==false)? $themeConfig["tKey"] . ":" . implode(",", $setCodes) : null
                         ];
                     }
                     if(!in_array($unit, $themeConfig["unitsUsed"])) array_push($themeConfig["unitsUsed"], $unit);
@@ -307,7 +307,6 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         }
         //print("<pre>");print_r($nonNumericCodes);print_r($themeConfig["sets"]);print("</pre>");die();
     }
-
     //3. finished reading all TSVs ->>> save/get the sets and set data!
     $status =  ["updated"=>0, "failed"=>0, "skipped"=>0, "added" =>0];
     //first, all the mastersets
@@ -326,24 +325,27 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             unset($set["freqs"]);  //free up memory
         }
     }
-    //then, all the slavesets
-    foreach($themeConfig["sets"] as $setKey => &$set){
-        if($set["masterkey"]){
-            if(!isset($set["setid"])){
-                $mastsetid = $themeConfig["sets"][$set["masterkey"]]["setid"];
-                $set["setid"] = saveSet($apiid, $setKey, $set["name"], $set["units"], null, null, null, $lastModifiedDate, $themeConfig["theme"]["themeid"], "", null, $mastsetid);
-                //note: metadata, src and url to be stored in apis table and meatadata in themes table to avoid repetition and bloat
-            }
-            foreach($set["freqs"] as $freq => &$geoSet){
-                foreach($geoSet as $gHandle => $data){
-                    saveSetData($status, $set["setid"], null, null, $freq, intval(substr($gHandle,1)), "", $data);
+    //then, all the slavesets = unknowngeos
+    if($themeConfig["processUnknownGeos"]){
+        foreach($themeConfig["sets"] as $setKey => &$set){
+            if($set["masterkey"]){
+                if(!isset($set["setid"])){
+                    $mastsetid = $themeConfig["sets"][$set["masterkey"]]["setid"];
+                    $set["setid"] = saveSet($apiid, $setKey, $set["name"], $set["units"], null, null, null, $lastModifiedDate, $themeConfig["theme"]["themeid"], "", null, $mastsetid);
+                    //note: metadata, src and url to be stored in apis table and meatadata in themes table to avoid repetition and bloat
                 }
+                foreach($set["freqs"] as $freq => &$geoSet){
+                    foreach($geoSet as $gHandle => $data){
+                        saveSetData($status, $set["setid"], null, null, $freq, intval(substr($gHandle,1)), "", $data);
+                    }
+                }
+                unset($set["freqs"]);  //free up memory
             }
-            unset($set["freqs"]);  //free up memory
         }
     }
-    //finished saving sets and setdata
 
+    //finished saving sets and setdata
+    //preprint($themeConfig);
     //4.  make the cubes and cube-components
     /* $themeConfig structure:
             unitIndex
@@ -416,7 +418,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             setCatSet($catId, $set["setid"]);
         }
     }
-
+    setGhandlesFreqsFirstLast($apiid, $themeConfig["theme"]["themeid"]);
+    setMapsetCounts("all", $apiid, $themeConfig["theme"]["themeid"]);
     return $status;
 }
 
@@ -425,21 +428,20 @@ function ApiRunFinished($api_run){
     //freqSets($api_run["apiid"]);
 }
 
-function getTSV($code, $force = false){
+function getTSV($code, $tsvLink, $force = false){
     global $tsvFolder;
 //GET TSV DATA FILE
     if($force || !file_exists($tsvFolder.$code.".tsv.gz")){
         set_time_limit(300);
-        file_put_contents($tsvFolder . $code.".tsv.gz", fopen("http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?file=data/$code.tsv.gz", 'r'));
+        file_put_contents($tsvFolder . $code.".tsv.gz", fopen($tsvLink, 'r'));
     }
 }
 
-function getDsd($code){
+function getDsd($code, $dsdLink){
     global $dsdFolder, $dsdRootUrl;
     set_time_limit(300); // unlimited max execution time
-    $url = $dsdRootUrl.$code;
     $outputfile = $dsdFolder.$code.".dsd.xml";
-    $cmd = "wget -q \"$url\" -O $outputfile";
+    $cmd = "wget -q \"$dsdLink\" -O $outputfile";
     exec($cmd);
 }
 

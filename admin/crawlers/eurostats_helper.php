@@ -5,7 +5,7 @@ $dataFolder = "bulkfiles/eurostat/";
 $dsdFolder = "bulkfiles/eurostat/dsd/";
 $tsvFolder = "bulkfiles/eurostat/tsv/";
 $tocFile = "table_of_contents.xml";
-$tocURL = "http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?sort=1&file=".$tocFile;
+$tocURL = "http://ec.europa.eu/eurostat/estat-navtree-portlet-prod/BulkDownloadListing?sort=1&file=".$tocFile;
 $dsdRootUrl = "http://ec.europa.eu/eurostat/SDMX/diss-web/rest/datastructure/ESTAT/DSD_";
 $apiid = "undefined";
 $processedCodes = [];
@@ -13,6 +13,7 @@ $explicitUnitCount = 0;
 $clUnitsCount = 0;
 $currencyUnitsCount = 0;
 $geoCount = 0;
+$forceDownloads = isset($_REQUEST["refresh"]);
 
 //get the ingest config file = list of ingested and skipped code used to color / strike-through the text
 include_once("es_config.php");
@@ -25,10 +26,13 @@ for($i=0;$i<count($ingest);$i++){
 }
 
 //get TOC
-if(!file_exists($dataFolder.$tocFile) || isset($_REQUEST["refresh"])){
+if(!file_exists($dataFolder.$tocFile) || $forceDownloads){
     set_time_limit(300);
     print('downloading '.$tocURL."<br>");
-    file_put_contents($dataFolder. $tocFile, fopen($tocURL, 'r'));
+    $outputfile = $dataFolder. $tocFile;
+    $cmd = "wget -q \"$tocURL\" -O $outputfile";
+    exec($cmd);
+    //file_put_contents($dataFolder. $tocFile, fopen($tocURL, 'r'));
 }
 
 //read the TOC file and parse xml
@@ -45,13 +49,16 @@ if(!isset($_REQUEST["codes"])){
         $code = (string) $allLeaves[$i];
         $title = (string) $allLeaves[$i]->xpath("../title[@language='en']")[0];
         $unit = trim((string) $allLeaves[$i]->xpath("../unit[@language='en']")[0]);
+        $metadataLink = (string) $allLeaves[$i]->xpath("metadata[@format='html']")[0];
+        $dsdLink = (string) $allLeaves[$i]->xpath("metadata[@format='sdmx']")[0];
+        $tsvLink = (string) $allLeaves[$i]->xpath("downloadLink[@format='tsv']")[0];
         if(isset($processedCodes[$code])){
             if($processedCodes[$code]!= $title) print("mismatched title in repeated code: $processedCodes[$code] != $title<br>");
         } else {
             $processedCodes[$code] = $title;
             //get DSD (must use CURL because of headers/redirect confuses fopen and related functions
-            if(!file_exists($dsdFolder.$code.".dsd.xml")){
-                getDsd($code);
+            if($forceDownloads || !file_exists($dsdFolder.$code.".dsd.xml")){
+                getDsd($code, $dsdLink);
             }
             //READ DSD'S DIMENSIONS AND PARSE CODELISTS
             $fileArray = file($dsdFolder.$code.".dsd.xml");
@@ -75,7 +82,7 @@ if(!isset($_REQUEST["codes"])){
                 }
                 print("<b>$uniqueCodes. $title <a href=\"?codes=$code\" target=\"$code\">$code</a></b><br>");
                 if(simplexml_load_string(implode("\n", $fileArray))===false){ //download once again if unable to parse
-                    getDsd($code);
+                    getDsd($code, $dsdLink);
                     $fileArray = file($dsdFolder.$code.".dsd.xml");
                 }
                 $dsdString = str_replace("</str:","</", str_replace("<str:","<",implode("\n", $fileArray)));
@@ -128,7 +135,7 @@ if(!isset($_REQUEST["codes"])){
                         }
                     }
                 }
-                getTSV($code);
+                getTSV($code, $tsvLink, $forceDownloads);
                 $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
                 $header_array = str_getcsv(gzgets($gz),"\t", "");
                 print($header_array[0]."<br>");
@@ -204,7 +211,7 @@ if(!isset($_REQUEST["codes"])){
 
             }
 
-            getTSV($code);
+            getTSV($code, $tsvLink[0], $forceDownloads);
             $gz = gzopen($tsvFolder . $code.".tsv.gz", "r");
             $first_line = gzgets($gz);
 /*  output JSON:
@@ -239,8 +246,8 @@ if(!isset($_REQUEST["codes"])){
             gzclose($gz);
 
             //GET DSD AS NEEDED (MUST USE CURL BECAUSE URL RETURNS FILE INSTEAD OF CONTENTS)
-            if(!file_exists($dsdFolder.$code.".dsd.xml")){
-                getDsd($code);
+            if($forceDownloads || !file_exists($dsdFolder.$code.".dsd.xml")){
+                getDsd($code, $dsdRootUrl.$code);
             }
 
             //READ DSD'S DIMENSIONS AND PARSE CODELISTS
@@ -280,22 +287,23 @@ if(!isset($_REQUEST["codes"])){
     }
 }
 
-function getTSV($code, $force = false){
+function getTSV($code, $tsvLink, $force = false){
     global $tsvFolder;
 //GET TSV DATA FILE
     if($force || !file_exists($tsvFolder.$code.".tsv.gz")){
         set_time_limit(300);
-        file_put_contents($tsvFolder . $code.".tsv.gz", fopen("http://epp.eurostat.ec.europa.eu/NavTree_prod/everybody/BulkDownloadListing?file=data/$code.tsv.gz", 'r'));
+        //file_put_contents($tsvFolder . $code.".tsv.gz", fopen($tsvLink, 'r'));
+        $cmd = "wget -q \"$tsvLink\" -O $tsvFolder$code.tsv.gz";
+        exec($cmd);
     }
 }
 
 
-function getDsd($code){
+function getDsd($code, $dsdLink){
     global $dsdFolder, $dsdRootUrl;
     set_time_limit(300); // unlimited max execution time
-    $url = $dsdRootUrl.$code;
     $outputfile = $dsdFolder.$code.".dsd.xml";
-    $cmd = "wget -q \"$url\" -O $outputfile";
+    $cmd = "wget -q \"$dsdLink\" -O $outputfile";
     exec($cmd);
 
     /* CURL GOT BLOCKED!!!  wget works fine!

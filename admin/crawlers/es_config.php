@@ -170,7 +170,7 @@ $cl_config = [
         "renames" => [ //name adjustments
             "TOTAL" => "all ages",
         ],
-        "ex"=> ["Y_LT15", "Y_LT65","Y_GE65"],  //list of codes to exclude from the cube viz, but still ingested
+        "ex"=> ["Y_LT15","Y15-24","Y_LT65","Y_GE65"],  //list of codes to exclude from the cube viz, but still ingested
     ],
     "CL_AGE:hlth_cd_ynrt"=> [ //one or more CL abbreviations in the first cell of the first row whose default need defining
         "name"=> "age", // English name override
@@ -560,7 +560,11 @@ $ingest = [
     [
         "codes"=> ["cens_01rapop"],  //  Population by sex, age group, current activity status and NUTS 3 regions
         "theme_name"=> "Population",
-        "units"=> "Fertility rate"
+        "mapping"=> [ //help with code list if needed.  Dimensionality follows order below or cell[0,0} if this section is missing
+            "CL_SEX" => "basic",
+            "CL_WSTATUS"=> ["rootCode"=>"POP"],
+        ],
+        "processUnknownGeos"=>false,
     ],
     [
         "codes"=> ["vit_bs5"],  // Area under wine-grape vine varieties broken down by type of production, yield class and regions

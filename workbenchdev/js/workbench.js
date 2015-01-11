@@ -1194,12 +1194,14 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
 
         //determine whether and which maps to show in the selector
         var mapList = globals.orderedMapList, maps = globals.maps;
-        for(i=0;i<mapList.length;i++){ //primary loop= orderedlist to preserve order in eventual
-            for(j=0;j<aoSeries.length;j++){  //synthetic series will get their mapsets' map property
-                serie = aoSeries[j];
-                if(serie.maps[mapList[i].map]>1){ //this map is match!
-                    setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+'%)</option>');
-                    break;
+        if(serie.maps){
+            for(i=0;i<mapList.length;i++){ //primary loop= orderedlist to preserve order in eventual
+                for(j=0;j<aoSeries.length;j++){  //synthetic series will get their mapsets' map property
+                    serie = aoSeries[j];
+                    if(serie.maps[mapList[i].map]>1){ //this map is match!
+                        setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+'%)</option>');
+                        break;
+                    }
                 }
             }
         }

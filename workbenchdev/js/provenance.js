@@ -24,6 +24,7 @@ function ProvenanceController(panelId){
         period = globals.period,
         op = globals.op,
         MAP_COLORS = globals.MAP_COLORS,
+        patVariable = globals.patVariable,
         fillScalingCount = grapher.fillScalingCount;
     //closure variables (set in build and accessible throughout
     var panelGraph,
@@ -179,7 +180,7 @@ function ProvenanceController(panelId){
                 +   '</div>',
             components: '<ol class="components {{plotType}}-comp">{{components}}</ol>',
             component: '<li class="component ui-state-default" data="{{handle}}">'
-                + '<span class="plot-op ui-icon {{opClass}}">operation</span> '
+                + '<span class="plot-op ui-icon {{opClass}}" style="{{opStyle}}">operation</span> '
                 + '<span class="comp-edit-k" style="display:none;"><input class="short" value="{{k}}"> * </span>'
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
@@ -324,6 +325,7 @@ function ProvenanceController(panelId){
                     listItemsHTML  += mustache(templates.component, {
                         handle: comp.handle(),
                         opClass: op.cssClass[plot.components[j].options.op],
+                        opStyle: plot.options.userFormula?'display:none;':'',
                         k: comp.options.k||1,
                         icon: comp.isPointSet()?iconsHMTL.pointset:(comp.isMapSet()?iconsHMTL.mapset:''),
                         name: comp.name(),
@@ -1022,7 +1024,7 @@ function ProvenanceController(panelId){
                                 name: mapPlot.name(),
                                 units: mapPlot.units(),
                                 readableFrequency: controller.plotPeriodicity(mapPlot),
-                                formula: mapPlot.calculateFormula().formula,
+                                formula: mapPlot.formula(),
                                 components: controller.componentsHTML(mapPlot)
                             });
                         }
@@ -1109,7 +1111,7 @@ function ProvenanceController(panelId){
                 function guidedEditing(){
                     $plot.find('div.op, span.comp-edit-k').show();
                     $plot.find('input.plot-formula, button.guided').remove();
-                    $plot.find('span.plot-formula').html('= ' + plot.calculateFormula().formula).show()
+                    $plot.find('span.plot-formula').html('= ' + plot.formula()).show()
                         .after('<button class="manual">manual editing</button>');
                     delete plot.options.userFormula;
                     $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
@@ -1239,7 +1241,7 @@ function ProvenanceController(panelId){
                     $liMapPlot.find(".plot-editor").slideUp("default",function(){
                         $liMapPlot.find('.op.ui-buttonset, .comp-delete').remove();
                         $(this).remove();
-                        $liMapPlot.find('.plot-op').show();
+                        if(!oMapPlot.options.userFormula) $liMapPlot.find('.plot-op').show();
                     });
 
                     $liMapPlot.find('.guided, .manual, input.plot-formula, span.comp-edit-k').remove();

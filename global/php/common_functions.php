@@ -479,16 +479,16 @@ function setCatSet($catid, $setid, $geoid = 0){
     return true;
 }
 
-function setGhandlesFreqsFirstLast($apiid = "all"){
+function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
     $sql = "insert into temp (id1, text1, text2, `int1`, `int2`)
     select sd.setid, group_concat(distinct concat('G©',geoid)), group_concat(distinct concat('F©', sd.freq)), min(sd.firstdt100k), max(sd.lastdt100k)
     from setdata sd ";
-    if($apiid == "all"){
+    if($apiid == "all" && $themeid == "all"){
         $sql .=" group by sd.setid;";
     } else {
-        $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid group by s.setid;";
+        $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid ".($themeid == "all"?"":" and s.themeid=$themeid ")." group by s.setid;";
     }
 
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
@@ -521,12 +521,12 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
             JOIN setdata sd ON s.setid=sd.setid
             JOIN mapgeographies mg ON sd.geoid=mg.geoid
             JOIN maps m ON m.map=mg.map
-          WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$$apiid $themeFilter and mg.map <>'worldx'
+          WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter and mg.map <>'worldx'
           GROUP BY s.setid, mg.map, geographycount, maxmapcoverage
           HAVING count(distinct sd.geoid)/geographycount/maxmapcoverage>0.0025) mc
         GROUP BY setid
         ) mc2 on s.setid=mc2.setid
-        set s.maps=mapcounts";
+        set s.maps=mapcounts, s.settype='M'";
     runQuery($sqlSetMaps,"set Mapset map Counts (sets.maps)");
 }
 

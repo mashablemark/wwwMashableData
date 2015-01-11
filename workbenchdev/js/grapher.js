@@ -2707,7 +2707,7 @@ MashableData.grapher = function(){
                                     if(vizChartGeos.length){
                                         for(i=0;i<vizChartGeos.length;i++){
                                             var pointOver = oGraph.controls.vizChart.get(vizChartGeos[i].code);
-                                            if(pointOver.select) pointOver.select(true, i>0);
+                                            if(pointOver && pointOver.select) pointOver.select(true, i>0);
                                         }
                                     } else {
                                         var selectedPoints = oGraph.controls.vizChart.getSelectedPoints();
