@@ -227,7 +227,7 @@ $partners =  [
     ["id"=> "634","text"=> "Qatar"],
     ["id"=> "410","text"=> "Rep. of Korea"],
     ["id"=> "498","text"=> "Rep. of Moldova"],
-    ["id"=> "638","text"=> "RÃ©union"],
+    ["id"=> "638","text"=> "Reunion"],
     ["id"=> "642","text"=> "Romania"],
     ["id"=> "643","text"=> "Russian Federation"],
     ["id"=> "646","text"=> "Rwanda"],

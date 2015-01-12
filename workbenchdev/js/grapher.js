@@ -3185,8 +3185,8 @@ MashableData.grapher = function(){
                     if(graph.mapsets){
                         //THE BRAINS:
                         var mapset = graph.mapsets[mapIndex];
-                        var formula = mapset.calculateFormula(); //make a fresh the formula obj
-                        expression = 'return ' + mapset.calculatedFormula.formula.replace(patVariable,'values.$1') + ';';
+                        var formula = mapset.formula(); //make a fresh the formula obj
+                        expression = 'return ' + formula.replace(patVariable,'values.$1') + ';';
                         var mapCompute = new Function('values', expression);
 
                         //1. rearrange series data into single object by date keys
@@ -3325,8 +3325,7 @@ MashableData.grapher = function(){
                         for(i=0;i<graph.pointsets.length;i++){ //assemble the coordinates and colors for multiple mapsets
                             pointset = graph.pointsets[i];
                             if(!pointset.options.color) pointset.options.color = nextColor(graph.pointsets);
-                            pointset.formula(pointset);
-                            expression = 'return ' + pointset.calculatedFormula.formula.replace(patVariable,'values.$1') + ';';
+                            expression = 'return ' + pointset.formula().replace(patVariable,'values.$1') + ';';
                             var pointsetCompute = new Function('values', expression);
                             //A. rearrange series data into single object by date keys
                             compSymbols = [];

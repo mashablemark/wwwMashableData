@@ -500,4 +500,3 @@ function jvmCodeLookup($jVectorMapCode, $set = "ALL"){
 }
 
 
-//TODO: MOVE TO INDEX and add © to search on ghandles and mhandles

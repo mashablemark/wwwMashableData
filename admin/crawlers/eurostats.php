@@ -415,7 +415,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     $catIds = getCatidsFromEsCodes($themeConfig["codes"], $api_row);
     foreach($themeConfig["sets"] as $setKey => &$set){
         foreach($catIds as $catId){
-            setCatSet($catId, $set["setid"]);
+            if(isset($set["setid"])) setCatSet($catId, $set["setid"]); //don't try to add excluded slavesets
         }
     }
     setGhandlesFreqsFirstLast($apiid, $themeConfig["theme"]["themeid"]);

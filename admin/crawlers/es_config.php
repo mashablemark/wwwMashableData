@@ -562,7 +562,17 @@ $ingest = [
         "theme_name"=> "Population",
         "mapping"=> [ //help with code list if needed.  Dimensionality follows order below or cell[0,0} if this section is missing
             "CL_SEX" => "basic",
-            "CL_WSTATUS"=> ["rootCode"=>"POP"],
+            "CL_WSTATUS"=> [
+                "rootCode"=>"POP",
+                "renames" => [
+                    "POP"=>"total",
+                ]
+            ],
+            "CL_AGE"=> ["renames" => [
+                "UNK"=>"age unknown",
+                "TOTAL"=>"all ages",
+                ]
+            ],
         ],
         "processUnknownGeos"=>false,
     ],

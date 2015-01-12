@@ -267,7 +267,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                                     if(count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
                                         //save as mapset set
                                         $oEIA["setname"] = $setName;
-                                        $oEIA["settype"] = "M©S";
+                                        $oEIA["settype"] = "M_S";
                                         if(!isset($sets[$setNameUnits]["setid"])){
                                             $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
                                         }
@@ -288,15 +288,15 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                             $nameSegments = explode(" : ", $oEIA["name"]);
                             //power plants and coal mines are only two EIA sets
                             if(strPos($oEIA["series_id"],"ELEC.PLANT.")===0){ //individual prime mover series already skipped
-                                $oEIA["settype"] = "X©S";
+                                $oEIA["settype"] = "X_S";
                                 $oEIA["setname"] = "U.S. Power Plants : " . $nameSegments[2] . " : " . $nameSegments[0];
                                 $oEIA["name"] = "U.S. Power Plants : " . $nameSegments[1] . " : " . $nameSegments[2] . " : " . $nameSegments[0];
                             } elseif(strPos($oEIA["series_id"],"COAL.MINE.")===0){ //individual mine to plant series already skipped
-                                $oEIA["settype"] = "X©S";
+                                $oEIA["settype"] = "X_S";
                                 $oEIA["setname"] = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
                                 $oEIA["name"] = "United States " . $oEIA["name"];
                             }
-                            if($oEIA["settype"] == "X©S"){
+                            if($oEIA["settype"] == "X_S"){
                                 $setNameUnits = $oEIA["setname"] ."|".$oEIA["units"];
                                 if(!isset($sets[$setNameUnits])){
                                     $sets[$setNameUnits] = saveEIASet($status, $oEIA); //with setname, create the master set

@@ -1,7 +1,7 @@
 <?php
 $event_logging = true;
 $sql_logging = true;
-$ft_join_char = "©";
+$ft_join_char = "_";
 $web_root = "/var/www/vhosts/mashabledata.com/httpdocs";
 $cache_TTL = 60; //public_graph and cube cache TTL in minutes
 include_once($web_root . "/global/php/common_functions.php");
@@ -127,7 +127,7 @@ switch($command){
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         s.settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.freqs, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
-        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'F©','') as maps, s.ghandles
+        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'F_','') as maps, s.ghandles
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
         //handle may be modified in read loop depending on detected geographies and
@@ -162,7 +162,7 @@ switch($command){
                     foreach($geoWords as $geoWord){
                         $searchWords = str_replace("+".$geoWord." ", " ", $searchWords);
                     }
-                    $foundGeos["G©".$aRow["geoid"]] = [
+                    $foundGeos["G_".$aRow["geoid"]] = [
                         "seachWords"=>$searchWords,
                         "name"=>$aRow["name"]
                     ];
@@ -175,12 +175,12 @@ switch($command){
                 $title = substr($search, strlen("title")+2,strlen($search)-strlen("title")-3);
                 $sql .= " AND title = " . safeStringSQL($title);
             } elseif($search!='+ +' || $mapFilter<>"none" || $freq != "all") {
-                $periodTerm = $freq == "all"?"":" +F©".$freq;
-                $mapTerm = $mapFilter == "none"?"":" +M©".$mapFilter;
+                $periodTerm = $freq == "all"?"":" +F_".$freq;
+                $mapTerm = $mapFilter == "none"?"":" +M_".$mapFilter;
                 $mainBooleanSearch = "($search $periodTerm $mapTerm)";
                 foreach($foundGeos as $ghandle => $geoSearchDetails){
                     $geoSearchWords  = $geoSearchDetails["seachWords"];
-                    $mainBooleanSearch .= " OR ($geoSearchWords $periodTerm $mapTerm +$ghandle)";
+                    $mainBooleanSearch .= " ($geoSearchWords $periodTerm $mapTerm +$ghandle)"; //OR implied
                 }
                 $sql .= " AND match(s.name, s.units, s.titles, s.ghandles, s.maps, s.settype, s.freqs) against ('$mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
             }
@@ -255,16 +255,16 @@ switch($command){
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         while ($aRow = $result->fetch_assoc()) { //handle, setid, mastersetid, userid, name, units, freq, title, src, url, firstdt, lastdt, apiid, maps, ghandles
             $found = false;
-            $aRow["maps"] = str_replace("M©","", $aRow["maps"]);
-            $aRow["freqs"] = str_replace("F©","", $aRow["freqs"]);
+            $aRow["maps"] = str_replace("M_","", $aRow["maps"]);
+            $aRow["freqs"] = str_replace("F_","", $aRow["freqs"]);
             foreach($foundGeos as $ghandle => $geoSearchDetails){
                 if(strpos($aRow["ghandles"].",", "$ghandle,")!==false){
                     //logEvent("ghandle matched", $ghandle);
                     $thisRow = $aRow; //copy
                     unset($thisRow["ghandles"]);
                     $thisRow["name"] .= ": ".$geoSearchDetails["name"];
-                    $thisRow["geoid"] =  intval(str_replace("G©", "", $ghandle));
-                    $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("©","", $ghandle);
+                    $thisRow["geoid"] =  intval(str_replace("G_", "", $ghandle));
+                    //series object creates its own handle   $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("_","", $ghandle);
                     $output['aaData'][] = $thisRow;
                     $found = true;
                 }
@@ -1950,7 +1950,7 @@ function getCubeSeries(&$output, $cubeid, $geoid=0, $sqlFreq=false){
         if($sqlFreq){
             $sql .= " and sd.freq=$sqlFreq";
         } else {
-            $sql .= " and sd.freq=substring(s.freqs, 3, 1)";  //first matching frequency after the 'F©'
+            $sql .= " and sd.freq=substring(s.freqs, 3, 1)";  //first matching frequency after the 'F_'
         }
         $result = runQuery($sql." order by barorder, stackorder, sideorder","GetCubeSeries data");
         while($row = $result->fetch_assoc()){
