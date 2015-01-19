@@ -668,8 +668,7 @@ switch($command){
                         $row = $result->fetch_assoc();
                         $geoid = $row["geoid"];
                     } else {
-                        $output = ["status"=>"invalid geography key"];
-                        break;
+                        $geoid = 0;
                     }
                 }
                 getCubeSeries($output, $cubeid, $geoid, $freq);
@@ -1940,24 +1939,22 @@ function getCubeSeries(&$output, $cubeid, $geoid=0, $sqlFreq=false){
         $output["sidenames"] = $row["sidenames"];
     }
     //fetch cube series
-    if(intval($geoid)>0){
-        $output["series"] = [];
-        $sql = "select s.name, sd.data, barorder, stackorder, sideorder
-        from cubecomponents cc
-        inner join sets s on cc.setid=s.setid
-        inner join setdata sd on s.setid=sd.setid
-        where sd.geoid = $geoid and cc.cubeid=$cubeid";
-        if($sqlFreq){
-            $sql .= " and sd.freq=$sqlFreq";
-        } else {
-            $sql .= " and sd.freq=substring(s.freqs, 3, 1)";  //first matching frequency after the 'F_'
-        }
-        $result = runQuery($sql." order by barorder, stackorder, sideorder","GetCubeSeries data");
-        while($row = $result->fetch_assoc()){
-            $output["series"][] = $row;
-        }
-    } else {
-        $output["status"] = "invalid geoid $geoid";
+    if(!is_numeric($geoid)) $geoid = 0;
+    $output["series"] = [];
+    $freqClause = $sqlFreq?"sd.freq=$sqlFreq":"sd.freq=substring(si.freqs, 3, 1)";  //first matching frequency after the 'F_'
+    $sql = "select s.name, sd.data, barorder, stackorder, sideorder
+    from cubecomponents cc
+    inner join sets s on cc.setid=s.setid
+    left outer join (
+      select cci.setid, data
+      from cubecomponents cci join sets si on cci.setid=si.setid join setdata sd on cci.setid=sd.setid
+      where cci.cubeid=$cubeid and sd.geoid = $geoid and $freqClause
+    ) sd on cc.setid=sd.setid
+    where cc.cubeid=$cubeid
+    order by barorder, stackorder, sideorder";
+    $result = runQuery($sql,"GetCubeSeries data");
+    while($row = $result->fetch_assoc()){
+        $output["series"][] = $row;
     }
 }
 

@@ -360,9 +360,9 @@ function parseHash(newHash, oldHash){
                     $search.val("category: " + browsedCats[searchCatId].name);
                     seriesCloudSearch();
                 } else {
-                    if(oH.s && decodeURI(oH.s)!=$search.val()){
-                        $search.click().val(decodeURI(oH.s)); //the click event will remove the grey-ghost class and click and focus events on first call
-                        $('#series-search-button').click();  //to exec search
+                    if(decodeURI(oH.s)!=$search.val()){
+                        if(oH.s) $search.click().val(decodeURI(oH.s)); //the click event will remove the grey-ghost class and click and focus events on first call
+                        seriesCloudSearch();  //to exec search
                     }
                 }
 

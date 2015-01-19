@@ -184,6 +184,25 @@ function ProvenanceController(panelId){
                 + '<span class="comp-edit-k" style="display:none;"><input class="short" value="{{k}}"> * </span>'
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
+            cube: '<div ="cube">'
+                + '<span class="cube value-label">{{editedName}}</span>'
+                + '<input class="cube cube-edit" value="{{escapedName}}">'
+                + '<span class="reset-label {{nameResetClass}}">reset value: <span class="cube reset-value">{{resetName}}</span></span>'
+                + '<span class="cube value-label">{{editedUnits}}</span>'
+                + '<input class="cube cube-edit" value="{{escapedUnits}}">'
+                + '<span class="reset-label {{unitsResetClass}}">reset value: <span class="cube reset-value">{{resetUnits}}</span></span>'
+                + '<button class="edit right">edit</button>'
+                + '<button class="close cube-edit right">close</button>'
+                + '<button class="reset cube-edit right">reset</button>'
+                + '{{dimensions}}</div>',
+            cubeDimension: '<div class="dimension" data="{{name}}">'
+                + '<span class="dimension">{{name}}</span>'
+                + '{{facets}}'
+                + '</div>',
+            cubeFacet: '<span class="facet">'
+                + '<span class="facet value-label">{{editedName}}</span>'
+                + '<input class="facet-edit" value="{{escapedName}}" data="{{index}}">'
+                + '<span class="reset-label {{editedClass}}">reset value: <span class="cube reset-value">{{resetName}}</span></span>',
             okcancel: '<button class="config-cancel">cancel edits</button><button class="right config-ok">ok</button>'
         },
         controller = {
@@ -595,6 +614,110 @@ function ProvenanceController(panelId){
                 //6. you are DIRTY!
                 makeDirty();
 
+            },
+            cubeEditor: function(){
+                //abort if no data cube
+                if(!panelGraph.cubeid || !panelGraph.assets || !panelGraph.assets.cube) return;
+                
+                var cube = panelGraph.assets.cube;
+                var cubeName = (provMapconfig.cube && provMapconfig.cube.name) || cube.name;
+                var units = (provMapconfig.cube && provMapconfig.cube.units) || cube.units;
+                
+                //write the facets HTML
+                var facetsHTML
+                if(cube.barAxis || cube.barNames) _addDimension(cube.barAxis, cube.barNames);
+                if(cube.stackAxis || cube.stackNames) _addDimension(cube.stackAxis, cube.stackNames);
+                if(cube.sideAxis || cube.sideNames) _addDimension(cube.sideAxis, cube.sideNames);
+                
+                //wrap the header HTML around the factes HTML
+                var cubeHTML = common.mustache(templates.cube, {
+                    editedName: cubeName,
+                    escapedName: cubeName.replace('"', '&quot;'),
+                    resetName: cube.name,
+                    nameResetClass: cubeName==cube.name?'hide':'show',
+                    units: units,
+                    escapedUnits: units.replace('"', '&quot;'),
+                    resetUnits: cube.units || '',
+                    unitsResetClass: cube.units==units?'hide':'show'
+                });
+                
+                $prov.append(cubeHTML);
+                
+                //buttons
+                $prov.find('.cube button.edit').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
+                    $prov.find('.cube .cube-edit').show();
+                    $prov.find('.cube .edit, .cube .value-label').hide();
+                });
+                $prov.find('.cube button.close').button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
+                    $prov.find('.cube .cube-edit').hide();
+                    $prov.find('.cube button.edit, .cube span.value-label').show();
+                });
+                $prov.find('.cube button.reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).click(function(){
+                    delete provMapconfig.cube; //remove user over rides
+                    //delete and rebuild
+                    $prov.find('.cube').remove();
+                    controller.cubeEditor();
+
+
+                    /*$prov.find('.cube input').each(function(){
+                        var $input = $(this);
+                        var key = $input.attr('data');
+
+                        //load input and label with reset text value
+                        var resetValue = $input.closest('span').find('span.reset-value').val();
+                        $input.val(resetValue);
+                        $input.closest('span').find('span.value-label').val(resetValue);
+                    }).hide();
+
+                    //show/hide reset value span
+                    $prov.find('.cube span.reset-label').addClass('hide').removeClass('show');
+                    $prov.find('.cube .reset').button('disable');*/
+                });
+                $prov.find('.cube input').change(function(){
+                    var $input = $(this);
+                    var $parentSpan = $input.closest('span');
+                    var key = $input.attr('data');
+                    //sync text label
+                    $parentSpan.find('span.value-label').val($input.val());
+                    //update model
+                    if(!provMapconfig.cube) provMapconfig.cube = {dims: {}};
+                    if($parentSpan.hasClass('facet')){
+                        var dim = $parentSpan.closest('div.dimension').attr('data');
+                        if(!provMapconfig.cube.dims[dim]) provMapconfig.cube.dims[dim] = [];
+                        provMapconfig.cube.dims[dim][parseInt($input.attr('data'))] = $input.val();
+                    }
+                    if($parentSpan.hasClass('name')){
+                        provMapconfig.cube.name = $input.val();
+                    }
+                    if($parentSpan.hasClass('units')){
+                        provMapconfig.cube.units = $input.val();
+                    }
+                    //show reset value label
+                    $parentSpan.find('span.reset-label').addClass('show').removeClass('hide');
+                    $prov.find('.cube .reset').button('enable');
+                });
+
+                function _addDimension(dimName, facets){
+                    var i, facetName, userName, facetsHTML = '';
+                    for(i=0;i<facets.length;i++){
+                        facetName = facets[i];
+                        if(provMapconfig.cube && provMapconfig.cube.dims && provMapconfig.cube.dims[dimName]){
+                            userName = provMapconfig.cube.dims[dimName][i] || facetName;
+                        }
+                        facetsHTML += common.mustache(templates.cubeFacet, {
+                            editedName: userName,
+                            escapedName: userName.replace('"', '&quot;'),
+                            resetName: facetName,
+                            index: i,
+                            editedClass: facetName==userName?'hide':'show'
+                        });
+                    }
+
+                    return common.mustache(templates.cubeDimension, {
+                        name: dimName,
+                        facets: facetsHTML
+                    });
+                }
             },
             commitChanges: function commitChanges(noRedraw){//save change to graph object and rechart
                 //called by workbench on tab change = autocommit.  Cancel button must be explicitly to avoid saving prov changes

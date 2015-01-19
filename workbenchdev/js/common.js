@@ -378,7 +378,7 @@ MashableData.common = {
     },
 
     callApi: function callApi(params, callBack){ //modal waiting screen is shown by default. params.modal option can modify this behavior
-        var data, embed = MashableData.globals.isEmbedded;
+        var data, embed = MashableData.globals.isEmbedded, callStartTime = new Date();
         if(embed){
             data = $.extend({uid: false, host: window.location.host}, params)
         } else {
@@ -398,7 +398,8 @@ MashableData.common = {
                     if(!embed){
                         globals.totalServerTime += parseFloat(jsoData.exec_time);
                         if(jsoData.msg) dialogShow('', jsoData.msg);
-                        console.info(params.command+': '+jsoData.exec_time+' (total server time: '+globals.totalServerTime+'ms)');
+                        var callEndTime = new Date();
+                        console.info(params.command+': '+jsoData.exec_time+' (total server time: '+globals.totalServerTime+'ms); roundtrip: '+ (callEndTime.getTime()-callStartTime.getTime()) +'ms; '+JSON.stringify(jsoData).length/1000+'kb');
                     }
                     if(callBack) callBack(jsoData, textStatus, jqXHR);
                     if(params.modal!='persist' && !embed) unmask();

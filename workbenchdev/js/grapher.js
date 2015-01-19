@@ -1532,6 +1532,7 @@ MashableData.grapher = function(){
 
                 //PRIVATE FUNCTIONS FOR buildGraphPanel
                 function _fillChangeMapSelect(){
+                    if(!oGraph.map) return "";
                     var handle, i, map, html='<option value="'+oGraph.map+'">'+globals.maps[oGraph.map].name+'</option>', maps=[];
                     for(handle in oGraph.assets){
                         if(handle[0]=='M' && oGraph.assets[handle].maps){
@@ -4048,6 +4049,7 @@ MashableData.grapher = function(){
     }
 
     function vizualizeCube(graph, activeMapTab, geoKey, mapDate, action){
+        console.time('vizualizeCube');
         if(typeof action == 'undefined') action = 'new';
         var j, k, cubeid = graph.cubeid, mapPlot = graph.mapsets[activeMapTab];
         if(!graph.assets.cube) graph.assets.cube = {data: {}, id:cubeid};
@@ -4092,30 +4094,41 @@ MashableData.grapher = function(){
 
             //if not already organized...
             //organize into nested arrays of facets (= unique combo of dims) which will be used to organize the series and to create the chart object
-            var cubeData = cube.data['G'+geoKey];
-
+            var cubeData = cube.data['G'+geoKey], i;
+            cube.hasData = false; //var defined in drawmap to being accessable only from this closure
+            for(i=0;i<cubeData.length;i++){
+                if(cubeData[i].data){
+                    cube.hasData = true;
+                    break;
+                }
+            }
             //3. make base chart options object
+            var title = (cube.name||cube.theme)+'<br>'+(cube.hasData?geoName||'':'');
             var vizChart = {
                 chart: {
                     type: 'bar',
                     spacingRight: 50,
-                    renderTo: graph.controls.$thisPanel.find('.mashabledata_cube-viz')[0]
+                    renderTo: graph.controls.$thisPanel.find('.mashabledata_cube-viz')[0],
+                    cubeId: graph.cubeid
                 },
                 title: {
-                    text: cube.theme+'<br>'+(geoName||''),
+                    text: title,
                     style: {fontSize: '12px'}
                     //text: (graph.assets.cube.theme||'')  + (graph.assets.cube.name?' by '+graph.assets.cube.name:'') + ' for ' + geoName
                 },
                 subtitle: {
-                    text: 'click on map to select location',
-                    style: {fontSize: '10px'},
-                    y: (geoName?50:30)
+                    text: (jvm.Map.maps[graph.mapFile].paths[geoKey]?jvm.Map.maps[graph.mapFile].paths[geoKey].name:'click on map to select location'),
+                    style: {fontSize: '10px'} //,
+                    //y: (geoName?50:30)
                 },
                 plotOptions: {
                     bar: {
                         dataLabels: {
                             enabled: false,
-                            align: 'left'
+                            align: 'left',
+                            formatter: function(){
+                                return cube.hasData?(this.point.rawY===null?"no data":this.y):'';
+                            }
                         },
                         borderWidth: 0,
                         animation: false,
@@ -4165,6 +4178,7 @@ MashableData.grapher = function(){
                 },
                 series: [],
                 tooltip: {
+                    useHTML: true,
                     formatter: function(){
                         return '<b>'+ cube.theme + '</b><br/>' + this.point.name +':<br/>'
                             + common.numberFormat(Math.abs(this.point.y), 0) + ' ' + cube.units;
@@ -4174,22 +4188,25 @@ MashableData.grapher = function(){
 
             //4. loop through the cubeData (note:  setdata must be left outer joined to cubecompents to produce NULL placeholders when missing for certain geographies)
             //TODO: bar-side with no stack
-            var point, barName, barOrder, stackOrder, sideOrder, barData = [], stackData = [[],[]], lastBar = 0;
-            for(var i=0;i<cubeData.length;i++){
+            var point, y, barName, barOrder, stackOrder, sideOrder, barData = [], stackData = [[],[]], lastBar = 0;
+            for(i=0;i<cubeData.length;i++){
                 barOrder =  parseInt(cubeData[i].barorder);
                 if(cube.stackNames && lastBar!=barOrder){
-                    vizChart.series.push({data: stackData[0], name: barName});
+                    vizChart.series.push({data: stackData[0], name: barName, color: globals.hcColors[vizChart.series.length]});
                     if(stackData[1].length) vizChart.series.push({data: stackData[1], name: barName, linkedTo: ':previous', showInLegend: false});  //side
                     stackData = [[],[]]; //two array for sides if present
                     lastBar = barOrder;
                 }
-                barName = graph.mapconfig.barNames||cube.barNames[barOrder];
+                barName = (graph.mapconfig.barNames&&graph.mapconfig.barNames[barOrder])||cube.barNames[barOrder];
                 sideOrder = parseInt(cubeData[i].sideorder);
                 stackOrder = parseInt(cubeData[i].stackorder);
                 if(cube.stackNames && barOrder==0) vizChart.xAxis.categories.push(graph.mapconfig.stackNames||cube.stackNames[stackOrder]);  //TODO: implement the bar, stack and side names editor
+                y = seriesValue(cubeData[i].data, mapDate);
                 point = {
-                    y:  ((cube.sideAxis && sideOrder==0)?-1:1) * seriesValue(cubeData[i].data, mapDate),
-                    name: barName + (cube.stackNames?'<br>'+cube.stackNames[stackOrder]:'') + (cube.sideNames?'<br>'+cube.sideNames[sideOrder]:'')
+                    y:  ((cube.sideAxis && sideOrder==0)?-1:1) * y,
+                    rawY: y,
+                    //name: barName + (cube.stackNames?'<br>'+cube.stackNames[stackOrder]:'') + (cube.sideNames?'<br>'+cube.sideNames[sideOrder]:'')
+                    name: cubeData[i].name
                 };
                 if(cube.stackNames){
                     stackData[sideOrder].push(point);
@@ -4208,13 +4225,12 @@ MashableData.grapher = function(){
                     id: geoKey,
                     name: geoName,
                     data: barData,
-                    showInLegend: false
+                    showInLegend: false,
+                    color: globals.hcColors[vizChart.series.length]
                 });
                 vizChart.plotOptions.bar.dataLabels.enabled = true;
             }
-            if(cube.sideAxis) vizChart.xAxis.lineWidth = 0;
-
-            console.info(vizChart);
+            if(cube.sideAxis) vizChart.xAxis.lineWidth = 0
 
             switch(action){
                 case 'add':
@@ -4228,12 +4244,25 @@ MashableData.grapher = function(){
                     vizChart.series[0].pointWidth=1;
                     vizChart.series[0].pointPadding=0;
                     vizChart.plotOptions.bar.groupPadding=0;
-                default:  //'new'
-                    if(graph.controls.vizChart) graph.controls.vizChart.destroy();
-                    graph.controls.vizChart = new Highcharts.Chart(vizChart);
+                default:  //'new' with fst update if same CubeId
+                    if(graph.controls.vizChart && graph.controls.vizChart.options.chart.cubeId!=graph.cubeid){
+                        graph.controls.vizChart.destroy();
+                    }
+                    if(graph.controls.vizChart) {
+                        graph.controls.vizChart.setTitle(title, geoName, false);
+                        while(graph.controls.vizChart.series.length) graph.controls.vizChart.series[0].remove(false);
+                        for(i=0;i<vizChart.series.length;i++){
+                            graph.controls.vizChart.addSeries(vizChart.series[i], false)
+                        }
+                        graph.controls.vizChart.redraw();
+                    } else {
+                        graph.controls.vizChart = new Highcharts.Chart(vizChart);
+                    }
+
 
             }
         }
+        console.timeEnd('vizualizeCube');
     }
     function getVizChartGeos(selectedRegions, oGraph, mapPlot, includeBunnies){
         //gets order list of geoInfo objects should be in vizChart
@@ -4301,9 +4330,9 @@ MashableData.grapher = function(){
         for(var i=0;i<data.length;i++){
             point = data[i].split(':');
             if(point[0]==mdDate) {
-                if(point[1]=='null') return null; else return parseFloat(point[1]);
+                if(point[1]=='null' || point[1]===null) return null; else return parseFloat(point[1]);
             }
         }
-        return null
+        return null;
     }
 }();
