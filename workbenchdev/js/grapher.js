@@ -4103,7 +4103,7 @@ MashableData.grapher = function(){
                 }
             }
             //3. make base chart options object
-            var title = (cube.name||cube.theme)+'<br>'+(cube.hasData?geoName||'':'');
+            var title = ((graph.mapconfig&&graph.mapconfig.cube&&graph.mapconfig.cube.name)||cube.name||cube.theme)+'<br>'+(cube.hasData?geoName||'':'');
             var vizChart = {
                 chart: {
                     type: 'bar',
@@ -4150,7 +4150,7 @@ MashableData.grapher = function(){
                 },
                 yAxis: {
                     title: {
-                        text: cube.units||''
+                        text: (graph.mapconfig&&graph.mapconfig.cube&&graph.mapconfig.cube.units)||cube.units||''
                     },
                     labels: {
                         enabled: false
@@ -4189,6 +4189,7 @@ MashableData.grapher = function(){
             //4. loop through the cubeData (note:  setdata must be left outer joined to cubecompents to produce NULL placeholders when missing for certain geographies)
             //TODO: bar-side with no stack
             var point, y, barName, barOrder, stackOrder, sideOrder, barData = [], stackData = [[],[]], lastBar = 0;
+            var barAxis = cube.barAxis, stackAxis = cube.stackAxis, sideAxis = cube.sideAxis, cubeConfig = graph.mapconfig.cube;
             for(i=0;i<cubeData.length;i++){
                 barOrder =  parseInt(cubeData[i].barorder);
                 if(cube.stackNames && lastBar!=barOrder){
@@ -4197,10 +4198,10 @@ MashableData.grapher = function(){
                     stackData = [[],[]]; //two array for sides if present
                     lastBar = barOrder;
                 }
-                barName = (graph.mapconfig.barNames&&graph.mapconfig.barNames[barOrder])||cube.barNames[barOrder];
+                barName = (cubeConfig&&cubeConfig.dims[barAxis]&&cubeConfig.dims[barAxis][barOrder]) || cube.barNames[barOrder];
                 sideOrder = parseInt(cubeData[i].sideorder);
                 stackOrder = parseInt(cubeData[i].stackorder);
-                if(cube.stackNames && barOrder==0) vizChart.xAxis.categories.push(graph.mapconfig.stackNames||cube.stackNames[stackOrder]);  //TODO: implement the bar, stack and side names editor
+                if(cube.stackNames && barOrder==0) vizChart.xAxis.categories.push((cubeConfig&&cubeConfig.dims[stackAxis] && cubeConfig.dims[stackAxis][stackOrder]) || cube.stackNames[stackOrder]);  //TODO: implement the bar, stack and side names editor
                 y = seriesValue(cubeData[i].data, mapDate);
                 point = {
                     y:  ((cube.sideAxis && sideOrder==0)?-1:1) * y,

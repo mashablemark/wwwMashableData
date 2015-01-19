@@ -274,9 +274,9 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
     printNow("themeName: $themeName");
     printNow("sourceKey: $sourceKey");
     printNow("cubeDimensions:");
-    var_dump($cubeDimensions);
+    preprint($cubeDimensions);
     printNow("seriesDimensions:");
-    var_dump($seriesDimensions);
+    preprint($seriesDimensions);
     global $apiid, $geographies, $status, $firstDate, $lastDate;
     //1. get themeid, saving as needed
     $themeid = setThemeByName($apiid, $themeName);
@@ -297,14 +297,14 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
 
     //insert CUBESETS
     if($cube){
-        $stackorder = "null";
-        $barorder = "null";
-        $side = "null";
+        $stackorder = 0; //part of unique id therefore "null" is invalid;
+        $barorder = 0; //ditto
+        $sideorder = 0; //ditto
         for($i=0;$i<count($cubeDimensions);$i++){
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 if($seriesDimensions[$i]==$cubeDimensions[$i]["list"][$j]["name"]){
                     if(($cubeDimensions[$i]["dimension"]=="sex" && $i!=0) || $i==2){
-                        $side = ($j==0)?"'L'":"'R'";
+                        $sideorder = $j;
                     } elseif($i==0){
                         $barorder = $j;
                     } elseif($i==1){
@@ -314,8 +314,8 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
             }
         }
         $cubeid = $cube["id"];
-        runQuery("insert into cubecomponents (cubeid, setid, barorder, stackorder, side)
-            values($cubeid, $setid, $barorder, $stackorder, $side)
+        runQuery("insert into cubecomponents (cubeid, setid, barorder, stackorder, sideorder)
+            values($cubeid, $setid, $barorder, $stackorder, $sideorder)
             on duplicate key update barorder=$barorder, stackorder=$stackorder, side=$side");
     }
 
