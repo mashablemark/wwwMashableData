@@ -7,6 +7,7 @@
 
 $event_logging = true;
 $sql_logging = false;
+$debug = true;  //no file fetch
 
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
@@ -36,6 +37,9 @@ function ApiExecuteJob($runid, $apirunjob){
     switch($jobconfig["type"]){
         case "CatCrawl":
             $status = getCategoryChildren($jobconfig["catid"], $apirunjob);
+            break;
+        case "Update":
+            //just updates data; does not add new sets or series.  Therefore no need to update cats or maps or ghandles field
             break;
         default:
             die("unknown job type");
@@ -116,26 +120,30 @@ function ApiBatchUpdate($since,$periodicity, $api_row){
 
 
 function ApiCrawl($catid, $api_row){
-    global $bulkFolder;
+    global $bulkFolder, $debug;
 //1. use the bulk file to perform a complete ingestion of all series
 //2. use the API to read the entire category tree and assign cat series
 
     //1A. get the bulk file and unzip it
- /*   $runid = $api_row["runid"];
-    $update_run_sql = "update LOW_PRIORITY apiruns set finishdt=now() where runid = $runid";
-    $fr = fopen("http://research.stlouisfed.org/fred2/downloaddata/FRED2_txt_2.zip", 'r');
-    file_put_contents($bulkFolder."FRED.zip", $fr);
-    fclose($fr);
+    if(!$debug){  //speed things up for reruns
+        if(isset($api_row["runid"]))
+            $update_run_sql = "update LOW_PRIORITY apiruns set finishdt=now() where runid = $api_row[runid]";
+        else
+            $update_run_sql = false;
+        $fr = fopen("http://research.stlouisfed.org/fred2/downloaddata/FRED2_txt_2.zip", 'r');
+        file_put_contents($bulkFolder."FRED.zip", $fr);
+        fclose($fr);
 
-    runQuery($update_run_sql);
-    rmdir($bulkFolder."FRED2_txt_2");
-    runQuery($update_run_sql);
-    $zip = new ZipArchive;
-    $zip->open($bulkFolder."FRED.zip");
-    $zip->extractTo('./'.$bulkFolder);
-    $zip->close();
-    runQuery($update_run_sql);
-    unlink($bulkFolder."FRED.zip");  //delete the zip file*/
+        if($update_run_sql) runQuery($update_run_sql);
+        if(file_exists($bulkFolder."FRED2_txt_2")) rmdir($bulkFolder."FRED2_txt_2");
+        runQuery($update_run_sql);
+        $zip = new ZipArchive;
+        $zip->open($bulkFolder."FRED.zip");
+        $zip->extractTo('./'.$bulkFolder);
+        $zip->close();
+        if($update_run_sql) runQuery($update_run_sql);
+        unlink($bulkFolder."FRED.zip");  //delete the zip file
+    }
 
     //1B. process the bulk file
     $list = new FredList();
@@ -145,7 +153,7 @@ function ApiCrawl($catid, $api_row){
     $added = $list->status;["added"];
     $updated = $list->status;["updated"];
     $failed = $list->status;["failed"];
-    runQuery("update LOW_PRIORITY apiruns set finishdt=now(), added=$added, updated = $updated, failed=$failed where runid = $runid");
+    if(isset($api_row["runid"])) runQuery("update LOW_PRIORITY apiruns set finishdt=now(), added=$added, updated = $updated, failed=$failed where runid = $api_row[runid]");
 
     //2. queue the job to process the categories
     queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$api_row["rootcatid"]));  //ignore the $catid passed in; from root
@@ -158,10 +166,13 @@ function ApiRunFinished($api_run){
     global $MAIL_HEADER;
 
     set_time_limit(600);
-    findSets($api_run["apiid"]);
+    setMapsetCounts("all", $api_run["apiid"]);
 
     set_time_limit(600);
-    setMapsetCounts("all", $api_run["apiid"]);
+    setPointsetCounts("all", $api_run["apiid"]);
+
+    set_time_limit(600);
+    setGhandlesFreqsFirstLast($api_run["apiid"]);
 
     $runId = $api_run["runid"];
     $sql = <<<EOS
@@ -182,39 +193,139 @@ class FredList
     // property declaration
     public $bulkFolderRoot = 'esdata/';
     public $listFile = "README_TITLE_SORT.txt";
+    /*$listFile format:
+    FRED: All Data Series
+    Link: http://research.stlouisfed.org/fred2/
+    README File Created: 2015-01-21
+    FRED (Federal Reserve Economic Data)
+    Economic Research Division
+    Federal Reserve Bank of St. Louis
+
+    Series files in the data directory sorted by title:
+
+    File                                    ;Title; Units; Frequency; Seasonal Adjustment; Last Updated
+    A\U\AUD10MD156N.csv                     ;10-Month London Interbank Offered Rate (LIBOR), based on Australian Dollar (DISCONTINUED SERIES)Â©; %; D; NSA; 2013-06-07
+    G\B\GBP10MD156N.csv                     ;10-Month London Interbank Offered Rate (LIBOR), based on British Pound (DISCONTINUED SERIES)Â©; %; D; NSA; 2013-06-07
+    C\A\D\CAD10MD156N.csv                   ;10-Month London Interbank Offered Rate (LIBOR), based on Canadian Dollar (DISCONTINUED SERIES)Â©; %; D; NSA; 2013-06-07
+    ...
+    ...
+
+    Abbreviations:
+
+    Frequency
+       A = Annual
+       SA = Semiannual
+       Q = Quarterly
+       M = Monthly
+       BW = Bi-Weekly
+       W = Weekly
+       D = Daily
+    Seasonal Adjustment
+       SA = Seasonally Adjusted
+       NSA = Not Seasonally Adjusted
+       SAAR = Seasonally Adjusted Annual Rate
+       SSA = Smoothed Seasonally Adjusted
+       NA = Not Applicable
+
+    Directories are limited to 1000 files or less.
+    Subdirectories are created recursively for each character in a series ID until 1000 or fewer series IDs match a substring.
+    Most zip files contain less than 1000 files and do not contain additional subdirectories.*/
+
     public $zipFolder = "FRED2_txt_2/";
     public $api_row;
     public $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
+    public $sets = [];  //setname=>units=>freq=>geoid:latlon => [file, copyright, setid, skey, apidt, update=>true/false, title]
+
 
     // method declaration
-    public function IngestAll($Since = false) {  //process all series in the list with LastUpdate > Since is Since is provided
+    public function IngestAll($Since = false) {  //process all series in the list with LastUpdate > Since if Since is provided
         $path = $this->bulkFolderRoot.$this->zipFolder.$this->listFile;
-        if(!file_exists($path)) return false;
+        if(!file_exists($path)) return false;  //bulk file must already be downloaded and unzipped
 
+        //1. open the bulk file and queue up first series info (see format above)
         $fp = fopen($path, 'r');
-        $fields = [];
-        while(!feof($fp) && count($fields)!=6){ //queue up the first line
-            $fields = fgetcsv($fp, 9999, ";", "\"");
+        $headerFields = [];
+        while(!feof($fp) && count($headerFields)!=6){ //queue up the first line
+            $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
-        $this->trimFields($fields);
-        if($fields[0]=="File"){
-            $fields = fgetcsv($fp, 9999, ";", "\"");  //queue up first data line
+        $this->trimFields($headerFields);
+        if($headerFields[0]=="File"){
+            $headerFields = fgetcsv($fp, 9999, ";", "\"");  //queue up first data line
         } else {
             return false;
         }
 
-        while(!feof($fp) && count($fields)==6){ //queue up the first line
-            $this->trimFields($fields);
-            $this->processLine($fields, $Since);
-            $processed = $this->status["added"] + $this->status["updated"] + $this->status["skipped"];
-            if(intval($processed/1000)*1000==$processed) {
-                print("$processed. ". strftime ("%r")." ");
-                var_dump($fields);
-                printNow("<br>");
+        //2. loop through bulk header file and read into $this->sets
+        $fieldNames = ["File"=>0, "Title"=>1, "Units"=>2, "Frequency"=>3,"Seasonal Adjustment"=>4,"Last Updated"=>5]; //key to $seriesHeader fields
+        $line = 0;
+        while(!feof($fp) && count($headerFields)==6){
+            $this->trimFields($headerFields);
+            $this->processLine($headerFields, $Since);
+            $line++;
+            if(intval($line/1000)*1000==$line) {
+                print("read $line lines. ". strftime ("%r")." ");
+                preprint($headerFields);
             }
-            $fields = fgetcsv($fp, 9999, ";", "\"");
+            $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
         fclose($fp);
+
+        //save $this->sets to database
+        $minSetSize = 5;
+        $apiid = $this->api_row["apiid"];
+        print("hi");
+        preprint($this->sets);
+        foreach($this->sets as $setName => &$multiUnitSets){
+            foreach($multiUnitSets as $units => &$set){
+                foreach($set as $freq => &$setFreqBranch){
+                    $setid = false;
+                    $masterSetid = null;
+                    $setSize = count($setFreqBranch);
+                    foreach($setFreqBranch as $geoKey => &$setInfo){
+                        if($setInfo["setid"]){
+                            $setid = $setInfo["setid"];
+                        } else {
+                            //is a point, save/get its mastersetid
+                            if($setSize>=$minSetSize && $setInfo["latlon"]!="" && $masterSetid!==null){
+                                $masterSetid = saveSet(
+                                    $apiid,
+                                    null,
+                                    $setInfo["geoid"]==0?$setInfo["title"]:$setInfo["name"],
+                                    $units,
+                                    "St. Louis Federal Reserve",
+                                    "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"],
+                                    $setInfo["isCopyrighted"]?"copyrighted":"",
+                                    "",
+                                    null,
+                                    "",
+                                    null,
+                                    null,
+                                    "X");
+                            }
+                            //save/get the set
+                            if(!$setid || $setSize<$minSetSize  || $setInfo["geoid"]==0)
+                                $setid = saveSet(
+                                    $apiid,
+                                    null,
+                                    $setInfo["geoid"]==0?$setInfo["title"]:$setInfo["name"],
+                                    $units,
+                                    "St. Louis Federal Reserve",
+                                    "",
+                                    $setInfo["isCopyrighted"]?"copyrighted":"",
+                                    "",
+                                    null,
+                                    $setInfo["latlon"],
+                                    null,
+                                    $masterSetid,
+                                    $setInfo["latlon"]==""?($setInfo["geoid"]==0?"M":"S"):"X"
+                                );
+                        }
+                        $this->getCSVData($setInfo);
+                        saveSetData($status, $setid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"]);
+                    }
+                }
+            }
+        }
     }
 
     public function Update($code){
@@ -224,107 +335,232 @@ class FredList
             return false;
         }
         $fp = fopen($path, 'r');
-        $fields = [];
-        while(!feof($fp) && count($fields)!=6){ //queue up the first line
-            $fields = fgetcsv($fp, 9999, ";", "\"");
+        $headerFields = [];
+        while(!feof($fp) && count($headerFields)!=6){ //queue up the header line
+            $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
-        $this->trimFields($fields);
-        if($fields[0]=="File"){
-            $fields = fgetcsv($fp, 9999, ";", "\""); //queue up first data line
+        $this->trimFields($headerFields);
+        if(implode(",", $headerFields) == "File,Title,Units,Frequency,Seasonal Adjustment,Last Updated"){
+            $seriesFields = fgetcsv($fp, 9999, ";", "\""); //read and parse header
         } else {
-            print(implode($fields)."no value");
+            print(implode($headerFields)." is not a valid header");
             return false;
         }
 
-        while(!feof($fp) && count($fields)==6){ //queue up the first line
-            $this->trimFields($fields);
-            if(strpos($fields[0], $code)!==false){
-                $seriesId = $this->processLine($fields);
-                break;
+        while(!feof($fp) && count($seriesFields)==6){ //queue up the first line
+            $this->trimFields($seriesFields);
+            if(strpos($seriesFields[0], $code)!==false){
+                $this->processLine($seriesFields);
             }
-            $fields = fgetcsv($fp, 9999, ";", "\"");
+            $seriesFields = fgetcsv($fp, 9999, ";", "\"");
         }
         fclose($fp);
         return $seriesId;
     }
 
-    private function trimFields(&$fields){
-        for($i=0;$i<count($fields);$i++){
-            $fields[$i] = trim($fields[$i]);
+    private function trimFields(&$headerFields){
+        for($i=0;$i<count($headerFields);$i++){
+            $headerFields[$i] = trim($headerFields[$i]);
         }
     }
 
-    private function processLine($trimFields, $Since = false){
-        $fieldNames = ["File"=>0, "Title"=>1, "Units"=>2, "Frequency"=>3,"Seasonal Adjustment"=>4,"Last Updated"=>5];
-        if(strpos($trimFields[$fieldNames["Title"]], "DISCONTINUED SERIES")) {
+    private function processLine($seriesHeader, $Since = false){
+        //column of $seriesHeader and other declarations
+        $file = $seriesHeader[0];
+        $isCopyrighted = strpos($seriesHeader[1], "©")!==false;
+        $title =  str_replace("©", "", $seriesHeader[1]);
+        $units = $seriesHeader[2];
+        $frequency = FredPeriodToMdPeriod($seriesHeader[3]);
+        $saCode = $seriesHeader[4];
+        $updatedDt = $seriesHeader[5];
+        $skey = substr(str_replace(".csv", "" ,$file),strrpos($file, "/")+1);
+        $apiid = $this->api_row["apiid"];
+
+        $seasonalAdjustments = [
+            "SA" => " (Seasonally Adjusted) ",
+            "NSA" => " (Not Seasonally Adjusted) ",
+            "SAAR" => " (Seasonally Adjusted Annual Rate) ",
+            "SSA" => " (Smoothed Seasonally Adjusted) ",
+            "NA" => "" // = "Not Applicable" but don't add this to the set name!
+        ];
+        static $geographies = false;
+        if(!$geographies ){
+            $result = runQuery("select geoid, geoset, containingid, lat, lon, type, regexes
+            from geographies
+            where regexes is not null and geoset<>'uscounties' and geoset not like 'nuts%'
+            order by length(name) desc");  //try to find a match with the longest first (ie. "West Virginia" before "Virginia")
+            while($geography = $result->fetch_assoc()) $geographies[] =  $geography;
+        }
+        $setInfo = false;  //will be added to $this->sets once filled out
+        //1. skip discontinued series
+        if(strpos($title, "DISCONTINUED SERIES")) {
             $this->status["failed"] =+ 1;
             return false;
         }
-        $fpText = fopen($this->bulkFolderRoot.$this->zipFolder."data/".str_replace("\\", "/", $trimFields[$fieldNames["File"]]), 'r');
-        $headers = ["Title:","Series ID:","Source:","Release:","Seasonal Adjustment:","Frequency:","Units:","Date Range:","Last Updated:","Notes:","DATE"];
-        $series = [];
-        $line = fgets($fpText);
-        for($i=0;$i<count($headers);$i++){
-            if(strpos($line,$headers[$i])!==0) {
-                return false;
-            }
-            if($headers[$i]=="DATE") {
-                break;
-            }  //queue up the date (DATE - VALUES) section perfectly
-            $series[$headers[$i]] = trim(substr($line, strlen($headers[$i])));
 
-            do{
-                $line = fgets($fpText);
-                if(strpos($line," ")===0)  $series[$headers[$i]] .= " " . trim($line);
-            } while(strlen($line)<=2 || strpos($line," ")===0);
-            //print($i.$headers[$i].$series[$headers[$i]]."<BR>");
+        //2. check if to see if already exists as in db
+        $result = runQuery("select s.name, s.units, s.setid, s.freq, sd.geoid, sd.latlon, sd.apidt
+        from setdata sd join sets s on sd.setid=s.setid left outer join geographies g on sd.geoid=g.geoid
+        where apiid=$apiid and sd.skey=". safeStringSQL($skey));
+        if($result->num_rows==1){
+            //this series is in the database already!!
+            $set = $result->fetch_assoc();
+            $dbSetName = $set["name"];
+            $dbSetUnits = $set["units"];
+            $dbSetFeq = $set["freq"];
+            if($dbSetFeq!=$frequency || $dbSetUnits!=$units) die("mismatch freq or units for $file");
+            $setInfo = [
+                "name" => $set["name"],
+                "units" => $units,
+                "latlon" => $set["latlon"],
+                "geoid" => $set["geoid"],
+                "freq" => $frequency,
+                "setid" => $set["setid"],
+                "skey" => $skey,
+                "file" => $file,
+                "apidt" => $updatedDt,
+                "dbUpdateDT" => $set["apidt"],
+                "copy" => $isCopyrighted,
+                "title" => $title,
+                "geoset" => $set["geoset"],
+            ];
         }
+
+        if(!$setInfo)
+            //3. check exact name match for
+            $regex = "#( for | in | from )#";
+            if(preg_match($regex, $title, $matches)==1){
+                //think we have a geoName...
+                $separator = $matches[0];
+                $nameParts = explode($separator, $title);
+                if(count($nameParts)==2){
+                    $geoName = trim($nameParts[1]);
+                    $setName = trim($nameParts[0]).$seasonalAdjustments[$saCode]." $separator &hellip;";
+                    $sql = "select geoid, type, lat, lon, geoset
+                        from geographies
+                        where name=".safeStringSQL($geoName );
+                    $result = runQuery($sql,"FindSets");
+                    if($result->num_rows>0){
+                        $geography = $result->fetch_assoc();
+                        if(isset($this->sets[$setName][$units][$frequency])){   //try to determine Georgia the country vs.
+                            foreach($this->sets[$setName][$units][$frequency] as $geoKey=>$seriesInfo){
+                                $siblingGeoset = $seriesInfo["geoset"];
+                                break;
+                            }
+                            while($geography["geoset"]!=$siblingGeoset && $geography) $geography = $result->fetch_assoc();
+                        }
+                        if(!$geography) die("sibling not found for $title");
+                        $setInfo = [
+                            "name" => $setName.$seasonalAdjustments[$saCode],
+                            "units" => $units,
+                            "latlon" => $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"",
+                            "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
+                            "freq" => $frequency,
+                            "setid" => null,
+                            "skey" => $skey,
+                            "file" => $file,
+                            "apidt" => $updatedDt,
+                            "dbUpdateDT" => null,
+                            "copy" => $isCopyrighted,
+                            "title" => $title.$seasonalAdjustments[$saCode],
+                            "geoset" => $geography["geoset"],
+                        ];
+                    } else {
+                        //loop through the geographies and try to find a match
+                        foreach($geographies as $i=>$geography){
+                            $regex = "#". $geography["regexes"]."#";
+                            if(preg_match($regex, $title, $matches)==1){
+                                //match!
+                                $setName = trim(preg_replace ($regex," &hellip;",$title));
+                                $latlon = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
+                                $setInfo = [
+                                    "name" => $setName.$seasonalAdjustments[$saCode],
+                                    "units" => $units,
+                                    "latlon" => $latlon,
+                                    "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
+                                    "freq" => $frequency,
+                                    "setid" => null,
+                                    "skey" => $skey,
+                                    "file" => $file,
+                                    "apidt" => $updatedDt,
+                                    "dbUpdateDT" => null,
+                                    "copy" => $isCopyrighted,
+                                    "title" => $title.$seasonalAdjustments[$saCode],
+                                    "geoset" => $geography["geoset"],
+                                ];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if(!$setInfo){ //not part of a geoset:
+                $setInfo = [
+                    "name" => $title.$seasonalAdjustments[$saCode],
+                    "units" => $units,
+                    "latlon" => "",
+                    "geoid" => 0,
+                    "freq" => $frequency,
+                    "setid" => null,
+                    "skey" => $skey,
+                    "file" => $file,
+                    "apidt" => $updatedDt,
+                    "dbUpdateDT" => null,
+                    "copy" => $isCopyrighted,
+                    "title" => $title.$seasonalAdjustments[$saCode],
+                    "geoset" => null,
+                ];
+
+            }
+            if(!isset($this->sets[$setInfo["name"]])) $this->sets[$setInfo["name"]] = [];
+            if(!isset($this->sets[$setInfo["name"]][$units])) $this->sets[$setInfo["name"]][$units] = [];
+            if(!isset($this->sets[$setInfo["name"]][$units][$frequency])) $this->sets[$setInfo["name"]][$units][$frequency] = [];
+            $geoKey = $setInfo["geoid"].":".$setInfo["latlon"];
+            if(isset($this->sets[$setInfo["name"]][$units][$frequency][$geoKey])) {
+                print("duplicate geo $geoKey for $title");
+                preprint($this->sets[$setInfo["name"]][$units]);
+                die();
+            };
+            $this->sets[$setInfo["name"]][$units][$frequency][$geoKey] = $setInfo;
+////DEBUG ONLY!!
+if($setInfo["geoid"] != 0){
+    preprint($this->sets);
+    die();
+}
+            return $setInfo;
+    }
+
+    private function getCSVData($seriesInfo){
+        /* data file format:
+        DATE,VALUE
+        1996-01-01,84.83
+        1996-02-01,84.89
+        1996-03-01,85.14
+        1996-04-01,85.52
+        1996-05-01,85.66
+        1996-06-01,85.54
+        1996-07-01,85.44
+        1996-08-01,85.43
+        1996-09-01,85.59*/
+        $fpText = fopen($this->bulkFolderRoot.$this->zipFolder."data/".str_replace("\\", "/", $seriesInfo["file"]), 'r');
+        //$headers = ["Title:","Series ID:","Source:","Release:","Seasonal Adjustment:","Frequency:","Units:","Date Range:","Last Updated:","Notes:","DATE"];
+        $dataHeaderline = fgets($fpText);
+        if($dataHeaderline!="DATE,VALUE") die("unrecognized data file format");
         $data = [];
         try{
             while(!feof($fpText)){
-                $line = fgets($fpText);
-                if(strlen($line)>5){
-                    if(strpos($line," ")===0)  $series[$headers[$i]] .= " " . trim($line);
-                    $DATE_LEN = 10;
-                    $date = mdDateFromISO(substr($line, 0, $DATE_LEN), $series["Frequency:"]);
-                    $value = trim(substr($line, $DATE_LEN));
-                    if($value=="."  || !is_numeric($value)) $value = "null";
-                    array_unshift($data, $date.":".$value);
-                }
+                $aryLine = fgetcsv($fpText, 200);
+                $date = mdDateFromISO($aryLine[0], $seriesInfo["freq"]);
+                $value = $aryLine[1];
+                if($value=="."  || !is_numeric($value)) $value = "null";
+                array_unshift($data, $date.":".$value);
             }
         } catch (Exception $ex){
             print($ex->getMessage());
-            die($trimFields[$fieldNames["File"]]);
+            die($seriesInfo["file"]);
         }
-        $series["data"] = implode("|", $data);
+        $seriesInfo["data"] = $data;
         fclose($fpText);
-
-        $sa = $trimFields[$fieldNames["Seasonal Adjustment"]];
-        $dateRange = $series["Date Range:"];
-        $firstLast = explode(" to ", $dateRange);
-
-        $skey = $series["Series ID:"];
-        $seriesId = updateSeries(
-            $this->status,
-            $this->api_row["runid"],
-            $skey,
-            $trimFields[$fieldNames["Title"]] . ($sa=="SA" || $sa=="SSA" || $sa=="SSAR" ? " (".$series["Seasonal Adjustment:"].")" : ""),
-            'St. Louis Federal Reserve',
-            "http://research.stlouisfed.org/fred2/graph/?id=" . $skey,
-            FredPeriodToMdPeriod($series["Frequency:"]),
-            $series["Units:"],
-            $trimFields[$fieldNames["Units"]],
-            $series["Notes:"],
-            "",  //title field updated in catSeries call
-            $this->api_row["apiid"],
-            substr($series["Last Updated:"], 0, 10), //date part ony because FRED varies the rest
-            strtotime($firstLast[0]." UTC")*1000,
-            strtotime($firstLast[1]." UTC")*1000,
-            $series["data"],
-            null, null, null, null, null  //geoid, set ids, lat, & lat
-        );
-
-        return $seriesId;
     }
 }
 
@@ -420,11 +656,9 @@ function getCategoryChildren($api_row, $job_row){
 
 
 function FredPeriodToMdPeriod($FredPeriodicity){
-    if($FredPeriodicity=="NA" || $FredPeriodicity=="Not Applicable"){
-        return "D";
-    } else {
-        return substr(strtoupper($FredPeriodicity), 0, 1);
-    }
+    if($FredPeriodicity=="NA" || $FredPeriodicity=="Not Applicable") return "D";
+    if($FredPeriodicity=="BW") return "W";
+    return substr(strtoupper($FredPeriodicity), 0, 1);
 }
 
 ?>

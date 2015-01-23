@@ -321,7 +321,7 @@ function getTheme($apiid, $themeName, $meta = null, $tkey = null){
         return $row;
     }
 }
- 
+
 function setCubeByDimensions($themeid, $cubeDimensions, $units){
     //save the cube and its dimensions if DNE
     //return an assc array with cube name and id
@@ -492,7 +492,7 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
     }
 
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2 where setype<>'X';", "setGhandlesPeriodicities");
 }
 
 function setMapsetCounts($setid="all", $apiid, $themeid = false){
@@ -556,7 +556,7 @@ function setPointsetCounts($setid="all", $apiid = "all"){
 }
 
 
-function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null, $mastersetid=null){
+function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null, $mastersetid=null, $type="S"){
     global $db;
     if($setKey){
         $sql = "select s.* from sets s where s.apiid=$apiid and s.setkey=".safeStringSQL($setKey)
@@ -583,6 +583,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
                 . ", src = " .  safeStringSQL($src)
                 . ", url = " .  safeStringSQL($url)
                 . ", mastersetid = " .  safeStringSQL($mastersetid)
+                . ", settype = " .  safeStringSQL($type)
                 . " where setid=". $row["setid"];
             runQuery($sql, "getSet update");
         }
