@@ -193,6 +193,8 @@ class FredList
     // property declaration
     public $bulkFolderRoot = 'esdata/';
     public $listFile = "README_TITLE_SORT.txt";
+    public $dupTrueCount = 0;
+    public $dupProblemCount = 0;
     /*$listFile format:
     FRED: All Data Series
     Link: http://research.stlouisfed.org/fred2/
@@ -239,6 +241,7 @@ class FredList
 
     // method declaration
     public function IngestAll($Since = false) {  //process all series in the list with LastUpdate > Since if Since is provided
+        global $debug;
         $path = $this->bulkFolderRoot.$this->zipFolder.$this->listFile;
         if(!file_exists($path)) return false;  //bulk file must already be downloaded and unzipped
 
@@ -258,17 +261,18 @@ class FredList
         //2. loop through bulk header file and read into $this->sets
         $fieldNames = ["File"=>0, "Title"=>1, "Units"=>2, "Frequency"=>3,"Seasonal Adjustment"=>4,"Last Updated"=>5]; //key to $seriesHeader fields
         $line = 0;
+        $this->dupTrueCount = 0;
+        $this->dupProblemCount = 0;
+
         while(!feof($fp) && count($headerFields)==6){
             $this->trimFields($headerFields);
             $this->processLine($headerFields, $Since);
             $line++;
-            if(intval($line/1000)*1000==$line) {
-                print("read $line lines. ". strftime ("%r")." ");
-                preprint($headerFields);
-            }
+            if($debug && intval($line/1000)*1000==$line) printNow("read $line lines. ". strftime ("%r")." ");
             $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
         fclose($fp);
+        die("processed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
 
         //save $this->sets to database
         $minSetSize = 5;
@@ -320,7 +324,7 @@ class FredList
                                     $setInfo["latlon"]==""?($setInfo["geoid"]==0?"M":"S"):"X"
                                 );
                         }
-                        $this->getCSVData($setInfo);
+                        $this->getData($setInfo);
                         saveSetData($status, $setid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"]);
                     }
                 }
@@ -371,16 +375,16 @@ class FredList
         $title =  str_replace("©", "", $seriesHeader[1]);
         $units = $seriesHeader[2];
         $frequency = FredPeriodToMdPeriod($seriesHeader[3]);
-        $saCode = $seriesHeader[4];
+        $saCode = strtoupper($seriesHeader[4]);
         $updatedDt = $seriesHeader[5];
-        $skey = substr(str_replace(".csv", "" ,$file),strrpos($file, "/")+1);
+        $skey = substr(str_replace(".txt", "" ,$file),strrpos($file, "\\")+1);
         $apiid = $this->api_row["apiid"];
 
         $seasonalAdjustments = [
-            "SA" => " (Seasonally Adjusted) ",
-            "NSA" => " (Not Seasonally Adjusted) ",
-            "SAAR" => " (Seasonally Adjusted Annual Rate) ",
-            "SSA" => " (Smoothed Seasonally Adjusted) ",
+            "SA" => " (Seasonally Adjusted)",
+            "NSA" => " (Not Seasonally Adjusted)",
+            "SAAR" => " (Seasonally Adjusted Annual Rate)",
+            "SSA" => " (Smoothed Seasonally Adjusted)",
             "NA" => "" // = "Not Applicable" but don't add this to the set name!
         ];
         static $geographies = false;
@@ -399,7 +403,7 @@ class FredList
         }
 
         //2. check if to see if already exists as in db
-        $result = runQuery("select s.name, s.units, s.setid, s.freq, sd.geoid, sd.latlon, sd.apidt
+        $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt
         from setdata sd join sets s on sd.setid=s.setid left outer join geographies g on sd.geoid=g.geoid
         where apiid=$apiid and sd.skey=". safeStringSQL($skey));
         if($result->num_rows==1){
@@ -421,7 +425,7 @@ class FredList
                 "apidt" => $updatedDt,
                 "dbUpdateDT" => $set["apidt"],
                 "copy" => $isCopyrighted,
-                "title" => $title,
+                "title" => $title.$seasonalAdjustments[$saCode],
                 "geoset" => $set["geoset"],
             ];
         }
@@ -435,23 +439,28 @@ class FredList
                 $nameParts = explode($separator, $title);
                 if(count($nameParts)==2){
                     $geoName = trim($nameParts[1]);
-                    $setName = trim($nameParts[0]).$seasonalAdjustments[$saCode]." $separator &hellip;";
-                    $sql = "select geoid, type, lat, lon, geoset
+                    $setName = trim($nameParts[0]).$seasonalAdjustments[$saCode]."$separator &hellip;";
+                    $sql = "select geoid, type, lat, lon, geoset, containingid
                         from geographies
                         where name=".safeStringSQL($geoName );
                     $result = runQuery($sql,"FindSets");
                     if($result->num_rows>0){
                         $geography = $result->fetch_assoc();
-                        if(isset($this->sets[$setName][$units][$frequency])){   //try to determine Georgia the country vs.
+                        /* tried to determine Georgia the country v. state, but had problems with mapset and popintset of the same cube
+                         * if(isset($this->sets[$setName][$units][$frequency])){   //try to determine Georgia the country vs.
                             foreach($this->sets[$setName][$units][$frequency] as $geoKey=>$seriesInfo){
                                 $siblingGeoset = $seriesInfo["geoset"];
                                 break;
                             }
                             while($geography["geoset"]!=$siblingGeoset && $geography) $geography = $result->fetch_assoc();
                         }
-                        if(!$geography) die("sibling not found for $title");
+                        if(!$geography) {
+                            preprint($this->sets[$setName][$units][$frequency]);
+                            printNow($title);
+                            die("sibling not found for $title");
+                        }*/
                         $setInfo = [
-                            "name" => $setName.$seasonalAdjustments[$saCode],
+                            "name" => $setName,
                             "units" => $units,
                             "latlon" => $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"",
                             "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
@@ -471,10 +480,10 @@ class FredList
                             $regex = "#". $geography["regexes"]."#";
                             if(preg_match($regex, $title, $matches)==1){
                                 //match!
-                                $setName = trim(preg_replace ($regex," &hellip;",$title));
+                                $setName = trim(preg_replace ($regex," &hellip;",$title.$seasonalAdjustments[$saCode]));
                                 $latlon = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
                                 $setInfo = [
-                                    "name" => $setName.$seasonalAdjustments[$saCode],
+                                    "name" => $setName,
                                     "units" => $units,
                                     "latlon" => $latlon,
                                     "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
@@ -517,20 +526,22 @@ class FredList
             if(!isset($this->sets[$setInfo["name"]][$units][$frequency])) $this->sets[$setInfo["name"]][$units][$frequency] = [];
             $geoKey = $setInfo["geoid"].":".$setInfo["latlon"];
             if(isset($this->sets[$setInfo["name"]][$units][$frequency][$geoKey])) {
-                print("duplicate geo $geoKey for $title");
-                preprint($this->sets[$setInfo["name"]][$units]);
-                die();
+                $this->dupCount++;
+                $this->getData($setInfo);
+                $this->getData($this->sets[$setInfo["name"]][$units][$frequency][$geoKey]);
+                if(json_encode($setInfo["data"])==json_encode($this->sets[$setInfo["name"]][$units][$frequency][$geoKey]["data"])){
+                    $this->dupTrueCount++;
+                } else {
+                    $this->dupProblemCount++;
+                }
+
+                //printNow("duplicate geo $geoKey for $title (units: $units; frequency: $frequency) for series_id $setInfo[skey] and ".$this->sets[$setInfo["name"]][$units][$frequency][$geoKey]["skey"]);
             };
             $this->sets[$setInfo["name"]][$units][$frequency][$geoKey] = $setInfo;
-////DEBUG ONLY!!
-if($setInfo["geoid"] != 0){
-    preprint($this->sets);
-    die();
-}
             return $setInfo;
     }
 
-    private function getCSVData($seriesInfo){
+    private function getData(&$seriesInfo){
         /* data file format:
         DATE,VALUE
         1996-01-01,84.83
@@ -542,10 +553,11 @@ if($setInfo["geoid"] != 0){
         1996-07-01,85.44
         1996-08-01,85.43
         1996-09-01,85.59*/
-        $fpText = fopen($this->bulkFolderRoot.$this->zipFolder."data/".str_replace("\\", "/", $seriesInfo["file"]), 'r');
+        $path = $this->bulkFolderRoot.$this->zipFolder."data/".str_replace("\\", "/", $seriesInfo["file"]);
+        $fpText = fopen($path, 'r');
         //$headers = ["Title:","Series ID:","Source:","Release:","Seasonal Adjustment:","Frequency:","Units:","Date Range:","Last Updated:","Notes:","DATE"];
         $dataHeaderline = fgets($fpText);
-        if($dataHeaderline!="DATE,VALUE") die("unrecognized data file format");
+        if($dataHeaderline!="DATE,VALUE") die("unrecognized format for file $path: $dataHeaderline");
         $data = [];
         try{
             while(!feof($fpText)){
