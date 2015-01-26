@@ -662,9 +662,10 @@ switch($command){
                 if(is_numeric($geokey)){
                     $geoid = $geokey;
                 } else {
-                    $sql = "select geoid from geographies where jvectormap=".safeStringSQL($geokey);
+                    $sql = "select geoid from geographies where jvectormap=".safeStringSQL($geokey)
+                        ." order by geoid";  //HACK!!! France (76) ahead of metropolitan France (6255)
                     $result = runQuery($sql);
-                    if($result->num_rows==1){
+                    if($result->num_rows>0){  //FR has two:  return FRA (76) not metropolitan France (6255)
                         $row = $result->fetch_assoc();
                         $geoid = $row["geoid"];
                     } else {
