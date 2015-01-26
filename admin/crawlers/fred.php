@@ -48,7 +48,7 @@ function ApiExecuteJob($runid, $apirunjob){
 }
 
 function ApiBatchUpdate($since,$periodicity, $api_row){
-//uses the FRED series/updates commend to update/insert series (cats updated with full crawl)
+//uses the FRED series/updates RESTful command to update series (new series and cats updated with full crawl)
     global $fred_api_key;
     $apiid = $api_row["apiid"];
     $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
@@ -60,59 +60,45 @@ function ApiBatchUpdate($since,$periodicity, $api_row){
     while($needUpdates){
         $updatedSeriesCommand = "http://api.stlouisfed.org/fred/series/updates?api_key=$fred_api_key&file_type=json&limit=$batch_get_limit&offset=$offset";
         $updates = json_decode(httpGet($updatedSeriesCommand), true);
-        for($i=0;$i<count($updates["seriess"]);$i++){
-            $update = $updates["seriess"][$i];
-            $update["last_updated"] = substr($update["last_updated"], 0, 10);
+        foreach($updates["seriess"] as $i => &$update){
+            $update["last_updated"] = substr($update["last_updated"], 0, 10); //use date part only.  Time part not store in bulk file
             $id = $update["id"];
-            $result = runQuery("select * from series where apiid=$apiid and skey='$id'");
+            //$mdFreq = FredFreqToMdFreq($update["frequency_short"]);
+            $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt
+                from setdata sd join sets s on sd.setid=s.setid
+                where apiid=$apiid and sd.skey=". safeStringSQL($id));
             if($result->num_rows==1){
-                $serie = $result->fetch_assoc();
-                if($serie["apidt"]==$update["last_updated"]){
+                $dbSerie = $result->fetch_assoc();
+                if($dbSerie["apidt"]==$update["last_updated"]){
                     $needUpdates = false;  //all caught up!
                     break;
                 }
+                //get data
+                $dataOffset = 0;
+                $dataLimit = 10000;
+                $arrayData = [];
+                do{
+                    $serieDataCommand = "http://api.stlouisfed.org/fred/series/observations?api_key=$fred_api_key&series_id=$id&limit=$dataLimit&offset=$dataOffset&file_type=json";
+                    $serieData = json_decode(httpGet($serieDataCommand), true);
+                    for($d=0;$d<count($serieData["observations"]);$d++){
+                        $ob = $serieData["observations"][$d];
+                        if($ob["value"]==".") $ob["value"] = "null";
+                        $arrayData[] = mdDateFromISO($ob["date"], $update["frequency"]).':'.$ob["value"];
+                    }
+                    $dataOffset += $dataLimit;
+                } while($dataOffset<$serieData["count"]);
+                $firstDate100k = strtotime($update["observation_start"]." UTC")*1000;
+                $lastDate100k =  strtotime($update["observation_end"]." UTC")*1000;
+                $sqlData = safeStringSQL(implode("|", $arrayData));
+                //update the setdata
+                runQuery("update setdata
+                set data=$sqlData, apidt='$update[last_updated]', firstdt100k = $firstDate100k, lastdt100k = $lastDate100k
+                where setid=$dbSerie[setid] and geoid=$dbSerie[geoid] and freq='$dbSerie[freq]' and latlon='$dbSerie[latlon]' and skey='$id'");
+                //update the sets first and last dates
+                runQuery("update sets
+                set firstdt100k = if(firstdt100k<$firstDate100k, firstdt100k , $firstDate100k), lastdt100k = if(lastdt100k>$lastDate100k, lastdt100k, $lastDate100k)
+                where setid = $dbSerie[setid]");
             }
-            //get data
-            $dataOffset = 0;
-            $dataLimit = 10000;
-            $data = [];
-            do{
-                $serieDataCommand = "http://api.stlouisfed.org/fred/series/observations?api_key=$fred_api_key&series_id=$id&limit=$dataLimit&offset=$dataOffset&file_type=json";
-                $serieData = json_decode(httpGet($serieDataCommand), true);
-                for($d=0;$d<count($serieData["observations"]);$d++){
-                    $ob = $serieData["observations"][$d];
-                    if($ob["value"]==".") $ob["value"] = "null";
-                    array_unshift($data, mdDateFromISO($ob["date"], $update["frequency"]).':'.$ob["value"]);
-                }
-                $dataOffset += $dataLimit;
-            } while($dataOffset<$serieData["count"]);
-
-
-            $sa = $update["seasonal_adjustment_short"];
-            $seriesId = updateSeries(
-                $status,
-                $api_row["runid"],
-                $update["id"],
-                $update["title"] . ($sa=="SA" || $sa=="SSA" || $sa=="SSAR" ? " (".$update["seasonal_adjustment"].")" : ""),
-                'St. Louis Federal Reserve',
-                "http://research.stlouisfed.org/fred2/graph/?id=" . $update["id"],
-                FredPeriodToMdPeriod($update["frequency_short"]),
-                $update["units"],
-                $update["units_short"],
-                $update["notes"],
-                "",  //title field updated in catSeries call
-                $api_row["apiid"],
-                $update["last_updated"],
-                strtotime($update["observation_start"]." UTC")*1000,
-                strtotime($update["observation_end"]." UTC")*1000,
-                implode("|", $data),
-                null, null, null, null, null  //geoid, set ids, lat, & lat
-            );
-
-            /*print($serieDataCommand."<BR>");
-            print($serie["data"]."<BR>");
-            print($serie["apidt"].":".substr($update["last_updated"],0,10));
-            die();*/
         }
         $offset += $batch_get_limit;
     }
@@ -195,6 +181,7 @@ class FredList
     public $listFile = "README_TITLE_SORT.txt";
     public $dupTrueCount = 0;
     public $dupProblemCount = 0;
+    public $dupFile = false;
     /*$listFile format:
     FRED: All Data Series
     Link: http://research.stlouisfed.org/fred2/
@@ -263,7 +250,7 @@ class FredList
         $line = 0;
         $this->dupTrueCount = 0;
         $this->dupProblemCount = 0;
-
+        $this->dupFile = fopen($this->bulkFolderRoot."FRED_duplicates.txt", 'w');
         while(!feof($fp) && count($headerFields)==6){
             $this->trimFields($headerFields);
             $this->processLine($headerFields, $Since);
@@ -272,20 +259,37 @@ class FredList
             $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
         fclose($fp);
-        die("processed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
+        fwrite($this->dupFile, "Summary: $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
+        fclose($this->dupFile);
+        $this->dupFile = false;
+        printNow("preprocessed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
 
         //save $this->sets to database
         $minSetSize = 5;
         $apiid = $this->api_row["apiid"];
-        print("hi");
-        preprint($this->sets);
+        $processedForSave = 0;
         foreach($this->sets as $setName => &$multiUnitSets){
             foreach($multiUnitSets as $units => &$set){
                 foreach($set as $freq => &$setFreqBranch){
                     $setid = false;
                     $masterSetid = null;
                     $setSize = count($setFreqBranch);
+                    //get all the data and notes first (need to determine if metadata is at the set or series level
+                    $setMetaData = null;
                     foreach($setFreqBranch as $geoKey => &$setInfo){
+                        if(!$setInfo["data"]) $this->getData($setInfo);
+                        if($setMetaData !== false){
+                            if($setMetaData === null) {
+                                $setMetaData = $setInfo["notes"];
+                            }
+                            elseif($setMetaData != $setInfo["notes"]){
+                                $setMetaData = false;
+                            }
+                        }
+                    }
+                    foreach($setFreqBranch as $geoKey => &$setInfo){
+                        $processedForSave++;
+                        if($debug && intval($processedForSave/1000)*1000==$processedForSave) printNow("Save $processedForSave series. ". strftime ("%r")." ");
                         if($setInfo["setid"]){
                             $setid = $setInfo["setid"];
                         } else {
@@ -298,9 +302,9 @@ class FredList
                                     $units,
                                     "St. Louis Federal Reserve",
                                     "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"],
-                                    $setInfo["isCopyrighted"]?"copyrighted":"",
+                                    $setMetaData || $setInfo["isCopyrighted"]?"copyrighted":"",
                                     "",
-                                    null,
+                                    'null',
                                     "",
                                     null,
                                     null,
@@ -311,25 +315,26 @@ class FredList
                                 $setid = saveSet(
                                     $apiid,
                                     null,
-                                    $setInfo["geoid"]==0?$setInfo["title"]:$setInfo["name"],
+                                    $setMetaData || $setInfo["geoid"]==0?$setInfo["title"]:$setInfo["name"],
                                     $units,
                                     "St. Louis Federal Reserve",
                                     "",
                                     $setInfo["isCopyrighted"]?"copyrighted":"",
                                     "",
-                                    null,
+                                    'null',
                                     $setInfo["latlon"],
                                     null,
                                     $masterSetid,
                                     $setInfo["latlon"]==""?($setInfo["geoid"]==0?"M":"S"):"X"
                                 );
                         }
-                        $this->getData($setInfo);
-                        saveSetData($status, $setid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"]);
+                        saveSetData($status, $setid, $apiid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], $setInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"] : $setInfo["notes"]);
                     }
+                    $set[$freq] = [];  //make available for trash collection
                 }
             }
         }
+        print("IngestAll end");
     }
 
     public function Update($code){
@@ -374,7 +379,7 @@ class FredList
         $isCopyrighted = strpos($seriesHeader[1], "©")!==false;
         $title =  str_replace("©", "", $seriesHeader[1]);
         $units = $seriesHeader[2];
-        $frequency = FredPeriodToMdPeriod($seriesHeader[3]);
+        $frequency = FredFreqToMdFreq($seriesHeader[3]);
         $saCode = strtoupper($seriesHeader[4]);
         $updatedDt = $seriesHeader[5];
         $skey = substr(str_replace(".txt", "" ,$file),strrpos($file, "\\")+1);
@@ -403,7 +408,7 @@ class FredList
         }
 
         //2. check if to see if already exists as in db
-        $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt
+        $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt, g.geoset
         from setdata sd join sets s on sd.setid=s.setid left outer join geographies g on sd.geoid=g.geoid
         where apiid=$apiid and sd.skey=". safeStringSQL($skey));
         if($result->num_rows==1){
@@ -424,13 +429,13 @@ class FredList
                 "file" => $file,
                 "apidt" => $updatedDt,
                 "dbUpdateDT" => $set["apidt"],
-                "copy" => $isCopyrighted,
+                "isCopyrighted" => $isCopyrighted,
                 "title" => $title.$seasonalAdjustments[$saCode],
                 "geoset" => $set["geoset"],
             ];
         }
-
-        if(!$setInfo)
+        //preprint($setInfo);
+        if(!$setInfo){
             //3. check exact name match for
             $regex = "#( for | in | from )#";
             if(preg_match($regex, $title, $matches)==1){
@@ -470,7 +475,7 @@ class FredList
                             "file" => $file,
                             "apidt" => $updatedDt,
                             "dbUpdateDT" => null,
-                            "copy" => $isCopyrighted,
+                            "isCopyrighted" => $isCopyrighted,
                             "title" => $title.$seasonalAdjustments[$saCode],
                             "geoset" => $geography["geoset"],
                         ];
@@ -493,7 +498,7 @@ class FredList
                                     "file" => $file,
                                     "apidt" => $updatedDt,
                                     "dbUpdateDT" => null,
-                                    "copy" => $isCopyrighted,
+                                    "isCopyrighted" => $isCopyrighted,
                                     "title" => $title.$seasonalAdjustments[$saCode],
                                     "geoset" => $geography["geoset"],
                                 ];
@@ -515,7 +520,7 @@ class FredList
                     "file" => $file,
                     "apidt" => $updatedDt,
                     "dbUpdateDT" => null,
-                    "copy" => $isCopyrighted,
+                    "isCopyrighted" => $isCopyrighted,
                     "title" => $title.$seasonalAdjustments[$saCode],
                     "geoset" => null,
                 ];
@@ -529,49 +534,92 @@ class FredList
                 $this->dupCount++;
                 $this->getData($setInfo);
                 $this->getData($this->sets[$setInfo["name"]][$units][$frequency][$geoKey]);
+                $firstSkey = $this->sets[$setInfo["name"]][$units][$frequency][$geoKey]["skey"];
                 if(json_encode($setInfo["data"])==json_encode($this->sets[$setInfo["name"]][$units][$frequency][$geoKey]["data"])){
+                    fwrite($this->dupFile, "series_ids with duplicate title, SA, units, and data: $setInfo[skey], $firstSkey: $setInfo[title] in $setInfo[units]");
                     $this->dupTrueCount++;
                 } else {
                     $this->dupProblemCount++;
+                    fwrite($this->dupFile, "duplicate title, SA, units, but mismatching data: $setInfo[skey], $firstSkey: $setInfo[title] in $setInfo[units]". PHP_EOL);
                 }
 
                 //printNow("duplicate geo $geoKey for $title (units: $units; frequency: $frequency) for series_id $setInfo[skey] and ".$this->sets[$setInfo["name"]][$units][$frequency][$geoKey]["skey"]);
             };
             $this->sets[$setInfo["name"]][$units][$frequency][$geoKey] = $setInfo;
             return $setInfo;
+        }
     }
 
     private function getData(&$seriesInfo){
         /* data file format:
-        DATE,VALUE
-        1996-01-01,84.83
-        1996-02-01,84.89
-        1996-03-01,85.14
-        1996-04-01,85.52
-        1996-05-01,85.66
-        1996-06-01,85.54
-        1996-07-01,85.44
-        1996-08-01,85.43
-        1996-09-01,85.59*/
+Title:               OECD based Recession Indicators for Four Big European Countries from the Period following the Peak through the Trough
+Series ID:           4BIGEUROREC
+Source:              Federal Reserve Bank of St. Louis
+Release:             Recession Indicators Series (Not a Press Release)
+Seasonal Adjustment: Not Seasonally Adjusted
+Frequency:           Monthly
+Units:               +1 or 0
+Date Range:          1962-05-01 to 2014-03-01
+Last Updated:        2014-04-02 6:08 AM CDT
+Notes:               The second interpretation, known as the trough method, is to show a
+                     recession from the period following the peak through the trough (i.e.
+                     the peak is not included in the recession shading, but the trough is).
+                      For daily data, the recession begins on the first day of the first
+                     month following the peak and ends on the last day of the month of the
+                     trough.  Daily data is a disaggregation of monthly data.  The trough
+                     method is used when displaying data on FRED graphs.  The trough method
+                     is used for this series.
+
+                     Zones aggregates of the CLIs and the reference series are calculated
+                     as weighted averages of the corresponding zone member series (i.e.
+                     CLIs and IIPs).
+
+                     OECD data should be cited as follows: OECD Composite Leading
+                     Indicators, "Composite Leading Indicators: Reference Turning Points
+                     and Component Series", www.oecd.org/std/cli (Accessed on date)
+
+DATE       VALUE
+1962-05-01     0
+1962-06-01     1
+1962-07-01     1
+        */
         $path = $this->bulkFolderRoot.$this->zipFolder."data/".str_replace("\\", "/", $seriesInfo["file"]);
         $fpText = fopen($path, 'r');
-        //$headers = ["Title:","Series ID:","Source:","Release:","Seasonal Adjustment:","Frequency:","Units:","Date Range:","Last Updated:","Notes:","DATE"];
-        $dataHeaderline = fgets($fpText);
-        if($dataHeaderline!="DATE,VALUE") die("unrecognized format for file $path: $dataHeaderline");
-        $data = [];
+        $headers = ["Title:","Series ID:","Source:","Release:","Seasonal Adjustment:","Frequency:","Units:","Date Range:","Last Updated:","Notes:","DATE"];
+        $series = [];
+        $line = fgets($fpText);
+        for($i=0;$i<count($headers);$i++){
+            if(strpos($line,$headers[$i])!==0) {
+                return false;
+            }
+            if($headers[$i]=="DATE") {
+                break;
+            }  //queue up the date (DATE - VALUES) section perfectly
+            $series[$headers[$i]] = trim(substr($line, strlen($headers[$i])));
+
+            do{
+                $line = fgets($fpText);
+                if(strpos($line," ")===0)  $series[$headers[$i]] .= trim($line)=="" ? "</p><p>" : " ".trim($line);
+            } while(strlen($line)<=2 || strpos($line," ")===0);
+        }
+        $seriesInfo["notes"] = substr($series["Notes:"],-3)=="<p>"?"<p>".substr($series["Notes:"],0,-3):"<p>".$series["Notes:"]."</p>";
+        $seriesInfo["data"] = [];
         try{
             while(!feof($fpText)){
-                $aryLine = fgetcsv($fpText, 200);
-                $date = mdDateFromISO($aryLine[0], $seriesInfo["freq"]);
-                $value = $aryLine[1];
-                if($value=="."  || !is_numeric($value)) $value = "null";
-                array_unshift($data, $date.":".$value);
+                $line = fgets($fpText);
+                if(strlen($line)>5){
+                    if(strpos($line," ")===0)  $series[$headers[$i]] .= " " . trim($line);
+                    $DATE_LEN = 10;
+                    $date = mdDateFromISO(substr($line, 0, $DATE_LEN), $seriesInfo["freq"]);
+                    $value = trim(substr($line, $DATE_LEN));
+                    if($value=="."  || !is_numeric($value)) $value = "null";
+                    $seriesInfo["data"][] = $date.":" . $value;
+                }
             }
         } catch (Exception $ex){
-            print($ex->getMessage());
+            printNow($ex->getMessage());
             die($seriesInfo["file"]);
         }
-        $seriesInfo["data"] = $data;
         fclose($fpText);
     }
 }
@@ -589,11 +637,11 @@ function mdDateFromISO($isoDate, $frequency){
             break;
         case "Quarterly":
         case "Q":
-            $date .= "Q". sprintf("d", intval((intval(substr($isoDate,5,2))-1)/3)+1);
+            $date .= "Q". sprintf("%d", intval((intval(substr($isoDate,5,2))-1)/3)+1); //should be single digit
             break;
         case "Monthly":
         case "M":
-            $date .= sprintf("%02d", intval(substr($isoDate,5,2))-1);
+            $date .= sprintf("%02d", intval(substr($isoDate,5,2))); //force a leading zero
             break;
         case "Bi-Weekly":
         case "B":
@@ -603,7 +651,7 @@ function mdDateFromISO($isoDate, $frequency){
         case "D":
         case "Not Applicable":
         case "NA":
-            $date .= sprintf("%02d", intval(substr($isoDate,5,2))-1);
+            $date .= sprintf("%02d", intval(substr($isoDate,5,2)));
             $date .= substr($isoDate,8,2);
             break;
         default:
@@ -667,9 +715,10 @@ function getCategoryChildren($api_row, $job_row){
 }
 
 
-function FredPeriodToMdPeriod($FredPeriodicity){
+function FredFreqToMdFreq($FredPeriodicity){
     if($FredPeriodicity=="NA" || $FredPeriodicity=="Not Applicable") return "D";
     if($FredPeriodicity=="BW") return "W";
+    if($FredPeriodicity=="5Y") return "A";
     return substr(strtoupper($FredPeriodicity), 0, 1);
 }
 
