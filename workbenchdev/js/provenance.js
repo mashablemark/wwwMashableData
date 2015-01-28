@@ -185,15 +185,16 @@ function ProvenanceController(panelId){
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
             cube: '<div ="cube">'
+                + '<button class="edit right">edit</button>'
+                + '<button class="close cube-edit right">close</button>'
+                + '<button class="reset cube-edit right">reset</button>'
+                + '<h5>data cube visualization labels</button>'
                 + '<span class="cube value-label">{{editedName}}</span>'
                 + '<input class="cube cube-edit" value="{{escapedName}}">'
                 + '<span class="reset-label {{nameResetClass}}">reset value: <span class="cube reset-value">{{resetName}}</span></span>'
                 + '<span class="cube value-label">{{editedUnits}}</span>'
                 + '<input class="cube cube-edit" value="{{escapedUnits}}">'
                 + '<span class="reset-label {{unitsResetClass}}">reset value: <span class="cube reset-value">{{resetUnits}}</span></span>'
-                + '<button class="edit right">edit</button>'
-                + '<button class="close cube-edit right">close</button>'
-                + '<button class="reset cube-edit right">reset</button>'
                 + '{{dimensions}}</div>',
             cubeDimension: '<div class="dimension" data="{{name}}">'
                 + '<span class="dimension">{{name}}</span>'
@@ -265,6 +266,8 @@ function ProvenanceController(panelId){
                         .click(function(){
                             controller.commitChanges()
                         });
+
+                    controller.cubeEditor();
                 }
 
                 //all matching prov components, therefore unbind before binding
@@ -636,6 +639,7 @@ function ProvenanceController(panelId){
                     resetName: cube.name,
                     nameResetClass: cubeName==cube.name?'hide':'show',
                     units: units,
+                    editedUnits: units.replace('"', '&quot;'),
                     escapedUnits: units.replace('"', '&quot;'),
                     resetUnits: cube.units || '',
                     unitsResetClass: cube.units==units?'hide':'show'
@@ -657,21 +661,6 @@ function ProvenanceController(panelId){
                     //delete and rebuild
                     $prov.find('.cube').remove();
                     controller.cubeEditor();
-
-
-                    /*$prov.find('.cube input').each(function(){
-                        var $input = $(this);
-                        var key = $input.attr('data');
-
-                        //load input and label with reset text value
-                        var resetValue = $input.closest('span').find('span.reset-value').val();
-                        $input.val(resetValue);
-                        $input.closest('span').find('span.value-label').val(resetValue);
-                    }).hide();
-
-                    //show/hide reset value span
-                    $prov.find('.cube span.reset-label').addClass('hide').removeClass('show');
-                    $prov.find('.cube .reset').button('disable');*/
                 });
                 $prov.find('.cube input').change(function(){
                     var $input = $(this);
@@ -701,9 +690,9 @@ function ProvenanceController(panelId){
                     var i, facetName, userName, facetsHTML = '';
                     for(i=0;i<facets.length;i++){
                         facetName = facets[i];
-                        if(provMapconfig.cube && provMapconfig.cube.dims && provMapconfig.cube.dims[dimName]){
-                            userName = provMapconfig.cube.dims[dimName][i] || facetName;
-                        }
+                        userName = (provMapconfig.cube && provMapconfig.cube.dims && provMapconfig.cube.dims[dimName])
+                            ? provMapconfig.cube.dims[dimName][i] || facetName
+                            : facetName;
                         facetsHTML += common.mustache(templates.cubeFacet, {
                             editedName: userName,
                             escapedName: userName.replace('"', '&quot;'),
