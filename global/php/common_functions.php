@@ -322,69 +322,6 @@ function getTheme($apiid, $themeName, $meta = null, $tkey = null){
     }
 }
 
-function setCubeByDimensions($themeid, $cubeDimensions, $units){
-    //save the cube and its dimensions if DNE
-    //return an assc array with cube name and id
-    global $db;
-    if(count($cubeDimensions)==0) return false;  //don't insert cube for "totals"
-    $names = [];
-    for($i=0;$i<count($cubeDimensions);$i++){
-        array_push($names, $cubeDimensions[$i]["dimension"]);
-    }
-    $cubeName = count($cubeDimensions)==0?"total":"by ".implode($names, ", ");
-    $sql = "select cubeid from cubes where themeid=$themeid and name='$cubeName' and units='$units'";
-    $result = runQuery($sql, "cube fetch");
-    if($result->num_rows==0){
-        $sql="insert into cubes (themeid, name, units) values($themeid,'$cubeName','$units')";
-        if(!runQuery($sql, "insert cube")) throw new Exception("error: unable to insert cube $cubeName for themeid $themeid");
-        $cubeid = $db->insert_id;
-    } else {
-        $row = $result->fetch_assoc();
-        $cubeid =$row["cubeid"];
-    }
-    $dimensions = [];
-    foreach($cubeDimensions as $i=>$dimension){
-        switch($i){
-            case 0:
-                $dimensions["bar"]=$cubeDimensions[0]["list"];
-                break;
-            case 1:
-                if(strtolower($cubeDimensions[1]["dimension"])=="sex"){
-                    $dimensions["side"]=$cubeDimensions[1]["list"];
-                } else {
-                    $dimensions["stack"]=$cubeDimensions[1]["list"];
-                }
-                break;
-            case 2:
-                $dimensions["side"]=$cubeDimensions[2]["list"];
-        }
-    }
-    runQuery("update cubes set dimnames = ".safeStringSQL(json_encode($dimensions))." where cubeid=$cubeid");
-    /*for($i=0;$i<count($cubeDimensions);$i++){
-        $dimName = $cubeDimensions[$i]["dimension"];
-
-        $sql = "select dimid from cubedims where cubeid=$cubeid and name='$dimName'";
-        $result = runQuery($sql, "cube fetch");
-        if($result->num_rows==0){
-            $list = [];
-            for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
-                $item = $cubeDimensions[$i]["list"][$j];
-                if(!isset($item["sumWithNext"])){
-                    $listItem = ["name"=>$item["name"]];
-                    if(isset($item["short"])) $listItem["short"] = $item["short"];
-                    if(isset($item["color"])) $listItem["short"] = $item["color"];
-                    array_push($list, $listItem);
-                }
-
-            }
-            $dimjson = json_encode($list);
-            $sql="insert into cubedims (cubeid, name, json, dimorder) values($cubeid, '$dimName',".safeStringSQL($dimjson).",$i)";
-            if(!runQuery($sql, "insert cubedim")) throw new Exception("error: unable to insert dimension $dimName for cubeid $cubeid");
-        }
-    }*/
-    return ["name"=>$cubeName, "id"=>$cubeid];
-}
-
 function printNow($msg){ //print with added carriage return and flushes buffer so messages appears as there are created instead all at once after entire process completes
     print($msg . "<br />");
     ob_flush();
@@ -653,7 +590,7 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid
     }
 
     $sql = "insert into setdata (setid, freq, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt, skey)"
-        ." values($setid, '$freq', $geoid, '$latlon'".($metadata===false?"":safeStringSQL($metadata).","). ", '$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
+        ." values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata)). ", '$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
         ." on duplicate key update data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
     return runQuery($sql, $logAs);
 }

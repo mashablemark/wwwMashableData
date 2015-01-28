@@ -139,7 +139,9 @@ function ApiCrawl($catid, $api_row){
     $added = $list->status;["added"];
     $updated = $list->status;["updated"];
     $failed = $list->status;["failed"];
-    if(isset($api_row["runid"])) runQuery("update LOW_PRIORITY apiruns set finishdt=now(), added=$added, updated = $updated, failed=$failed where runid = $api_row[runid]");
+    if(isset($api_row["runid"])){
+        runQuery("update LOW_PRIORITY apiruns set finishdt=now(), added=$added, updated = $updated, failed=$failed where runid = $api_row[runid]");
+    }
 
     //2. queue the job to process the categories
     queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$api_row["rootcatid"]));  //ignore the $catid passed in; from root
@@ -277,7 +279,7 @@ class FredList
                     //get all the data and notes first (need to determine if metadata is at the set or series level
                     $setMetaData = null;
                     foreach($setFreqBranch as $geoKey => &$setInfo){
-                        if(!$setInfo["data"]) $this->getData($setInfo);
+                        if(!isset($setInfo["data"])) $this->getData($setInfo);
                         if($setMetaData !== false){
                             if($setMetaData === null) {
                                 $setMetaData = $setInfo["notes"];
@@ -328,7 +330,7 @@ class FredList
                                     $setInfo["latlon"]==""?($setInfo["geoid"]==0?"M":"S"):"X"
                                 );
                         }
-                        saveSetData($status, $setid, $apiid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], $setInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"] : $setInfo["notes"]);
+                        saveSetData($this->$status, $setid, $apiid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], $setInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"] : $setInfo["notes"]);
                     }
                     $set[$freq] = [];  //make available for trash collection
                 }
@@ -418,6 +420,7 @@ class FredList
             $dbSetUnits = $set["units"];
             $dbSetFeq = $set["freq"];
             if($dbSetFeq!=$frequency || $dbSetUnits!=$units) die("mismatch freq or units for $file");
+            //problem for units of setid=110422 which has Polish char.
             $setInfo = [
                 "name" => $set["name"],
                 "units" => $units,

@@ -1,9 +1,9 @@
 <?php
 /* Census demographic ingestor
- *
- * parses census xml, preserving info hierarchy and sum age segments to produce 5 year increments
- *
- */
+*
+* parses census xml, preserving info hierarchy and sum age segments to produce 5 year increments
+*
+*/
 
 $sql_logging = false;
 $event_logging = true;
@@ -16,13 +16,13 @@ $api_key = "b12bd9324e77b0a2edcb92e67d508e7e9e3d862b";  //registered to mark_c_e
 
 //create assoc. array of states and counties keyed by FIPS code
 $sql = "SELECT DISTINCT g1.geoid, g1.name, SUBSTR( g2.jvectormap, 3, 2 ) AS fips
-    FROM geographies g1, geographies g2
-    WHERE g1.geoid = g2.containingid
-    AND g2.geoset =  'US counties'
+        FROM geographies g1, geographies g2
+        WHERE g1.geoid = g2.containingid
+        AND g2.geoset =  'US counties'
         UNION ALL
-    SELECT geoid, name, SUBSTR( jvectormap, 3) AS fips
-    FROM geographies
-    WHERE geoset =  'US counties'";
+        SELECT geoid, name, SUBSTR( jvectormap, 3) AS fips
+        FROM geographies
+        WHERE geoset =  'US counties'";
 $result = runQuery($sql);
 $geographies = [];
 while($row=$result->fetch_assoc()) {
@@ -32,118 +32,118 @@ while($row=$result->fetch_assoc()) {
     ];
 }
 
-$themes = array(
+$themes = [
     "Hispanic population"=>[
         "name"=>"Hispanic population",
-        "variables"=>array(
-            array(
+        "variables"=>[
+            [
                 "dimension"=>"age",
                 "location"=>"variable",
-                "list"=>array(
-                    array("pattern"=>"85 years and over", "short"=>"85 +"),
-                    array("pattern"=>"80 to 84 years", "short"=>"80 - 84"),
-                    array("pattern"=>"75 to 79 years", "short"=>"75 - 79"),
-                    array("pattern"=>"70 to 74 years", "short"=>"70 - 74"),
-                    array("pattern"=>"65 and 66 years", "sumWithNext"=>true),
-                    array("pattern"=>"67 to 69 years", "translation"=>"65 to 69 years", "short"=>"65 - 69"),
-                    array("pattern"=>"60 and 61 years", "sumWithNext"=>true),
-                    array("pattern"=>"62 to 64 years", "translation"=>"60 to 64 years", "short"=>"60 - 64"),
-                    array("pattern"=>"55 to 59 years", "short"=>"55 - 59"),
-                    array("pattern"=>"50 to 54 years", "short"=>"50 - 54"),
-                    array("pattern"=>"45 to 49 years", "short"=>"45 - 49"),
-                    array("pattern"=>"40 to 44 years", "short"=>"40 - 44"),
-                    array("pattern"=>"35 to 39 years", "short"=>"35 - 39"),
-                    array("pattern"=>"30 to 34 years", "short"=>"30 - 24"),
-                    array("pattern"=>"25 to 29 years", "short"=>"25 - 29"),
-                    array("pattern"=>"21 years", "sumWithNext"=>true),
-                    array("pattern"=>"22 to 24 years", "translation"=>"20 to 24 years", "short"=>"20 - 24"),
-                    array("pattern"=>"20 years", "sumWithNext"=>true),
-                    array("pattern"=>"15 to 17 years", "sumWithNext"=>true),
-                    array("pattern"=>"18 and 19 years", "translation"=>"15 to 19 years", "short"=>"15 - 19"),
-                    array("pattern"=>"10 to 14 years", "short"=>"10 - 14"),
-                    array("pattern"=>"5 to 9 years", "short"=>"5 - 9"),
-                    array("pattern"=>"Under 5 years", "short"=>"Under 5")
-                )
-            ),
-            array(
+                "list"=>[
+                    ["pattern"=>"85 years and over", "short"=>"85 +"],
+                    ["pattern"=>"80 to 84 years", "short"=>"80 - 84"],
+                    ["pattern"=>"75 to 79 years", "short"=>"75 - 79"],
+                    ["pattern"=>"70 to 74 years", "short"=>"70 - 74"],
+                    ["pattern"=>"65 and 66 years", "sumWithNext"=>true],
+                    ["pattern"=>"67 to 69 years", "translation"=>"65 to 69 years", "short"=>"65 - 69"],
+                    ["pattern"=>"60 and 61 years", "sumWithNext"=>true],
+                    ["pattern"=>"62 to 64 years", "translation"=>"60 to 64 years", "short"=>"60 - 64"],
+                    ["pattern"=>"55 to 59 years", "short"=>"55 - 59"],
+                    ["pattern"=>"50 to 54 years", "short"=>"50 - 54"],
+                    ["pattern"=>"45 to 49 years", "short"=>"45 - 49"],
+                    ["pattern"=>"40 to 44 years", "short"=>"40 - 44"],
+                    ["pattern"=>"35 to 39 years", "short"=>"35 - 39"],
+                    ["pattern"=>"30 to 34 years", "short"=>"30 - 24"],
+                    ["pattern"=>"25 to 29 years", "short"=>"25 - 29"],
+                    ["pattern"=>"21 years", "sumWithNext"=>true],
+                    ["pattern"=>"22 to 24 years", "translation"=>"20 to 24 years", "short"=>"20 - 24"],
+                    ["pattern"=>"20 years", "sumWithNext"=>true],
+                    ["pattern"=>"15 to 17 years", "sumWithNext"=>true],
+                    ["pattern"=>"18 and 19 years", "translation"=>"15 to 19 years", "short"=>"15 - 19"],
+                    ["pattern"=>"10 to 14 years", "short"=>"10 - 14"],
+                    ["pattern"=>"5 to 9 years", "short"=>"5 - 9"],
+                    ["pattern"=>"Under 5 years", "short"=>"Under 5"]
+                ]
+            ],
+            [
                 "dimension"=>"sex",
                 "location"=>"variable",
-                "list"=>array(
-                    array("pattern"=>"Male", "color"=>"lightblue"),
-                    array("pattern"=>"Female", "color"=>"pink")
-                )
-            )
-        )
+                "list"=>[
+                    ["pattern"=>"Male", "color"=>"lightblue"],
+                    ["pattern"=>"Female", "color"=>"pink"]
+                ]
+            ]
+        ]
     ],
-    "Population"=>array(
+    "Population"=>[
         "name"=>"Population",
-        "variables"=>array(
-            array(
+        "variables"=>[
+            [
                 "dimension"=>"age",
                 "location"=>"variable",
-                "list"=>array(
-                    array("pattern"=>"85 years and over", "short"=>"85 +"),
-                    array("pattern"=>"80 to 84 years", "short"=>"80 - 84"),
-                    array("pattern"=>"75 to 79 years", "short"=>"75 - 79"),
-                    array("pattern"=>"70 to 74 years", "short"=>"70 - 74"),
-                    array("pattern"=>"65 and 66 years", "sumWithNext"=>true),
-                    array("pattern"=>"67 to 69 years", "translation"=>"65 to 69 years", "short"=>"65 - 69"),
-                    array("pattern"=>"60 and 61 years", "sumWithNext"=>true),
-                    array("pattern"=>"62 to 64 years", "translation"=>"60 to 64 years", "short"=>"60 - 64"),
-                    array("pattern"=>"55 to 59 years", "short"=>"55 - 59"),
-                    array("pattern"=>"50 to 54 years", "short"=>"50 - 54"),
-                    array("pattern"=>"45 to 49 years", "short"=>"45 - 49"),
-                    array("pattern"=>"40 to 44 years", "short"=>"40 - 44"),
-                    array("pattern"=>"35 to 39 years", "short"=>"35 - 39"),
-                    array("pattern"=>"30 to 34 years", "short"=>"30 - 24"),
-                    array("pattern"=>"25 to 29 years", "short"=>"25 - 29"),
-                    array("pattern"=>"21 years", "sumWithNext"=>true),
-                    array("pattern"=>"22 to 24 years", "translation"=>"20 to 24 years", "short"=>"20 - 24"),
-                    array("pattern"=>"20 years", "sumWithNext"=>true),
-                    array("pattern"=>"15 to 17 years", "sumWithNext"=>true),
-                    array("pattern"=>"18 and 19 years", "translation"=>"15 to 19 years", "short"=>"15 - 19"),
-                    array("pattern"=>"10 to 14 years", "short"=>"10 - 14"),
-                    array("pattern"=>"5 to 9 years", "short"=>"5 - 9"),
-                    array("pattern"=>"Under 5 years", "short"=>"Under 5")
-                )
-            ),
-            array(
+                "list"=>[
+                    ["pattern"=>"85 years and over", "short"=>"85 +"],
+                    ["pattern"=>"80 to 84 years", "short"=>"80 - 84"],
+                    ["pattern"=>"75 to 79 years", "short"=>"75 - 79"],
+                    ["pattern"=>"70 to 74 years", "short"=>"70 - 74"],
+                    ["pattern"=>"65 and 66 years", "sumWithNext"=>true],
+                    ["pattern"=>"67 to 69 years", "translation"=>"65 to 69 years", "short"=>"65 - 69"],
+                    ["pattern"=>"60 and 61 years", "sumWithNext"=>true],
+                    ["pattern"=>"62 to 64 years", "translation"=>"60 to 64 years", "short"=>"60 - 64"],
+                    ["pattern"=>"55 to 59 years", "short"=>"55 - 59"],
+                    ["pattern"=>"50 to 54 years", "short"=>"50 - 54"],
+                    ["pattern"=>"45 to 49 years", "short"=>"45 - 49"],
+                    ["pattern"=>"40 to 44 years", "short"=>"40 - 44"],
+                    ["pattern"=>"35 to 39 years", "short"=>"35 - 39"],
+                    ["pattern"=>"30 to 34 years", "short"=>"30 - 24"],
+                    ["pattern"=>"25 to 29 years", "short"=>"25 - 29"],
+                    ["pattern"=>"21 years", "sumWithNext"=>true],
+                    ["pattern"=>"22 to 24 years", "translation"=>"20 to 24 years", "short"=>"20 - 24"],
+                    ["pattern"=>"20 years", "sumWithNext"=>true],
+                    ["pattern"=>"15 to 17 years", "sumWithNext"=>true],
+                    ["pattern"=>"18 and 19 years", "translation"=>"15 to 19 years", "short"=>"15 - 19"],
+                    ["pattern"=>"10 to 14 years", "short"=>"10 - 14"],
+                    ["pattern"=>"5 to 9 years", "short"=>"5 - 9"],
+                    ["pattern"=>"Under 5 years", "short"=>"Under 5"]
+                ]
+            ],
+            [
                 "dimension"=>"race",
                 "location"=>"concept",
-                "list"=>array(
-                    array("pattern"=>"White", "color"=>"#2f7ed8"),
-                    array("pattern"=>"Black Or African American", "short"=>"Black", "color"=>"#8bbc21"),
-                    array("pattern"=>"Asian", "color"=>"#910000"),
-                    array("pattern"=>"American Indian And Alaska Native", "short"=>"Native American", "color"=>"#1aadce"),
-                    array("pattern"=>"Native Hawaiian And Other Pacific Islander", "short"=>"Pacific Islander", "color"=>"#492970"),
-                    array("pattern"=>"Some Other Race", "short"=>"Other", "color"=>"#f28f43"),
-                    array("pattern"=>"Two Or More Races", "short"=>"Multiracial", "color"=>"#77a1e5")
-                )
-            ),
-            array(
+                "list"=>[
+                    ["pattern"=>"White", "color"=>"#2f7ed8"],
+                    ["pattern"=>"Black Or African American", "short"=>"Black", "color"=>"#8bbc21"],
+                    ["pattern"=>"Asian", "color"=>"#910000"],
+                    ["pattern"=>"American Indian And Alaska Native", "short"=>"Native American", "color"=>"#1aadce"],
+                    ["pattern"=>"Native Hawaiian And Other Pacific Islander", "short"=>"Pacific Islander", "color"=>"#492970"],
+                    ["pattern"=>"Some Other Race", "short"=>"Other", "color"=>"#f28f43"],
+                    ["pattern"=>"Two Or More Races", "short"=>"Multiracial", "color"=>"#77a1e5"]
+                ]
+            ],
+            [
                 "dimension"=>"sex",
                 "location"=>"variable",
-                "list"=>array(
-                    array("pattern"=>"Male", "color"=>"lightblue"),
-                    array("pattern"=>"Female", "color"=>"pink")
-                )
-            )
-        )
-    ),
-    "Median age"=>array(
+                "list"=>[
+                    ["pattern"=>"Male", "color"=>"lightblue"],
+                    ["pattern"=>"Female", "color"=>"pink"]
+                ]
+            ]
+        ]
+    ],
+    "Median age"=>[
         "name"=>"Median age",
-        "variables"=>array(
-            array(
+        "variables"=>[
+            [
                 "dimension"=>"sex",
                 "location"=>"variable",
-                "list"=>array(
-                    array("pattern"=>"Male", "color"=>"lightblue"),
-                    array("pattern"=>"Female", "color"=>"pink")
-                )
-            )
-        )
-    )
-);
+                "list"=>[
+                    ["pattern"=>"Male", "color"=>"lightblue"],
+                    ["pattern"=>"Female", "color"=>"pink"]
+                ]
+            ]
+        ]
+    ]
+];
 
 $apiid = 8;  //US Census
 $result = runQuery("select * from apis where apiid =8;");
@@ -151,7 +151,7 @@ while($api_row=$result->fetch_assoc()) {
     $rootcatid = $api_row["rootcatid"];
 }
 
-$status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
+$status = ["updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0];
 $firstDate100k = strtotime("2000-1-1 UTC")/100;
 $lastDate100k = strtotime("2010-1-1 UTC")/100;
 
@@ -161,8 +161,8 @@ $xmlCensusConfig = simplexml_load_string(implode("\n", $fileArray));
 
 foreach($xmlCensusConfig->theme as $xmlTheme){
     //timeout("start theme loop");
-    $data = array();
-    $sourceKeys = array();
+    $data = [];
+    $sourceKeys = [];
     $attribute = $xmlTheme->attributes();
     $themeName = (string)$attribute["name"];
     $units = (string)$attribute["units"];
@@ -180,7 +180,7 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
             //detect dimensions
             $attribute = $xmlVariable->attributes();
             $key = $attribute["name"];
-            array_push($sourceKeys, $key);
+            $sourceKeys[] = $key;
             $sumWithNext = false;
             //determine this sets dimensions
             $cubeDimensions = [];
@@ -205,17 +205,17 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
                                     $listItem = ["name"=>isset($list[$index]["translation"]) ? $list[$index]["translation"] : $list[$index]["pattern"]];
                                     if(isset($list[$index]["short"])) $listItem["short"] = $list[$index]["short"];
                                     if(isset($list[$index]["color"])) $listItem["color"] = $list[$index]["color"];
-                                    array_push($thisDimension["list"], $listItem);
+                                    $thisDimension["list"][] = $listItem;
                                 }
                             }
-                            array_push($cubeDimensions, $thisDimension);
-                            array_push($seriesDimensions, isset($list[$j]["translation"]) ? $list[$j]["translation"] : $list[$j]["pattern"]);
+                            $cubeDimensions[] = $thisDimension;
+                            $seriesDimensions[] = isset($list[$j]["translation"]) ? $list[$j]["translation"] : $list[$j]["pattern"];
                         }
 
                     }
                 }
             }
-//if($searchText=="Male: !! 25 to 29 years")die();
+            //if($searchText=="Male: !! 25 to 29 years")die();
             //get states
             //timeout("start fetch");
             fetchData($data, "state", $key);
@@ -228,16 +228,16 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
                 //timeout("saved Data");
                 unset($data);
                 unset($sourceKeys);
-                $data = array();
-                $sourceKeys = array();
+                $data = [];
+                $sourceKeys = [];
             }
         }
     }
 }
-var_dump($status);
+preprint($status);
 
 function fetchData(&$data, $location, $key){
-//turns $data into a keyed array if empty and sums if already filled
+    //turns $data into a keyed array if empty and sums if already filled
     global $years, $api_key;
     for($i=0;$i<count($years);$i++){
         $year = $years[$i];
@@ -254,7 +254,7 @@ function fetchData(&$data, $location, $key){
                     $locationCode = "F".str_pad($fetched[$j][1], 2, '0', STR_PAD_LEFT);
                 }
                 if(!isset($data[$locationCode])){
-                    $data[$locationCode] = array();
+                    $data[$locationCode] = [];
                 }
                 $summed = false;
                 for($k=0;$k<count($data[$locationCode]);$k++){
@@ -264,7 +264,7 @@ function fetchData(&$data, $location, $key){
                         break;
                     }
                 }
-                if(!$summed) array_push($data[$locationCode], array($year, $fetched[$j][0]));
+                if(!$summed) $data[$locationCode][] =[$year, $fetched[$j][0]];
             }
         }
     }
@@ -281,7 +281,7 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
     //1. get themeid, saving as needed
     $themeid = setThemeByName($apiid, $themeName);
     //2. get cubeid, saving the cube and its dimensions as needed
-    $cube = setCubeByDimensions($themeid, $cubeDimensions, $units);
+    $cube = setCubeByDimensions($themeid, $cubeDimensions, $units);  //$cubeDimensions has already removed the "sumWithNext" element
     //3. get cube_catid
     $cube_catid = setCategoryByName($apiid, $themeName." ". $cube["name"], $theme_catid);
     //4. get mapsetid and set_catid
@@ -297,26 +297,26 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
 
     //insert CUBESETS
     if($cube){
-        $stackorder = 0; //part of unique id therefore "null" is invalid;
-        $barorder = 0; //ditto
-        $sideorder = 0; //ditto
+        $stackOrder = "null";
+        $barOrder = "null";
+        $sideOrder = "null";
         for($i=0;$i<count($cubeDimensions);$i++){
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 if($seriesDimensions[$i]==$cubeDimensions[$i]["list"][$j]["name"]){
-                    if(($cubeDimensions[$i]["dimension"]=="sex" && $i!=0) || $i==2){
-                        $sideorder = $j;
-                    } elseif($i==0){
-                        $barorder = $j;
-                    } elseif($i==1){
-                        $stackorder = $j;
+                    if($i==0){
+                        $barOrder = $j;
+                    } elseif($i==1 && $cubeDimensions[$i]["dimension"]!="sex"){
+                        $stackOrder = $j;
+                    } else {
+                        $sideOrder = $j;
                     }
                 }
             }
         }
         $cubeid = $cube["id"];
         runQuery("insert into cubecomponents (cubeid, setid, barorder, stackorder, sideorder)
-            values($cubeid, $setid, $barorder, $stackorder, $sideorder)
-            on duplicate key update barorder=$barorder, stackorder=$stackorder, side=$side");
+        values($cubeid, $setid, $barOrder, $stackOrder, $sideOrder)
+        on duplicate key update barorder=$barOrder, stackorder=$stackOrder, side=$sideOrder");
     }
 
     //insert CATEGORYSETS
@@ -337,13 +337,13 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
 
             //insert series
             /*            $sid = updateSeries($status, "null", $sourceKey."-".substr($locationCode, 1), $setName." in ".$geoname,
-                            "US Census Bureau","http://www.census.gov/developers/data/","A",
-                            $units,"null","null",$setName,
-                            $apiid, "",
-                            $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);*/
+            "US Census Bureau","http://www.census.gov/developers/data/","A",
+            $units,"null","null",$setName,
+            $apiid, "",
+            $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);*/
 
             //insert set
-            saveSetData($status, $setid, $apiid, null, "A", $geoid, "", $mdData);
+            saveSetData($status, $setid, "A", $geoid, "", $mdData);
             //insert cubeseries
             //runQuery("insert ignore into cubeseries (cubeid, geoid, seriesid) values($cubeid, $geoid, $sid)");
 
@@ -364,4 +364,60 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
 
     printNow(date("Y-m-d H:i:s") .": processed set $setName ($units), part of the cube $themeName ". $cube["name"]);
 
+}
+
+
+function setCubeByDimensions($themeid, $cubeDimensions, $units){
+    //save the cube and its dimensions if DNE
+    //return an assc array with cube name and id
+    global $db;
+    if(count($cubeDimensions)==0) return false;  //don't insert cube for "totals"
+    //1. insert / update the cubedim records
+    $cubeDimIds = ["null", "null", "null"];
+    $dimNames = [];
+    foreach($cubeDimensions as $i => &$cubeDimension){
+        $dimName = $cubeDimension["dimension"];
+        $dimNames[] = $dimName;
+        $sql = "select dimid from cubedims where themeid=$themeid and name='$dimName'";
+        $result = runQuery($sql, "cubeDim search");
+        if($result->num_rows==0){
+            $list = [];
+            foreach($cubeDimension["list"] as $j=>&$item){
+                if(!isset($item["sumWithNext"])){
+                    $list[] = isset($item["short"]) ? $item["short"] : $item["name"];
+                    /*$listItem = ["name"=>$item["name"]];
+                    if(isset($item["short"])) $listItem["short"] = $item["short"];
+                    if(isset($item["color"])) $listItem["short"] = $item["color"];
+                    $list[] = $listItem;*/
+                }
+            }
+            $sqlDimJson = safeStringSQL(json_encode($list));
+            $sql="insert into cubedims (themeid, name, json) values($themeid, '$dimName', $sqlDimJson)";
+            if(!runQuery($sql, "insert cubedim")) throw new Exception("error: unable to insert dimension $dimName for themeid $themeid");
+            $thisDimId = $db->insert_id;
+        } else {
+            $dim = $result->fetch_assoc();
+            $thisDimId = $dim["dimid"];
+        }
+        if(strtolower($cubeDimensions[1]["dimension"])=="sex"){
+            $cubeDimIds[2] = $thisDimId; //population pyramids
+        } else {
+            $cubeDimIds[$i] = $thisDimId;
+        }
+    }
+
+    //2. insert / update the cube record
+    $cubeName = count($cubeDimensions)==0?"total":"by ".implode($dimNames, ", ");
+    $sql = "select cubeid from cubes where themeid=$themeid and name='$cubeName' and units='$units'";
+    $result = runQuery($sql, "cube fetch");
+    if($result->num_rows==0){
+        $sql="insert into cubes (themeid, name, units, bardimid, stackdimid, sidedimid) values($themeid,'$cubeName','$units', $cubeDimIds[0], $cubeDimIds[1], $cubeDimIds[2])";
+        if(!runQuery($sql, "insert cube")) throw new Exception("error: unable to insert cube $cubeName for themeid $themeid");
+        $cubeid = $db->insert_id;
+    } else {
+        $row = $result->fetch_assoc();
+        $cubeid = $row["cubeid"];
+        runQuery("update cubes set bardimid=$cubeDimIds[0], stackdimid=$cubeDimIds[1], sidedimid=$cubeDimIds[2] where dubeid=$$cubeid");
+    }
+    return ["name"=>$cubeName, "id"=>$cubeid];
 }
