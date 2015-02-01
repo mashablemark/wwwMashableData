@@ -12,6 +12,7 @@ include_once("../../global/php/common_functions.php");
 //The Census API for SF1 cover the 1990, 2000 and the 2010 census, however the keys change from census to census!
 //2000 and 2010 are simliar (extra 0) and the call can adjusted in the code.  The 1990 keys are completely different!
 $years = array("2000","2010");
+$apidt = date("Y-m-d");
 $api_key = "b12bd9324e77b0a2edcb92e67d508e7e9e3d862b";  //registered to mark_c_elbert@yahoo.com
 
 //create assoc. array of states and counties keyed by FIPS code
@@ -163,6 +164,7 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
     //timeout("start theme loop");
     $data = [];
     $sourceKeys = [];
+    $rootSetId = null;
     $attribute = $xmlTheme->attributes();
     $themeName = (string)$attribute["name"];
     $units = (string)$attribute["units"];
@@ -233,6 +235,11 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
             }
         }
     }
+    set_time_limit(200);
+    setGhandlesFreqsFirstLast($apiid);
+    set_time_limit(200);
+    setMapsetCounts("all", $apiid);
+
 }
 preprint($status);
 
@@ -246,7 +253,15 @@ function fetchData(&$data, $location, $key){
             if($year=="2000" && substr($key,4,1)=="0") $yearKey = substr($key,0,4).substr($key,5);
             $url = "http://api.census.gov/data/$year/sf1?get=$yearKey&for=$location:*&key=$api_key";
             printNow($url);
-            $fetched = json_decode(implode(file($url),"\n"));
+            $rawData = file($url);
+            $tries = 1;
+            while(!$rawData && $tries<3){
+                $tries++;
+                printNow("retry to get $url!");
+                $rawData = file($url);
+            }
+            if(!$rawData) throw new Exception("fatal error: unable to get $url after $tries tries.");
+            $fetched = json_decode(implode($rawData,"\n"));
             for($j=1;$j<count($fetched);$j++){ //start with 1 to skip the header row
                 if(count($fetched[$j])==3){
                     $locationCode = "F".str_pad($fetched[$j][1], 2, '0', STR_PAD_LEFT)  . str_pad($fetched[$j][2], 3, '0', STR_PAD_LEFT);
@@ -271,35 +286,43 @@ function fetchData(&$data, $location, $key){
 }
 
 function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme_catid, $seriesDimensions){
+    global $rootSetId, $apiid, $geographies, $status, $apidt;
     printNow("themeName: $themeName");
     printNow("sourceKey: $sourceKey");
     printNow("cubeDimensions:");
     preprint($cubeDimensions);
     printNow("seriesDimensions:");
     preprint($seriesDimensions);
-    global $apiid, $geographies, $status, $firstDate, $lastDate;
     //1. get themeid, saving as needed
     $themeid = setThemeByName($apiid, $themeName);
+
     //2. get cubeid, saving the cube and its dimensions as needed
-    $cube = setCubeByDimensions($themeid, $cubeDimensions, $units);  //$cubeDimensions has already removed the "sumWithNext" element
-    //3. get cube_catid
-    $cube_catid = setCategoryByName($apiid, $themeName." ". $cube["name"], $theme_catid);
+    $cube = false;
+    if(count($cubeDimensions)>0){
+        $cube = setCubeByDimensions($themeid, $cubeDimensions, $units, $rootSetId);  //$cubeDimensions has already removed the "sumWithNext" element
+        //3. insert/get CATEGORIES cube_catid
+        $cube_catid = setCategoryByName($apiid, $themeName." ". $cube["name"], $theme_catid);
+    }
     //4. get mapsetid and set_catid
     $setName = $themeName . (count($seriesDimensions)==0?"":" ".implode($seriesDimensions, " and ")); //. " in [geo]";
     printNow("setName: $setName");
 
-    //insert CATEGORIES
-    $set_catid = setCategoryByName($apiid, $setName, $cube_catid);
-
     //insert SETS
-    $setid = saveSet($apiid, $sourceKey, $setName, $units, "US Census Bureau","http://www.census.gov/developers/data/", "", $themeid);
-    //$mapsetid = getMapSet($setName, $apiid, "A", $units);
+    $setid = saveSet($apiid, $sourceKey, $setName, $units, "US Census Bureau","http://www.census.gov/developers/data/", "", $apidt, $themeid);
+    if(count($cubeDimensions)==0){
+        if(!$rootSetId){
+            $rootSetId = $setid;
+            runQuery("update themes set rootsetid = $rootSetId where themeid = $themeid");
+        } else {
+            throw new Exception("error: confusion on rootset $rootSetId vs. $setid for themeid $themeid");
+        }
+    }
 
     //insert CUBESETS
     if($cube){
-        $stackOrder = "null";
-        $barOrder = "null";
-        $sideOrder = "null";
+        $stackOrder = 0;
+        $barOrder = 0;
+        $sideOrder = 0;
         for($i=0;$i<count($cubeDimensions);$i++){
             for($j=0;$j<count($cubeDimensions[$i]["list"]);$j++){
                 if($seriesDimensions[$i]==$cubeDimensions[$i]["list"][$j]["name"]){
@@ -316,15 +339,15 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
         $cubeid = $cube["id"];
         runQuery("insert into cubecomponents (cubeid, setid, barorder, stackorder, sideorder)
         values($cubeid, $setid, $barOrder, $stackOrder, $sideOrder)
-        on duplicate key update barorder=$barOrder, stackorder=$stackOrder, side=$sideOrder");
+        on duplicate key update barorder=$barOrder, stackorder=$stackOrder, sideorder=$sideOrder");
     }
 
     //insert CATEGORYSETS
-    setCatSet($set_catid, $setid);
+    setCatSet($cube?$cube_catid:$theme_catid, $setid);
 
     //5. loop through the dataset and save/update it
     foreach($data as $locationCode=>$dataArray){
-        //determine geoid and insert series, categoryseries
+        //determine geoid and insert series, categotySets
         if(isset($geographies[$locationCode])){
             //$geoname = $geographies[$locationCode]["name"];
             $geoid = $geographies[$locationCode]["geoid"];
@@ -333,43 +356,20 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
                 $mdData[] = implode($dataArray[$j],':');
             }
             sort($mdData);
-            //printNow("$locationCode $geoname($geoid): $j");
-
-            //insert series
-            /*            $sid = updateSeries($status, "null", $sourceKey."-".substr($locationCode, 1), $setName." in ".$geoname,
-            "US Census Bureau","http://www.census.gov/developers/data/","A",
-            $units,"null","null",$setName,
-            $apiid, "",
-            $firstDate,$lastDate,implode($mdData,"|"), $geoid, $mapsetid, null, null, null, $themeid);*/
-
             //insert set
-            saveSetData($status, $setid, "A", $geoid, "", $mdData);
-            //insert cubeseries
-            //runQuery("insert ignore into cubeseries (cubeid, geoid, seriesid) values($cubeid, $geoid, $sid)");
-
-            //insert categoryseries
-            //runQuery("insert ignore into categoryseries (catid, seriesid) values($set_catid, $sid)");
+            saveSetData($status, $setid, null, null, "A", $geoid, "", $mdData);
         } else {
             if(substr($locationCode,0,3)!="F72") printNow("unable to insert for FIPS handle: ".$locationCode);  //puerto rico
             $status["failed"]++;
         }
     }
-
-    //setMapsetCounts($mapsetid, $apiid);
-
-    set_time_limit(200);
-    setGhandlesPeriodicitiesFirstLast($apiid);
-    set_time_limit(200);
-    setMapsetCounts("all", $apiid);
-
     printNow(date("Y-m-d H:i:s") .": processed set $setName ($units), part of the cube $themeName ". $cube["name"]);
-
 }
 
 
-function setCubeByDimensions($themeid, $cubeDimensions, $units){
+function setCubeByDimensions($themeid, $cubeDimensions, $units, $rootSetId){
     //save the cube and its dimensions if DNE
-    //return an assc array with cube name and id
+    //return an assoc array with cube name and id
     global $db;
     if(count($cubeDimensions)==0) return false;  //don't insert cube for "totals"
     //1. insert / update the cubedim records
@@ -378,7 +378,7 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
     foreach($cubeDimensions as $i => &$cubeDimension){
         $dimName = $cubeDimension["dimension"];
         $dimNames[] = $dimName;
-        $sql = "select dimid from cubedims where themeid=$themeid and name='$dimName'";
+        $sql = "select dimid from cubedims where themeid=$themeid and dimkey='$dimName'";
         $result = runQuery($sql, "cubeDim search");
         if($result->num_rows==0){
             $list = [];
@@ -392,14 +392,14 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
                 }
             }
             $sqlDimJson = safeStringSQL(json_encode($list));
-            $sql="insert into cubedims (themeid, name, json) values($themeid, '$dimName', $sqlDimJson)";
+            $sql="insert into cubedims (themeid, dimkey, name, json) values($themeid, '$dimName', '$dimName', $sqlDimJson) on duplicate key update name='$dimName', json= $sqlDimJson";
             if(!runQuery($sql, "insert cubedim")) throw new Exception("error: unable to insert dimension $dimName for themeid $themeid");
             $thisDimId = $db->insert_id;
         } else {
             $dim = $result->fetch_assoc();
             $thisDimId = $dim["dimid"];
         }
-        if(strtolower($cubeDimensions[1]["dimension"])=="sex"){
+        if(strtolower($cubeDimensions[$i]["dimension"])=="sex" && $i==1){
             $cubeDimIds[2] = $thisDimId; //population pyramids
         } else {
             $cubeDimIds[$i] = $thisDimId;
@@ -411,13 +411,13 @@ function setCubeByDimensions($themeid, $cubeDimensions, $units){
     $sql = "select cubeid from cubes where themeid=$themeid and name='$cubeName' and units='$units'";
     $result = runQuery($sql, "cube fetch");
     if($result->num_rows==0){
-        $sql="insert into cubes (themeid, name, units, bardimid, stackdimid, sidedimid) values($themeid,'$cubeName','$units', $cubeDimIds[0], $cubeDimIds[1], $cubeDimIds[2])";
+        $sql="insert into cubes (themeid, name, units, totsetid, bardimid, stackdimid, sidedimid) values($themeid,'$cubeName','$units', $rootSetId, $cubeDimIds[0], $cubeDimIds[1], $cubeDimIds[2])";
         if(!runQuery($sql, "insert cube")) throw new Exception("error: unable to insert cube $cubeName for themeid $themeid");
         $cubeid = $db->insert_id;
     } else {
         $row = $result->fetch_assoc();
         $cubeid = $row["cubeid"];
-        runQuery("update cubes set bardimid=$cubeDimIds[0], stackdimid=$cubeDimIds[1], sidedimid=$cubeDimIds[2] where dubeid=$$cubeid");
+        runQuery("update cubes set totsetid = $rootSetId, bardimid=$cubeDimIds[0], stackdimid=$cubeDimIds[1], sidedimid=$cubeDimIds[2] where cubeid=$cubeid");
     }
     return ["name"=>$cubeName, "id"=>$cubeid];
 }
