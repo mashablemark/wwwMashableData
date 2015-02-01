@@ -4088,7 +4088,7 @@ MashableData.grapher = function(){
                         },
                         borderWidth: 0,
                         animation: false,
-                        stacking: null
+                        stacking: 'normal'
                     }
                 },
                 xAxis: {
@@ -4144,50 +4144,37 @@ MashableData.grapher = function(){
 
             //4. loop through the cubeData (note:  setdata must be left outer joined to cubecompents to produce NULL placeholders when missing for certain geographies)
             //TODO: bar-side with no stack
-            var point, y, barName, barOrder, stackOrder, sideOrder, barData = [], stackData = [[],[]], lastBar = 0;
+            var point, y, barOrder, stackOrder, sideOrder, data = [], lastBar = 0;
             var barAxis = cube.barAxis, stackAxis = cube.stackAxis, sideAxis = cube.sideAxis, cubeConfig = graph.mapconfig.cube;
             for(i=0;i<cubeData.length;i++){
                 barOrder =  parseInt(cubeData[i].barorder);
-                if(cube.stackNames && lastBar!=barOrder){
-                    vizChart.series.push({data: stackData[0], name: barName, color: globals.hcColors[vizChart.series.length]});
-                    if(stackData[1].length) vizChart.series.push({data: stackData[1], name: barName, linkedTo: ':previous', showInLegend: false});  //side
-                    stackData = [[],[]]; //two array for sides if present
-                    lastBar = barOrder;
-                }
-                barName = (cubeConfig&&cubeConfig.dims[barAxis]&&cubeConfig.dims[barAxis][barOrder]) || cube.barNames[barOrder];
                 sideOrder = parseInt(cubeData[i].sideorder);
                 stackOrder = parseInt(cubeData[i].stackorder);
-                if(cube.stackNames && barOrder==0) vizChart.xAxis.categories.push((cubeConfig&&cubeConfig.dims[stackAxis] && cubeConfig.dims[stackAxis][stackOrder]) || cube.stackNames[stackOrder]);  //TODO: implement the bar, stack and side names editor
                 y = seriesValue(cubeData[i].data, mapDate);
                 point = {
                     y:  ((cube.sideAxis && sideOrder==0)?-1:1) * y,
                     rawY: y,
-                    //name: barName + (cube.stackNames?'<br>'+cube.stackNames[stackOrder]:'') + (cube.sideNames?'<br>'+cube.sideNames[sideOrder]:'')
                     name: cubeData[i].name
                 };
-                if(cube.stackNames){
-                    stackData[sideOrder].push(point);
-                } else {
-                    barData.push(point);
-                    vizChart.xAxis.categories.push(barName);  //TODO: implement the bar, stack and side names editor
+                data.push(point);
+                if(barOrder==cube.barNames.length-1){
+                    var serie = {data: data, color: cube.stackNames?globals.hcColors[stackOrder]:globals.hcColors[sideOrder]};
+                    if(cube.stackNames) serie.name = (cubeConfig&&cubeConfig.dims[stackAxis] && cubeConfig.dims[stackAxis][stackOrder]) || cube.stackNames[stackOrder];
+                    if(sideOrder == 1) serie.linkedTo = ':previous';
+                    if(sideOrder == 1 || !cube.stackNames) serie.showInLegend = false;
+                    vizChart.series.push(serie);
+                    data = [];
                 }
             }
+            //add the categories
+            for(i=0;i<cube.barNames.length;i++){
+                vizChart.xAxis.categories.push((cubeConfig&&cubeConfig.dims[barAxis]&&cubeConfig.dims[barAxis][i]) || cube.barNames[i]);
+            }
             //vizChart.legend = {enabled: false};
-            if(cube.stackNames){
-                vizChart.series.push({data: stackData[0], name: barName});
-                if(stackData[1].length) vizChart.series.push({data: stackData[1], name: barName, linkedTo: ':previous', showInLegend: false});
-                vizChart.plotOptions.bar.stacking = 'normal';
-            } else {
-                vizChart.series.push({
-                    id: geoKey,
-                    name: geoName,
-                    data: barData,
-                    showInLegend: false,
-                    color: globals.hcColors[vizChart.series.length]
-                });
+            if(!cube.stackNames){
                 vizChart.plotOptions.bar.dataLabels.enabled = true;
             }
-            if(cube.sideAxis) vizChart.xAxis.lineWidth = 0
+            if(cube.sideAxis) vizChart.xAxis.lineWidth = 0;
 
             switch(action){
                 case 'add':

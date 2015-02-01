@@ -1973,7 +1973,7 @@ function getCubeSeries(&$output, $cubeid, $geoid=0, $sqlFreq=false){
       where cci.cubeid=$cubeid and sd.geoid = $geoid and $freqClause
     ) sd on cc.setid=sd.setid
     where cc.cubeid=$cubeid
-    order by barorder, stackorder, sideorder";
+    order by stackorder, sideorder, barorder";
     $result = runQuery($sql,"GetCubeSeries data");
     while($row = $result->fetch_assoc()){
         $output["series"][] = $row;
