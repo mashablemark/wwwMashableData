@@ -80,6 +80,7 @@ function safePostVar($key){
 }
 
 function safeStringSQL($val, $nullable = true){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
+    if(is_array($val)) throw new Exception("safeStringSQL unable to process arrays");
     if($nullable && ($val === NULL || strtoupper($val) == "NULL"  || $val == '')){  //removed "|| $val==''" test
         return "NULL";
     } else {
@@ -429,7 +430,7 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
     }
 
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
-    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = t.text1, s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2 where setype<>'X';", "setGhandlesPeriodicities");
+    runQuery("update sets s join temp t on s.setid=t.id1 set s.ghandles = concat(t.text1,','), s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2 where setype<>'X';", "setGhandlesPeriodicities");
 }
 
 function setMapsetCounts($setid="all", $apiid, $themeid = false){
@@ -589,8 +590,8 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid
         }
     }
 
-    $sql = "insert into setdata (setid, freq, geoid, latlon, ".($metadata===false?"":"metadata, ")." data, firstdt100k, lastdt100k, apidt, skey)"
-        ." values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata)). ", '$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
+    $sql = "insert into setdata (setid, freq, geoid, latlon,".($metadata===false?"":"metadata,")." data, firstdt100k, lastdt100k, apidt, skey)"
+        ." values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
         ." on duplicate key update data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
     return runQuery($sql, $logAs);
 }

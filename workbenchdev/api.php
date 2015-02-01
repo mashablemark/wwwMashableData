@@ -119,6 +119,7 @@ switch($command){
         $setType =  $_POST['settype'];
         if(count($search) == 0 || count($freq)== 0) die("invalid call.  Err 101");
         $sLimit = " ";
+        $foundGeos = [];
         if ( isset( $_POST['iDisplayStart'] ) && $_POST['iDisplayLength'] != '-1' ) {
             $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
@@ -126,8 +127,9 @@ switch($command){
         $aColumns=array("name", "units", "firstdt", "lastdt");
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
         $sql = "SELECT SQL_CALC_FOUND_ROWS
-        s.settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, s.freqs, s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
-        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'F_','') as maps, s.ghandles
+        s.settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, replace(s.freqs,'F_','') as freqs,
+        s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
+        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'M_','') as maps, s.ghandles
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
         //handle may be modified in read loop depending on detected geographies and
@@ -136,7 +138,6 @@ switch($command){
             $sql .= " INNER JOIN categorysets cs on s.setid = cs.setid WHERE catid=$catid";
         } else {
             //2. look for geo matching and search sets if
-            $foundGeos = [];
             if($search!='+ +') {
                 $geoSearch = str_replace("+", "", $search);
                 $geoSQL = "select geoid, name, keywords, confirmwords, exceptex,
@@ -253,25 +254,45 @@ switch($command){
             "aaData" => array()
         );
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
+        $aRows = [];
+        $searchWords = trim(str_replace("+", "", $search));
+        $searchWords = count($searchWords)==0 ? false: explode(" ", $searchWords);
+        $geoSearched = count($foundGeos)>0;
         while ($aRow = $result->fetch_assoc()) { //handle, setid, mastersetid, userid, name, units, freq, title, src, url, firstdt, lastdt, apiid, maps, ghandles
             $found = false;
-            $aRow["maps"] = str_replace("M_","", $aRow["maps"]);
-            $aRow["freqs"] = str_replace("F_","", $aRow["freqs"]);
-            foreach($foundGeos as $ghandle => $geoSearchDetails){
-                if(strpos($aRow["ghandles"].",", "$ghandle,")!==false){
-                    //logEvent("ghandle matched", $ghandle);
-                    $thisRow = $aRow; //copy
-                    unset($thisRow["ghandles"]);
-                    $thisRow["name"] .= ": ".$geoSearchDetails["name"];
-                    $thisRow["geoid"] =  intval(str_replace("G_", "", $ghandle));
-                    //series object creates its own handle   $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("_","", $ghandle);
-                    $output['aaData'][] = $thisRow;
-                    $found = true;
+            if($geoSearched) {
+                //two pass output if geosearched = check for straight set match followed by check for ghandle match
+                $aRows[] = $aRow;
+                $straightMatch = true;
+                $textFields = $aRow["name"]." ".$aRow["units"]." ".$aRow["titles"];
+                foreach($searchWords as $searchWord){
+                    if(stripos($textFields, $searchWord)===false){
+                        $straightMatch = false;
+                        break;
+                    }
                 }
-            }
-            if(!$found){
+                if($straightMatch == true){
+                    unset($aRow["ghandles"]);
+                    $output['aaData'][] = $aRow;
+                }
+            } else {
                 unset($aRow["ghandles"]);
                 $output['aaData'][] = $aRow;
+            }
+        }
+        if($geoSearched){
+            foreach($aRows as $aRow){
+                foreach($foundGeos as $ghandle => $geoSearchDetails){
+                    if(strpos($aRow["ghandles"].",", "$ghandle,")!==false){
+                        $thisRow = $aRow; //copy
+                        unset($thisRow["ghandles"]);
+                        $thisRow["name"] .= ": ".$geoSearchDetails["name"];
+                        $thisRow["geoid"] =  intval(str_replace("G_", "", $ghandle));
+                        //series object creates its own handle   $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("_","", $ghandle);
+                        $output['aaData'][] = $thisRow;
+                        $found = true;
+                    }
+                }
             }
         }
         break;
@@ -612,16 +633,16 @@ switch($command){
         //totset cubes UNION sibling cubes
         $sql = "(select totsetid as setid, 'series breakdown' as relation, t.themeid, t.name as themename, c.cubeid, c.name, c.units
         from cubes c inner join themes t on t.themeid=c.themeid
-        where c.totsetid in ($setids) and c.themeid in ($themeids)
+        where c.totsetid in ($setids)
         order by themename, c.name, c.units)
         UNION ALL
         (select distinct setid, 'series context' as relation,  t.themeid, t.name as themename, c.cubeid, c.name, c.units
         from cubes c inner join themes t on t.themeid=c.themeid join cubecomponents cc on cc.cubeid=c.cubeid
-        where cc.setid in ($setids) and c.themeid in ($themeids)
+        where cc.setid in ($setids)
         order by themename, c.name, c.units)
         UNION ALL
         (select distinct rootsetid, 'set information' as relation,  t.themeid, t.name as themename, c.cubeid, c.name, c.units
-        from cubes c inner join themes t on t.themeid=c.themeid and t.rootsetid = c.totsetid
+        from cubes c inner join themes t on t.rootsetid = c.totsetid
         where t.themeid in ($themeids)
         order by themename, c.name, c.units)
         ";

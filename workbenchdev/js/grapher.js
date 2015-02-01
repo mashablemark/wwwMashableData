@@ -899,16 +899,6 @@ MashableData.grapher = function(){
                             '</div>' +
                             '<div class="map-viz-select">map interactive' +
                             '<select class="map-viz-select">' +
-                            '<option value="none">none</option>' +
-                            '<optgroup class="non-cube-vizes"  label="visualizations with mouseover interactions">' +
-                            '<option value="scatter">scatter plot of maps with linear regression and correlation coefficient</option>' +
-                            '<option value="line">line chart of highlighted geographies</option>' +
-                            '<option value="line-bunnies">line chart with national data of highlighted geographies</option>' +
-                            '<option value="components-bar">bar chart of map components of highlighted geographies</option>' +
-                            '<option value="components-line">line chart of summed map components of highlighted geographies</option>' +
-                            '<option value="list-asc">ordered list (ascending)</option>' +
-                            '<option value="list-desc">ordered list (descending)</option>' +
-                            '</optgroup>' +
                             '</select>' +
                             '</div>' +
                             //change map selector and default
@@ -1358,43 +1348,8 @@ MashableData.grapher = function(){
                             oGraph.type=$(this).val();
                             _redraw();
                         });
+                    fillCubeSelector($thisPanel.find('select.map-viz-select'), [], [], oGraph);
                     $thisPanel.find('select.map-viz-select')
-                        .append(oGraph.cubeid?'<optgroup class="cubes" label="visualizations with map click interaction (requires data fetch)"><select value="' + oGraph.cubeid + '">' + oGraph.cubename || 'data cube' + '</select></optgroup>' : '')
-                        .val(oGraph.cubeid || oGraph.mapconfig.mapViz || 'none')
-                        .click(function(){
-                            //1. make a list of grpah's map and point setids that are part of a theme (only these can be part of cubes)
-                            var setids = [], themeids = [];
-                            oGraph.eachComponent(function(){
-                                if((this.isMapSet() || this.isPointSet()) && this.themeid) {
-                                    if(setids.indexOf(this.setid)===-1) setids.push(this.setid);
-                                    if(themeids.indexOf(this.themeid)===-1) themeids.push(this.themeid);
-                                }
-                            });
-                            setids.sort(); //ensure the array joins to a predictable string
-                            //fetch a list of applicable cubes (if they have not already been fetched for these setids)
-                            if(setids.length>0 && (!oGraph.possibleCubes || oGraph.possibleCubes.setsids!=setids.join())) {
-                                callApi({command: "GetCubeList", setids: setids, themeids: themeids},
-                                    function(jsoData, textStatus, jqXH){
-                                        oGraph.possibleCubes = {  //save on the main graph to ensure availibility betweeon prove panel ops.
-                                            setsids: setids.join(),
-                                            cubes: jsoData.cubes
-                                        };
-                                        var i, currentCubeAccountedFor = false, cube, cubeOptions = '', type = false;
-                                        for(i=0;i<jsoData.cubes.length;i++){
-                                            cube = jsoData.cubes[i];
-                                            if(type!=cube.type){
-                                                cubeOptions += (type?'</optgroup>':'') + '<optgroup class="cubes" label="show supplementary data '+cube.type+' on geography click">';
-                                                type = cube.type;
-                                            }
-                                            cubeOptions += '<option value="'+cube.cubeid+'"'+(cube.cubeid==oGraph.cubeid?' selected':'')+'>'+cube.name+'</option>';
-                                            if(cube.cubeid==oGraph.cubeid) currentCubeAccountedFor = true;
-                                        }
-                                        if(!currentCubeAccountedFor && oGraph.cubeid) cubeOptions = '<select value="' + oGraph.cubeid + '" selected>' + oGraph.cubename || 'data cube' + '</select>' + cubeOptions;
-                                        $thisPanel.find('select.map-viz-select').find('optgroup.cubes').remove().end()
-                                            .append(cubeOptions+'</optgroup>');
-                                    });
-                            }
-                        })
                         .change(function(){
                             var val = $(this).val();
                             if(!isNaN(val)){
@@ -1917,9 +1872,10 @@ MashableData.grapher = function(){
                                 .find('div.mashabledata_jvmap').show().height(mapHeight)
                         }
 
+                        console.timeEnd('buildGraphPanel:_drawMap:jvm call');
+
                         val = calculatedMapData.endDateIndex; //initial value
 
-                        console.timeEnd('buildGraphPanel:_drawMap:jvm call');
 
                         console.time('buildGraphPanel:mapControls');
                         oGraph.controls.map = $map;

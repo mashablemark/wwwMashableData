@@ -134,6 +134,7 @@ var MashableData = {
             "treemap": 'abstract values to rectangles',
             "change-treemap": 'abstract change to rectangles'
         }
+
     }
 };
 

@@ -166,15 +166,8 @@ $(document).ready(function(){
     $('#quick-view-map').button({icons: {secondary: "ui-icon-flag"}});
     $('#quick-view-chart').button({icons: {secondary: "ui-icon-image"}});
 
-    $('#quick-view-add-to-graph').button().addClass('ui-state-active')
-        .click(function(){
-            if($('#quick-view-map:visible').length==1 &&  $('#quick-view-map:checked').length==1){
-                quickViewToMap(this);
-            } else {
-                quickViewToChart(this);
-            }
-        });
-    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(function(){quickViewClose()});
+    $('#quick-view-add-to-graph').button().click(quickViewToGraph);
+    $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(quickViewClose);
 
     $(".show-graph-link").fancybox({  //TODO: replace index html with dynamic FancyBox invocations per account.js
         'width'             :  '100%',
@@ -616,7 +609,7 @@ function setupFindDataTable(){
                         + ((obj.settype=='X')?iconsHMTL.pointset:'')
                         + ((obj.themeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(value)
-                        + '<span class="handle">' + obj.handle + '</span>';
+                        + '<span class="handle">' + obj.handle() + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
             { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
@@ -1144,7 +1137,7 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
 }
 
 function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
-    var quickGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [];
+    var quickGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
     var $mapSelect =  $('#quick-view-maps');
     if(obj.plots){ // a graphs object was passed in
@@ -1173,6 +1166,12 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             quickChartOptions.legend = {enabled: false};
         } else {
             delete quickChartOptions.title;
+        }
+        for(i=0;i<aoSeries.length;i++){
+            if(aoSeries[i].themeid) {
+                themeids.push(aoSeries[i].themeid);
+                if(setids.indexOf(aoSeries[i].setid)===-1) setids.push(aoSeries[i].setid);
+            }
         }
     }
     quickChartOptions.chart.borderWidth = 2;
@@ -1206,17 +1205,12 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
             }
         }
     }
-    function showHideMapSelector (){
-        var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
-        var shown = $mapSelect.css("display")!='none';
-        if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
-    }
 
     if(setMaps.length){ //make sure we have maps to show
         //$('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
-        $('#quick-view-chart-or-map').show().find('input').off().click(showHideMapSelector );
+        $('#quick-view-chart-or-map').show().find('input').off().click(_showHideMapSelector);
         $mapSelect.html(setMaps.join(''));
-        showHideMapSelector();
+        _showHideMapSelector();
     } else {
         $mapSelect.hide();
         $('#quick-view-chart-or-map').hide();
@@ -1238,6 +1232,9 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
     });
+    //populate the cube selector
+    fillCubeSelector($('#quick-view-select-viz'), setids, themeids);
+
     //program the "add to graph" button
     $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId())
         .off()
@@ -1247,6 +1244,13 @@ function quickGraph(obj, showAddSeries){   //obj can be a series object, an arra
         .click(); //set the button text
     //$('#quick-view-add-to-graph').button("enable");
     $('.show-graph-link').click();
+
+
+    function _showHideMapSelector (){
+        var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
+        var shown = $mapSelect.css("display")!='none';
+        if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
+    }
 
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
@@ -1260,7 +1264,7 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
     $('#dialog').closest('.ui-dialog').fadeOut(1000, function(){ $('#dialog').dialog('close')});
     //quickView not closed automatically, user can subsequently chart or close
 }
-function quickViewToChart(btn){
+/*function quickViewToChart(btn){
     var graph, panelId =  $('#quick-view-to-graphs').val();
     if(oQuickViewSeries.plots){  //we have a complete graph object!
         if(panelId!='new') {
@@ -1301,21 +1305,34 @@ function quickViewToChart(btn){
     quickViewClose();
     hideGraphEditor();  //show graph instead My Series table of $('#local-series').click();
     setPanelHash();
-}
-function quickViewToMap(){
+}*/
+function quickViewToGraph(){
     var panelId =  $('#quick-view-to-graphs').val();
-    var map = $("#quick-view-maps").val();
-    if( panelGraphs[panelId]   //this graph already exists
-        && panelGraphs[panelId].map // ... and it already has a map
-        && ( //but its map and the map requested or the map/pointplot frequencies are different...
-        panelGraphs[panelId].map!=map || panelGraphs[panelId].mapFreq() != oQuickViewSeries[0].freq)
-        ){
-        dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional maps and map data can be added, but must use the same base map and frequency.");
-        return null;
+    var mapped=false, charted=false;
+    switch($('#quick-view-chart-or-map input:radio:checked').val()){
+        case 'map':
+            mapped = true;
+            break;
+        case 'chart-and-map':
+            mapped = charted = true;
+            break;
+        default:
+            charted = true;
     }
-    if(map=='other'){
-        dialogShow("selection required","Please select a base map to graph this set.");
-        return null;
+    if(mapped){ //performs compatibility checks
+        var map = $("#quick-view-maps").val();
+        if( panelGraphs[panelId]   //this graph already exists
+            && panelGraphs[panelId].map // ... and it already has a map
+            && ( //but its map and the map requested or the map/pointplot frequencies are different...
+            panelGraphs[panelId].map!=map || panelGraphs[panelId].mapFreq() != oQuickViewSeries[0].freq)
+            ){
+            dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional maps and map data can be added, but must use the same base map and frequency.");
+            return null;
+        }
+        if(map=='other'){
+            dialogShow("selection required","Please select a base map to graph this set.");
+            return null;
+        }
     }
 
     var oGraph;
@@ -1325,92 +1342,117 @@ function quickViewToMap(){
         oGraph = panelGraphs[panelId];
         oGraph.controls.provenance.commitChanges(false);
     }
-    oGraph.map = map;
-    oGraph.mapconfig.legendLocation = globals.maps[map].legend;
-    oGraph.fetchMap(); //preload
+    if(mapped) {
+        oGraph.map = map;
+        oGraph.mapconfig.legendLocation = globals.maps[map].legend;
+        oGraph.fetchMap(); //preload
+    }
     var themeids = [], setids = [];
     for(var s=0;s<oQuickViewSeries.length;s++){
         var serie = oQuickViewSeries[s], seriesComp = new MD.Component(serie); //truely a series, as quickview does not support mapping
-        oGraph.addPlot([seriesComp]);  //always plot the series in addition to any map
-        if(serie.maps && serie.maps[map]){  //final check in case of multiple series in quickview
-            mapComp = new MD.Component(serie);
-            delete mapComp.geoid;
-            delete mapComp.geoname;
-            delete mapComp.latlon;
-            delete mapComp.data;
-            if(mapComp.themeid) {
-                themeids.push(mapComp.themeid);
-                setids.push(mapComp.setid);
-            }
-            if(mapComp.isMapSet()){
-                oGraph.addMapPlot([mapComp]);
-            }
-            if(mapComp.isPointSet()){
-                oGraph.addPointPlot([mapComp]);
-            }
-        }
-    }
-
-    //if no cube active and cubes are available, see if we want to add one
-    if(!oGraph.cubeid && themeids.length){ //do we have a region/marker set that *might* supports a cube?
-        //cubes now include many vertices and sub details.  Cubes are fetched by themeid AND setid?
-        //this fetch is outside the graph.getApplicableCubes because we just want the cubes applicaable to the sets being added
-        callApi({command: "GetCubeList", themeids: themeids, setids: setids}, function(jsoData, textStatus, jqXH){
-            if(jsoData.cubes.length) selectCube(jsoData.cubes); else makeGraphAfterFetches();
-        });
-    } else makeGraphAfterFetches();
-
-    quickViewClose();
-
-    function selectCube(cubes){
-        var themes = [], cube;
-        var html = '<div id="select-cube" style="width:330px;">'
-            + '<h4>Map linked visualization available</h4>'
-            + '<p>This series is part of a structured data set ' + cubes[0].themename + ' structure that supports the following facetted vizualizations, which will be linked to the user\'s map clicks.</p><p>Please choose one.</p>'
-            + '<select class="cubeSelector" size="'+cubes.length+'">';
-        for(var c=0;c<cubes.length;c++){
-            html += '<option value="'+cubes[c].cubeid+'" '+(c==cubes.length-1?'selected':'')+'>'+cubes[c].name+' ('+cubes[c].rel+')</option>';
-        }
-        html += '</select></label><br><br>'
-            + '<button class="right" id="noViz">skip</button> <button class="right" id="vizSetOk">add linked visualization</button> '
-            + '</div>';
-        $.fancybox(html,
-            {
-                showCloseButton: false,
-                autoScale: true,
-                overlayOpacity: 0.5,
-                hideOnOverlayClick: false
-            });
-        var $panel = $('#select-cube');
-        $('#vizSetOk').button({icons: {secondary: 'ui-icon-cube'}}).click(function(){
-            oGraph.cubeid = $panel.find('.cubeSelector').val();
-            close();
-        });
-        $('#noViz').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
-            close();
-        });
-        function close(){
-            $.fancybox.close();
-            makeGraphAfterFetches();
-        }
-    }
-
-    function makeGraphAfterFetches(){
-        oGraph.fetchAssets(function(){
-            oGraph.fetchMap(function(){ //blocking map fetch
-                oGraph.title = oGraph.title || (oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets[0].name());
-                if(panelId=="new"){
-                    buildGraphPanel(oGraph);
-                } else {
-                    $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                    oGraph.controls.redraw();
+        if(charted) oGraph.addPlot([seriesComp]);
+        if(mapped){
+            if(serie.maps && serie.maps[map]){  //final check in case of multiple series in quickview
+                mapComp = new MD.Component(serie);
+                delete mapComp.geoid;
+                delete mapComp.geoname;
+                delete mapComp.latlon;
+                delete mapComp.data;
+                if(mapComp.themeid) {
+                    themeids.push(mapComp.themeid);
+                    setids.push(mapComp.setid);
                 }
-                mask('drawing');
-                setPanelHash();
-            });
-        });
-        hideGraphEditor();
+                if(mapComp.isMapSet()){
+                    oGraph.addMapPlot([mapComp]);
+                }
+                if(mapComp.isPointSet()){
+                    oGraph.addPointPlot([mapComp]);
+                }
+            }
+        }
     }
+    //if no cube active and cubes are available, see if we want to add one
+    var cubeSelection = $('#quick-view-select-viz').val();
+    if(cubeSelection!=""){
+        if(isNaN(cubeSelection)){
+            oGraph.mapconfig.mapViz = cubeSelection;
+        } else {
+            oGraph.cubeid = cubeSelection;
+        }
+    }
+    oGraph.fetchAssets(function(){
+        oGraph.fetchMap(function(){ //blocking map fetch
+            oGraph.title = oGraph.title || (oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets?oGraph.pointsets[0].name():oGraph.plots[0].name());
+            if(panelId=="new"){
+                buildGraphPanel(oGraph);
+            } else {
+                $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
+                oGraph.controls.redraw();
+            }
+            mask('drawing');
+            setPanelHash();
+        });
+    });
+    hideGraphEditor();
+    quickViewClose();
+}
+
+//used by quickview and by the graph editor
+function fillCubeSelector($cubeSelector, setids, themeids, graph){
+    //1. if no themeids passed and a graph is, try to make a list of graph's map and pointsetids that are part of a theme (only these can be part of cubes)
+    if(!themeids.length && graph){
+        setids = [];
+        graph.eachComponent(function(){
+            if((this.isMapSet() || this.isPointSet()) && this.themeid) {
+                if(setids.indexOf(this.setid)===-1) setids.push(this.setid);
+                if(themeids.indexOf(this.themeid)===-1) themeids.push(this.themeid);
+            }
+        });
+        setids.sort(); //ensure the array joins to a predictable string
+    }
+
+    //fetch a list of applicable cubes (if they have not already been fetched for these setids)
+    var possibleCubes = graph ? graph.possibleCubes : false;
+    if(setids.length>0 && !(possibleCubes && possibleCubes.setsids==setids.join())) {
+        callApi({command: "GetCubeList", setids: setids, themeids: themeids},
+            function(jsoData, textStatus, jqXH){
+                possibleCubes = {  //save on the main graph to ensure availibility betweeon prove panel ops.
+                    setsids: setids.join(),
+                    cubes: jsoData.cubes
+                };
+                if(graph) graph.possibleCubes = possibleCubes;
+                _fillSelector();
+            });
+    } else _fillSelector();
+
+    function _fillSelector(){
+        var cubeOptions = '<option value="none">select a data cube or map interaction</option>' +
+        '<optgroup class="non-cube-vizes"  label="visualizations with mouseover interactions">' +
+            '<option value="scatter">scatter plot of maps with linear regression and correlation coefficient</option>' +
+            '<option value="line">line chart of highlighted geographies</option>' +
+            '<option value="line-bunnies">line chart with national data of highlighted geographies</option>' +
+            '<option value="components-bar">bar chart of map components of highlighted geographies</option>' +
+            '<option value="components-line">line chart of summed map components of highlighted geographies</option>' +
+            '<option value="list-asc">ordered list (ascending)</option>' +
+            '<option value="list-desc">ordered list (descending)</option>' +
+        '</optgroup>';
+        var i, currentCubeAccountedFor = false, cube, type = false;
+        if(possibleCubes&&possibleCubes.cubes.length){
+            for(i=0;i<possibleCubes.cubes.length;i++){
+                cube = possibleCubes.cubes[i];
+                if(type!=cube.type){
+                    cubeOptions += (type?'</optgroup>':'') + '<optgroup class="cubes" label="show supplementary data '+cube.type+' on geography click">';
+                    type = cube.type;
+                }
+                cubeOptions += '<option value="'+cube.cubeid+'"'+(graph&&cube.cubeid==graph.cubeid?' selected':'')+'>'+cube.name+'</option>';
+                if(graph&&cube.cubeid==graph.cubeid) currentCubeAccountedFor = true;
+            }
+            cubeOptions += '</optgroup>'
+        }
+        if(!currentCubeAccountedFor && graph && graph.cubeid) cubeOptions = '<select value="' + graph.cubeid + '" selected>' + graph.cubename || 'data cube' + '</select>' + cubeOptions;
+        $cubeSelector.html(cubeOptions);
+    }
+    return possibleCubes;
 }
 
 function quickViewClose(){
