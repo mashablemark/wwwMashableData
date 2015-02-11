@@ -24,6 +24,7 @@ $debug = true;  //no file fetch
 */
 $fred_api_key = '975171546acb193c402f70777c4eb46d';
 $bulkFolder = "bulkfiles/fred/";
+//apidid=2;
 
 
 function ApiExecuteJob($runid, $apirunjob){
@@ -184,6 +185,7 @@ class FredList
     public $dupTrueCount = 0;
     public $dupProblemCount = 0;
     public $dupFile = false;
+    public $separators = [" in "," from "," for "];
     /*$listFile format:
     FRED: All Data Series
     Link: http://research.stlouisfed.org/fred2/
@@ -226,7 +228,7 @@ class FredList
     public $api_row;
     public $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
     public $sets = [];  //setname=>units=>freq=>geoid:latlon => [file, copyright, setid, skey, apidt, update=>true/false, title]
-
+    public $geosets = [];
 
     // method declaration
     public function IngestAll($Since = false) {  //process all series in the list with LastUpdate > Since if Since is provided
@@ -257,7 +259,7 @@ class FredList
             $this->trimFields($headerFields);
             $this->processLine($headerFields, $Since);
             $line++;
-            if($debug && intval($line/1000)*1000==$line) printNow("read $line lines. ". strftime ("%r")." ");
+            //if($debug && intval($line/1000)*1000==$line) printNow("read $line lines. ". strftime ("%r")." ");
             $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
         fclose($fp);
@@ -265,7 +267,8 @@ class FredList
         fclose($this->dupFile);
         $this->dupFile = false;
         printNow("preprocessed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
-
+        preprint($this->geosets);
+die();
         //save $this->sets to database
         $minSetSize = 5;
         $apiid = $this->api_row["apiid"];
@@ -395,16 +398,17 @@ class FredList
             "NA" => "" // = "Not Applicable" but don't add this to the set name!
         ];
         static $geographies = false;
-        if(!$geographies ){
-            $result = runQuery("select geoid, geoset, containingid, lat, lon, type, regexes
+        static $foundGeoNames = [], $unmatchedGeoNames = [];
+        if(!$geographies){
+            $result = runQuery("select name, geoid, geoset, containingid, lat, lon, type, regexes, exceptex
             from geographies
             where regexes is not null and geoset<>'uscounties' and geoset not like 'nuts%'
             order by length(name) desc");  //try to find a match with the longest first (ie. "West Virginia" before "Virginia")
-            while($geography = $result->fetch_assoc()) $geographies[] =  $geography;
+            while($geography = $result->fetch_assoc()) $geographies[$geography["name"]] =  $geography;
         }
         $setInfo = false;  //will be added to $this->sets once filled out
         //1. skip discontinued series
-        if(strpos($title, "DISCONTINUED SERIES")) {
+        if(strpos($title, "DISCONTINUED")) {
             $this->status["failed"] =+ 1;
             return false;
         }
@@ -419,7 +423,7 @@ class FredList
             $dbSetName = $set["name"];
             $dbSetUnits = $set["units"];
             $dbSetFeq = $set["freq"];
-            if($dbSetFeq!=$frequency || $dbSetUnits!=$units) die("mismatch freq or units for $file");
+            //if($dbSetFeq!=$frequency || $dbSetUnits!=$units) die("mismatch freq or units for $file");
             //problem for units of setid=110422 which has Polish char.
             $setInfo = [
                 "name" => $set["name"],
@@ -438,76 +442,119 @@ class FredList
             ];
         }
         //preprint($setInfo);
-        if(!$setInfo){
+        if(true || !$setInfo  || !$setInfo["geoid"]){
             //3. check exact name match for
-            $regex = "#( for | in | from )#";
-            if(preg_match($regex, $title, $matches)==1){
+            //I would have thought that this would work, but PHP will find the first match (say "for") and lock on that ignore later matches of a a differnet patter (say "in")
+            //$regex = "/( in | for | from )/";
+            //if(preg_match($regex, $title, $matches)>0){
+            $separator = false;
+            $separatorPosition = -1;
+            foreach($this->separators as $i=>$pattern){
+                $position = strrpos($title, $pattern);
+                if($position>$separatorPosition){
+                    $separatorPosition = $position;
+                    $separator = $pattern;
+                }
+            }
+            if($separator){
                 //think we have a geoName...
-                $separator = $matches[0];
-                $nameParts = explode($separator, $title);
-                if(count($nameParts)==2){
-                    $geoName = trim($nameParts[1]);
-                    $setName = trim($nameParts[0]).$seasonalAdjustments[$saCode]."$separator &hellip;";
-                    $sql = "select geoid, type, lat, lon, geoset, containingid
-                        from geographies
-                        where name=".safeStringSQL($geoName );
-                    $result = runQuery($sql,"FindSets");
-                    if($result->num_rows>0){
-                        $geography = $result->fetch_assoc();
-                        /* tried to determine Georgia the country v. state, but had problems with mapset and popintset of the same cube
-                         * if(isset($this->sets[$setName][$units][$frequency])){   //try to determine Georgia the country vs.
-                            foreach($this->sets[$setName][$units][$frequency] as $geoKey=>$seriesInfo){
-                                $siblingGeoset = $seriesInfo["geoset"];
-                                break;
-                            }
-                            while($geography["geoset"]!=$siblingGeoset && $geography) $geography = $result->fetch_assoc();
+                $setName = trim(substr($title, 0, $separatorPosition)).$seasonalAdjustments[$saCode].$separator." &hellip;";
+                $geoName = trim(substr($title, $separatorPosition+strlen($separator)));
+
+                //geosets is to help understand the FRED data; not used for ingestion
+                if(preg_match("#\((.+)\)#", $geoName, $geoset)==1){
+                    $geoset = $geoset[1];
+                    $pointSet = strpos("MSA,MD,CSA,MSAD,NECTA Division,NECTA,CMSA,", $geoset.",")!==false;
+                    if($pointSet){
+                        if(!isset($this->geosets[$setName])){
+                            $this->geosets[$setName] = [];
                         }
-                        if(!$geography) {
-                            preprint($this->sets[$setName][$units][$frequency]);
-                            printNow($title);
-                            die("sibling not found for $title");
-                        }*/
-                        $setInfo = [
-                            "name" => $setName,
-                            "units" => $units,
-                            "latlon" => $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"",
-                            "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
-                            "freq" => $frequency,
-                            "setid" => null,
-                            "skey" => $skey,
-                            "file" => $file,
-                            "apidt" => $updatedDt,
-                            "dbUpdateDT" => null,
-                            "isCopyrighted" => $isCopyrighted,
-                            "title" => $title.$seasonalAdjustments[$saCode],
-                            "geoset" => $geography["geoset"],
-                        ];
-                    } else {
-                        //loop through the geographies and try to find a match
-                        foreach($geographies as $i=>$geography){
-                            $regex = "#". $geography["regexes"]."#";
-                            if(preg_match($regex, $title, $matches)==1){
-                                //match!
-                                $setName = trim(preg_replace ($regex," &hellip;",$title.$seasonalAdjustments[$saCode]));
-                                $latlon = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
-                                $setInfo = [
-                                    "name" => $setName,
-                                    "units" => $units,
-                                    "latlon" => $latlon,
-                                    "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
-                                    "freq" => $frequency,
-                                    "setid" => null,
-                                    "skey" => $skey,
-                                    "file" => $file,
-                                    "apidt" => $updatedDt,
-                                    "dbUpdateDT" => null,
-                                    "isCopyrighted" => $isCopyrighted,
-                                    "title" => $title.$seasonalAdjustments[$saCode],
-                                    "geoset" => $geography["geoset"],
-                                ];
-                                break;
-                            }
+                        if(isset($this->geosets[$setName][$geoset])){
+                            $this->geosets[$setName][$geoset]++;
+                        } else {
+                            $this->geosets[$setName][$geoset] = 1;
                         }
+                    }
+                } else {
+                    $geoset = false;
+                    $pointSet = false;
+                }
+
+                $sql = "select geoset, geoid, type, lat, lon, geoset, containingid
+                    from geographies
+                    where name=".safeStringSQL($geoName );
+                $result = runQuery($sql, "FindSets");
+                if($result->num_rows>0){
+                    if($pointSet && !isset($foundGeoNames[$geoName])){
+                        printNow("match:  $geoName");
+                        $foundGeoNames[$geoName] = true;
+                    }
+                    $geography = $result->fetch_assoc();
+                    /* tried to determine Georgia the country v. state, but had problems with mapset and popintset of the same cube
+                     * if(isset($this->sets[$setName][$units][$frequency])){   //try to determine Georgia the country vs.
+                        foreach($this->sets[$setName][$units][$frequency] as $geoKey=>$seriesInfo){
+                            $siblingGeoset = $seriesInfo["geoset"];
+                            break;
+                        }
+                        while($geography["geoset"]!=$siblingGeoset && $geography) $geography = $result->fetch_assoc();
+                    }
+                    if(!$geography) {
+                        preprint($this->sets[$setName][$units][$frequency]);
+                        printNow($title);
+                        die("sibling not found for $title");
+                    }*/
+                    $setInfo = [
+                        "name" => $setName,
+                        "units" => $units,
+                        "latlon" => $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"",
+                        "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
+                        "freq" => $frequency,
+                        "setid" => null,
+                        "skey" => $skey,
+                        "file" => $file,
+                        "apidt" => $updatedDt,
+                        "dbUpdateDT" => null,
+                        "isCopyrighted" => $isCopyrighted,
+                        "title" => $title.$seasonalAdjustments[$saCode],
+                        "geoset" => $geography["geoset"],
+                    ];
+                } else {
+                    //loop through the geographies and try to find a match
+                    foreach($geographies as $name=>$geography){
+                        $regex = "#". $geography["regexes"]."#";
+                        if(preg_match($regex, $geoName, $geoMatches)==1 && ($geography["exceptex"]===null || preg_match("#". $geography["exceptex"]."#", $geoName)==0 )){
+                            //match!
+                            $setName = trim(preg_replace ($regex," &hellip;",$title.$seasonalAdjustments[$saCode]));
+                            $latlon = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
+                            $setInfo = [
+                                "name" => $setName,
+                                "units" => $units,
+                                "latlon" => $latlon,
+                                "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
+                                "freq" => $frequency,
+                                "setid" => null,
+                                "skey" => $skey,
+                                "file" => $file,
+                                "apidt" => $updatedDt,
+                                "dbUpdateDT" => null,
+                                "isCopyrighted" => $isCopyrighted,
+                                "title" => $title.$seasonalAdjustments[$saCode],
+                                "geoset" => $geography["geoset"],
+                            ];
+                            if(!isset($foundGeoNames[$geoName])){
+                                //printNow("found $geography[name] for:  $geoName in: $title");
+                                $foundGeoNames[$geoName] = true;
+                            }
+                            break;
+                        }
+                    }
+                    if(!isset($foundGeoNames[$geoName]) && !isset($unmatchedGeoNames[$geoName])){
+                        if(substr($geoName,-1,1)==")"){
+                            //printNow("unmatched possible statistical area:  $geoName");
+                        } else {
+                            //printNow("unmatched:  $geoName");
+                        }
+                        $unmatchedGeoNames[$geoName] = true;
                     }
                 }
             }
@@ -527,7 +574,6 @@ class FredList
                     "title" => $title.$seasonalAdjustments[$saCode],
                     "geoset" => null,
                 ];
-
             }
             if(!isset($this->sets[$setInfo["name"]])) $this->sets[$setInfo["name"]] = [];
             if(!isset($this->sets[$setInfo["name"]][$units])) $this->sets[$setInfo["name"]][$units] = [];

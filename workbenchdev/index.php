@@ -46,6 +46,7 @@
         <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/maps.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/grapher.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/jstat.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/account.js?v=<?=$workbenchVersion?>"></script>

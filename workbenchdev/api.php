@@ -417,12 +417,12 @@ switch($command){
             $ghash_var = safeStringSQL($ghash);
             $currentmt = microtime(true);
             //1. check cache
-            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefresh, graphjson from graphcache where ghash=$ghash_var";
+            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefreshtime, graphjson from graphcache where ghash=$ghash_var";
             $result = runQuery($sql);
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
                 $age = $currentmt-$row['createmtime'];
-                if($age<$cache_TTL*60*1000 && ($row['lastrefresh']==null || $currentmt-$row['lastrefresh']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
+                if($age<$cache_TTL*60*1000 && ($row['lastrefreshtime']==null || $currentmt-$row['lastrefreshtime']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
                     //cache good! (or another refresh in progress...)
                     $graph_json = (string) $row["graphjson"];
                     $output = json_decode($graph_json, true, 512, JSON_HEX_QUOT);
@@ -430,7 +430,7 @@ switch($command){
                     $output["cache_age"] =  $age / 1000 . "s";
                 } else {
                     //cache needs refreshing
-                    runQuery("update graphcache set lastrefresh = $currentmt where ghash=$ghash_var");
+                    runQuery("update graphcache set lastrefreshtime = $currentmt where ghash=$ghash_var");
                 }
             }
             if(!isset($output)){
@@ -661,19 +661,19 @@ switch($command){
             //1. check cache
             $currentmt = microtime(true);
             $ghash_var = safeStringSQL($cubeid.":".$geokey);
-            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefresh, graphjson from graphcache where ghash=$ghash_var";
+            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefreshtime, graphjson from graphcache where ghash=$ghash_var";
             $result = runQuery($sql);
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
                 $age = $currentmt-$row['createmtime'];
-                if($age<$cache_TTL*60*1000 && ($row['lastrefresh']==null || $currentmt-$row['lastrefresh']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
+                if($age<$cache_TTL*60*1000 && ($row['lastrefreshtime']==null || $currentmt-$row['lastrefreshtime']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
                     //cache good! (or another refresh in progress...)
                     $cube_json = (string) $row["graphjson"];
                     $output = json_decode($cube_json, true, 512, JSON_HEX_QUOT);
                     $output["cache_age"] =  $age / 1000 . "s";
                 } else {
                     //cache needs refreshing
-                    runQuery("update graphcache set lastrefresh = $currentmt where ghash=$ghash_var");
+                    runQuery("update graphcache set lastrefreshtime = $currentmt where ghash=$ghash_var");
                 }
             }
             if(!isset($output)){

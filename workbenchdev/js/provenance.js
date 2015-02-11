@@ -658,7 +658,7 @@ function ProvenanceController(panelId){
                     $prov.find('.cube .edit, .cube .value-label').hide();
                 });
                 $prov.find('.cube button.close').button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
-                    $prov.find('.cube .cube-edit').hide();
+                    $prov.find('.cube .cube-edit, .cube input').hide();
                     $prov.find('.cube button.edit, .cube span.value-label').show();
                 });
                 $prov.find('.cube button.reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).click(function(){
@@ -667,7 +667,7 @@ function ProvenanceController(panelId){
                     $prov.find('.cube').remove();
                     controller.cubeEditor();
                 });
-                $prov.find('.cube input').change(function(){
+                $prov.find('.cube input').hide().change(function(){
                     var $input = $(this);
                     var $parentSpan = $input.closest('span');
                     var key = $input.attr('data');

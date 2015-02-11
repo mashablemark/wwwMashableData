@@ -36,6 +36,7 @@
             <script type="text/javascript" src="/workbenchdev/js/graph.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/maps.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/grapher.js"></script>
+            <script type="text/javascript" src="/workbenchdev/js/jstat.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/shims.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/annotator.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/treemap.js?v=<?=$workbenchVersion?>"></script>

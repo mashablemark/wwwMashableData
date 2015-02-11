@@ -128,8 +128,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
      *
      * first pass = detect sets loop:
      *       1. skip if forced set (elect and coal) else detect geoid and setname
-     *       2. build series[skey] = [setName=>   , geoid=>  ]
-     *       3. build sets[setname][units][f] = [skey]
+     *       2. build sets[setname][units][f] = [skey]
      * second pass = detect geo and setname
      *      1. check to see if table already
      *          A. if source key exists in DB (setdata.skey):
@@ -145,40 +144,39 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
      *
      * */
     $sets = [];
-    if($datasetKey!="ELEC"||$datasetKey!="COAL"){
-        while(!feof($fp)){
-            $line = fgets ($fp);
-            $oEIA = json_decode($line, true);  //each line of the file is a separate JSON encoded string
-
-            if(isset($oEIA["series_id"])){
-                //1. remove frequency from name
-                $oEIA["name"] = preg_replace($freqRegex, "", $oEIA["name"]);
-                //2. remove geo from name
-                if(isset($oEIA["geography"]) && !isset($oEIA["latlon"])){
-                    if(($datasetKey=="PET"||$datasetKey=="NG")&&strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
-                    $geo = isoLookup($oEIA["geography"]);  //returns null is not found
-                    if($geo!==null){
-                        $oEIA["geoid"] = $geo["geoid"];
-                        if(!isset($oEIA["latlon"])){
-                            $setName = preg_replace("#".$geo["regexes"]."#", "", $oEIA["name"]);
-                            $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
-                            $setNameUnits = $setName."|".$oEIA["units"];
-                            if(!isset($sets[$setNameUnits][$oEIA["f"]])) $sets[$setNameUnits][$oEIA["f"]] = [];
-                            foreach($sets[$setNameUnits][$oEIA["f"]] as $series_id => $geoid){
-                                if($geo["geoid"]==$geoid) logEvent("EIA set dup", "$series_id $geo[name] in set $setNameUnits. New line: $line");
-                                //too common at EIA!:  $sets[$setNameUnits]["error"] = true;
-                            }
-                            $sets[$setNameUnits][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
+    while(!feof($fp)){
+        $line = fgets ($fp);
+        $oEIA = json_decode($line, true);  //each line of the file is a separate JSON encoded string
+        if(isset($oEIA["latlon"]) && is_array($oEIA["latlon"])) $oEIA["latlon"] = implode(",",$oEIA["latlon"]);
+        if(isset($oEIA["series_id"])){
+            //1. remove frequency from name
+            $oEIA["name"] = preg_replace($freqRegex, "", $oEIA["name"]);
+            //2. remove geo from name
+            if(isset($oEIA["geography"]) && !isset($oEIA["latlon"])){
+                if(($datasetKey=="PET"||$datasetKey=="NG")&&strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
+                $geo = isoLookup($oEIA["geography"]);  //returns null is not found
+                if($geo!==null){
+                    $oEIA["geoid"] = $geo["geoid"];
+                    if(!isset($oEIA["latlon"])){
+                        $setName = preg_replace("#".$geo["regexes"]."#", "", $oEIA["name"]);
+                        $setName = preg_replace("#\s*:\s*:\s*#", " : ", $setName);
+                        $setNameUnits = $setName."|".$oEIA["units"];
+                        if(!isset($sets[$setNameUnits][$oEIA["f"]])) $sets[$setNameUnits][$oEIA["f"]] = [];
+                        foreach($sets[$setNameUnits][$oEIA["f"]] as $series_id => $geoid){
+                            if($geo["geoid"]==$geoid) logEvent("EIA set dup", "$series_id $geo[name] in set $setNameUnits. New line: $line");
+                            //too common at EIA!:  $sets[$setNameUnits]["error"] = true;
                         }
-                    } else {
-                        //skip city detection (gasoline prices = 10 cities
+                        $sets[$setNameUnits][$oEIA["f"]][$oEIA["series_id"]] = $geo["geoid"];
                     }
+                } else {
+                    //skip city detection (gasoline prices = 10 cities)
                 }
-
             }
+
         }
     }
-    //warn of irregular sets
+
+    //warn of irregular sets w.r.t. subsets of different frequencies
     foreach($sets as $setNameUnits=>&$set){
         $setCount = 0;
         foreach($set as $f=>&$series){
@@ -200,7 +198,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
         set_time_limit(10);
         $line = fgets ($fp);
         $oEIA = json_decode($line, true);  //each line of the file is a separate JSON encoded string
-
+        if(isset($oEIA["latlon"]) && is_array($oEIA["latlon"])) $oEIA["latlon"] = implode(",",$oEIA["latlon"]);
         //var_dump($oEIA);
         //some series of daily spot prices are > 150KB
         //objects are either series or categories.  The series are in the first half of the file.  The categories are in the second half.
@@ -215,6 +213,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
             if(strPos($oEIA["series_id"],"COAL.SHIPMENT_")===0) $skip = true;
 
             if(!$skip){
+                if(isset($oEIA["geography2"]) && isset($oEIA["latlon"]) && $oEIA["latlon"]) $oEIA["geography"] = $oEIA["geography2"];
                 foreach($oEIA["data"] as $i=>$point){
                     $oEIA["data"][$i] = $point[0].":".(is_numeric($point[1])?$point[1]:"null");
                 }
@@ -255,6 +254,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                 if(!isset($oEIA["latlon"])) $oEIA["latlon"]="";
                 if(isset($oEIA["geography"])){
                     if(($datasetKey=="PET" || $datasetKey=="NG") && strpos($oEIA["name"],"PADD")!==false) $oEIA["geography"] = "PADD:".$oEIA["geography"];
+
                     $geo = isoLookup($oEIA["geography"]);  //returns null is not found
                     if($geo) {
                         $oEIA["geoid"] = $geo["geoid"];
@@ -267,7 +267,7 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                                     if(count($sets[$setNameUnits][$oEIA["f"]])>$minSetSize) {
                                         //save as mapset set
                                         $oEIA["setname"] = $setName;
-                                        $oEIA["settype"] = "M_S";
+                                        $oEIA["settype"] = "M";
                                         if(!isset($sets[$setNameUnits]["setid"])){
                                             $sets[$setNameUnits]["setid"] = saveEIASet($status, $oEIA);
                                         }
@@ -281,22 +281,24 @@ function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single si
                                     }
                                 }
                             } else {
-                                var_dump($sets[$setNameUnits]);
+                                preprint($sets[$setNameUnits]);
+                                preprint($oEIA);
                                 printNow("$setNameUnits $oEIA[f] not found!!");
+                                die();
                             }
                         } else {
                             $nameSegments = explode(" : ", $oEIA["name"]);
                             //power plants and coal mines are only two EIA sets
                             if(strPos($oEIA["series_id"],"ELEC.PLANT.")===0){ //individual prime mover series already skipped
-                                $oEIA["settype"] = "X_S";
+                                $oEIA["settype"] = "X";
                                 $oEIA["setname"] = "U.S. Power Plants : " . $nameSegments[2] . " : " . $nameSegments[0];
                                 $oEIA["name"] = "U.S. Power Plants : " . $nameSegments[1] . " : " . $nameSegments[2] . " : " . $nameSegments[0];
                             } elseif(strPos($oEIA["series_id"],"COAL.MINE.")===0){ //individual mine to plant series already skipped
-                                $oEIA["settype"] = "X_S";
+                                $oEIA["settype"] = "X";
                                 $oEIA["setname"] = "United States : " . $nameSegments[0] . " : " . $nameSegments[2]. " : " . $nameSegments[3];
                                 $oEIA["name"] = "United States " . $oEIA["name"];
                             }
-                            if($oEIA["settype"] == "X_S"){
+                            if($oEIA["settype"] == "X"){
                                 $setNameUnits = $oEIA["setname"] ."|".$oEIA["units"];
                                 if(!isset($sets[$setNameUnits])){
                                     $sets[$setNameUnits] = saveEIASet($status, $oEIA); //with setname, create the master set
@@ -345,11 +347,12 @@ function ApiRunFinished($api_run){
 }
 
 function saveEIASet(&$status, &$oEIA){
+    if(!isset($oEIA["lastHistoricalPeriod"])) $oEIA["lastHistoricalPeriod"] = null;
     if(isset($oEIA["mastersetid"])){
         //if the mastersetid has been set, it is time to creates the series's set
-        return saveSet($oEIA["apiid"], null, $oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], 'null', $oEIA["latlon"], null, $oEIA["mastersetid"]);
+        return saveSet($oEIA["apiid"], null, $oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], 'null', $oEIA["latlon"], $oEIA["lastHistoricalPeriod"] , $oEIA["mastersetid"], $oEIA["settype"] );
     } else {
-        return saveSet($oEIA["apiid"], null, isset($oEIA["setname"])?$oEIA["setname"]:$oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], 'null', $oEIA["latlon"]);
+        return saveSet($oEIA["apiid"], null, isset($oEIA["setname"])?$oEIA["setname"]:$oEIA["name"], $oEIA["units"], $oEIA["source"], $oEIA["url"], $oEIA["description"], $oEIA["last_updated"], 'null', $oEIA["latlon"], null, null, $oEIA["settype"]);
     }
 }
 

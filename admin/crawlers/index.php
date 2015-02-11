@@ -171,6 +171,7 @@ END;
         if($api_id>0){
             setGhandlesFreqsFirstLast($api_id );
             setMapsetCounts("all", $api_id);
+            setPointsetCounts("all", $api_id);
         }
         break;
 
