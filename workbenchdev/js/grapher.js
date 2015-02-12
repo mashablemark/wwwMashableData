@@ -843,33 +843,18 @@ MashableData.grapher = function(){
                             '</div>';
                 } else {
                     panelHTML =
-                        /*'<div class="graph-nav">' +
-                         '<ol class="graph-nav">' +
-                         '<li class="graph-nav-talk" data="graph-talk"></li>' +
-                         '<li class="graph-nav-data" data="graph-data"></li>' +
-                         '<li class="graph-nav-sources"  data="graph-sources"></li>' +
-                         '<li class="graph-nav-active graph-nav-graph" data="graph-chart"></li>' +
-                         '</ol>' +
-                         '</div>'+
-                         '<div class="graph-talk graph-subpanel" style="display: none;"><p>This graph must be saved at least once to enable Facebook comments.</p></div>' +
-                         '<div class="graph-data graph-subpanel" style="display: none;">' +
-                         '<div class="graph-data-inner">' +
-                         '<ul>' +
-                         '<li><a href="#data-chart-' + panelId + '">chart data</a></li>' +
-                         '<li><a href="#data-region-' + panelId + '">map region data</a></li>' +
-                         '<li><a href="#data-marker-' + panelId + '">map marker data</a></li>' +
-                         '</ul><button class="download-data ui-state-highlight" title="Download the graph data as an Excel workbook">Download to Excel&nbsp;</button>' +
-                         '<div id="data-chart-' + panelId + '" class="graph-data-subpanel" data="chart"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                         '<div id="data-region-' + panelId + '" class="graph-data-subpanel" data="regions"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                         '<div id="data-marker-' + panelId + '" class="graph-data-subpanel" data="markers"><div class="slick-holder" style="width: 100%; height:100%;"></div></div>' +
-                         '</div>' +
-                         '</div>' +*/
-
                         '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
                             '<div class="graph-chart graph-subpanel">' +
+                            '<div class="resize">' +
+                            '<p>Drag the lower nd right edge of the visualizations\' borders to fix the exact dimensions of the maps and graphs.  The default is to expand to fit the container.  Exact sizing ensures that what you see in the workbench is what your website\'s visitors will see.</p>' +
+                            '<button class="size_reset">use default sizing</button><br />' +
+                            '<button class="size_set">finished resizing</button>' +
+                            '</div>' +
                             '<div class="graph_control_panel" style="font-size: 11px !important;">' +
                             //default series type (line, column..)
-                            '<div class="configuration" style="border: solid thin black;">' +
+                            '<div class="configuration" style="border: none;">' +
+                            '<fieldset>' +
+                            '<legend>&nbsp;Configure&nbsp;</legend>' +
                             '<div class="graph-type">default graph type ' +
                             '<select class="graph-type">' +
                             '<option value="auto">auto (line &amp; column)</option>' +
@@ -919,6 +904,8 @@ MashableData.grapher = function(){
                             '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
                             '</div>' +
                             '<button class="provenance ui-state-highlight">more configurations</button>' +
+                            '<button class="resize">set size</button>' +
+                            '</fieldset>' +
                             '</div>' +
                             '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
                             '<table class="annotations"></table>' +
@@ -962,7 +949,7 @@ MashableData.grapher = function(){
                             '<div class="mashabledata_maptabs"></div>' +
                             '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
                             '<div class="mashabledata_map-and-cub-viz">' +
-                            '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
+                            '<div class="mashabledata_cube-viz right" style="display:none;"></div>' +
                             '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
                             '</div>' +
                             '<div class="container mashabledata_map-controls">' +
@@ -992,56 +979,80 @@ MashableData.grapher = function(){
                     $thisPanel.find('div.mashabledata_graph-analysis').html(oGraph.analysis);
                 } else {
 
-                    //_enableFacebookComments();
-
+                    //show prov panel
                     $thisPanel.find('button.provenance').button().click(function(){
                         provenance.build();
                         $thisPanel.find('div.provenance').show();
                         $thisPanel.find('div.graph-chart').hide();
                     });
 
-                    /*$thisPanel.find('ol.graph-nav').children('li')
-                     .click(function(){ //Graph-Configure-Data-Comments sub panels:  init show state dtermined by HTML template above
-                     var $this = $(this);
-                     $thisPanel.find('ol.graph-nav').children('li').removeClass('graph-nav-active');
-                     $thisPanel.find('.graph-subpanel').hide();
-                     var $div = $thisPanel.find('.' + $this.attr('data')).show();
-                     $this.addClass('graph-nav-active');
-                     switch($this.attr('data')){
-                     case 'graph-talk':
-                     FB.XFBML.parse($div.get(0),
-                     function(){  //set size and margin in callback
-                     $thisPanel.find('iframe')
-                     .width($thisPanel.find('.graph-talk.graph-subpanel').width()*0.9+'px')
-                     .css('margin','15px');
-                     });
-                     break;
-                     case 'graph-data':
-                     provenance.commitChanges();  //applies any pending changes.  will only run once.
-                     $thisPanel.find('.graph-data-inner')
-                     .tabs(oGraph.plots?"enable":"disable",0)
-                     .tabs(oGraph.mapsets?"enable":"disable",1)
-                     .tabs(oGraph.pointsets?"enable":"disable",2);
-                     var dataTabLink = $thisPanel.find('.graph-data-inner li:not(.ui-state-disabled)').first().find('a').click();
-                     if(dataTabLink.html()=='chart data') makeSlickDataGrid(grid, panelId, $(dataTabLink.attr('href')));
-                     break;
-                     case 'graph-sources':
-                     provenance.build();
-                     break;
-                     case 'graph-chart':
-                     provenance.commitChanges();  //applies change if changes are waiting and have not been canceled.  only runs once.
-                     }
-                     });
+                    //RESIZE
+                    $thisPanel.find('button.resize').button({icons: {secondary: "ui-icon-arrow-4-diag"}}).click(function(){
+                        $thisPanel.find('div.graph_control_panel').hide();
+                        $thisPanel.find('div.resize').show();
+                        $thisPanel.find('.mashabledata_chart, .mashabledata_cube-viz, .mashabledata_jvmap').resizable({
+                            helper: 'ui-resizable-helper',
+                            resize: function( event, ui ){},
+                            stop: function( event, ui){
+                                var $container, $chart, $viz, viz, $map, map, deltaWidth;
+                                $container = $thisPanel.find('.mashabledata_chart-map');
+                                $chart = $thisPanel.find('.mashabledata_chart');
+                                $viz = $thisPanel.find('.mashabledata_cube-viz');
+                                $map = $thisPanel.find('.mashabledata_jvmap');
+                                if(ui.originalElement.hasClass('mashabledata_chart')){
+                                    viz = $viz.is(':visible')?1:0;
+                                    map = $map.is(':visible')?1:0;
+                                    deltaWidth = ui.size.width-ui.originalSize.width;
+                                    if(viz)$viz.width($viz.width()+deltaWidth/(viz+map));
+                                    if(map)$map.width($map.width()+deltaWidth/(viz+map));
+                                    $container.width($container.width()+deltaWidth);
+                                    if(!oGraph.mapconfig.sizes) oGraph.mapconfig.sizes = {};
+                                }
+                                if(ui.originalElement.hasClass('mashabledata_cube-viz')){
+                                    $container.width($container.width()+ui.size.width-ui.originalSize.width);
+                                    $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
+                                }
+                                if(ui.originalElement.hasClass('xmashabledata_jvmap')){
+                                    $container.width($container.width()+ui.size.width-ui.originalSize.width);
+                                    $thisPanel.find('.mashabledata_chart').width($container.width());
+                                    $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
+                                }
+                                oGraph.mapconfig.sizes = {};
+                                if($chart.width()){
+                                    oGraph.mapconfig.sizes.chart = {
+                                        height: $chart.height(),
+                                        width: $chart.width()
+                                    };
+                                }
+                                if($map.width()){
+                                    oGraph.mapconfig.sizes.map = {
+                                        height: $map.height(),
+                                        width: $map.width()
+                                    };
+                                }
+                                if($viz.width()){
+                                    oGraph.mapconfig.sizes.viz = {
+                                        height: $viz.height(),
+                                        width: $viz.width()
+                                    };
+                                }
+                                _redraw();
+                            }
+                        });
+                    });
 
-                     $thisPanel.find('.graph-data-inner')
-                     .tabs({
-                     activate: function( event, ui ) {
-                     console.timeEnd("complete grid data into table");
-                     makeSlickDataGrid(grid, panelId, ui.newPanel);
-                     console.timeEnd("complete grid data into table");
-                     }
-                     });
-                     */
+                    $thisPanel.find('button.size_reset').button().click(function(){
+                        delete oGraph.mapconfig.sizes;
+                        _endResize();
+                    });
+                    $thisPanel.find('button.size_set').button().click(_endResize);
+                    function _endResize(){
+                        $('.mashabledata_chart, .mashabledata_cube-viz, .mashabledata_jvmap').resizable("destroy");
+                        $thisPanel.find('div.graph_control_panel').show();
+                        $thisPanel.find('div.resize').hide();
+                        _redraw();
+                    }
+
                     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
                         .click(function(){
                             downloadGraphData(panelId);
@@ -1133,12 +1144,23 @@ MashableData.grapher = function(){
                                 }
                             });
                         });
-                    var link = "mailto: "
-                        + "?subject=" + escape(oGraph.title||"link to my MashableData visualization")
-                        + "&body=" + escape((oGraph.analysis||'Link to my interactive visualization on MashableData.com:')+'<br><br>http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash);
 
-                    $thisPanel.find('.graph-email').button({icons: {secondary: "ui-icon-mail-closed"}}).attr('href',link);
-                    $thisPanel.find('.email-link').attr('href',link);
+                    $thisPanel.find('.graph-email').button({icons: {secondary: "ui-icon-mail-closed"}}).click(function(){
+                        if(oGraph.isDirty) {
+                            dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
+                        }
+                    });
+                    function _setEmailLink(){
+                        if(oGraph.ghash){
+                            var link = "mailto: "
+                                + "?subject=" + escape(oGraph.title||"link to my MashableData visualization")
+                                + "&body=" + escape((oGraph.analysis||'Link to my interactive visualization on MashableData.com:')+'<br><br>http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash);
+                            $thisPanel.find('.email-link').attr('href',link);
+                            $thisPanel.find('.graph-email').off().attr('href',link);
+                        }
+                    }
+                    _setEmailLink();
+
                     $thisPanel.find('.graph-embed').button({icons: {secondary: "ui-icon-script"}})
                         .click(function(){
                             if(oGraph.isDirty) {
@@ -1150,7 +1172,7 @@ MashableData.grapher = function(){
                                 '<div id="embed-info">' +
                                     '<button class="right" id="embed-info-close">close</button>' +
                                     '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
-                                    '<em>The code below will embed this visualization in a webpage.  (Requires installation of the <a target="_blank" href="/embedding">MashableData embed library</a>)</em>' +
+                                    '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/preview?graphcode='+oGraph.ghash+'" target="_blank">graph\'s preview page</a>. ' +
                                     '<textarea id="link-html">&lt;div class=&quot;mashabledata_embed&quot; data=&quot;'+oGraph.ghash+'&quot;&gt;&lt;/div&gt;</textarea>' +
                                     '</div>';
 
@@ -1708,7 +1730,7 @@ MashableData.grapher = function(){
                                 },
                                 onRegionOut: function(event, code){
                                     //if(!oGraph.cubeid && oGraph.hasMapViz(){  //this check is in _drawMap_updateCubeVizFromMap
-                                        _drawMap_updateCubeVizFromMap(code, false);
+                                    _drawMap_updateCubeVizFromMap(code, false);
                                     //}
                                 },
                                 onRegionTipShow: function(event, label, code){
@@ -2267,21 +2289,21 @@ MashableData.grapher = function(){
                             html += '</tbody></table></div>';
                             var vizHeight = $thisPanel.find('.mashabledata_cube-viz').html(html)
                                 .find('tbody tr').hover(
-                                    function(){//mouse enter
-                                        var code = $(this).attr('data');
-                                        if(code && code!='undefined'){
-                                            $map.setSelectedRegions(code);
-                                        }
-                                    },
-                                    function(){//mouse exit
-                                        var code = $(this).attr('data');
-                                        if(code && code!='undefined'){
-                                            var selection = {};
-                                            selection[code] = false;
-                                            $map.setSelectedRegions(selection);
-                                        }
+                                function(){//mouse enter
+                                    var code = $(this).attr('data');
+                                    if(code && code!='undefined'){
+                                        $map.setSelectedRegions(code);
                                     }
-                                )
+                                },
+                                function(){//mouse exit
+                                    var code = $(this).attr('data');
+                                    if(code && code!='undefined'){
+                                        var selection = {};
+                                        selection[code] = false;
+                                        $map.setSelectedRegions(selection);
+                                    }
+                                }
+                            )
                                 .end().innerHeight();
                             $thisPanel.find('.mashabledata_cube-viz tbody').css("height", (vizHeight-$thisPanel.find('.mashabledata_cube-viz thead').height())+'px');
                         }
@@ -2678,7 +2700,7 @@ MashableData.grapher = function(){
                                     //all other cube viz need a geokey, whether bunny or a selected code
                                     var geoKey, mapDate = calculatedMapData.dates[val].s, mapCode;
                                     var sDate, regionData = oGraph.calculatedMapData.regionData;
-                                     var i, serie, chartedCodes = [], vizChart = oGraph.controls.vizChart, redrawNeeded = false;
+                                    var i, serie, chartedCodes = [], vizChart = oGraph.controls.vizChart, redrawNeeded = false;
                                     //add new series
                                     for(i=0;i<vizChartGeos.length;i++){
                                         thisCode = vizChartGeos[i].code;
@@ -2794,14 +2816,14 @@ MashableData.grapher = function(){
                                     title: {
                                         text: mapPlot.units()
                                     } /*,
-                                    labels: {
-                                        enabled: false
-                                    },
-                                    lineWidth: 0,
-                                    minorGridLineWidth: 0,
-                                    lineColor: 'transparent',
-                                    gridLineColor: 'transparent',
-                                    gridLineWidth: 0*/
+                                     labels: {
+                                     enabled: false
+                                     },
+                                     lineWidth: 0,
+                                     minorGridLineWidth: 0,
+                                     lineColor: 'transparent',
+                                     gridLineColor: 'transparent',
+                                     gridLineWidth: 0*/
                                 },
                                 credits: {
                                     href: "http://www.mashabledata.com",
@@ -3091,10 +3113,6 @@ MashableData.grapher = function(){
                     }, 10);
                 }
 
-                function _enableFacebookComments(){
-                    if(oGraph.ghash) $thisPanel.find('.graph-talk.graph-subpanel').html('<fb:comments href="https://www.mashabledata.com/workbench/#/t=g&graphcode='+oGraph.ghash+'"></fb:comments>');
-                }
-
                 function _makeDirty(){
                     oGraph.isDirty = true;
                     $thisPanel.find('.graph-save').button("enable");
@@ -3106,7 +3124,7 @@ MashableData.grapher = function(){
                 }
 
                 function _saveThisGraph(){
-                    oGraph.save(_enableFacebookComments);
+                    oGraph.save();
                     $thisPanel.find('button.graph-delete, button.graph-saveas').button("enable");
                     _makeClean();
                 }

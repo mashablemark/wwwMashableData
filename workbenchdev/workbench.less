@@ -86,7 +86,31 @@ img, a{
 .ui-selected{
     background-color: orange !important;
 }
-
+button.size-resize, button.size-reset{
+  margin: 10px;
+}
+div.resize{
+    border: medium #800080 dotted;
+    margin: 5px;
+    padding: 5px;
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    font-size: 16px !important;
+    background-color: rgba(255, 255, 255, 0.498039);
+    z-index: 90000;
+    width: 150px;
+    display: none;
+}
+.ui-resizable-helper { border: 2px dotted #00F; }
+.ui-resizable {
+  border-right-color: #800080;
+  border-bottom-color: #800080;
+  border-right-style: dotted;
+  border-bottom-style: dotted;
+  border-right-width: thin;
+  border-bottom-width: thin;
+}
 .md-DS_title {
     position:relative;
     height:30px;
