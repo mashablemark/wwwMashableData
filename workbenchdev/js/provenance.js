@@ -185,27 +185,28 @@ function ProvenanceController(panelId){
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
 
-
             cube: '<div class="cube">'
                 + '<button class="edit right">edit</button>'
-                + '<button class="close cube-edit right">close</button>'
-                + '<button class="reset cube-edit right">reset</button>'
+                + '<button class="close cube-edit right hidden">close</button>'
+                + '<button class="reset cube-edit right hidden">reset</button>'
                 + '<h5>Data cube visualization labels</h5>'
-                + '<span class="cube value-label">{{editedName}}</span>'
-                + '<input class="cube cube-edit" value="{{escapedName}}">'
-                + '<span class="reset-label {{nameResetClass}}">reset value: <span class="cube reset-value">{{resetName}}</span></span>'
-                + '<span class="cube value-label">{{editedUnits}}</span>'
-                + '<input class="cube cube-edit" value="{{escapedUnits}}">'
-                + '<span class="reset-label {{unitsResetClass}}">reset value: <span class="cube reset-value">{{resetUnits}}</span></span>'
-                + '{{dimensions}}</div>',
+                + '<div class="name">title: <span class="cube value-label">{{editedName}}</span>'
+                + '<input class="cube-edit" value="{{escapedName}}">'
+                + '<span class="reset-label {{nameResetClass}}">reset value: <span class="cube reset-value">{{resetName}}</span></span></div>'
+                + '<div class="units">units: <span class="cube value-label">{{editedUnits}}</span>'
+                + '<input class="cube-edit" value="{{escapedUnits}}">'
+                + '<span class="reset-label {{unitsResetClass}}">reset value: <span class="cube reset-value">{{resetUnits}}</span></span></div>'
+                + '{{dimensions}}'
+                + '</div>',
             cubeDimension: '<div class="dimension" data="{{name}}">'
-                + '<span class="dimension">{{name}}</span>'
+                + '<span class="dimension"><b>{{name}}</b> dimension:</span>'
                 + '<ol>'
                 + '{{facets}}'
-                + '</ol>',
+                + '</ol>'
+                + '</div>',
             cubeFacet: '<li class="facet">'
-                + '<span class="facet value-label">{{editedName}}</span>'
-                + '<input class="facet-edit" value="{{escapedName}}" data="{{index}}">'
+                + '<span class="value-label">{{editedName}}</span>'
+                + '<input class="cube-edit" value="{{escapedName}}" data="{{index}}">'
                 + '<span class="reset-label {{editedClass}}">reset value: <span class="cube reset-value">{{resetName}}</span>'
                 + '</li>',
             okcancel: '<button class="config-cancel">cancel edits</button><button class="right config-ok">ok</button>'
@@ -658,7 +659,7 @@ function ProvenanceController(panelId){
                     $prov.find('.cube .edit, .cube .value-label').hide();
                 });
                 $prov.find('.cube button.close').button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
-                    $prov.find('.cube .cube-edit, .cube input').hide();
+                    $prov.find('.cube .cube-edit').hide();
                     $prov.find('.cube button.edit, .cube span.value-label').show();
                 });
                 $prov.find('.cube button.reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).click(function(){
@@ -669,25 +670,25 @@ function ProvenanceController(panelId){
                 });
                 $prov.find('.cube input').hide().change(function(){
                     var $input = $(this);
-                    var $parentSpan = $input.closest('span');
+                    var $parent = $input.closest('div, li');
                     var key = $input.attr('data');
                     //sync text label
-                    $parentSpan.find('span.value-label').val($input.val());
+                    $parent.find('span.value-label').val($input.val());
                     //update model
                     if(!provMapconfig.cube) provMapconfig.cube = {dims: {}};
-                    if($parentSpan.hasClass('facet')){
-                        var dim = $parentSpan.closest('div.dimension').attr('data');
+                    if($parent.hasClass('facet')){
+                        var dim = $parent.closest('div.dimension').attr('data');
                         if(!provMapconfig.cube.dims[dim]) provMapconfig.cube.dims[dim] = [];
                         provMapconfig.cube.dims[dim][parseInt($input.attr('data'))] = $input.val();
                     }
-                    if($parentSpan.hasClass('name')){
+                    if($parent.hasClass('name')){
                         provMapconfig.cube.name = $input.val();
                     }
-                    if($parentSpan.hasClass('units')){
+                    if($parent.hasClass('units')){
                         provMapconfig.cube.units = $input.val();
                     }
                     //show reset value label
-                    $parentSpan.find('span.reset-label').addClass('show').removeClass('hidden');
+                    $parent.find('span.reset-label').addClass('show').removeClass('hidden');
                     $prov.find('.cube .reset').button('enable');
                 });
 

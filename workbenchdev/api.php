@@ -144,7 +144,7 @@ switch($command){
                     match(keywords) against ('$geoSearch' IN BOOLEAN MODE) as keyrel,
                     match(confirmwords) against ('$geoSearch' IN BOOLEAN MODE) as confirmrel
                     from geographies
-                    where match(keywords) against ('$geoSearch' IN BOOLEAN MODE)
+                    where match(keywords) against ('$geoSearch' IN BOOLEAN MODE) and type <> 'X'
                     order by match(keywords) against ('$geoSearch' IN BOOLEAN MODE) desc, match(confirmwords) against ('$geoSearch' IN BOOLEAN MODE) desc";
                 $result = runQuery($geoSQL);
                 $keyRel = null;

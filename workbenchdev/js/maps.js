@@ -135,6 +135,9 @@
         {"map":"nz","name":"New Zealand","geographycount":"13","bunny":"171","jvectormap":"nz_mill_en","legend":"BR","level":0},
         {"map":"ph","name":"Philippines","geographycount":"17","bunny":"177","jvectormap":"ph_mill_en","legend":"BR","level":0},
         {"map":"th","name":"Thailand","geographycount":"76","bunny":"219","jvectormap":"th_mill_en","legend":"BR","level":0},
+        {"map":"tr_nuts1","name":"Turkey NUTS1 regions","geographycount":"12","bunny":"227","jvectormap":"tr_nuts1_mill_en","legend":"BL","level":0},
+        {"map":"tr_nuts2","name":"Turkey NUTS2 regions","geographycount":"26","bunny":"227","jvectormap":"tr_nuts2_mill_en","legend":"BL","level":0},
+        {"map":"tr_nuts3","name":"Turkey NUTS3 regions","geographycount":"81","bunny":"227","jvectormap":"tr_nuts3_mill_en","legend":"BL","level":0},
         {"map":"ve","name":"Venezuela","geographycount":"25","bunny":"239","jvectormap":"ve_mill_en","legend":"BR","level":0},
         {"map":"za","name":"South Africa","geographycount":"9","bunny":"247","jvectormap":"za_mill_en","legend":"BR","level":0}
     ];
