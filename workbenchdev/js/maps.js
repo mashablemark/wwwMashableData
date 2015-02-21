@@ -134,6 +134,7 @@
         {"map":"in","name":"India","geographycount":"34","bunny":"105","jvectormap":"in_mill_en","legend":"BR","level":0},
         {"map":"nz","name":"New Zealand","geographycount":"13","bunny":"171","jvectormap":"nz_mill_en","legend":"BR","level":0},
         {"map":"ph","name":"Philippines","geographycount":"17","bunny":"177","jvectormap":"ph_mill_en","legend":"BR","level":0},
+        {"map":"pr","name":"Puerto Rico","geographycount":"78","bunny":"181","jvectormap":"pr_merc_en","legend":"BR","level":0},
         {"map":"th","name":"Thailand","geographycount":"76","bunny":"219","jvectormap":"th_mill_en","legend":"BR","level":0},
         {"map":"tr_nuts1","name":"Turkey NUTS1 regions","geographycount":"12","bunny":"227","jvectormap":"tr_nuts1_mill_en","legend":"BL","level":0},
         {"map":"tr_nuts2","name":"Turkey NUTS2 regions","geographycount":"26","bunny":"227","jvectormap":"tr_nuts2_mill_en","legend":"BL","level":0},
