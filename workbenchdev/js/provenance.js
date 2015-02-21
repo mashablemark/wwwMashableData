@@ -656,24 +656,26 @@ function ProvenanceController(panelId){
                 //buttons
                 $prov.find('.cube button.edit').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
                     $prov.find('.cube .cube-edit').show();
+                    if(provMapconfig.cube) $prov.find('.cube button.reset').show();
                     $prov.find('.cube .edit, .cube .value-label').hide();
                 });
                 $prov.find('.cube button.close').button({icons: {secondary: 'ui-icon-arrowstop-1-n'}}).click(function(){
                     $prov.find('.cube .cube-edit').hide();
                     $prov.find('.cube button.edit, .cube span.value-label').show();
                 });
-                $prov.find('.cube button.reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).click(function(){
+                $prov.find('.cube button.reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}, disabled: (typeof provMapconfig.cube =='undefined')}).click(function(){
                     delete provMapconfig.cube; //remove user over rides
                     //delete and rebuild
                     $prov.find('.cube').remove();
                     controller.cubeEditor();
+                    makeDirty();
                 });
                 $prov.find('.cube input').hide().change(function(){
                     var $input = $(this);
                     var $parent = $input.closest('div, li');
                     var key = $input.attr('data');
                     //sync text label
-                    $parent.find('span.value-label').val($input.val());
+                    $parent.find('span.value-label').html($input.val());
                     //update model
                     if(!provMapconfig.cube) provMapconfig.cube = {dims: {}};
                     if($parent.hasClass('facet')){
@@ -689,7 +691,8 @@ function ProvenanceController(panelId){
                     }
                     //show reset value label
                     $parent.find('span.reset-label').addClass('show').removeClass('hidden');
-                    $prov.find('.cube .reset').button('enable');
+                    $prov.find('.cube button.reset').button('enable');
+                    makeDirty();
                 });
 
                 function _addDimension(dimName, facets){
