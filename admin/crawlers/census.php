@@ -359,7 +359,7 @@ function saveData($sourceKey, $data, $themeName, $units, $cubeDimensions, $theme
             //insert set
             saveSetData($status, $setid, null, null, "A", $geoid, "", $mdData);
         } else {
-            if(substr($locationCode,0,3)!="F72") printNow("unable to insert for FIPS handle: ".$locationCode);  //puerto rico
+            printNow("unable to insert for FIPS handle: ".$locationCode);
             $status["failed"]++;
         }
     }
