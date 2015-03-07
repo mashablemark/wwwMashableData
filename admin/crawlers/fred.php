@@ -7,7 +7,7 @@
 
 $event_logging = true;
 $sql_logging = false;
-$debug = false;  //no file fetch
+$debug = true;  //no file fetch
 $fetchData = false;  //no file fetch
 
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
@@ -23,6 +23,13 @@ $fetchData = false;  //no file fetch
  *   freq:  D|M|A|ALL.  If missing, smartupdate  algorithm
  *   since: datetime; if missing smartupdate algorithm
 */
+
+/* SQL to delete FRED sets and data:
+    DELETE sets, setdata
+    FROM sets inner join setdata on sets.setid = setdata.setid
+    WHERE sets.apiid = 2;
+    DELETE from sets WHERE sets.apiid = 2;
+ */
 $fred_api_key = '975171546acb193c402f70777c4eb46d';
 $bulkFolder = "bulkfiles/fred/";
 //apidid=2;
@@ -139,13 +146,13 @@ function ApiCrawl($catid, $api_row){
     $list->bulkFolderRoot = $bulkFolder;
     $list->api_row = $api_row;
     $list->IngestAll();
-    $added = $list->status;["added"];
-    $updated = $list->status;["updated"];
-    $failed = $list->status;["failed"];
+    $added = $list->status["added"];
+    $updated = $list->status["updated"];
+    $failed = $list->status["failed"];
     if(isset($api_row["runid"])){
         runQuery("update LOW_PRIORITY apiruns set finishdt=now(), added=$added, updated = $updated, failed=$failed where runid = $api_row[runid]");
     }
-
+    ApiRunFinished($api_row);
     //2. queue the job to process the categories
     queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$api_row["rootcatid"]));  //ignore the $catid passed in; from root
     //ApiExecuteJob will be launch by chron
@@ -261,7 +268,10 @@ class FredList
             $this->trimFields($headerFields);
             $this->processLine($headerFields, $Since);
             $line++;
-            if($debug && intval($line/1000)*1000==$line) printNow("read $line lines. ". strftime ("%r")." ");
+            if($debug && intval($line/1000)*1000==$line) {
+                printNow("read $line lines. ". strftime ("%r")." ");
+                //break; //only read 1000 first lines in debug mode and than debug the save below
+            }
             $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
         fclose($fp);
@@ -269,10 +279,6 @@ class FredList
         fclose($this->dupFile);
         $this->dupFile = false;
 
-        if($debug){ //check for mixed point/map sets
-
-
-        }
         if($debug) printNow("preprocessed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
 
         //save $this->sets to database
@@ -285,91 +291,92 @@ class FredList
                     $setid = false;
                     $masterSetid = null;
                     $setSize = count($setFreqBranch);
+                    if($debug) printNow("$setName ($freq): $setSize series @ ". strftime ("%r"));
                     //get all the data and notes first (need to determine if metadata is at the set or series level)
                     $setMetaData = null;
-                    if($debug){
-                        if(isset($this->histogram[$setSize])) $this->histogram[$setSize]++; else $this->histogram[$setSize] = 1;
-                        $mapset = false;
-                        $pointset = false;
-                        foreach($setFreqBranch as $geoKey => &$setInfo){
-                            $geoParts = explode(":", $geoKey);
-                            if(strlen($geoParts[1])>0) $pointset = true; else $mapset = true;
-                        }
-                        if($pointset && $mapset) {
-                            printNow("Mixed point/regions set for $setName ($freq $units)");
-                            preprint($setFreqBranch);
-                            die();
-                        }
-                    } else {
-                        foreach($setFreqBranch as $geoKey => &$setInfo){
-                            if(!isset($setInfo["data"])) $this->getData($setInfo);
-                            if($setMetaData !== false){
-                                if($setMetaData === null) {
-                                    $setMetaData = $setInfo["notes"];
-                                }
-                                elseif($setMetaData != $setInfo["notes"]){
-                                    $setMetaData = false;
-                                }
+                    foreach($setFreqBranch as $geoKey => &$setInfo){
+                        if(!isset($setInfo["data"])) $this->getData($setInfo);
+                        if($setMetaData !== false){
+                            if($setMetaData === null) {
+                                $setMetaData = $setInfo["notes"];
+                            }
+                            elseif($setMetaData != $setInfo["notes"]){
+                                $setMetaData = false;
                             }
                         }
-                        foreach($setFreqBranch as $geoKey => &$setInfo){
-                            $processedForSave++;
-                            if($debug && intval($processedForSave/1000)*1000==$processedForSave) printNow("Save $processedForSave series. ". strftime ("%r")." ");
-                            if($setInfo["setid"]){
-                                $setid = $setInfo["setid"];
-                            } else {
-                                //is a point, save/get its mastersetid
-                                if($setInfo["latlon"]!="" && $masterSetid!==null){
-                                    $masterSetid = saveSet(
-                                        $apiid,
-                                        null,
-                                        $setInfo["geoid"]==0?$setInfo["title"]:$setName,
-                                        $units,
-                                        "St. Louis Federal Reserve",
-                                        "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"],
-                                        $setMetaData || $setInfo["isCopyrighted"]?"copyrighted":"",
-                                        "",
-                                        'null',
-                                        "",
-                                        null,
-                                        null,
-                                        "X");
-                                }
-                                //save/get the set
-                                //save set if (a) not yet set and large set (2) unique (3) latlon
-                                if($setInfo["latlon"]!=""){
-
-                                }elseif(!$setid || $setInfo["latlon"]!="" || $setSize<$minSetSize || $setInfo["geoid"]==0)
-                                    $thissetid = saveSet(
-                                        $apiid,
-                                        null,
-                                        $setMetaData || $setInfo["geoid"]==0?$setInfo["title"]:$setName,
-                                        $units,
-                                        "St. Louis Federal Reserve",
-                                        "",
-                                        $setInfo["isCopyrighted"]?"copyrighted":"",
-                                        "",
-                                        'null',
-                                        $setInfo["latlon"],
-                                        null,
-                                        $masterSetid,
-                                        $setInfo["latlon"]==""?($setInfo["geoid"]==0?"M":"S"):"X"
-                                    );
-                                    if($setInfo["latlon"]!="") $setid = $thissetid;  //some sets are mixed point / map
-                            }
-                            //preprint($setInfo);
-                            saveSetData($this->status, $setInfo["latlon"]==""?$setid:$masterSetid, $apiid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], $setInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"] : $setInfo["notes"]);
-                        }
-                        unset($set[$freq]);  //make available for trash collection
                     }
+                    foreach($setFreqBranch as $geoKey => &$setInfo){
+                        $processedForSave++;
+                        if($debug && intval($processedForSave/1000)*1000==$processedForSave) printNow("Save $processedForSave series. ". strftime ("%r")." ");
+                        if($setInfo["setid"]!==null){
+                            $setid = $setInfo["setid"];
+                        } else {
+                            /*if(isset($this->histogram[$setSize])) $this->histogram[$setSize]++; else $this->histogram[$setSize] = 1;
+                            $mapset = false;
+                            $pointset = false;
+                            foreach($setFreqBranch as $geoKey => &$setInfo){
+                                $geoParts = explode(":", $geoKey);
+                                if(strlen($geoParts[1])>0) $pointset = true; else $mapset = true;
+                            }
+                            if($pointset && $mapset) {
+                                printNow("Mixed point/regions set for $setName ($freq $units)");
+                                preprint($setFreqBranch);
+                                die();
+                            }*/
+
+                            //is a point, save/get its mastersetid
+                            if($setInfo["latlon"]!="" && $masterSetid==null){
+                                $masterSetid = saveSet(
+                                    $apiid,
+                                    null,
+                                    $setInfo["geoid"]==0?$setInfo["title"]:$setName,
+                                    $units,
+                                    "St. Louis Federal Reserve",
+                                    "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"],
+                                    $setMetaData || $setInfo["isCopyrighted"]?"copyrighted":"",
+                                    "",
+                                    'null',
+                                    "",
+                                    null,
+                                    null,
+                                    "X");
+                                if(!$masterSetid) {
+                                    preprint($setInfo);
+                                    die("masterset not saved");
+                                }
+                            }
+                            //save/get the set
+                            //save set if (a) not yet set and large set (2) unique (3) latlon
+                            if(!$setid || $setInfo["latlon"]!="" || $setSize<$minSetSize || $setInfo["geoid"]==0)
+                                $thissetid = saveSet(
+                                    $apiid,
+                                    null,
+                                    $setMetaData || $setInfo["geoid"]==0?$setInfo["title"]:$setName,
+                                    $units,
+                                    "St. Louis Federal Reserve",
+                                    "",
+                                    $setInfo["isCopyrighted"]?"copyrighted":"",
+                                    "",
+                                    'null',
+                                    $setInfo["latlon"],
+                                    null,
+                                    $masterSetid,
+                                    $setInfo["latlon"]==""?($setInfo["geoid"]==0?"M":"S"):"X"
+                                );
+                            if($setInfo["latlon"]=="") $setid = $thissetid;  //some sets are mixed point / map
+                        }
+                        //preprint($setInfo);
+                        saveSetData($this->status, $setInfo["latlon"]==""?$setid:$masterSetid, $apiid, $setInfo["skey"], $freq, $setInfo["geoid"], $setInfo["latlon"], $setInfo["data"], $setInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $setInfo["skey"] : $setInfo["notes"]);
+                    }
+                    unset($set[$freq]);  //make available for trash collection
                 }
             }
         }
-        if($debug) {
+/*        if($debug) {
             ksort($this->histogram);
             preprint($this->histogram);
-        }
-        print("IngestAll end");
+        }*/
+        printNow("IngestAll end");
     }
 
     public function Update($code){
