@@ -31,7 +31,7 @@ MashableData.Set = function(SetParams){
     }
     if(this.maps && typeof this.maps=="string") this.maps = JSON.parse('{'+this.maps+'}');
     this.parsedData();
-    if(this.freqs && !Array.isArray(this.freqs )) this.freqs = this.freqs.split(' ');
+    if(this.freqs && !Array.isArray(this.freqs )) this.freqs = this.freqs.split(',');
     return this;
 };
 (function(){

@@ -40,13 +40,12 @@ MashableData.grapher = function(){
                 $chart.hide();
                 return void 0;
             }
-            var chart;  //the rendered HighChart object set below on render
+            var chart;  //the rendered HighChart object set below on render and reference in oChartOptions events
 
             if(oGraph.controls && oGraph.controls.chart) {
                 oGraph.controls.chart.destroy();
                 $.contextMenu('destroy', '#' + panelId + ' div.mashabledata_chart');
             }
-            $chart.show();
             //final additions to the HC Chart Object
             oChartOptions.chart.renderTo = $chart.get(0);
 
@@ -882,14 +881,14 @@ MashableData.grapher = function(){
                             '<option value="change-treemap">abstract change to rectangles</option>' +
                             '</select>' +
                             '</div>' +
+                            '<div class="change-basemap">base map ' +
+                            '<select class="change-basemap"></select>' +
+                            '<div class="mashabledata_legend"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>show legend for all maps</label></div>' +
                             '<div class="map-viz-select">map interactive' +
                             '<select class="map-viz-select">' +
                             '</select>' +
                             '</div>' +
                             //change map selector and default
-                            '<div class="change-basemap">base map ' +
-                            '<select class="change-basemap"></select>' +
-                            '<div class="mashabledata_legend"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>show legend for all maps</label></div>' +
                             '</div>' +
                             '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
                             '<table>' +
@@ -970,7 +969,7 @@ MashableData.grapher = function(){
                     //'</div>';
                 }
                 $thisPanel.html(panelHTML);
-
+                sizeShowPanels(oGraph);
                 var chart, grid;
                 console.timeEnd('buildGraphPanel:thisPanel');
                 console.time('buildGraphPanel:thisPanel events');
@@ -986,7 +985,7 @@ MashableData.grapher = function(){
                         $thisPanel.find('div.graph-chart').hide();
                     });
 
-                    //RESIZE
+                    //RESIZABLE
                     $thisPanel.find('button.resize').button({icons: {secondary: "ui-icon-arrow-4-diag"}}).click(function(){
                         $thisPanel.find('div.graph_control_panel').hide();
                         $thisPanel.find('div.resize').show();
@@ -1012,7 +1011,7 @@ MashableData.grapher = function(){
                                     $container.width($container.width()+ui.size.width-ui.originalSize.width);
                                     $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
                                 }
-                                if(ui.originalElement.hasClass('xmashabledata_jvmap')){
+                                if(ui.originalElement.hasClass('mashabledata_jvmap')){
                                     $container.width($container.width()+ui.size.width-ui.originalSize.width);
                                     $thisPanel.find('.mashabledata_chart').width($container.width());
                                     $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
@@ -1071,18 +1070,13 @@ MashableData.grapher = function(){
                         });
                     }
 
-                    var innerHeight = $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2)
-                        .height($thisPanel.height())
-                        .find('.mashabledata_chart-map')
-                        .width($thisPanel.width()-365).end()
-                        .height();
-                    $thisPanel.find('.graph-data-subpanel').height($thisPanel.height()-60);  //account for chart/region/markers tabs
-                    $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
                     $thisPanel.find('.graph-analysis').val(oGraph.analysis);
+
+
                     $thisPanel.find('select.download-selector').change(function(){
                         if($(this).val()=='map'){
                             if(!oGraph.mapsets&&!oGraph.pointsets) {
-                                dialogShow("no map","This graph does not have a map to download.  Map are adding to graphs by finding a series that belongs to a map set or a marker set and mapping the set.");
+                                dialogShow("no map","This graph does not have a map to download.  Maps are added to graphs by finding a series that belongs to a map set or a marker set and mapping the set.");
                                 $(this).val('chart');
                             }
                         } else {
@@ -1092,6 +1086,7 @@ MashableData.grapher = function(){
                             }
                         }
                     });
+
                     $thisPanel.find('.export-chart').click(function(){
                         var type, $this = $(this);
                         if($this.hasClass('md-jpg')) type = 'image/jpeg';
@@ -1100,6 +1095,7 @@ MashableData.grapher = function(){
                         if($this.hasClass('md-pdf')) type = 'application/pdf';
                         _exportChart(type);
                     });
+
                     $thisPanel.find('a.post-facebook')
                         .click(function(){
                             var svg;
@@ -1147,7 +1143,7 @@ MashableData.grapher = function(){
 
                     $thisPanel.find('.graph-email').button({icons: {secondary: "ui-icon-mail-closed"}}).click(function(){
                         if(oGraph.isDirty) {
-                            dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
+                            dialogShow("graph not saved", "Please save the graph first so that links will show the graph as currently displayed.");
                         }
                     });
                     function _setEmailLink(){
@@ -1164,10 +1160,10 @@ MashableData.grapher = function(){
                     $thisPanel.find('.graph-embed').button({icons: {secondary: "ui-icon-script"}})
                         .click(function(){
                             if(oGraph.isDirty) {
-                                dialogShow("Graph is not saved", "Please save the graph first so that links will show the graph as currently displayed.");
+                                dialogShow("graph not saved", "Please save the graph first so that links will show the graph as currently displayed.");
                                 return;
                             }
-                            var offset = $(this).offset();  //button offset relative to document
+                            //var offset = $(this).offset();  //button offset relative to document
                             var linkDivHTML =
                                 '<div id="embed-info">' +
                                     '<button class="right" id="embed-info-close">close</button>' +
@@ -1480,16 +1476,13 @@ MashableData.grapher = function(){
                 }
                 //DRAW THE CHART
                 if(oGraph.plots){
-                    console.time('buildGraphPanel:build annoatations');
+                    console.time('buildGraphPanel:build annotations');
                     chart = chartPanel(panelId);
                     annotations.build();
-                    console.timeEnd('buildGraphPanel:build annoatations');
+                    console.timeEnd('buildGraphPanel:build annotations');
                     $thisPanel.find('div.highcharts-container').mousedown(function (b) {
                         if(b.which==3){}  //???
                     });
-                } else {
-                    $thisPanel.find('div.mashabledata_chart').hide();
-                    $thisPanel.find('div.annotations').hide();
                 }
                 ////////////MMMMMMMMMMMMMMAAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPPPPPP
                 var $map = null, vectorMapSettings, val, mergablity;
@@ -1552,7 +1545,6 @@ MashableData.grapher = function(){
                         for(ms=0;ms<count;ms++){
                             mapTabsHTML += '<div class="mashabledata_maptab'+(ms==activeMapTab?' mashabledata_activetab':'')+'" style="max-width: '+maxWidth+'px" data="'+ms+'">'+oGraph.mapsets[ms].name()+'</div>';
                         }
-                        var $maptabs = $thisPanel.find('div.mashabledata_maptabs');
                         $maptabs.html(mapTabsHTML).show().find('.mashabledata_maptab').click(function(){
                             var i = $(this).attr('data');
                             if(i!=activeMapTab){
@@ -1569,22 +1561,11 @@ MashableData.grapher = function(){
                 }
 
                 function _drawMap(){
+                    makeLegend = _drawMap_makeLegend; //pass refernece to function up
                     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
                         if($map) $map.remove();
+                        //sizing routines moved to sizeShowPanels()
 
-                        //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
-                        var mapHeight = (oGraph.controls.$thisPanel.height()-85-(oGraph.plots?0:55)) * ((oGraph.plots)?0.6:1) + 'px';
-                        if(oGraph.hasMapViz()){
-                            $thisPanel.find('.mashabledata_cube-viz').show().height(mapHeight); //css('display', 'inline-block');
-                            $thisPanel.find('.mashabledata_jvmap').css('width', '70%');
-                        } else {
-                            if(oGraph.controls.vizChart){
-                                oGraph.controls.vizChart.destroy();
-                                delete oGraph.controls.vizChart;
-                            }
-                            $thisPanel.find('.mashabledata_cube-viz').hide();
-                            $thisPanel.find('.mashabledata_jvmap').removeAttr("style");
-                        }
                         console.time('buildGraphPanel:_drawMap:_calcMap');
                         _setMapTabs();
 
@@ -1637,12 +1618,14 @@ MashableData.grapher = function(){
                                 x: 0.5,
                                 y: 0.5
                             };
-                            /*SETFOCUS DOESN'T AFFECT A FULLY ZOOMED OUT MAP!!!
-                             if(!(oGraph.mapconfig.showLegend===false)){ //move map centroid to give max room for the legend
+
+                            //aspect ratio hack for possible use with legend to create space
+                            /*if(!(oGraph.mapconfig.showLegend===false)){ //move map centroid to give max room for the legend
                              var mapDefHeight = jvm.Map.maps[oGraph.mapFile].height,
                              mapDefWidth = jvm.Map.maps[oGraph.mapFile].width,
                              mapAspectRatio = mapDefHeight / mapDefWidth,
                              $mapDiv = $thisPanel.find('.mashabledata_jvmap'),
+                             $mapInner = $thisPanel.find('.mashabledata_jvmap'),
                              mapDivHeight = $mapDiv.height(),
                              mapDivWidth = $mapDiv.width(),
                              divAspectRatio = mapDivHeight / mapDivWidth,
@@ -1653,7 +1636,8 @@ MashableData.grapher = function(){
                              extraPixels = mapDivWidth - actualMapWidth;
                              if(globals.maps[oGraph.map].legend[1]=='L'){ //left
                              mapFocus.x = 0.5 - extraPixels / (2* actualMapWidth);
-                             } else { //right
+                             }
+                             if(globals.maps[oGraph.map].legend[1]=='R'){ //right
                              mapFocus.x = 0.5 + extraPixels / (2* actualMapWidth);
                              }
                              } else { //width constrained
@@ -1661,11 +1645,13 @@ MashableData.grapher = function(){
                              extraPixels = mapDivHeight - actualMapHeight;
                              if(globals.maps[oGraph.map].legend[0]=='B'){ //bottom
                              mapFocus.y = 0.5 - extraPixels / (2 * actualMapHeight);
-                             } else { //top
+                             }
+                             if(globals.maps[oGraph.map].legend[0]=='T'){ //top
                              mapFocus.y = 0.5 + extraPixels / (2 * actualMapHeight);
                              }
                              }
                              }*/
+
                             vectorMapSettings = {
                                 map: oGraph.mapFile,
                                 zoomMin: minScale,
@@ -1881,17 +1867,13 @@ MashableData.grapher = function(){
                              };
                              }
                              }*/
-                            $thisPanel
-                                .find('div.mashabledata_map').show()
-                                .find('div.mashabledata_jvmap').html('').show().height(mapHeight)
-                                .vectorMap(vectorMapSettings);
-                            $map = $thisPanel.find('div.mashabledata_jvmap').vectorMap('get', 'mapObject');
-
+                            if($map) $map.remove();
+                            var $jvmap = $thisPanel.find('div.mashabledata_jvmap');
+                            $jvmap.html('').vectorMap(vectorMapSettings);
+                            $map = $jvmap.vectorMap('get', 'mapObject');
+                            if(oGraph.mapconfig.showLegend) _drawMap_makeLegend($map);
                         } else {
                             $map = false;
-                            $thisPanel
-                                .find('div.mashabledata_map').show()
-                                .find('div.mashabledata_jvmap').show().height(mapHeight)
                         }
 
                         console.timeEnd('buildGraphPanel:_drawMap:jvm call');
@@ -2076,11 +2058,9 @@ MashableData.grapher = function(){
                             $play.hide();
                             $thisPanel.find('.mashabledata_map-step-backward, .mashabledata_map-step-forward').hide();
                         }
-                        if(oGraph.plots)
-                            $thisPanel.find('h3.mashabledata_map-title').hide();
-                        else
+                        if(!oGraph.plots)
                             $thisPanel.find('h3.mashabledata_map-title').html(oGraph.title).click(function(){
-                                graphTitle.show(this);
+                                if(!isEmbedded) graphTitle.show(this);
                             });  //initialize here rather than set slider value which would trigger a map _redraw
 
                         var noCubeRedraw = false;
@@ -2190,11 +2170,16 @@ MashableData.grapher = function(){
                         }
 
                         //legend no longer a user option:  set in workbench only and uses JVM 2.0 legend rather than SVG
-                        // if(oGraph.mapconfig.showLegend) gLegend = _drawMap_makeLegend($map);
+                        var gLegend = false,
+                            makeLegend;  //reference to _drawmap_makeLegend()
                         $thisPanel.find('input.mashabledata_legend').change(function(){
                             oGraph.mapconfig.showLegend = ($(this).prop('checked'));
                             _makeDirty();
-                            _drawMap();
+                            if(oGraph.mapconfig.showLegend) {
+                                gLegend = makeLegend($map);
+                            } else {
+                                gLegend.remove();
+                            }
                         });
                         console.timeEnd('buildGraphPanel:mapControls');
                     }
@@ -2310,196 +2295,6 @@ MashableData.grapher = function(){
                         if(code){
                             $thisPanel.find('.mashabledata_cube-viz table tr').removeClass('ui-selected').find("tr[data='"+code+"']").addClass('ui-selected');
                         }
-                    }
-
-                    function _drawMap_makeLegend(map){
-                        var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;
-
-                        if(oGraph.mapsets && !_drawMap_isBubble()){
-                            if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
-                                regionLegendWidth=185;
-                                regionHeight = lineHeight + 2*spacer + oGraph.mapsets[activeMapTab].options.discreteColors.length*(spacer+20);
-                            } else {
-                                regionLegendWidth=100;
-                                if(calculatedMapData.regionMin<0 && calculatedMapData.regionMax>0) { //spans?
-                                    regionHeight = 6*spacer+2*80+4*lineHeight; //yes = need two continuous scale segments
-                                } else {
-                                    regionHeight = 4*spacer+80+3*lineHeight;  //no = just one continuous scale segment
-                                }
-                            }
-                        } else regionLegendWidth=0;
-
-                        /*for markers, we need to know if how many pointset attribute are fill and how many are area:
-                         area=1 & fill=0: show filled min and max circles only with unit label
-                         area>1 & fill=0: show hollow min and max circles with units + colored fixed-radius circles with names
-                         area=0 & fill>0: color scale with units
-                         area>0 & fill>0: show hollow min and max circles with units + color scale with units
-                         legend components:
-                         1. solid fix-radius circle with names iff area>1 & fill=0
-                         2. min & max cicles iff area>0
-                         2b. never fill the scale circles XXXfill min and max iif (area=1 & fill=0)
-                         3. show color scale iff fill>0
-                         */
-                        var areaCount = areaScalingCount(oGraph.pointsets), fillCount = fillScalingCount(oGraph.pointsets);
-                        if(oGraph.pointsets || _drawMap_isBubble()) {
-                            markerLegendWidth=185;
-                            if(areaCount>1 && fillCount==0){
-                                markerHeight += (areaCount)*(spacer+2*standardRadius)+(markerHeight==0?spacer:0);
-                            }
-                            if(areaCount>0 || _drawMap_isBubble()){
-                                var maxRadius = parseInt(oGraph.mapconfig.maxRadius)||DEFAULT_RADIUS_SCALE;
-                                var smallRadius = +maxRadius/Math.sqrt(10);
-                                markerHeight += 2*(spacer + Math.max(maxRadius,15) + smallRadius) + (markerHeight==0?spacer:0);
-                            }
-                        } else markerLegendWidth = 0;
-
-                        //use JVM to add a new group not subject to zooming, where map = new jvm.Map({....});
-                        var gLegend = map.canvas.addGroup(); //variable scoped one level up;
-                        //for some reason, adding an (invisiable) element in JVM straightens out the coordinate system for IE
-                        map.canvas.addCircle({cx:0,cy:0}, {initial: {r:20, "fill-opacity": 0, "stroke-width":  0 }}, gLegend);
-
-                        //use the more complete Highcharts renderer, which must be instantiated on its own (hidden dummy) DIV
-                        $thisPanel.append('<div id="dummyLegend" class="hidden"></div>');
-                        var hcr = new Highcharts.Renderer($('#dummyLegend')[0], map.width, map.height);
-                        //redirect the Highcharts' renderer to add element to JVM's new group instead of the dummy div's group
-                        hcr.box = gLegend.node;
-                        $('#dummyLegend').remove();
-                        var legendLocation = oGraph.mapconfig.legendLocation || mapsList[oGraph.map].legend || 'TR';
-                        switch(legendLocation.substr(0,1)){
-                            case 'T':
-                                yOffset = spacer;
-                                break;
-                            case 'C':
-                                yOffset = (map.height - Math.max(markerHeight,regionHeight))/2 - spacer;
-                                break;
-                            case 'B':
-                                yOffset = map.height - Math.max(markerHeight,regionHeight) - spacer;
-                        }
-
-                        switch(legendLocation.substr(1,1)){
-                            case 'L':
-                                xOffset = spacer;
-                                if(legendLocation.substr(0,1)=='T') xOffset+=30; //space for zoom buttons
-                                break;
-                            case 'C':
-                                xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer;
-                                break;
-                            case 'R':
-                                xOffset = map.width-regionLegendWidth-markerLegendWidth-spacer;
-                        }
-                        //the main panel = has to be first because SVG understands only order, not understand z-index
-                        //rounded corner
-                        hcr.rect(xOffset, yOffset, markerLegendWidth+regionLegendWidth, Math.max(markerHeight,regionHeight), 5).attr({
-                            fill: 'white',
-                            opacity: 0.5,
-                            'stroke-width': 0
-                        }).add();
-
-
-                        var gradientAttributes = {
-                            opacity: 1,
-                            'stroke-width': 0,
-                            'z-index': 1000
-                        };
-
-                        //subfunction draws a 80H x 20W bar from 2 pixel slices
-                        function gradient(x, y, topColor, bottomColor){
-                            var rTop, gTop, bTop, rBot, gBot, bBot, r, g, b;
-                            rTop = parseInt(topColor.substr(1,2), 16);
-                            gTop = parseInt(topColor.substr(3,2), 16);
-                            bTop = parseInt(topColor.substr(5,2), 16);
-                            rBot = parseInt(bottomColor.substr(1,2), 16);
-                            gBot = parseInt(bottomColor.substr(3,2), 16);
-                            bBot = parseInt(bottomColor.substr(5,2), 16);
-                            for(var i=0;i<40;i++){
-                                r = Math.round(rTop-(rTop-rBot)*i/39).toString(16);
-                                g = Math.round(gTop-(gTop-gBot)*i/39).toString(16);
-                                b = Math.round(bTop-(bTop-bBot)*i/39).toString(16);
-                                hcr.rect(x, y+2*i, 20, 2, 0).attr({
-                                    fill: '#'+(r.length==1?'0':'')+r+(g.length==1?'0':'')+g+(b.length==1?'0':'')+b,
-                                    opacity: 1,
-                                    'stroke-width': 0,
-                                    'z-index': 1000
-                                }).add();
-                            }
-                        }
-
-                        if(oGraph.pointsets||_drawMap_isBubble()){
-                            if(areaCount>1 && fillCount==0){
-                                //POINTSET LABELS
-                                $.each(oGraph.pointsets, function(i){
-                                    if(this.options.attribute!='fill'){
-                                        y = (i+1)*(spacer+2*standardRadius)-standardRadius;
-                                        hcr.circle(xOffset + spacer + standardRadius, yOffset + y, Math.min(maxRadius, standardRadius)).attr({
-                                            fill: this.options.color,
-                                            opacity: 1,
-                                            'fill-opacity': 1,
-                                            stroke: 'black',
-                                            'stroke-width': 1
-                                        }).add();
-                                        hcr.text(oGraph.pointsets[i].name().substring(0, MAX_MARKER_LABEL_LENGTH), xOffset + 2*(spacer + standardRadius), yOffset + y).add(); //clip at MAX_MARKER_LABEL_LENGTH
-                                    }
-                                    y += standardRadius;
-                                });
-                            }
-                            if(areaCount>0||_drawMap_isBubble()){
-                                //RADIUS SCALING
-                                y += spacer+(smallRadius||5);
-                                var MarkerSizeAttributes = {
-                                    'fill-opacity': 0,
-                                    opacity: 1,
-                                    stroke: 'black',
-                                    'stroke-width': 1
-                                };
-                                hcr.circle(xOffset + spacer + maxRadius, yOffset + y, smallRadius).attr(MarkerSizeAttributes).add();
-                                hcr.text(formatRationalize((calculatedMapData.radiusScale||calculatedMapData.markerDataMax)/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
-                                y+= (smallRadius||5) + spacer + maxRadius;
-
-                                hcr.circle(xOffset + spacer + maxRadius, yOffset + y, maxRadius).attr(MarkerSizeAttributes).add();
-                                hcr.text(formatRationalize(calculatedMapData.radiusScale||calculatedMapData.markerDataMax), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
-
-                                hcr.text(calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + 2*spacer).css({fontSize: '12px'}).add();
-                            }
-                        }
-                        if(oGraph.mapsets && !_drawMap_isBubble()){
-                            hcr.text(oGraph.mapsets[activeMapTab].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
-                            if(oGraph.mapsets[activeMapTab].options.scale!='discrete' && oGraph.mapsets[activeMapTab].options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
-
-                            if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
-                                for(i=0;i<oGraph.mapsets[activeMapTab].options.discreteColors.length;i++){
-                                    y = spacer + (oGraph.mapsets[activeMapTab].options.discreteColors.length-i)*(spacer+20);
-                                    hcr.rect(xOffset + markerLegendWidth + spacer, yOffset + y, lineHeight, lineHeight, 0).attr({
-                                        fill: oGraph.mapsets[activeMapTab].options.discreteColors[i].color,
-                                        opacity: 1,
-                                        stroke: 'black',
-                                        'stroke-width': 1
-                                    }).add();
-                                    hcr.text((i==oGraph.mapsets[activeMapTab].options.discreteColors.length-1?'&gt; ':' ')+oGraph.mapsets[activeMapTab].options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
-                                }
-                            } else {
-                                //y = spacer;
-                                y += 2*lineHeight;
-                                hcr.text(formatRationalize(calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
-                                y += lineHeight + spacer;
-
-
-                                if(calculatedMapData.regionMax>0){
-                                    gradient(xOffset + markerLegendWidth + spacer, yOffset + y, oGraph.mapsets[activeMapTab].options.posColor||MAP_COLORS.POS, MAP_COLORS.MID);
-                                    y += 80 + spacer;
-                                    if(calculatedMapData.regionMin<0){
-                                        hcr.text('0', xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
-                                        y += lineHeight + spacer;
-                                    }
-                                }
-                                if(calculatedMapData.regionMin<0){
-                                    gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets[activeMapTab].options.negColor||MAP_COLORS.NEG);
-                                    y += 80 + spacer;
-                                }
-                                hcr.text(formatRationalize(calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
-                                y += lineHeight + spacer;
-                            }
-                        }
-                        return gLegend;
                     }
 
                     function _drawMap_isBubble(){
@@ -3085,29 +2880,218 @@ MashableData.grapher = function(){
                         }
                         _drawMap_makeMakeViz();
                     }
+
+
+                    function _drawMap_makeLegend(map){
+                        var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;
+
+                        if(oGraph.mapsets && !_drawMap_isBubble()){
+                            if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
+                                regionLegendWidth=185;
+                                regionHeight = lineHeight + 2*spacer + oGraph.mapsets[activeMapTab].options.discreteColors.length*(spacer+20);
+                            } else {
+                                regionLegendWidth=100;
+                                if(calculatedMapData.regionMin<0 && calculatedMapData.regionMax>0) { //spans?
+                                    regionHeight = 6*spacer+2*80+4*lineHeight; //yes = need two continuous scale segments
+                                } else {
+                                    regionHeight = 4*spacer+80+3*lineHeight;  //no = just one continuous scale segment
+                                }
+                            }
+                        } else regionLegendWidth=0;
+
+                        /*for markers, we need to know if how many pointset attribute are fill and how many are area:
+                         area=1 & fill=0: show filled min and max circles only with unit label
+                         area>1 & fill=0: show hollow min and max circles with units + colored fixed-radius circles with names
+                         area=0 & fill>0: color scale with units
+                         area>0 & fill>0: show hollow min and max circles with units + color scale with units
+                         legend components:
+                         1. solid fix-radius circle with names iff area>1 & fill=0
+                         2. min & max cicles iff area>0
+                         2b. never fill the scale circles XXXfill min and max iif (area=1 & fill=0)
+                         3. show color scale iff fill>0
+                         */
+                        var areaCount = areaScalingCount(oGraph.pointsets), fillCount = fillScalingCount(oGraph.pointsets);
+                        if(oGraph.pointsets || _drawMap_isBubble()) {
+                            markerLegendWidth=185;
+                            if(areaCount>1 && fillCount==0){
+                                markerHeight += (areaCount)*(spacer+2*standardRadius)+(markerHeight==0?spacer:0);
+                            }
+                            if(areaCount>0 || _drawMap_isBubble()){
+                                var maxRadius = parseInt(oGraph.mapconfig.maxRadius)||DEFAULT_RADIUS_SCALE;
+                                var smallRadius = +maxRadius/Math.sqrt(10);
+                                markerHeight += 2*(spacer + Math.max(maxRadius,15) + smallRadius) + (markerHeight==0?spacer:0);
+                            }
+                        } else markerLegendWidth = 0;
+
+                        //use JVM to add a new group not subject to zooming, where map = new jvm.Map({....});
+                        var gLegend = map.canvas.addGroup(); //gLegend ultimately returned;
+                        //for some reason, adding an (invisiable) element in JVM straightens out the coordinate system for IE
+                        map.canvas.addCircle({cx:0,cy:0}, {initial: {r:20, "fill-opacity": 0, "stroke-width":  0 }}, gLegend);
+
+                        //use the more complete Highcharts renderer, which must be instantiated on its own (hidden dummy) DIV
+                        $thisPanel.append('<div id="dummyLegend" class="hidden"></div>');
+                        var hcr = new Highcharts.Renderer($('#dummyLegend')[0], map.width, map.height);
+                        //redirect the Highcharts' renderer to add element to JVM's new group instead of the dummy div's group
+                        hcr.box = gLegend.node;
+                        $('#dummyLegend').remove();
+                        var legendLocation = oGraph.mapconfig.legendLocation || mapsList[oGraph.map].legend || 'TR';
+                        switch(legendLocation.substr(0,1)){
+                            case 'T':
+                                yOffset = spacer;
+                                break;
+                            case 'C':
+                                yOffset = (map.height - Math.max(markerHeight,regionHeight))/2 - spacer;
+                                break;
+                            case 'B':
+                                yOffset = map.height - Math.max(markerHeight,regionHeight) - spacer;
+                        }
+
+                        switch(legendLocation.substr(1,1)){
+                            case 'L':
+                                xOffset = spacer;
+                                if(legendLocation.substr(0,1)=='T') xOffset+=30; //space for zoom buttons
+                                break;
+                            case 'C':
+                                xOffset = (map.width-regionLegendWidth-markerLegendWidth)/2-spacer;
+                                break;
+                            case 'R':
+                                xOffset = map.width-regionLegendWidth-markerLegendWidth-spacer;
+                        }
+                        //the main panel = has to be first because SVG understands only order, not understand z-index
+                        //rounded corner
+                        hcr.rect(xOffset, yOffset, markerLegendWidth+regionLegendWidth, Math.max(markerHeight,regionHeight), 5).attr({
+                            fill: 'white',
+                            opacity: 0.5,
+                            'stroke-width': 0
+                        }).add();
+
+
+                        var gradientAttributes = {
+                            opacity: 1,
+                            'stroke-width': 0,
+                            'z-index': 1000
+                        };
+
+                        if(oGraph.pointsets||_drawMap_isBubble()){
+                            if(areaCount>1 && fillCount==0){
+                                //POINTSET LABELS
+                                $.each(oGraph.pointsets, function(i){
+                                    if(this.options.attribute!='fill'){
+                                        y = (i+1)*(spacer+2*standardRadius)-standardRadius;
+                                        hcr.circle(xOffset + spacer + standardRadius, yOffset + y, Math.min(maxRadius, standardRadius)).attr({
+                                            fill: this.options.color,
+                                            opacity: 1,
+                                            'fill-opacity': 1,
+                                            stroke: 'black',
+                                            'stroke-width': 1
+                                        }).add();
+                                        hcr.text(oGraph.pointsets[i].name().substring(0, MAX_MARKER_LABEL_LENGTH), xOffset + 2*(spacer + standardRadius), yOffset + y).add(); //clip at MAX_MARKER_LABEL_LENGTH
+                                    }
+                                    y += standardRadius;
+                                });
+                            }
+                            if(areaCount>0||_drawMap_isBubble()){
+                                //RADIUS SCALING
+                                y += spacer+(smallRadius||5);
+                                var MarkerSizeAttributes = {
+                                    'fill-opacity': 0,
+                                    opacity: 1,
+                                    stroke: 'black',
+                                    'stroke-width': 1
+                                };
+                                hcr.circle(xOffset + spacer + maxRadius, yOffset + y, smallRadius).attr(MarkerSizeAttributes).add();
+                                hcr.text(formatRationalize((calculatedMapData.radiusScale||calculatedMapData.markerDataMax)/10), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+                                y+= (smallRadius||5) + spacer + maxRadius;
+
+                                hcr.circle(xOffset + spacer + maxRadius, yOffset + y, maxRadius).attr(MarkerSizeAttributes).add();
+                                hcr.text(formatRationalize(calculatedMapData.radiusScale||calculatedMapData.markerDataMax), xOffset + 2*(maxRadius+spacer), yOffset + y).css({fontSize: '12px'}).add();
+
+                                hcr.text(calculatedMapData.radiusUnits, xOffset + 2*(maxRadius+spacer), yOffset + y + 2*spacer).css({fontSize: '12px'}).add();
+                            }
+                        }
+                        if(oGraph.mapsets && !_drawMap_isBubble()){
+                            hcr.text(oGraph.mapsets[activeMapTab].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+                            if(oGraph.mapsets[activeMapTab].options.scale!='discrete' && oGraph.mapsets[activeMapTab].options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
+
+                            if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
+                                for(i=0;i<oGraph.mapsets[activeMapTab].options.discreteColors.length;i++){
+                                    y = spacer + (oGraph.mapsets[activeMapTab].options.discreteColors.length-i)*(spacer+20);
+                                    hcr.rect(xOffset + markerLegendWidth + spacer, yOffset + y, lineHeight, lineHeight, 0).attr({
+                                        fill: oGraph.mapsets[activeMapTab].options.discreteColors[i].color,
+                                        opacity: 1,
+                                        stroke: 'black',
+                                        'stroke-width': 1
+                                    }).add();
+                                    hcr.text((i==oGraph.mapsets[activeMapTab].options.discreteColors.length-1?'&gt; ':' ')+oGraph.mapsets[activeMapTab].options.discreteColors[i].cutoff, xOffset + markerLegendWidth + spacer + lineHeight + spacer, yOffset + y +lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                }
+                            } else {
+                                //y = spacer;
+                                y += 2*lineHeight;
+                                hcr.text(formatRationalize(calculatedMapData.regionMax), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                y += lineHeight + spacer;
+
+
+                                if(calculatedMapData.regionMax>0){
+                                    _makeLegend_gradient(xOffset + markerLegendWidth + spacer, yOffset + y, oGraph.mapsets[activeMapTab].options.posColor||MAP_COLORS.POS, MAP_COLORS.MID);
+                                    y += 80 + spacer;
+                                    if(calculatedMapData.regionMin<0){
+                                        hcr.text('0', xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                        y += lineHeight + spacer;
+                                    }
+                                }
+                                if(calculatedMapData.regionMin<0){
+                                    _makeLegend_gradient(xOffset + markerLegendWidth + spacer, yOffset + y, MAP_COLORS.MID, oGraph.mapsets[activeMapTab].options.negColor||MAP_COLORS.NEG);
+                                    y += 80 + spacer;
+                                }
+                                hcr.text(formatRationalize(calculatedMapData.regionMin), xOffset + markerLegendWidth + spacer, yOffset + y+lineHeight/2+textCenterFudge).css({fontSize: '12px'}).add();
+                                y += lineHeight + spacer;
+                            }
+                        }
+                        return gLegend;
+
+                        //subfunction draws a 80H x 20W bar from 2 pixel slices
+                        function _makeLegend_gradient(x, y, topColor, bottomColor){
+                            var rTop, gTop, bTop, rBot, gBot, bBot, r, g, b;
+                            rTop = parseInt(topColor.substr(1,2), 16);
+                            gTop = parseInt(topColor.substr(3,2), 16);
+                            bTop = parseInt(topColor.substr(5,2), 16);
+                            rBot = parseInt(bottomColor.substr(1,2), 16);
+                            gBot = parseInt(bottomColor.substr(3,2), 16);
+                            bBot = parseInt(bottomColor.substr(5,2), 16);
+                            for(var i=0;i<40;i++){
+                                r = Math.round(rTop-(rTop-rBot)*i/39).toString(16);
+                                g = Math.round(gTop-(gTop-gBot)*i/39).toString(16);
+                                b = Math.round(bTop-(bTop-bBot)*i/39).toString(16);
+                                hcr.rect(x, y+2*i, 20, 2, 0).attr({
+                                    fill: '#'+(r.length==1?'0':'')+r+(g.length==1?'0':'')+g+(b.length==1?'0':'')+b,
+                                    opacity: 1,
+                                    'stroke-width': 0,
+                                    'z-index': 1000
+                                }).add();
+                            }
+                        }
+
+                    }
+                    makeLegend = _drawMap_makeLegend; //pass a ref to function to allow it it to be called outside of _drawMap()
                 }
 
-                function _redraw(){
+
+                function _redraw(){ //does not get called on initial draw of graph
                     mask('redrawing');
                     setTimeout(function(){
                         //destroy
-                        destroyChartMap(panelId); //destroy the Highchart, the map and the contectMenu if they exist.
+                        destroyChartMap(panelId); //destroy the Highchart, the map and the context Menu if they exist.
+                        sizeShowPanels(oGraph);
                         if(oGraph.plots){
                             calcGraphMinMaxZoomPeriod(oGraph);
-                            chart = chartPanel(panelId);
-                            annotations.build();  //build and shows teh annotations table
-                            $thisPanel.find('div.mashabledata_chart').show();
-                        } else {
-                            $thisPanel.find('div.mashabledata_chart').hide();
-                            $thisPanel.find('div.annotations').hide();
+                            chart = chartPanel(panelId); //creates and return an instantiated Highchart chart
+                            annotations.build();  //build and shows the annotations table
                         }
                         _showChangeSelectors();
                         if(oGraph.mapsets||oGraph.pointsets){
                             oGraph.fetchMap(_drawMap); //ensures we have the map def and shows the map div
                             if(oGraph.plots) $thisPanel.find('map-title').hide(); else $thisPanel.find('map-title').show();
                             $thisPanel.find('select.change-basemap').html(_fillChangeMapSelect());
-                        } else {
-                            $thisPanel.find('div.mashabledata_map').hide();
                         }
                         unmask();
                     }, 10);
@@ -4017,6 +4001,7 @@ MashableData.grapher = function(){
     }
 
     function formatRationalize(value){
+        if(value == 0) return "0";
         var order =  Math.floor(Math.log(Math.abs(value))/Math.LN10);
         var y  = Math.round(value / Math.pow(10,order-2)) * Math.pow(10,order-2);
         return common.numberFormat(y, (order>1?0:2-order))
@@ -4296,5 +4281,88 @@ MashableData.grapher = function(){
             }
         }
         return null;
+    }
+    function sizeShowPanels(graph){ //also shows/hides panels based on graph
+//chart map viz .height .width
+        if(!graph.controls) return;  // must be an instantiated graph
+        var hasChart = (graph.plots!=null), hasMapViz = graph.hasMapViz(), hasMap = graph.mapsets||graph.pointsets != null, sizes = graph.mapconfig.sizes;
+        var $container, $chart, $anno, $viz, $mapTitle, $map, $jvmap, $thisPanel = graph.controls.$thisPanel;
+        $container = $thisPanel.find('.mashabledata_chart-map');
+        $chart = $thisPanel.find('.mashabledata_chart');
+        $anno = $thisPanel.find('div.annotations');
+        $map = $thisPanel.find('.mashabledata_map'); //contains both _jvmap and _cube-viz
+        $jvmap = $thisPanel.find('.mashabledata_jvmap');
+        $viz = $thisPanel.find('.mashabledata_cube-viz');
+        $mapTitle = $thisPanel.find('h3.mashabledata_map-title');  //the replace title is no main HighChart to show the title
+
+        //show / hide the panels
+        if(hasChart) {
+            $chart.show();
+            $anno.show();
+            $mapTitle.hide();
+        } else {
+            $chart.hide();
+            $anno.hide();
+            $mapTitle.show();
+            if(graph.controls.chart){
+                graph.controls.chart.destroy();
+                delete graph.controls.chart;
+            }
+        }
+        if(hasMap) {
+            $jvmap.show();
+        } else {
+            $jvmap.hide();
+        }
+        if(hasMapViz) {
+            $viz.show();
+        } else {
+            $viz.hide();
+            if(graph.controls.vizChart){
+                graph.controls.vizChart.destroy();
+                delete graph.controls.vizChart;
+            }
+        }
+        if(hasMap || hasMapViz){
+            $map.show();
+        } else {
+            $map.hide();
+        }
+
+        //if panels have been added or removed that are not accounted for in mapconfig.sizes, revert to default sizing
+        if(sizes && (_xor(sizes.chart, hasChart) || _xor(sizes.map, hasMap) ||_xor(sizes.viz, hasMapViz))){
+            sizes = false;  //use default
+            delete graph.mapconfig.sizes;
+        }
+        if(sizes){ //
+            if(hasChart) $chart.width(sizes.chart.width).height(sizes.chart.height);
+            if(hasMap) $jvmap.width(sizes.map.width).height(sizes.map.height);
+            if(hasMapViz) {
+                $viz.width(sizes.viz.width).height(sizes.viz.height);
+            }
+        } else {
+            //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
+            var mapHeight = ($thisPanel.height()-85-(graph.plots?0:55)) * ((graph.plots)?0.6:1) + 'px';  //60%/40% split between chart height and map height
+            if(hasMapViz){
+                $viz.height(mapHeight); //css('display', 'inline-block');
+                $jvmap.css('width', '70%');
+            } else {
+                $jvmap.removeAttr("style");
+            }
+            if(hasMap) $jvmap.height(mapHeight);
+
+            if(hasChart) {
+                var plotHeight = (($thisPanel.height()-70 - (hasMap&&graph.mapsets&&graph.mapsets.length>1?70:0)) * ((hasMap||hasMapViz)?0.4:1)) + 'px';  //60%/40% split between chart height and map height
+                $chart.height(plotHeight);
+            } //leave space for analysis textarea
+
+            //panel sizing:  sub-panel reduce for thin border and possible scrolling
+            $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height());
+            $thisPanel.find('.graph-sources').width($thisPanel.width()-35-2-40);
+
+            $container.width($thisPanel.width()-365);
+        }
+
+        function _xor(a, b){ return a&&!b || !a&&b}
     }
 }();

@@ -614,7 +614,7 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid
 
     $sql = "insert into setdata (setid, freq, geoid, latlon,".($metadata===false?"":"metadata,")." data, firstdt100k, lastdt100k, apidt, skey)"
         ." values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
-        ." on duplicate key update data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
+        ." on duplicate key update firstdt100k=$firstDate100k, lastdt100k=$lastDate100k, data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
     return runQuery($sql, $logAs);
 }
 
@@ -622,4 +622,9 @@ function updateSetdataMetadata($setid, $freq, $geoid=0, $latlon="", $metadata, $
     $sql = "update setdata set metadata = ".  safeStringSQL($metadata)
         ." where setid=$setid and freq='$freq' and geoid=$geoid and latlon='$latlon'";
     return runQuery($sql, $logAs);
+}
+
+function deleteDirectory($dir) {
+    system('rm -rf ' . escapeshellarg($dir), $retval);
+    return $retval == 0; // UNIX commands return zero on success
 }

@@ -28,8 +28,8 @@
             <script type="text/javascript" src="/global/js/require/require.2.1.1.min.js"></script><!--15kb-->
             <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script><!--16kb+images-->
             <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script><!--2kb+images-->
+    <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/globals.js"></script>
-            <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/common.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/set.js"></script>
             <script type="text/javascript" src="/workbenchdev/js/plot.js"></script>

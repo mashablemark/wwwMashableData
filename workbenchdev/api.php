@@ -1924,7 +1924,7 @@ function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = fa
 function freqsFieldToArray($freqs){
     global $ft_join_char;
     if(!$freqs) return [];
-    return explode(" ", str_replace("F".$ft_join_char, "", $freqs));
+    return explode(",", str_replace("F".$ft_join_char, "", $freqs));
 }
 
 function mapsFieldCleanup($mapsField){

@@ -1128,35 +1128,55 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
                     }
                     series.splice(i,1, newSerie);
                 }
-                quickGraph(series, showAddSeries);
+                quickGraph(series, map, showAddSeries);
             }
         )
     } else {
-        quickGraph(series, showAddSeries);
+        quickGraph(series, map, showAddSeries);
     }
 }
 
-function quickGraph(obj, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
-    var quickGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
+function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
+    var qGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
     var $mapSelect =  $('#quick-view-maps');
     if(obj.plots){ // a graphs object was passed in
-        quickGraph = obj; // everything including title should be set by caller
+        qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
+        $('#quick-view-change-freq').hide();
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
         oQuickViewSeries = aoSeries; //aoSeries is guarented to be an array of series
-        quickGraph = new MD.Graph();
+        qGraph = new MD.Graph();
+        var allFreqs = [], allFreq = [];
         for(i=0;i<aoSeries.length;i++){
-            quickGraph.addPlot([new MD.Component(aoSeries[i])]);
+            qGraph.addPlot([new MD.Component(aoSeries[i])]);
+            if(allFreq.indexOf(aoSeries[i].freq)===-1) allFreq.push(aoSeries[i].freq);
+            if(allFreqs.indexOf(aoSeries[i].freqs.toString())===-1) allFreqs.push(aoSeries[i].freqs.toString());
+        }
+        if(allFreqs.length==1 && allFreq.length==1){
+            var options = '';
+            $.each(aoSeries[0].freqs, function(f, freq){ //previous test guarentee that all aoSeries have identical freq and freqs
+                options += '<option value="'+freq+'" '+(freq==aoSeries[0].freq?'selected':'')+'>'+freq+'</option>';
+            });
+            $('#quick-view-change-freq').html(options).show().off().change(function(){
+                var newF = this.value;
+                $.each(aoSeries, function(){
+                    this.freq = newF;
+                    delete this.data;
+                });
+                preview(aoSeries, map, showAddSeries);
+            });
+        } else {
+            $('#quick-view-change-freq').hide();
         }
     }
 
-    var quickChartOptions = grapher.makeChartOptionsObject(quickGraph);
+    var quickChartOptions = grapher.makeChartOptionsObject(qGraph);
 
-    quickGraph.eachComponent(function(){
+    qGraph.eachComponent(function(){
         if(globals.MySets[this.handle()]) someMySeries.push(globals.MySets[this.handle()]);
-        if(!globals.MySets[this.handle()]) someNewSeries.push(quickGraph.assets[this.handle()]);
+        if(!globals.MySets[this.handle()]) someNewSeries.push(qGraph.assets[this.handle()]);
     });
 
     delete quickChartOptions.chart.height;
@@ -1653,7 +1673,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
         });
         $panel.find('button.series-edit-preview').button({icons: {secondary: 'ui-icon-image'}}).off().click(function(){
             var arySeries = userSeriesFromEditor();
-            if(arySeries) quickGraph(arySeries, false);
+            if(arySeries) quickGraph(arySeries, false, false);
         });
         $panel.find('button.series-edit-geoset').button({icons:{secondary:'ui-icon-flag'}}).show().off().click(function(){
             showUserSetWizard();
