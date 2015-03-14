@@ -432,10 +432,21 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
     runQuery("update sets s join temp t on s.setid=t.id1
     set s.ghandles = concat(t.text1,','), s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
+
+    //points
+    $sql = "update sets s join
+        (
+            select s2.setid, min(sd.firstdt100k) as firstsetdt100k, max(sd.lastdt100k) as lastsetdt100k
+            from setdata sd join sets s2 on sd.setid=s2.mastersetid and s2.latlon = sd.latlon
+            where s2.mastersetid is not null and s2.latlon <>'' and ".($apiid == "all"?"":" and s2.apiid=$apiid").($themeid == "all"?"":" and s2.themeid=$themeid")."
+        ) minmax
+        on minmax.setid = s.setid
+        set s.firstsetdt100k = minmax.firstsetdt100k, s.lastsetdt100k=minmax.lastsetdt100k";
+    runQuery($sql, "setGhandlesPeriodicitiesFirstLast set points first last");
 }
 
 function setMapsetCounts($setid="all", $apiid, $themeid = false){
-//step1:  determine  (8.6s for 6024 sets = 1 million setdata rows)
+//step1:  determine sets' maximum map coverage in percent (8.6s for 6024 sets = 1 million setdata rows)
     $themeFilter = $themeid?" and themeid=$themeid ":"";
     $sqlSetMaxCov = "UPDATE sets s join (SELECT setid, max(coverage) as maxcov from (SELECT
           s.setid, mg.map,
@@ -444,7 +455,7 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
             JOIN setdata sd ON s.setid=sd.setid
             JOIN mapgeographies mg ON sd.geoid=mg.geoid
             JOIN maps m ON m.map=mg.map
-        WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter and mg.map <>'worldx'
+        WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter
         GROUP BY s.setid, mg.map) mc group by setid) mc2
          ON s.setid=mc2.setid
         SET s.maxmapcoverage=least(100,maxcov)";
@@ -460,12 +471,12 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
             JOIN setdata sd ON s.setid=sd.setid
             JOIN mapgeographies mg ON sd.geoid=mg.geoid
             JOIN maps m ON m.map=mg.map
-          WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter and mg.map <>'worldx'
+          WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter
           GROUP BY s.setid, mg.map, geographycount, maxmapcoverage
           HAVING count(distinct sd.geoid)/geographycount/maxmapcoverage>0.0025) mc
         GROUP BY setid
         ) mc2 on s.setid=mc2.setid
-        set s.maps=mapcounts, s.settype='M'";
+        set s.maps=mapcounts, s.settype='MS_'";
     runQuery($sqlSetMaps,"set Mapset map Counts (sets.maps)");
 }
 
@@ -475,23 +486,24 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     runQuery("SET SESSION group_concat_max_len = 4000;","setPointsetCounts");
 
     //subquery1 finds maps for which points' geoids is a component (e.g. USA)
-    $subQuery1 = "SELECT s.setid, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount
+    $subQuery1 = "SELECT s.setid, mg.map, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount
         FROM sets s JOIN setdata sd on s.setid=sd.setid JOIN mapgeographies mg on sd.geoid=mg.geoid
-        WHERE sd.latlon<>'' ";
+        WHERE sd.latlon<>'' and mg.map<>'world' and s.settype='XS_'";
     if($apiid != "all") $subQuery1 .= " and apiid=".$apiid;
     if($setid != "all") $subQuery1 .= " and setid=".$setid;
-    $subQuery1 .= " and map <>'worldx' group by s.setid, map";
+    $subQuery1 .= " group by s.setid, mg.map ";
 
     //subquery2 finds maps whose bunny = points' geoids (e.g. Virginia)
-    $subQuery2 = "SELECT sd.setid, concat('\"M_',m.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount
+    $subQuery2 = "SELECT sd.setid, m.map, concat('\"M_',m.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount
         FROM sets s JOIN setdata sd on s.setid=sd.setid JOIN maps m on sd.geoid=m.bunny
-        WHERE sd.latlon<>'' ";
+        WHERE sd.latlon<>'' and s.settype='XS_' ";
     if($apiid != "all") $subQuery2 .= " and apiid=".$apiid;
     if($setid != "all") $subQuery2 .= " and setid=".$setid;
+    $subQuery2 .= " group by setid, sd.geoid ";
 
-    runQuery("insert into temp (id1, text1) SELECT setid, group_concat(mapcount) from ($subQuery1 UNION $subQuery2) mc group by setid;","setPointsetCounts");
+    $insertSql = "insert into temp (id1, text1) SELECT setid, group_concat(mapcount) from ($subQuery1 UNION $subQuery2) mc group by setid;";
+    runQuery($insertSql, "setPointsetCounts");
     runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;", "setPointsetCounts");
-
     runQuery("truncate temp;","setPointsetCounts");
 //TODO: alias sets' from and to dates and frequency
 /*joining to mastersetid in newsearch eliminates the need to replicate
@@ -518,12 +530,15 @@ function setPointsetCounts($setid="all", $apiid = "all"){
 
 function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null, $mastersetid=null, $type="S"){
     global $db;
+    if($type!="S") $type .= "S_";
     if($setKey){
-        $sql = "select s.* from sets s where s.apiid=$apiid and s.setkey=".safeStringSQL($setKey)
-        ." union DISTINCT "
-        ."select distinct s.* from sets s join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=".safeStringSQL($setKey);
+        $setKeySql = safeStringSQL($setKey);
+        $sql = "select s.* from sets s where s.apiid=$apiid and s.setkey=$setKeySql
+         union DISTINCT
+        select distinct s.* from sets s join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=$setKeySql";
     } else {
-        $sql = "select * from sets where apiid=$apiid and name=".safeStringSQL($name, true)." and units =".safeStringSQL($units,false);
+        $sql = "select * from sets where apiid=$apiid and name=".safeStringSQL($name, true)
+            ." and units =".safeStringSQL($units,false) ." and settype='$type'";  //mapsets and pointsets may same name
         if(strtolower($themeid)!='null') $sql .= " and themeid = $themeid";
     }
     $result = runQuery($sql, "getSet select");
@@ -550,7 +565,8 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         return $row["setid"];
     } elseif($result->num_rows==0) {
 //      printNow(safeStringSQL($apiid));printNow(safeStringSQL($setKey));printNow(safeStringSQL($name));printNow(safeStringSQL($apidt));printNow(safeStringSQL($units));printNow(safeStringSQL($latlon));printNow(safeStringSQL($lasthistoricaldt));printNow(safeStringSQL($metadata));printNow(safeStringSQL($src));printNow(safeStringSQL($url));
-        $sql = "insert into sets (apiid, setkey, name, namelen, apidt, units, latlon, lasthistoricaldt, themeid, metadata, src, url, mastersetid) VALUES ("
+        $sql = "insert into sets (apiid, setkey, name, namelen, apidt, units, latlon, lasthistoricaldt,
+                themeid, metadata, src, url, mastersetid, settype) VALUES ("
             . $apiid
             . ", " . safeStringSQL($setKey)
             . ", " . safeStringSQL($name)
@@ -564,6 +580,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
             . ", " . safeStringSQL($src)
             . ", " . safeStringSQL($url)
             . ", " . safeStringSQL($mastersetid)
+            . ", " . safeStringSQL($type)
             . ")";
         $result = runQuery($sql, "getSet insert");
         if($result!==false){

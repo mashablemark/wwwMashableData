@@ -1101,7 +1101,7 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
         if(!serie.data){ //note:  if L, it *must* have its own data
             handle = serie.handle();
             seriesNeedingData[handle] = {
-                setid: serie.setid,
+                setid: serie.mastersetid || serie.setid,
                 freq: serie.preferedFreq(),
                 geoid: serie.geoid,
                 latlon: serie.latlon
@@ -1157,7 +1157,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         if(allFreqs.length==1 && allFreq.length==1){
             var options = '';
             $.each(aoSeries[0].freqs, function(f, freq){ //previous test guarentee that all aoSeries have identical freq and freqs
-                options += '<option value="'+freq+'" '+(freq==aoSeries[0].freq?'selected':'')+'>'+freq+'</option>';
+                options += '<option value="'+freq+'" '+(freq==aoSeries[0].freq?'selected':'')+'>'+globals.period.name[freq]+'</option>';
             });
             $('#quick-view-change-freq').html(options).show().off().change(function(){
                 var newF = this.value;

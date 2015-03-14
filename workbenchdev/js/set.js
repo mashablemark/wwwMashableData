@@ -117,12 +117,21 @@ MashableData.Set = function(SetParams){
         return(this.freqs[0]);  //whatever
     };
     MashableData.Set.prototype.name = function(){
-        return this.setname + (this.geoname?': '+this.geoname:'');
+        if(this.seriesname) return this.seriesname;
+        var name = this.setname, elipseCode = '&hellip;', pos;
+        if(this.geoname){
+            pos = name.indexOf(elipseCode);
+            if(pos>=0){
+                name.replace(elipseCode,this.geoname)
+            } else
+                name += ': '+this.geoname;
+        }
+        return name;
     };
     MashableData.Set.prototype.handle = function(){
         var handle = this.settype + this.setid + this.preferedFreq();  //the bar minimum to be a set obj
         if(this.geoid) handle += 'G'+this.geoid;
-        if(this.latLon) handle += 'L'+this.latLon;
+        if(this.latlon) handle += 'L'+this.latlon;
         return handle;
     };
     MashableData.Set.prototype.clone = function(){

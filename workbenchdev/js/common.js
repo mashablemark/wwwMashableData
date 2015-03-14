@@ -430,6 +430,18 @@ MashableData.common = {
             newSets.push(new MashableData.Set(recordset[i]));
         }
         return newSets;
+    },
+    placeName: function(setName, seriesName){
+        var setWords = setName.split(' '), position;
+        var placeName  = ' '+seriesName+' ';
+        for(var i=0;i<setWords.length;i++){
+            if(setWords[i].length){
+                while(-1 != (position = placeName.indexOf(' '+setWords[i]+' '))){
+                    placeName = placeName.substr(0,position) + placeName.substr(position+setWords[i].length+1);
+                }
+            }
+        }
+        return placeName.trim();
     }
 };
 

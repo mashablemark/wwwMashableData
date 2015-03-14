@@ -127,9 +127,10 @@ switch($command){
         $aColumns=array("name", "units", "firstdt", "lastdt");
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
         $sql = "SELECT SQL_CALC_FOUND_ROWS
-        s.settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units, replace(s.freqs,'F_','') as freqs,
-        s.titles, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url,
-        s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt, s.apiid, replace(coalesce(s2.maps, s.maps),'M_','') as maps, s.ghandles
+        left(s.settype,1) as settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units,
+        replace(coalesce(s2.freqs, s.freqs),'F_','') as freqs, s.titles, coalesce(s.src, a.name) as src,
+        coalesce(s.url, a.url) as url, s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt,
+        s.apiid, replace(coalesce(s2.maps, s.maps),'M_','') as maps, s.ghandles
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
         //handle may be modified in read loop depending on detected geographies and
@@ -175,13 +176,14 @@ switch($command){
             if(strpos($search,'title:"')===0){ //ideally, use a regex like s.match(/(title|name|skey):"[^"]+"/i)
                 $title = substr($search, strlen("title")+2,strlen($search)-strlen("title")-3);
                 $sql .= " AND title = " . safeStringSQL($title);
-            } elseif($search!='+ +' || $mapFilter<>"none" || $freq != "all") {
+            } elseif($search!='+ +' || $mapFilter<>"none" || $freq != "all" || $setType!="all") {
                 $periodTerm = $freq == "all"?"":" +F_".$freq;
                 $mapTerm = $mapFilter == "none"?"":" +M_".$mapFilter;
-                $mainBooleanSearch = "($search $periodTerm $mapTerm)";
+                $setTypeTerm = $setType == "all"?"":" +".$setType."S_";
+                $mainBooleanSearch = "($search $periodTerm $mapTerm $setTypeTerm)";
                 foreach($foundGeos as $ghandle => $geoSearchDetails){
                     $geoSearchWords  = $geoSearchDetails["seachWords"];
-                    $mainBooleanSearch .= " ($geoSearchWords $periodTerm $mapTerm +$ghandle)"; //OR implied
+                    $mainBooleanSearch .= " ($geoSearchWords $periodTerm $setTypeTerm $mapTerm +$ghandle)"; //OR implied
                 }
                 $sql .= " AND match(s.name, s.units, s.titles, s.ghandles, s.maps, s.settype, s.freqs) against ('$mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
             }
@@ -199,12 +201,6 @@ switch($command){
                 }
             }
         }
-        //type of set detection = done by additional field
-        $mapsSearch = isset($_POST['map']) && strlen($_POST['map'])>0 ? "+".$_POST['map'] : "";
-        if($setType!="all") $mapsSearch .= " +".$setType;  //setType = S|MS|XS
-        if($mapsSearch){
-            $sql = $sql . " AND match(s.maps, s.settype) against('$mapsSearch' IN BOOLEAN MODE)";
-        }
         /*
          * Ordering
          */
@@ -216,7 +212,7 @@ switch($command){
             {
                 if ( $_POST[ 'bSortable_'.intval($_POST['iSortCol_'.$i]) ] == "true")
                 {
-                    $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." s.".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
+                    $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." ".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
                 }
             }
             $sOrder = substr_replace($sOrder, "", -2 );
@@ -926,8 +922,8 @@ switch($command){
     case "GetMySets":
         requiresLogin();
         $user_id =  intval($_POST['uid']);
-        $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, s.settype, maps,
-            titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
+        $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
+            maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
             savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
             FROM sets s
             inner join  mysets ms on s.setid=ms.setid
@@ -1453,7 +1449,7 @@ switch($command){
         $user_id =  intval($_POST['uid']);
         $output = ["status"=>"ok", "series"=> []];
         foreach($series as $orginalHandle => $serie){
-            if(!isset($serie["geoid"])){
+            if(!isset($serie["geoid"]) && (!isset($serie["latlon"])||$serie["latlon"]=="")){
                 //1. see if a preferred map (and bunny)
                 if($fromMap  && $fromMap!="false"){
                     //1a.  look for bunny
@@ -1528,7 +1524,7 @@ switch($command){
             //  distributed url = setdata.url > sets.url > apis.url
             $sql = "
             SELECT
-              s.settype, s.setid, s.name as setname, s.themeid, s.metadata as setmetadata, s.titles as categories, s.userid, s.units,
+              left(s.settype,1) as settype, s.setid, s.name as setname, s.themeid, s.metadata as setmetadata, s.titles as categories, s.userid, s.units,
               sd.latlon, sd.geoid, sd.data, sd.freq, sd.firstdt100k*100000 as firstdt, lastdt100k*100000 as lastdt,
               coalesce(s.src, a.name) as src,
               coalesce(sd.url, s.url, a.url) as url,
@@ -1536,7 +1532,8 @@ switch($command){
               coalesce(s.maps, xs.maps) as maps,
               coalesce(s.freqs, xs.freqs) as freqs,
               sd.metadata as seriesmetadata,
-              g.name as geoname,
+              xs.name as seriesname,
+              if(isnull(xs.name), g.name, null) as geoname,
               concat(IFNULL(s.metadata ,''),' ',IFNULL(a.metadata,''),' ', IFNULL(t.meta,'')) as setmetadata
             FROM sets s join setdata sd on s.setid = sd.setid
               left outer join apis a on s.apiid=a.apiid
@@ -1544,7 +1541,8 @@ switch($command){
               left outer join geographies g on sd.geoid=g.geoid
               left outer join sets xs on xs.mastersetid=s.setid and xs.latlon=sd.latlon
             WHERE
-              s.setid = $serie[setid] and sd.freq = '$serie[freq]' and sd.geoid = $serie[geoid] and sd.latlon = '$serie[latlon]'";
+              s.setid = $serie[setid] and sd.freq = '$serie[freq]' and sd.latlon = '$serie[latlon]'";
+            if(isset($serie["geoid"])) $sql .= " and sd.geoid = $serie[geoid]";
             $result = runQuery($sql, "GetSeries series");
             if($result->num_rows==1){
                 $aRow = $result->fetch_assoc();
@@ -1665,7 +1663,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type, g.annotations,
         g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt,
         m.jvectormap, m.bunny, m.legend,
-        s.name as setname, s.settype, s.units, s.metadata as setmetadata, s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.mastersetid,
+        s.name as setname, left(s.settype,1) as settype, s.units, s.metadata as setmetadata, s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.mastersetid,
         gp.plotorder, gp.plottype, gp.options as plotoptions,
         pc.comporder, pc.setid, pc.freq, pc.geoid, pc.latlon, pc.options as componentoptions,
         sd.data, sd.firstdt100k, sd.lastdt100k,
@@ -1818,7 +1816,7 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
         $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
     $mapCode = safeStringSQL($map);
-    $sql = "SELECT s.setid, s.settype, s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
+    $sql = "SELECT s.setid, left(s.settype,1), s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
       g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
       sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
     FROM sets s JOIN setdata sd on s.setid=sd.setid
@@ -1876,48 +1874,63 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     //return $assets;
 }
 
-function getPointSets(&$assets, $map, $aryPointsetIds, $mustBeOwnerOrPublic = false){
+function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
     global $db, $orgid;
-    $sql = "select ps.pointsetid, ps.name, ps.units, ps.freq, ps.freqset, ps.themeid, "
-        . " s.setid, s.userid, s.orgid, s.geoid, s.src, s.lat, s.lon, s.name as seriesname, s.data, s.firstdt, s.lastdt "
-        . " from pointsets ps, series s, mapgeographies mg, maps m "
-        . " where ps.pointsetid = s.pointsetid and s.mapsetid is null  and s.pointsetid in (" . implode($aryPointsetIds, ",") . ")"
-        . " and m.map  = " . safeStringSQL($map)
-        . " and mg.geoid=s.geoid and ((mg.map =" . safeStringSQL($map). " and mg.map=m.map) or bunny=s.geoid)"
-        . " and ps.pointsetid in (" . implode($aryPointsetIds, ",") . ")";
-    if($mustBeOwnerOrPublic){
-        $sql .= " and (s.userid is null or s.userid= " . intval($_POST["uid"]) . " or s.orgid=" . $orgid . ")"; //assumes requiresLogin already run
+    $uid = intval($_POST["uid"]);
+    $setFilters = [];
+    for($i=0;$i<count($requestedSets);$i++){
+        $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
-    $sql .= " order by pointsetid";
+    $setFilter = implode(" OR ", $setFilters);
+    $safeMap = safeStringSQL($map);
+    $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata,
+      s.src, s.url, s.units, s.userid, s.orgid, sd.geoid, alias.name as geoname, sd.freq, sd.data,
+      sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
+        FROM sets s, setdata sd, sets alias, mapgeographies mg, maps m
+        WHERE s.setid=sd.setid and alias.mastersetid =s.setid and alias.latlon=sd.latlon and  ($setFilter)
+        and m.map  = $safeMap
+        and mg.geoid=sd.geoid and ((mg.map=$safeMap and mg.map=m.map) or bunny=sd.geoid)";
+    if($mustBeOwnerOrPublic){
+        $sql .= " and (s.userid is null or s.userid= $uid or s.orgid=$orgid)"; //assumes requiresLogin already run
+    }
+    $sql .= " order by s.setid";
+    logEvent("getPointSets", $sql);
     $result = runQuery($sql);
-    $currentPointSetId = 0;
+    $currentMasterSetId = 0;
     while($row = $result->fetch_assoc()){
-        if($currentPointSetId!=$row["pointsetid"]){ //new pointset = need header
-            $currentPointSetId=$row["pointsetid"];
-            $assets["X".$currentPointSetId] = array(
-                "handle"=>"X".$currentPointSetId,
-                "name"=>$row["name"],
+        if($currentMasterSetId!=$row["setid"]){ //new pointset = need header
+            $currentMasterSetId=$row["setid"];
+            $handle = "X".$currentMasterSetId.$row["freq"];
+            $assets[$handle] = [
+                "setid"=>$currentMasterSetId,
+                "maps"=>[],
+                "setname"=>$row["setname"],
                 "units"=>$row["units"],
                 "freq"=>$row["freq"],
                 "src"=>$row["src"],
                 "themeid"=>$row["themeid"],
-                "data"=>array()
-            );
+                "setmetadata"=>$row["setmetadata"],
+                "settype"=>$row["settype"],
+                "firstdt"=>$row["firstdt100k"]*100000,
+                "lastdt"=>$row["lastdt100k"]*100000,
+                "data"=>[]
+            ];
+            $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
+            $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
         }
-        if($row["freqset"]!==null){
-            $freqset = '{"a":{'.$row["freqset"].'}}';
-            $ary = json_decode($freqset, true);
-            $assets["X".$currentPointSetId]["freqset"] = $ary["a"];
-        }
-        $latlon = $row["lat"].",".$row["lon"];
-        $assets["X".$currentPointSetId]["coordinates"][$latlon] = array("latLng"=>array($row["lat"], $row["lon"]));
-        $assets["X".$currentPointSetId]["data"][$latlon] = array(
-            "handle"=>"S".$row["setid"],
-            "name"=>$row["seriesname"],
+        $assets[$handle]["data"][$row["latlon"]] = [
+            "handle"=>"S$row[setid]$row[freq]G$row[geoid]L$row[latlon]",
+            "geoid"=>$row["geoid"],
+            "latlon"=>$row["latlon"],
+            "geoname"=>$row["geoname"],
             "data"=>$row["data"],
-            "firstdt"=>$row["firstdt"],
-            "lastdt"=>$row["lastdt"]
-        );
+            "firstdt"=>$row["firstdt100k"]*100000,
+            "lastdt"=>$row["lastdt100k"]*100000
+        ];
+        if($row["seriesmetadata"]!=null) $assets[$handle]["data"][$row["latlon"]]["metadata"] = $row["seriesmetadata"];
+        if($row["seriesurl"]!=null) $assets[$handle]["data"][$row["latlon"]]["url"] = $row["seriesurl"];
+        $assets[$handle]["firstdt"] = min($assets[$handle]["firstdt"], $row["firstdt100k"]*100000);
+        $assets[$handle]["lastdt"] = max($assets[$handle]["lastdt"], $row["lastdt100k"]*100000);
     }
 }
 
