@@ -70,7 +70,7 @@ if (isset($typeString)) {
 	// catch error
 	if (!is_file($outfile) || filesize($outfile) < 10) {
 		echo "<pre>$output</pre>";
-		echo "Error while converting SVG";		
+		echo "Error while converting SVG<br>";
 	} 
 	
 	// stream it
@@ -86,7 +86,7 @@ if (isset($typeString)) {
 	}
 	
 	// delete it
-	unlink("temp/$tempName.svg");
+	//unlink("temp/$tempName.svg");
     if($type != 'FB'){unlink($outfile);}
 
 
