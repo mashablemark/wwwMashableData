@@ -12,7 +12,13 @@ function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
     console.time('makeTreeMap calc');
     var rect = [0, 0, $div.width(), $div.height()];
     if(!dateKey) dateKey = calculatedMapData.dates[calculatedMapData.dates.length-1].s;
-    var sortedCodes = [], i, code, value, total= 0, sortedValues = [], valueObject;
+    var sortedCodes = [],
+        i,
+        code,
+        units = calculatedMapData.mapUnits,
+        total= 0,
+        sortedValues = [],
+        valueObject;
     for(code in calculatedMapData.regionData[dateKey]){
         if(jvm.Map.maps[mapFile].paths[code]){
             valueObject = {code: code}
@@ -38,19 +44,23 @@ function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
     var squarified = MashableData.common.squarify(rect, sortedValues);
 
     console.timeEnd('makeTreeMap calc');
-    var $statBox = $('#MashableData_statBox');
+    var $statBox = $div.find('.MashableData_statBox');
     if(!$statBox.length){
-        $div.append('<div id="MashableData_statBox" style="border:thin solid black;z-index:10000;display:none;position:relative;"></div>');
-        $statBox = $('#MashableData_statBox');
+        $div.append('<div class="MashableData_statBox"></div>');
+        $statBox = $div.find('.MashableData_statBox');
     }
     for(i=0;i<squarified.length;i++){
-        renderer.rect(squarified[i][0], squarified[i][1], squarified[i][2], squarified[i][3], 0)
+        renderer
+            .rect(squarified[i][0], squarified[i][1], squarified[i][2], squarified[i][3], 0)
             .attr({
                 fill: sortedCodes[i].value>0?'#99CCFF':'red',
                 stroke: 'black',
                 'stroke-width': 1
             })
-            .on('mouseover', treeOver(i))
+            .on('mouseenter', treeOver(i))
+            .on('mousemove', function(evt){
+                $statBox.css('top',evt.pageY).css('left',evt.pageX+5).show();
+            })
             .add();
         renderer.text(
                 jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name+ '<br>'
@@ -59,18 +69,22 @@ function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
                 squarified[i][0]+2,
                 squarified[i][1]+10)
             .attr({rotation: 0})
-            .css({fontSize: '6pt', color: 'black'}).
-            add();
+            .css({fontSize: '6pt', color: 'black'})
+            .on('mousemove', function(evt){
+                $statBox.css('top',evt.pageY).css('left',evt.pageX+5).show();
+            })
+            .add();
     }
 
     function treeOver(i){
-        return function(){
+        return function(evt){
             var regionName = jvm.Map.maps[mapFile].paths[sortedCodes[i].code].name;
-            //console.info(regionName+': '+ sortedCodes[i].value);
-            $statBox.html(jvm.states[i]+'<br>'+vals[i]);
+            $statBox.html(regionName+':<br>'+sortedCodes[i].value+' '+units).css('top',evt.pageY).css('left',evt.pageX+5).show();
         }
     }
-    $div.show().off().on('mouseout',function(){$statBox.hide()});
+    $div.show().off().on('mouseout',function(){
+        $statBox.hide()
+    });
     console.timeEnd('makeTreeMap');
 }
 
