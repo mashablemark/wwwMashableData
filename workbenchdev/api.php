@@ -185,7 +185,8 @@ switch($command){
                     $geoSearchWords  = $geoSearchDetails["seachWords"];
                     $mainBooleanSearch .= " ($geoSearchWords $periodTerm $setTypeTerm $mapTerm +$ghandle)"; //OR implied
                 }
-                $sql .= " AND match(s.name, s.units, s.titles, s.ghandles, s.maps, s.settype, s.freqs) against ('$mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
+                $sql .= " AND match(s.name, s.units, s.titles, s.ghandles, s.maps, s.settype, s.freqs) against ('-not_searchable $mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
+                //freqs field default to 'not_searchable' on insert and gets set after ingestion when setCounts and
             }
             if(is_numeric($apiid)) {
                 $sql .= " AND s.apiid = " . intval($apiid);
@@ -1816,7 +1817,7 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
         $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
     $mapCode = safeStringSQL($map);
-    $sql = "SELECT s.setid, left(s.settype,1), s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
+    $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
       g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
       sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
     FROM sets s JOIN setdata sd on s.setid=sd.setid
@@ -1883,8 +1884,9 @@ function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = fal
     }
     $setFilter = implode(" OR ", $setFilters);
     $safeMap = safeStringSQL($map);
-    $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata,
-      s.src, s.url, s.units, s.userid, s.orgid, sd.geoid, alias.name as geoname, sd.freq, sd.data,
+    $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.themeid,
+      s.metadata as setmetadata, s.lastsetdt100k, s.firstsetdt100k,
+      s.src, s.url, s.units, s.userid, s.orgid, sd.geoid, alias.name as seriesname, sd.freq, sd.data,
       sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
         FROM sets s, setdata sd, sets alias, mapgeographies mg, maps m
         WHERE s.setid=sd.setid and alias.mastersetid =s.setid and alias.latlon=sd.latlon and  ($setFilter)
@@ -1911,8 +1913,8 @@ function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = fal
                 "themeid"=>$row["themeid"],
                 "setmetadata"=>$row["setmetadata"],
                 "settype"=>$row["settype"],
-                "firstdt"=>$row["firstdt100k"]*100000,
-                "lastdt"=>$row["lastdt100k"]*100000,
+                "firstdt"=>$row["firstsetdt100k"]*100000,
+                "lastdt"=>$row["lastsetdt100k"]*100000,
                 "data"=>[]
             ];
             $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
@@ -1922,7 +1924,7 @@ function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = fal
             "handle"=>"S$row[setid]$row[freq]G$row[geoid]L$row[latlon]",
             "geoid"=>$row["geoid"],
             "latlon"=>$row["latlon"],
-            "geoname"=>$row["geoname"],
+            "seriesname"=>$row["seriesname"],
             "data"=>$row["data"],
             "firstdt"=>$row["firstdt100k"]*100000,
             "lastdt"=>$row["lastdt100k"]*100000

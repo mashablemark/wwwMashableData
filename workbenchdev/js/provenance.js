@@ -56,14 +56,8 @@ function ProvenanceController(panelId){
                 + '</div>',
             legendEditor: '<div class="edit-block">'
                 + '<div class="map-mode edit-block">'
-                +   '<select class="map-mode">' +
-                +     '<option value="default">graph default</option>'
-                +     '{{mapModeOptions}}'
-                + '</select>'
-                //+    '<input type="radio" name="'+ panelId +'-{{id}}-map-mode" id="'+ panelId +'-{{id}}-map-mode-C" value="fill" data="mode" {{fill}} /><label for="'+ panelId +'-{{id}}-map-mode-C"><b>fill</b> (heat map)</label>'
-                //+    '<input type="radio" name="'+ panelId +'-{{id}}-map-mode" id="'+ panelId +'-{{id}}-map-mode-B" value="bubble" data="mode" {{bubbles}} /><label for="'+ panelId +'-{{id}}-map-mode-B"><b>bubbles</b> (mergable into regional sums)</label>'
-                //+    '<input type="radio" name="'+ panelId +'-{{id}}-map-mode" id="'+ panelId +'-{{id}}-map-mode-T" value="rectangles" data="mode" {{rectangles}} /><label for="'+ panelId +'-{{id}}-map-mode-T"><b>rectangles</b> (non-geographic vizualizaton)</label>'
-                + '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
+                +     '{{mapModeSelector}}'
+                 + '</div><span class="merge-formula ital">merge formula = &#931; numerator / &#931; denominator</span>'
                 + '<div class="radius"  style="display: none;">'
                 +    '<span class="edit-label radius-label">maximum {{markerType}} radius (pixels): </span><input class="radius-spinner" value="{{maxRadius}}" />'
                 + '</div>'
@@ -97,18 +91,19 @@ function ProvenanceController(panelId){
                 + '{{mapPlots}}{{pointPlots}}'
                 + '</div>',
             pointPlots: '<div class="pointsets"><h4>'+iconsHMTL.pointset+' mapped set of markers (defined latitude and longitude)</h4>'
-                // NO SIMPLE MARKERS = FINISH CURRENT FUNCTIONALITY !!!  + '<span class="edit-label marker-scaling right"><label><input type="checkbox" '+(provMapconfig.markerScaling=='none'?'checked':'')+'> do not scale markers </label></span>'
+                + '<div class="map-mode-conflict ui-state-error">Point markers will not be shown on maps with region displayed as: bubble, change bubble, treemap, period of minimum, or period of maximum.</div>'
                 + '<div class="pointsets-colors" style="margin-bottom:5px;"></div>'
                 + '<ol class="pointsets">{{pointPlotsHTML}}</ol></div>',
             pointPlot: '<li class="pointplot">'
                 + '<button class="edit-pointPlot right">configure</button>'
                 + '<div class="plot-info" style="display:inline-block;">'
                 + '<div class="marker" style="background-color: {{color}}"></div>'
-                + '<span class="plot-title">{{name}}</span> ({{readableFrequency) in <span class="plot-units">{{units}}</span>'
+                + '<span class="plot-title">{{name}}</span> ({{readableFrequency}}) in <span class="plot-units">{{units}}</span>'
                 + '<span class="plot-formula">= {{formula}}</span></div>'
                 + '{{components}}'
                 + '</li>',
-            mapModeOptions: '<option value="default">graph default ({{graphMapMode}})</option>'
+            mapModeSelector:'<select class="map-mode">'
+                + '<option value="default">graph default ({{graphMapMode}})</option>'
                 + '<option value="heat">'+globals.mapModes.heat+'</option>'
                 + '<option value="abs-change">'+globals.mapModes['abs-change']+'</option>'
                 + '<option value="percent-change">'+globals.mapModes['percent-change']+'</option>'
@@ -116,7 +111,8 @@ function ProvenanceController(panelId){
                 + '<option value="change-bubbles">'+globals.mapModes['change-bubbles']+'</option>'
                 + '<option value="correlation">'+globals.mapModes.correlation+'</option>'
                 + '<option value="treemap">'+globals.mapModes.treemap+'</option>'
-                + '<option value="change-treemap">'+globals.mapModes['change-treemap']+'</option>',
+                + '<option value="change-treemap">'+globals.mapModes['change-treemap']+'</option>'
+                + '</select>',
             mapPlots: '<div class="mapplots">'
                 + '<h4>' + iconsHMTL.mapset + ' Mapped set of geographical regions</h4>'
                 + '<ol class="mapplots">{{mapPlots}}</ol></div>'
@@ -160,13 +156,14 @@ function ProvenanceController(panelId){
                 + '<div class="edit-block"><input class="marker-color" type="text" data="color" value="{{color}}" /></div>'
                 + '<div class="edit-block">name: </span><input class="plot-name" type="text"  /></div>'
                 + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" /><span class="plot-edit-k"><input class="short" value="{{k}}"> </div><br>'
-                + '<span class="edit-label attribute">Values will change marker  </span>'
-                + '<div class="attribute">'
-                +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-r-'+panelId+'" data="attribute" value="r"/><label for="attribute-r-'+panelId+'">area</label>'
-                +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-fill-'+panelId+'" data="attribute" value="fill" /><label for="attribute-fill-'+panelId+'">color</label>'
-                + '</div>'
                 + '<span class="edit-label">Point calculations:</span>'
-                + snippets.compMathDiv,
+                + snippets.compMathDiv
+                + '<span class="edit-label attribute">Calculated value modifies each marker&rsquo;s </span>'
+                + '<div class="attribute">'
+                +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-r-'+panelId+'" data="attribute" value="r"/><label for="attribute-r-'+panelId+'">area by value</label>'
+                +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-r-change-'+panelId+'" data="attribute" value="r-change"/><label for="attribute-r-change-'+panelId+'">area by the changes over time</label>'
+                +   '<input type="radio" name="attribute-'+panelId+'" id="attribute-fill-'+panelId+'" data="attribute" value="fill" /><label for="attribute-fill-'+panelId+'">color by value</label>'
+                + '</div>',
             mapPlotEditor: '<div class="plot-editor" style="display: none;">{{mergeFormula}}'
                 + '<button class="plot-close prov-float-btn">close</button>'
                 + '<button class="plot-copy prov-float-btn">make copy</button>'
@@ -238,8 +235,8 @@ function ProvenanceController(panelId){
                             //outer PLOT loop
                             seriesPlotsHTLM += controller.seriesPlotHTML(i);
                         }
+                        allSeriesPlots =  mustache(templates.seriesPlots,{seriesPlots: seriesPlotsHTLM});
                     }
-                    allSeriesPlots =  mustache(templates.seriesPlots,{seriesPlots: seriesPlotsHTLM});
                     allMapPointPlots = controller.provenanceOfMap();  //
                     $prov.html(templates.okcancel + allSeriesPlots + templates.landing + allMapPointPlots);
                     //each mapPlot has its own legend
@@ -262,7 +259,7 @@ function ProvenanceController(panelId){
 
                     //main buttons
                     $prov.find("button.config-cancel")
-                        .button({icons: {secondary: 'ui-icon-close'}}).addClass('ui-state-highlight')
+                        .button({icons: {secondary: 'ui-icon-close'}})
                         .click(function(){
                             controller.provClose();
                         });
@@ -320,6 +317,7 @@ function ProvenanceController(panelId){
                         });
                         controller.showPointPlotEditor($liPlot);
                     });
+                checkMapModeConflict();
                 controller.sortableOn();
             },
             seriesPlotHTML:  function seriesPlotHTML(i){ //generic
@@ -874,11 +872,11 @@ function ProvenanceController(panelId){
                 );
                 //EVENTS
                 //text boxes
-                $editDiv.find("input.plot-name").val(oPlot.name()).change(function(){
+                $editDiv.find("input.plot-name").val(oPlot.name()).on('change keydown',function(){
                     $(this).val(oPlot.name(oPlot.name(false)!= $(this).val().trim()?$(this).val().trim():'')); //Plot.name() resets name to default name if empty string passed in
                     makeDirty();
                 });
-                $editDiv.find("input.plot-units").val(oPlot.units()).change(function(){
+                $editDiv.find("input.plot-units").val(oPlot.units()).on('change keydown',function(){
                     if(oPlot.units(true) != $(this).val() && $(this).val().trim()!='') {
                         oPlot.options.units = $(this).val();
                     } else {
@@ -1040,11 +1038,11 @@ function ProvenanceController(panelId){
 
 
                 //text boxes
-                $editDiv.find("input.plot-name").val(oPointset.name()).change(function(){
+                $editDiv.find("input.plot-name").val(oPointset.name()).on('change keydown',function(){
                     if(oPointset.name() != $(this).val().trim()) $(this).val(oPointset.name($(this).val()));  //Plot.name() resets name to default name if emprty string passed in
                     makeDirty();
                 });
-                $editDiv.find("input.plot-units").val(oPointset.units()).change(function(){
+                $editDiv.find("input.plot-units").val(oPointset.units()).on('change keydown',function(){
                     if(oPointset.units(true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
                     makeDirty();
                 });
@@ -1161,12 +1159,13 @@ function ProvenanceController(panelId){
                             pointPlotInnerHTML += mustache(templates.pointPlot, {
                                 color: pointPlot.options.color||'#000000',
                                 name: pointPlot.name(),
+                                units: pointPlot.units(),
                                 readableFrequency: controller.plotPeriodicity(pointPlot),
                                 formula: pointPlot.calculateFormula().formula,
                                 components: controller.componentsHTML(provPointPlots[ps])
                             });
                         }
-                        pointPlotsHTML = mustache(templates.pointPlots,{pointPlots: pointPlotsHTML});
+                        pointPlotsHTML = mustache(templates.pointPlots,{pointPlotsHTML: pointPlotInnerHTML});
                     }
 
                     mapProvHTML =  mustache(templates.mapProv, {
@@ -1376,11 +1375,11 @@ function ProvenanceController(panelId){
                 });
 
                 //sync
-                $editDiv.find("input.plot-name").val(oMapPlot.name()).change(function(){
+                $editDiv.find("input.plot-name").val(oMapPlot.name()).on('change keydown', function(){
                     controller.set(oMapPlot.options, $(this));  //oMapPlot.options.name = $(this).val();
                     $liMapPlot.find('span.plot-title').html(oMapPlot.name());
                 });
-                $editDiv.find("input.plot-units").val(oMapPlot.units()).change(function(){
+                $editDiv.find("input.plot-units").val(oMapPlot.units()).on('change keydown', function(){
                     controller.set(oMapPlot.options, $(this));  //oMapPlot.options.units = $(this).val();
                     $liMapPlot.find('span.plot-units').html(oMapPlot.units());
                 });
@@ -1409,7 +1408,7 @@ function ProvenanceController(panelId){
 
                 var $legend = $(mustache(templates.legendEditor, {
                     id: objCounter++,
-                    mapModeOptions: mustache(templates.mapModeOptions, {graphMapMode: globals.mapModes[provMapconfig.mapMode||'heat']}),
+                    mapModeSelector: type=='X'?'':mustache(templates.mapModeSelector, {graphMapMode: globals.mapModes[provMapconfig.mapMode||'heat']}),
                     markerType: (type=='X'?'marker':'bubble'),
                     maxRadius: options.attribute=='fill'?provMapconfig.fixedRadius||DEFAULT_RADIUS_FIXED:provMapconfig.maxRadius||DEFAULT_RADIUS_SCALE,
                     negColor: options.negColor||MAP_COLORS.NEG,
@@ -1421,6 +1420,8 @@ function ProvenanceController(panelId){
                         if(this.value=='default') delete options.mapMode; else options.mapMode= this.value;
                         if(options.mapMode=='bubble') options.merges = options.merges || [];  //bubble allows merges of maps
                         showHideMergeFormula();
+                        checkMapModeConflict();
+                        makeDirty();
                     });
                 showHideMergeFormula();
                 function showHideMergeFormula(){
@@ -1456,7 +1457,7 @@ function ProvenanceController(panelId){
                     .spinner({
                         min: 2,
                         max:200,
-                        change: function(event, ui){
+                        spin: function(event, ui){
                             if(type=='M' || options.attribute!='fill'){
                                 provMapconfig.maxRadius = $(this).val();
                             } else {
@@ -1661,6 +1662,22 @@ function ProvenanceController(panelId){
     function makeDirty(){
         controller.isDirty = true;
         $prov.find('.config-ok').button('enable');
+        $prov.find("button.config-cancel").addClass('ui-state-error')
+    }
+
+    function checkMapModeConflict(){
+        var $modeConflictWarning = $prov.find('.map-mode-conflict'),
+            conflict = false,
+            problemModes = 'min,max,bubbles,change-bubbles,treemap,change-treemap';
+        if(provMapPlots && provMapPlots.length  && provMapPlots && provMapPlots.length){
+            for(var p=0;p<provMapPlots.length;p++){
+                if(problemModes.indexOf(provMapPlots[p].mapMode())!=-1){
+                    conflict = true;
+                    break;
+                }
+            }
+        }
+        if(conflict) $modeConflictWarning.show(); else $modeConflictWarning.hide();
     }
     function continuousColorStrip(a, b){
         return mustache(templates.continuousColorStrip, {a: a, b: b});

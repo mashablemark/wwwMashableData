@@ -2885,7 +2885,7 @@ function nextDate(dt, period){ //return a Javascript date object
 
 function downloadMap(panelID, format){
     //format = 'image/jpeg';  //'application/pdf',
-    var svg = $('#'+ panelID + ' div.jvmap div').html();
+    var svg = $('#'+ panelID + ' div.mashabledata_jvmap div').html();
     svg = cleanMapSVG(svg);
     downloadMadeFile({
         type: format,
@@ -2908,7 +2908,7 @@ function cleanMapSVG(svg){
 
     svg = svg.replace(/<g><\/g>/gi, '');
     //svg = svg.replace(/<g [^>]+>/gi, '<g>');
-    svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+mapBackground+'"></rect><g');
+    svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+globals.mapBackground+'"></rect><g');
     // standard sanitize
     svg = svg
         .replace(/zIndex="[^"]+"/g, '')

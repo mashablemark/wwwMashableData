@@ -868,7 +868,7 @@ MashableData.grapher = function(){
                             '</table>' +
                             '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
                             '</div>' +
-                            '<button class="provenance ui-state-highlight">more configurations</button>' +
+                            '<button class="provenance">more configurations</button>' +
                             '<button class="resize">set size</button>' +
                             '</fieldset>' +
                             '</div>' +
@@ -1363,9 +1363,9 @@ MashableData.grapher = function(){
                 }
                 oGraph.isDirty = (!oGraph.gid); //initialize
                 if(!isEmbedded){
-                    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}}).button('disable')
+                    $thisPanel.find('button.graph-save').button({icons: {secondary: "ui-icon-disk"}, disabled: !oGraph.isDirty})
                         .click(_saveThisGraph);
-                    $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: (!oGraph.gid)})
+                    $thisPanel.find('button.graph-saveas').button({icons: {secondary: "ui-icon-copy"}, disabled: oGraph.isDirty})
                         .click(function(){
                             delete oGraph.gid;
                             graphTitle.show(this, _saveThisGraph);
@@ -1491,8 +1491,10 @@ MashableData.grapher = function(){
                     if(oGraph.map && (oGraph.mapsets||oGraph.pointsets)){
                         if($map) $map.remove();
                         //sizing routines moved to sizeShowPanels()
-                        console.time('buildGraphPanel:_drawMap:_calcMap');
+                        console.time('buildGraphPanel:_drawMap:_setMapTabs');
                         _setMapTabs();
+                        console.timeEnd('buildGraphPanel:_drawMap:_setMapTabs');
+                        console.time('buildGraphPanel:_drawMap:_calcMap');
                         calculatedMapData = _calcMap(oGraph, activeMapTab);  //also sets a oGraph.calculatedMapData reference to the calculatedMapData object
                         oGraph.calculatedMapData = calculatedMapData;
                         console.timeEnd('buildGraphPanel:_drawMap:_calcMap');
@@ -1699,10 +1701,13 @@ MashableData.grapher = function(){
                                 regionsSelectable: (typeof oGraph.mapsets != "undefined"),
                                 markers: calculatedMapData.markers,
                                 onMarkerTipShow: function(event, label, code){
-                                    var i, sparkData=[], dateKey = calculatedMapData.dates[val].s, containingDateData = _getMapDataByContainingDate(calculatedMapData.markerData, dateKey);
+                                    var i, sparkData=[], currentIndex, dateKey = calculatedMapData.dates[val].s, containingDateData = _getMapDataByContainingDate(calculatedMapData.markerData, dateKey);
                                     for(i=0;i<calculatedMapData.dates.length;i++){
                                         //show sparkline of radius data if exists; else fill data
-                                        if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') sparkData.push(calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f);
+                                        if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') {
+                                            sparkData.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f]);
+                                            if(i==val) currentIndex = sparkData.length-1;
+                                        }
                                     }
                                     if(containingDateData && containingDateData[code]){
                                         var html, y0, y = containingDateData[code].r;
@@ -1713,7 +1718,7 @@ MashableData.grapher = function(){
                                             }
                                             html = '<div>'+calculatedMapData.title+'<br><b>'+regionNames.join(' + ') + '</b> ';
                                         } else {
-                                            html = '<div><b>'+label.html()+':</b> ';
+                                            html = '<div><b>'+label.html()+':</b><br> ';
                                         }
                                         if(oGraph.mapsets && mapMode=='change-bubbbles'){
                                             var startDateKey = calculatedMapData.dates[calculatedMapData.startDateIndex].s
@@ -1727,12 +1732,29 @@ MashableData.grapher = function(){
                                             if(containingDateData[code].r) html += common.numberFormat(containingDateData[code].r, (parseInt(containingDateData[code].r)==containingDateData[code].r)?0:2) + " " + (calculatedMapData.radiusUnits||'')+'<br>';
                                             if(containingDateData[code].f) html += common.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
                                         }
-                                        html += '</div><span class="inlinesparkline" style="height: 30px;margin:0 5px;"></span>';
+                                        html += '</div><div class="inlinesparkline" style="height: 30px;width: '
+                                            + Math.min(400, 10*sparkData.length).toString() + 'px;margin:0 5px;"></div>';
                                         label.html(html).css("z-Index",400);
-                                        var sparkOptions = {height:"30px", valueSpots:{}, spotColor: false, minSpotColor:false, maxSpotColor:false, disableInteraction:true};
-                                        sparkOptions.valueSpots[y.toString()+':'+y.toString()] = 'red';
-                                        //TODO: replace jqSparkline with Flot as per onRegionTipShow
-                                        $('.inlinesparkline').sparkline(sparkData, sparkOptions);
+                                        var sparkOptions = {
+                                            grid: {show: false}
+                                        };
+                                        // main series
+                                        var series = [{
+                                            data: sparkData,
+                                            color: '#ddddff',
+                                            lines: {lineWidth: 0.8, fill: true},
+                                            shadowSize: 0
+                                        }];
+                                        if(sparkData.length<10) series.bars = {show: true};
+                                        // colour the current point red
+                                        if(typeof currentIndex != 'undefined'){
+                                            series.push({
+                                                data: [ sparkData[currentIndex] ],
+                                                points: {show: true, radius: 1, fillColor: '#ff0000'},
+                                                color: '#ff0000'
+                                            });
+                                        }
+                                        label.find('div.inlinesparkline').plot(series, sparkOptions);  // draw the sparkline
                                     }
                                 },
                                 onRegionClick: function(){
@@ -3129,11 +3151,14 @@ MashableData.grapher = function(){
                                 var compHandle = components[j].handle();
                                 //TODO: apply any series down-shifting here instead of just parroting series data
                                 if(compHandle[0] =='X'){
-                                    Xdata = graph.assets[components[j].handle()].data; //shortcut
+                                    Xdata = graph.assets[compHandle].data; //shortcut
                                     for(latlon in Xdata){
                                         //"markers" object and "latlons" array is common for all pointsets in graph
                                         if(!latlons[latlon]){
                                             latlons[latlon] = true;  //latlons will be used later to loop over the points and square up the final set (i.e. add nulls for missing values)
+                                        }
+                                        if(!Xdata[latlon].name){
+                                            Xdata[latlon].name = (Xdata[latlon].seriesname)?common.placeName(graph.assets[compHandle].setname, Xdata[latlon].seriesname):latlon;
                                         }
                                         if(markers[latlon]){
                                             markers[latlon].name += '<br>' + Xdata[latlon].name;
@@ -3155,7 +3180,7 @@ MashableData.grapher = function(){
                                         }
                                     }
                                 } else {
-                                    data = graph.assets[components[j].handle()].data.split('|');
+                                    data = graph.assets[compHandle].data.split('|');
                                     for(k=0; k<data.length; k++){
                                         point = data[k].split(':');
                                         if(!oComponentData[point[0].toString()]){
@@ -3173,7 +3198,7 @@ MashableData.grapher = function(){
                             var breakNulls = pointset.options.breaks=='nulls';
                             var breakMissing = pointset.options.breaks=='missing';
                             mapTitle = mapTitle + pointset.name();
-                            mapFreq = graph.assets[components[0].handle()].freq; //for now, all components must have same freq, so just check the first component
+                            mapFreq = graph.assets[compHandle].freq; //for now, all components must have same freq, so just check the first component
                             if(pointset.options.attribute=='fill'){
                                 fillUnits = pointset.units();
                             }else{
@@ -3316,7 +3341,7 @@ MashableData.grapher = function(){
                 function _calcAttributes(graph){
                     var i, y, firstDateKey, dateKey, geo, geos = {}, min, max, calcData = graph.calculatedMapData;
                     //if one of the change modes, must recalculate the min and maxes
-                    var mapMode = oGraph.mapsets[activeMapTab].mapMode();
+                    var mapMode = oGraph.mapsets && oGraph.mapsets[activeMapTab].mapMode();
                     var changeCalc = false;
                     switch(mapMode){
                         case 'abs-change':
@@ -3328,6 +3353,7 @@ MashableData.grapher = function(){
                             break;
                         default:
                     }
+
                     //1.  find start and end indexes
                     // also calculate regionMin and regionMax within the graph dates, if graph has mapsets
                     calcData.regionMin = Number.MAX_VALUE;

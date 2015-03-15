@@ -86,6 +86,9 @@ img, a{
 .ui-selected{
     background-color: orange !important;
 }
+.ui-state-active, .ui-widget-content .ui-state-active{  //selected radio buttons
+  font-weight: bold;
+}
 button.size-resize, button.size-reset{
   margin: 10px  ;
 }
@@ -448,10 +451,6 @@ div.configuration{
 }
 div.crop-tool fieldset{
   border-color: white;
-}
-button.provenance{
-  margin: 3px;
-  font-weight: bold;
 }
 div.graph-map-mode, div.graph-type, div.change-basemap, div.map-viz-select{
   padding: 5px 5px;
@@ -973,6 +972,9 @@ span.edit-label {
 .grid-calculated-column{
     font-style: italic;
 }
+.map-mode-conflict{
+    display: none;
+}
 .op-divide, .op-multiply, .op-addition, .op-subtraction {
     display: inline-block;
     background-image: url(/global/css/smoothness/images/ui-icons_2e83ff_256x240.png) !important;
@@ -980,6 +982,15 @@ span.edit-label {
 }
 div.op, div.edit-breaks {
     display: inline-block;
+}
+div.op .ui-state-active {
+  color: blue;
+}
+button.provenance, button.resize{
+  font-weight: bold !important;
+  border-color: cornflowerblue !important;
+  background: #f0ffff !important;
+  margin: 3px;
 }
 div.edit-math {
     display: inline-block;

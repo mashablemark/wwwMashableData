@@ -40,7 +40,7 @@ function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
     console.timeEnd('makeTreeMap calc');
     var $statBox = $('#MashableData_statBox');
     if(!$statBox.length){
-        $('body').append('<div id="MashableData_statBox" style="border:thin solid black;z-index:10000;display:none;position:absolute;"></div>');
+        $div.append('<div id="MashableData_statBox" style="border:thin solid black;z-index:10000;display:none;position:relative;"></div>');
         $statBox = $('#MashableData_statBox');
     }
     for(i=0;i<squarified.length;i++){

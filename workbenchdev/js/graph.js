@@ -288,11 +288,18 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 oGraph.gid = jsoData.gid; //has db id and should be in MyGraphs table...
                 oGraph.ghash = jsoData.ghash;
                 oGraph.isDirty = false;
-                var objForDataTable = $.extend({from: '', to: '', plottypes: ''}, oGraph);
+                var seriesList= [],
+                    seriesName,
+                    objForDataTable = $.extend({from: '', to: '', plottypes: '', serieslist: []}, oGraph);
                 objForDataTable.updatedt = new Date().getTime();
                 oGraph.eachPlot(function(){
                     objForDataTable.plottypes += this.type();
+                    this.eachComponent(function(){
+                        seriesName = this.name();
+                        if(seriesList.indexOf(seriesName )==-1) seriesList.push(seriesName);
+                    });
                 });
+                objForDataTable.serieslist = seriesList.join('; ');
                 if(('G' + oGraph.gid) in oMyGraphs){
                     var trMyGraph;
                     trMyGraph = $($dtMyGraphs).find('span.handle[data=G' + oGraph.gid + ']').closest('tr').get(0);
@@ -302,7 +309,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 }
 
                 oMyGraphs['G'+oGraph.gid]=objForDataTable;
-                panelGraphs[visiblePanelId()] =  oGraph;
+                panelGraphs[visiblePanelId()] = oGraph;
                 if(callback) callback();
             }
         );
