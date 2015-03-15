@@ -438,7 +438,7 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
         (
             select s2.setid, min(sd.firstdt100k) as firstsetdt100k, max(sd.lastdt100k) as lastsetdt100k
             from setdata sd join sets s2 on sd.setid=s2.mastersetid and s2.latlon = sd.latlon
-            where s2.mastersetid is not null and s2.latlon <>'' and ".($apiid == "all"?"":" and s2.apiid=$apiid").($themeid == "all"?"":" and s2.themeid=$themeid")."
+            where s2.mastersetid is not null and s2.latlon <>'' ".($apiid == "all"?"":" and s2.apiid=$apiid").($themeid == "all"?"":" and s2.themeid=$themeid")."
         ) minmax
         on minmax.setid = s.setid
         set s.firstsetdt100k = minmax.firstsetdt100k, s.lastsetdt100k=minmax.lastsetdt100k";
