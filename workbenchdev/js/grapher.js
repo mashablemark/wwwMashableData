@@ -19,7 +19,6 @@ MashableData.grapher = function(){
         op = globals.op,
         oMyGraphs = globals.MyGraphs,
         isIE = globals.isIE,
-        mapBackground = globals.mapBackground,
         graphScriptFiles = globals.graphScriptFiles,
         dateFromMdDate = common.dateFromMdDate,
         rationalize = common.rationalize,
@@ -1056,7 +1055,7 @@ MashableData.grapher = function(){
                         .click(function(){
                             var svg;
                             if(oGraph.mapsets||oGraph.pointsets){  //need check for IE<10 = isIE+ version check
-                                svg = cleanMapSVG($map.container.html());
+                                svg = cleanMapSVG($map.container.html(), oGraph.mapconfig.mapBackground||globals.mapBackground);
                             } else {
                                 annotations.sync();
                                 svg = oGraph.controls.chart.getSVG();
@@ -1579,7 +1578,7 @@ MashableData.grapher = function(){
                                 map: oGraph.mapFile,
                                 zoomMin: minScale,
                                 focusOn: mapFocus,
-                                backgroundColor: mapBackground,
+                                backgroundColor: oGraph.mapconfig.mapBackground||globals.mapBackground,
                                 zoomOnScroll: false,
                                 zoomAnimate: true,
                                 markersSelectable: true,

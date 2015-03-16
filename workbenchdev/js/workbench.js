@@ -2886,7 +2886,8 @@ function nextDate(dt, period){ //return a Javascript date object
 function downloadMap(panelID, format){
     //format = 'image/jpeg';  //'application/pdf',
     var svg = $('#'+ panelID + ' div.mashabledata_jvmap div').html();
-    svg = cleanMapSVG(svg);
+    var mapBackground = panelGraphs[panelID].mapconfig.mapBackground || globals.mapBackground;
+    svg = cleanMapSVG(svg, mapBackground);
     downloadMadeFile({
         type: format,
         filename: 'MashableDataMap',
@@ -2897,7 +2898,7 @@ function downloadMap(panelID, format){
 
 }
 
-function cleanMapSVG(svg){
+function cleanMapSVG(svg, mapBackground){
     //jvector map sanitize
     svg = svg.replace(/<div[^<]+<\/div>/gi, '');
     //svg = svg.replace(/ class="[^"]+"/gi, '');
@@ -2908,7 +2909,7 @@ function cleanMapSVG(svg){
 
     svg = svg.replace(/<g><\/g>/gi, '');
     //svg = svg.replace(/<g [^>]+>/gi, '<g>');
-    svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+globals.mapBackground+'"></rect><g');
+    svg = svg.replace(/<g/,'<rect x="0" y="0" width="100%" height="100%" fill="'+mapBackground+'"></rect><g');
     // standard sanitize
     svg = svg
         .replace(/zIndex="[^"]+"/g, '')
