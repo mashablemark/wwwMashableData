@@ -760,9 +760,10 @@ switch($command){
         }
         break;
     case 'GetBunnySeries':
-        $mapsetids = $_POST["mapsetids"];
+        $setids = $_POST["setids"];
+        $freq = safeSQLFromPost("freq");
         if(!isset($_POST["geoid"]) || intval($_POST["geoid"])==0){
-            $sql = "select bunny from maps where name = " . safeSQLFromPost("mapname");
+            $sql = "select bunny from maps where map = " . safeSQLFromPost("map");
             $result = runQuery($sql,"GetBunnySeries map");
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
@@ -774,28 +775,29 @@ switch($command){
             $geoid = intval($_POST["geoid"]);
         }
         $output = array("status"=>"ok", "allfound"=>true, "assets"=>array());
-        for($i=0;$i<count($mapsetids);$i++){
-            $sql = "SELECT s.name, s.mapsetid, s.pointsetid, s.notes, s.skey, s.setid as id, lat, lon, geoid,  s.userid, "
-                . "s.title as graph, s.src, s.url, s.units, s.data, freq as freq, 'S' as save, 'datetime' as type, firstdt, "
-                . "lastdt, hash as datahash "
-                . " FROM series s "
-                . " where mapsetid = " . intval($mapsetids[$i]) . " and pointsetid is null and geoid = " . $geoid;
+        for($i=0;$i<count($setids);$i++){
+            $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, g.name as geoname,
+                s.metadata as setmetadata, s.themeid, sd.latlon, sd.geoid,  s.userid,
+                s.titles as categories, s.src, s.url, s.units, sd.data, freq, firstdt100k*100*1000 as firstdt,
+                lastdt100k*100*1000 as lastdt, coalesce(s.src, a.name) as src,
+                coalesce(sd.url, s.url, a.url) as url, coalesce(sd.skey, s.setkey) as sourcekey,
+                s.maps as maps, s.freqs as freqs
+                FROM sets s join setdata sd on s.setid=sd.setid join geographies g on sd.geoid=g.geoid left outer join apis a on s.apiid=a.apiid
+                where sd.geoid = $geoid and sd.latlon ='' and sd.freq = $freq and s.setid = " . intval($setids[$i]);
             $result = runQuery($sql,"GetBunnySeries");
             if($result->num_rows==1){
                 $row = $result->fetch_assoc();
                 if(intval($row["userid"])>0){
                     requiresLogin();
                     if(intval($_POST["uid"])==$row["userid"] || ($orgId==$row["ordig"] &&  $orgId!=0)){
-                        $row["handle"] = "U".$row["id"];
-                        $output["assets"]["M".$mapsetids[$i]] = $row;
+                        $output["assets"]["M".$setids[$i]] = $row;
                     } else {
                         $output["allfound"]=false;
                         $output["assets"]=false; //no need to transmit series as it will not be used
                         break;
                     }
                 } else {
-                    $row["handle"] = "S".$row["id"];
-                    $output["assets"]["M".$mapsetids[$i]] = $row;
+                    $output["assets"]["M".$setids[$i]] = $row;
                 }
             } else {
                 $output["allfound"]=false;

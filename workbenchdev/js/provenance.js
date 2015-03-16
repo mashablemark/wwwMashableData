@@ -88,6 +88,7 @@ function ProvenanceController(panelId){
                 + '</li>',
             landing:  '<ol class="components landing" style="list-style-type: none;"><li class="not-sortable">Drag plot to reorder them.  Drag multiple data series into a single plot to create sums and ratios. Drag a data series here to create a new plot line.</i></li></ol></div>',
             mapProv: '<div class="map-prov"><h3>Map of {{map}}</h3>'
+                + '<div class="map-background right">Map background color: <input class="map-background" type="text" data="color" value="{{mapBackground}}" /></div>'
                 + '{{mapPlots}}{{pointPlots}}'
                 + '</div>',
             pointPlots: '<div class="pointsets"><h4>'+iconsHMTL.pointset+' mapped set of markers (defined latitude and longitude)</h4>'
@@ -181,7 +182,6 @@ function ProvenanceController(panelId){
                 + '<span class="comp-edit-k" style="display:none;"><input class="short" value="{{k}}"> * </span>'
                 + '{{icon}}{{name}} ({{freq}}) in {{units}} {{source}}'
                 + '</li>',
-
             cube: '<div class="cube">'
                 + '<button class="edit right">edit</button>'
                 + '<button class="close cube-edit right hidden">close</button>'
@@ -212,7 +212,7 @@ function ProvenanceController(panelId){
             build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
                 var i, allSeriesPlots='', allMapPointPlots, plot;
                 if(typeof plotIndex != 'undefined'){  //update single plot
-                    if($prov.find('.chart-plots').length==0) $prov.find('.config-cancel').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div');
+                    if($prov.find('.chart-plots').length==0) $prov.find('.config-ok').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div');
                     $prov.find('ol.plots').append(controller.seriesPlotHTML(plotIndex) );
                 } else {  //initialize!!!
                     $panel = $('#'+panelId);
@@ -267,6 +267,12 @@ function ProvenanceController(panelId){
                         .button({disabled: true, icons: {secondary: 'ui-icon-check'}})
                         .click(function(){
                             controller.commitChanges()
+                        });
+                    $prov.find("input.map-background")
+                        .colorPicker()
+                        .change(function(){
+                            provMapconfig.mapBackground = $(this).val();
+                            makeDirty();
                         });
 
                     controller.cubeEditor();
@@ -1169,6 +1175,7 @@ function ProvenanceController(panelId){
                     }
 
                     mapProvHTML =  mustache(templates.mapProv, {
+                        mapBackground: provMapconfig.mapBackground || globals.mapBackground,
                         map:  globals.maps[panelGraph.map].name,
                         mapPlots: mapPlotsHTML,
                         pointPlots: pointPlotsHTML
@@ -1267,30 +1274,28 @@ function ProvenanceController(panelId){
                     if(val=="add"){
                         var i, handle, setids=[];
                         oMapPlot.eachComponent(function(){
-                            if(this.type()=='M')  setids.push(this.setid);
+                            if(this.isMapSet())  setids.push(this.setid);
                         });
                         //TODO: rationalize this with grapher bunny routines into Graph object.
                         callApi(
-                            {command: 'GetBunnySeries', setids: setids, geoid: parseInt(globals.maps[panelGraph.map].bunny), mapname: panelGraph.map},
+                            {command: 'GetBunnySeries', setids: setids, freq: oMapPlot.freq(), geoid: parseInt(globals.maps[panelGraph.map].bunny), map: panelGraph.map},
                             function (oReturn, textStatus, jqXH) {
                                 if(oReturn.allfound){
                                     for(handle in oReturn.assets){ //the handle being looped over in the mappset handle
                                         panelGraph.assets[oReturn.assets[handle].handle] = oReturn.assets[handle];
                                     }
-                                    var bunnyPlot = {options:{k: mapset.options.k||1, units: mapset.options.units}, components: []};
-                                    for(i=0;i<mapset.components.length;i++){
-                                        if(mapset.components[i].handle[0]=='M'){
-                                            handle = oReturn.assets[mapset.components[i].handle].handle;
+                                    var bunnyPlot = {options:{k: oMapPlot.options.k||1, units: oMapPlot.options.units}, components: []};
+                                    for(i=0;i<oMapPlot.components.length;i++){
+                                        if(oMapPlot.components[i].isMapSet()){
+                                            bunnyPlot.components.push(
+                                                new MD.Component(oReturn.assets['M'+oMapPlot.components[i].setid], {
+                                                    k: oMapPlot.components[i].k||1,
+                                                    op: oMapPlot.components[i].op||'+'
+                                                })
+                                            );
                                         } else {
-                                            handle = mapset.components[i].handle;
+                                            bunnyPlot.components.push(oMapPlot.components[i].clone());
                                         }
-                                        bunnyPlot.components.push({
-                                            handle: handle,
-                                            options: {
-                                                k: mapset.components[i].k||1,
-                                                op: mapset.components[i].op||'+'
-                                            }
-                                        });
                                     }
                                     //check to see if this already exists
                                     var p, plots = provPlots, bunnyExists = false;
@@ -1312,13 +1317,14 @@ function ProvenanceController(panelId){
                                         }
                                     }
                                     if(!bunnyExists){
-                                        provPlots.push(bunnyPlot);
-                                        controller.build(p); //p set correctly to length of plots before the above push
+                                        if(!provPlots) provPlots = [];
+                                        provPlots.push(new MD.Plot(bunnyPlot.components, bunnyPlot.options));
+                                        controller.build(provPlots.length-1); //p set correctly to length of plots before the above push
+                                        makeDirty();
                                     }
                                 } else {
                                     dialogShow('unable to automatically create tracking plot','One or more of the component map sets does not have series for '+ panelGraph.map +' level of aggregation.');
                                 }
-                                makeDirty();
                             });
                     } else {
                         if(val=="-1"){
@@ -1415,7 +1421,7 @@ function ProvenanceController(panelId){
                     continuousColorScale: continuousColorScale(options),
                     posColor: options.posColor||MAP_COLORS.POS
                 }));
-                $legend.find('select.map-mode').val(options.mode || 'default')
+                $legend.find('select.map-mode').val(options.mapMode || 'default')
                     .change(function(){  //default mode is fill (i.e. not bubble)
                         if(this.value=='default') delete options.mapMode; else options.mapMode= this.value;
                         if(options.mapMode=='bubble') options.merges = options.merges || [];  //bubble allows merges of maps
