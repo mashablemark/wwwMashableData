@@ -15,6 +15,7 @@ $SUBSCRIPTION_MONTHS = 6;  //this will be reduced to 3 1 year after launch
 $MAIL_HEADER = "From: admin@mashabledata.com\r\n"
  . "Reply-To: admin@mashabledata.com\r\n"
  . "Return-Path: sender@mashabledata.com\r\n";
+$MAX_SERIES_POINTS = 20000;  //do not save ridiculously long series in full
 
 //helper functions
 function runQuery($sql, $log_name = 'sql logging'){
@@ -23,8 +24,9 @@ function runQuery($sql, $log_name = 'sql logging'){
         logEvent($log_name, $sql);
     }
     $result = $db->query($sql);
-    if($result===false){
-        logEvent('bad query', $sql);
+    if($result==false){
+        logEvent('bad query', substr($sql,0,2000));
+        die('bad query: '.$sql);
     }
     return $result;
 }
@@ -542,6 +544,10 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         if(strtolower($themeid)!='null') $sql .= " and themeid = $themeid";
     }
     $result = runQuery($sql, "getSet select");
+    if(!$result) {
+        print($result);
+        print("<br>".$sql."<br>");
+    }
     if($result->num_rows==1){
         $row = $result->fetch_assoc();
         if($row["name"]!=$name || $row["apidt"]!=$apidt || $row["units"]!=$units || $row["latlon"]!=$latlon
@@ -597,15 +603,19 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
 }
 
 function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
+    global $MAX_SERIES_POINTS;  //very large string (>500KB) data strings can cause the MySql connection object to lose its mind.  Therefore, limit the length and avoid "on duplicate key" syntax which double SQL length
     if(!$apidt) $apidt =  date("Ymd");
     sort($arrayData);
-
+    $pointCount = count($arrayData);
+    if($pointCount>$MAX_SERIES_POINTS) $arrayData = array_slice($arrayData, $pointCount-$MAX_SERIES_POINTS);
     $firstPoint = explode(":", $arrayData[0]);
     $lastPoint = explode(":", $arrayData[count($arrayData)-1]);
     $firstDate100k = unixDateFromMd($firstPoint[0])/100;
     $lastDate100k = unixDateFromMd($lastPoint[0])/100;
     $data = implode("|", $arrayData);
-    if($key && $apiid){ //if source or set key is given, that is used over the setid
+
+    $skip = false;  //change to true if exists with same key and matching data
+    if($key && $apiid){ //if source or set key is given, ensure the setdata record's setid and latlon match $setid and $latlon; else clear it and reinsert it
         $result = runQuery("select sd.setid, sd.freq, sd.geoid, sd.latlon, sd.data
         from setdata sd join sets s on sd.setid=s.setid
         where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.freq='$freq' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
@@ -613,26 +623,36 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid
         $result = runQuery("select data from setdata where setid=$setid and freq='$freq' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
     }
     if($result->num_rows==0){
+        $insert = true;
         $status["added"]++;
     } else {
         $setData = $result->fetch_assoc();
-        if($setData["data"]==$data){
-            //printNow("skipping setid: $setid, geoid:$geoid");
-            $status["skipped"]++;
-        } else {
-            //printNow("updating setid: $setid, geoid:$geoid");
-            $status["updated"]++;
-        }
         if($key && ($setData["setid"]!=$setid || $setData["freq"]!=$freq || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
             //in the off chance that the identifying data for source key (such as latlon) has been updated, delete record and reinsert below
-            runQuery("delete from setdata where setid='$setData[setid]' and freq='$setData[freq]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
+            runQuery("delete from setdata where setid=$setData[setid] and freq='$setData[freq]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
+            $insert = true;
+        } else {
+            $insert = false;
+        }
+        if($setData["data"]==$data){
+            $status["skipped"]++;
+            $skip = true;
+        } else {
+            $status["updated"]++;
         }
     }
-
-    $sql = "insert into setdata (setid, freq, geoid, latlon,".($metadata===false?"":"metadata,")." data, firstdt100k, lastdt100k, apidt, skey)"
-        ." values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")"
-        ." on duplicate key update firstdt100k=$firstDate100k, lastdt100k=$lastDate100k, data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key));
-    return runQuery($sql, $logAs);
+    if($skip){
+        return 0;
+    } else {
+        if($insert){  //note: avoid "insert on duplicate key" syntax as the connection can loose its mind!
+            $sql = "insert into setdata (setid, freq, geoid, latlon,".($metadata===false?"":"metadata,")." data, firstdt100k, lastdt100k, apidt, skey)
+                values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")";
+        } else {
+            $sql = "update setdata set firstdt100k=$firstDate100k, lastdt100k=$lastDate100k, data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key))
+            . " where setid=$setid and freq='$freq' and geoid=$geoid and latlon= '$latlon'";
+        }
+        return runQuery($sql, $logAs);
+    }
 }
 
 function updateSetdataMetadata($setid, $freq, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){

@@ -287,6 +287,7 @@ class FredList
         $this->dupFile = false;
 
         if($debug) printNow("preprocessed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
+
         preprint($this->geoSetConflicts);
 
         //save $this->sets to database
