@@ -444,9 +444,9 @@ MashableData.grapher = function(){
                         zIndex: 10,
                         marker: {
                             enabled: true,
-                            radius: 4,
+                            radius: 5,
                             symbol: 'circle',
-                            //fillColor: '#FFFFFF',
+                            fillColor: '#FFFFFF',
                             //lineColor: null,
                             states: {
                                 hover: {
@@ -455,6 +455,7 @@ MashableData.grapher = function(){
                             }
                         },
                         shadow: false,
+                        states: { hover: {lineWidthPlus: 1}},
                         dataLabels:{
                             align: 'center',
                             enabled:true,
@@ -464,8 +465,8 @@ MashableData.grapher = function(){
                                     return this.point.id;
                                 }
                             },
-                            y:9,
-                            x:0
+                            y:11,
+                            x:-1
                         }
                     }
                 },
@@ -544,7 +545,10 @@ MashableData.grapher = function(){
                 if(oPlot.options.type){
                     if(oPlot.options.type!='default') oDataSeries.type = oPlot.options.type;
                 }
-                if(oPlot.options.lineWidth) oDataSeries.lineWidth = oPlot.options.lineWidth;
+                if(oPlot.options.lineWidth) {
+                    oDataSeries.lineWidth = oPlot.options.lineWidth;
+                    oDataSeries.states = {hover: {lineWidth: parseInt(oPlot.options.lineWidth)+2}};
+                }
                 if(oPlot.options.lineStyle) oDataSeries.dashStyle  = oPlot.options.lineStyle;
                 if(oGraph.type=='area' || oDataSeries.stack=='area'){
                     oDataSeries.stack = oSerie.units; //TODO: (1) convert units
@@ -928,7 +932,7 @@ MashableData.grapher = function(){
                             '</div>' +
                             '</div>' +
                             '</div>' +
-                            '<div height="75px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
+                            '<div height="30px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
                             '</div>' +
                             '</div>'
                     //'</div>';
@@ -949,59 +953,71 @@ MashableData.grapher = function(){
                         $thisPanel.find('div.graph-chart').hide();
                     });
                     //RESIZABLE
-                    $thisPanel.find('button.resize').button({icons: {secondary: "ui-icon-arrow-4-diag"}}).click(function(){
-                        $thisPanel.find('div.graph_control_panel').hide();
-                        $thisPanel.find('div.resize').show();
-                        $thisPanel.find('.mashabledata_chart, .mashabledata_cube-viz, .mashabledata_jvmap').resizable({
-                            helper: 'ui-resizable-helper',
-                            resize: function( event, ui ){},
-                            stop: function( event, ui){
-                                var $container, $chart, $viz, viz, $map, map, deltaWidth;
-                                $container = $thisPanel.find('.mashabledata_chart-map');
-                                $chart = $thisPanel.find('.mashabledata_chart');
-                                $viz = $thisPanel.find('.mashabledata_cube-viz');
-                                $map = $thisPanel.find('.mashabledata_jvmap');
-                                if(ui.originalElement.hasClass('mashabledata_chart')){
-                                    viz = $viz.is(':visible')?1:0;
-                                    map = $map.is(':visible')?1:0;
-                                    deltaWidth = ui.size.width-ui.originalSize.width;
-                                    if(viz)$viz.width($viz.width()+deltaWidth/(viz+map));
-                                    if(map)$map.width($map.width()+deltaWidth/(viz+map));
-                                    $container.width($container.width()+deltaWidth);
-                                    if(!oGraph.mapconfig.sizes) oGraph.mapconfig.sizes = {};
-                                }
-                                if(ui.originalElement.hasClass('mashabledata_cube-viz')){
-                                    $container.width($container.width()+ui.size.width-ui.originalSize.width);
-                                    $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
-                                }
-                                if(ui.originalElement.hasClass('mashabledata_jvmap')){
-                                    $container.width($container.width()+ui.size.width-ui.originalSize.width);
-                                    $thisPanel.find('.mashabledata_chart').width($container.width());
-                                    $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
-                                }
-                                oGraph.mapconfig.sizes = {};
-                                if($chart.width()){
-                                    oGraph.mapconfig.sizes.chart = {
-                                        height: $chart.height(),
-                                        width: $chart.width()
-                                    };
-                                }
-                                if($map.width()){
-                                    oGraph.mapconfig.sizes.map = {
-                                        height: $map.height(),
-                                        width: $map.width()
-                                    };
-                                }
-                                if($viz.width()){
-                                    oGraph.mapconfig.sizes.viz = {
-                                        height: $viz.height(),
-                                        width: $viz.width()
-                                    };
-                                }
-                                _redraw();
+                    $thisPanel.find('button.resize')
+                        .button({icons: {secondary: "ui-icon-arrow-4-diag"}})
+                        .click(function(){
+                            _makeDirty();
+                            if(oGraph.controls.map) oGraph.controls.map.remove();
+                            if(oGraph.controls.chart){
+                                oGraph.controls.chart.destroy();
+                                delete oGraph.controls.chart;
+                                $thisPanel.find('.mashabledata_chart').css('background-color','grey');
                             }
+                            $thisPanel.find('div.graph_control_panel').hide();
+                            $thisPanel.find('div.resize').show();
+                            $thisPanel.find('.mashabledata_chart, .mashabledata_cube-viz, .mashabledata_jvmap').resizable({
+                                helper: 'ui-resizable-helper',
+                                resize: function( event, ui ){},
+                                stop: function( event, ui){
+                                    var $container, $chart, $viz, viz, $map, map, deltaWidth;
+                                    $container = $thisPanel.find('.mashabledata_chart-map');
+                                    $chart = $thisPanel.find('.mashabledata_chart');
+                                    $viz = $thisPanel.find('.mashabledata_cube-viz');
+                                    $map = $thisPanel.find('.mashabledata_jvmap');
+                                    if(ui.originalElement.hasClass('mashabledata_chart')){
+                                        viz = $viz.is(':visible')?1:0;
+                                        map = $map.is(':visible')?1:0;
+                                        deltaWidth = ui.size.width-ui.originalSize.width;
+                                        if(viz)$viz.width($viz.width()+deltaWidth/(viz+map));
+                                        if(map)$map.width($map.width()+deltaWidth/(viz+map));
+                                        $container.width($container.width()+deltaWidth);
+                                        if(!oGraph.mapconfig.sizes) oGraph.mapconfig.sizes = {};
+                                    }
+                                    if(ui.originalElement.hasClass('mashabledata_cube-viz')){
+                                        $container.width($container.width()+ui.size.width-ui.originalSize.width);
+                                        $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width($container.width()-ui.size.width-10);
+                                    }
+                                    if(ui.originalElement.hasClass('mashabledata_jvmap')){
+                                        $container.width($container.width()+ui.size.width-ui.originalSize.width);
+                                        if(oGraph.plots && oGraph.hasMapViz()) $thisPanel.find('.mashabledata_chart').width($container.width());
+                                        $thisPanel.find('.mashabledata_jvmap').height(ui.size.height).width(ui.size.width);
+                                        if(oGraph.hasMapViz()) $viz.height(ui.size.height).width($viz.width()-ui.size.width+ui.originalSize.width)
+                                    }
+                                    oGraph.mapconfig.sizes = {};
+                                    if($chart.width() && $chart.height() && oGraph.plots){
+                                        oGraph.mapconfig.sizes.chart = {
+                                            height: $chart.height(),
+                                            width: $chart.width()
+                                        };
+                                    }
+                                    if($map.width() && $map.height() && (oGraph.pointsets||oGraph.mapsets)){
+                                        oGraph.mapconfig.sizes.map = {
+                                            height: $map.height(),
+                                            width: $map.width()
+                                        };
+                                    }
+                                    if($viz.width() && $viz.height() && oGraph.hasMapViz()){
+                                        oGraph.mapconfig.sizes.viz = {
+                                            height: $viz.height(),
+                                            width: $viz.width()
+                                        };
+                                    }
+                                    _redraw();
+
+                                }
+                            });
                         });
-                    });
+
                     $thisPanel.find('button.size_reset').button().click(function(){
                         delete oGraph.mapconfig.sizes;
                         _endResize();
@@ -1278,11 +1294,12 @@ MashableData.grapher = function(){
                     // *** crop routine end ***
                     //the annotations height must be set after the jQuery UI changes to buttons, spinners, ...
                     $thisPanel.find('div.annotations fieldset').height(
-                        innerHeight //from graph subpanel
+                        $thisPanel.innerHeight() //from graph subpanel
                             - $thisPanel.find('div.configuration').outerHeight()
                             - $thisPanel.find('div.downloads').outerHeight()
                             - $thisPanel.find('div.sharing').outerHeight()
                             - 50 //save close buttons
+                            - 30 //notes / analysis
                     );
                     $thisPanel.find('input.graph-publish')
                         .change(function(){
@@ -1382,8 +1399,15 @@ MashableData.grapher = function(){
                                         text: 'Delete',
                                         id: 'btn-dia-enable',
                                         click: function() {
-                                            oGraph.deleteGraph();
-                                            $('#canvas a[href="#'+visiblePanelId()+'"]').closest('li').find('span').click();
+                                            oGraph.deleteGraph(function(jsoData){
+                                                if(jsoData){
+                                                    $('#canvas a[href="#'+visiblePanelId()+'"]').closest('li').find('span').click();
+                                                    var $trMyGraph = $dtMyGraphs.find("td.title span.handle[data='G" + oGraph.gid + "']").closest('tr');
+                                                    if($trMyGraph.length==1){
+                                                        $dtMyGraphs.fnDeleteRow($trMyGraph.get(0));
+                                                    }
+                                                }
+                                            });
                                             $(this).dialog('close');
                                         }
                                     },
@@ -1939,7 +1963,12 @@ MashableData.grapher = function(){
                                     }
                                 }
                                 if(popGraph.plots && popGraph.plots.length) {
-                                    if(isEmbedded) MD.plugin.popGraph(popGraph); else quickGraph(popGraph, true);
+                                    if(isEmbedded) {
+                                        MD.plugin.popGraph(popGraph);
+                                    } else {
+                                        $('#quick-view-select-viz').val('none').hide();
+                                        quickGraph(popGraph, oGraph.map, true);
+                                    }
                                 } else {
                                     $thisPanel.find('.mashabledata_make-map').click();
                                 }
@@ -2887,8 +2916,8 @@ MashableData.grapher = function(){
                             }
                         }
                         if(oGraph.mapsets && !_drawMap_isBubble()){
-                            hcr.text(oGraph.mapsets[activeMapTab].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
-                            if(oGraph.mapsets[activeMapTab].options.scale!='discrete' && oGraph.mapsets[activeMapTab].options.logMode == 'on') hcr.text('logarymic scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
+                            //hcr.text(oGraph.mapsets[activeMapTab].units().substr(0,25), xOffset+spacer, yOffset  + lineHeight + textCenterFudge).css({fontSize: '12px'}).add();
+                            if(oGraph.mapsets[activeMapTab].options.scale!='discrete' && oGraph.mapsets[activeMapTab].options.logMode == 'on') hcr.text('log scale', xOffset+spacer, yOffset  + 2*lineHeight).css({fontSize: '12px'}).add();
                             if(oGraph.mapsets[activeMapTab].options.scale == 'discrete'){
                                 for(i=0;i<oGraph.mapsets[activeMapTab].options.discreteColors.length;i++){
                                     y = spacer + (oGraph.mapsets[activeMapTab].options.discreteColors.length-i)*(spacer+20);
@@ -4092,18 +4121,20 @@ MashableData.grapher = function(){
         }
         return null;
     }
-    function sizeShowPanels(graph){ //also shows/hides panels based on graph
-//chart map viz .height .width
+    function sizeShowPanels(graph){ //shows/hides panels and ressizes them based on graph
         if(!graph.controls) return;  // must be an instantiated graph
-        var hasChart = (graph.plots!=null), hasMapViz = graph.hasMapViz(), hasMap = graph.mapsets||graph.pointsets != null, sizes = graph.mapconfig.sizes;
-        var $container, $chart, $anno, $viz, $mapTitle, $map, $jvmap, $thisPanel = graph.controls.$thisPanel;
-        $container = $thisPanel.find('.mashabledata_chart-map');
-        $chart = $thisPanel.find('.mashabledata_chart');
-        $anno = $thisPanel.find('div.annotations');
-        $map = $thisPanel.find('.mashabledata_map'); //contains both _jvmap and _cube-viz
-        $jvmap = $thisPanel.find('.mashabledata_jvmap');
-        $viz = $thisPanel.find('.mashabledata_cube-viz');
-        $mapTitle = $thisPanel.find('h3.mashabledata_map-title');  //the replace title is no main HighChart to show the title
+        var hasChart = (graph.plots!=null),
+            hasMapViz = graph.hasMapViz(),
+            hasMap = graph.mapsets||graph.pointsets != null,
+            sizes = graph.mapconfig.sizes,
+            $thisPanel = graph.controls.$thisPanel,
+            $container = $thisPanel.find('.mashabledata_chart-map'),
+            $chart = $thisPanel.find('.mashabledata_chart'),
+            $anno = $thisPanel.find('div.annotations'),
+            $viz = $thisPanel.find('.mashabledata_cube-viz'),
+            $mapTitle = $thisPanel.find('h3.mashabledata_map-title'),  //the replace title is no main HighChart to show the title
+            $mapAndVizContainer = $thisPanel.find('.mashabledata_map'), //contains both _jvmap and _cube-viz
+            $jvmap = $thisPanel.find('.mashabledata_jvmap');
         //show / hide the panels
         if(hasChart) {
             $chart.show();
@@ -4133,9 +4164,9 @@ MashableData.grapher = function(){
             }
         }
         if(hasMap || hasMapViz){
-            $map.show();
+            $mapAndVizContainer.show();
         } else {
-            $map.hide();
+            $mapAndVizContainer.hide();
         }
         //if panels have been added or removed that are not accounted for in mapconfig.sizes, revert to default sizing
         if(sizes && (_xor(sizes.chart, hasChart) || _xor(sizes.map, hasMap) ||_xor(sizes.viz, hasMapViz))){
@@ -4145,9 +4176,7 @@ MashableData.grapher = function(){
         if(sizes){ //
             if(hasChart) $chart.width(sizes.chart.width).height(sizes.chart.height);
             if(hasMap) $jvmap.width(sizes.map.width).height(sizes.map.height);
-            if(hasMapViz) {
-                $viz.width(sizes.viz.width).height(sizes.viz.height);
-            }
+            if(hasMapViz) $viz.width(sizes.viz.width).height(sizes.viz.height);
         } else {
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             var mapHeight = ($thisPanel.height()-85-(graph.plots?0:55)) * ((graph.plots)?0.6:1) + 'px';  //60%/40% split between chart height and map height
@@ -4160,7 +4189,8 @@ MashableData.grapher = function(){
             if(hasMap) $jvmap.height(mapHeight);
             if(hasChart) {
                 var plotHeight = (($thisPanel.height()-70 - (hasMap&&graph.mapsets&&graph.mapsets.length>1?70:0)) * ((hasMap||hasMapViz)?0.4:1)) + 'px';  //60%/40% split between chart height and map height
-                $chart.height(plotHeight);
+                $chart.removeAttr("style").height(plotHeight); //allow is to conform to div
+
             } //leave space for analysis textarea
             //panel sizing:  sub-panel reduce for thin border and possible scrolling
             $thisPanel.find('.graph-subpanel').width($thisPanel.width()-35-2).height($thisPanel.height());

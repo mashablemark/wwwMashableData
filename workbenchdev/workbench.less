@@ -996,6 +996,11 @@ span.edit-label {
     background-image: url(/global/css/smoothness/images/ui-icons_2e83ff_256x240.png) !important;
     text-indent: -99999px;
 }
+.op-divide {background-position: -96px -208px;} /*for now: ui-icon-arrowthick-2-ne-sw.  */
+.op-multiply {background-position: -96px -128px;}    /*ui-icon-closethick*/
+.op-addition {background-position: -32px -128px;}   /*ui-icon-plusthick*/
+.op-subtraction {background-position: -64px -128px;}  /*ui-icon-minusthick*/
+
 div.op, div.edit-breaks {
     display: inline-block;
 }
@@ -1012,11 +1017,6 @@ div.edit-math {
     display: inline-block;
     padding-right: 15px;
 }
-.op-divide {background-position: -96px -208px;} /*for now: ui-icon-arrowthick-2-ne-sw.  */
-.op-multiply {background-position: -96px -128px;}    /*ui-icon-closethick*/
-.op-addition {background-position: -32px -128px;}   /*ui-icon-plusthick*/
-.op-subtraction {background-position: -64px -128px;}  /*ui-icon-minusthick*/
-
 label.ui-state-default:not(.ui-state-active){
     color: #808080;
 }
@@ -1360,6 +1360,12 @@ div.annotations fieldset{
 
 table.annotations{
     border-spacing: 0;
+}
+table.annotations .ui-icon-trash{
+  cursor: pointer;
+}
+table.annotations .ui-icon-trash:hover{
+  background-image: url(/global/css/smoothness/images/ui-icons_cd0a0a_256x240.png);
 }
 .context-menu-item.disabled {
     color: #888;

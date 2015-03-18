@@ -98,6 +98,8 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         clone.mapconfig = $.extend(true, {}, thisGraph.mapconfig);
         clone.title = thisGraph.title;
         clone.type = thisGraph.type;
+        clone.cubeid = thisGraph.cubeid;
+        clone.intervals = thisGraph.intervals;
         clone.analysis = thisGraph.analysis;
         clone.annotations = $.extend(true, {}, {a: thisGraph.annotations}).a;
         thisGraph.eachPlot(function(){
@@ -265,6 +267,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         });
 
         var saveParams = {
+            gid: this.gid,
             command: "ManageMyGraphs",
             serieslist:serieslist.join('; '),
             end: this.end,
@@ -273,6 +276,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             map: this.map,
             mapconfig: $.stringify(this.mapconfig),
             modifieddt: now,
+
             intervals: this.intervals,
             cubeid: this.cubeid,
             type: this.type,

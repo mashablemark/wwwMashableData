@@ -231,10 +231,10 @@ MashableData.Plot = function(components, options){
         components = plot.components;
         //note freq in a plot must be the same, either natively or through transformations
         highSeries.freq = plot.options.fdown || components[0].freq;
-        var formula = plot.calculateFormula(); //refesh the formula object
+        var formula = plot.formula(); //refesh the formula object
 
         //THE BRAINS:
-        var expression = 'return ' + formula.formula.replace(globals.patVariable,'values.$1') + ';';
+        var expression = 'return ' + formula.replace(globals.patVariable,'values.$1') + ';';
         var compute = new Function('values', expression);
 
         //1. rearrange series data into single object by date keys

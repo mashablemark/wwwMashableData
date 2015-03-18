@@ -81,7 +81,7 @@ function ProvenanceController(panelId){
                 + '</ol>',
             seriesPlot: '<li class="plot">'
                 + '<button class="edit-plot">configure</button>'
-                + '<div class="line-sample" style="background-color:{{plotColor}};height:{{lineHeight}}px;"><img src="images/{{lineStyle}}.png" height="{{lineHeight}}px" width="{{lineWidth}}px"></div>'
+                + '<div class="line-sample" style="background-color:{{plotColor}};height:{{lineHeight}}px;" data="{{plotColor}}"><img src="images/{{lineStyle}}.png" height="{{lineHeight}}px" width="{{lineWidth}}px"></div>'
                 + '<div class="plot-info" style="display:inline-block;"><span class="plot-title">{{name}}</span> ({{plotPeriodicity}}) in <span class="plot-units">{{units}}</span></div>'
                 + '<span class="plot-formula">= {{formula}}</span><br>'
                 + '{{components}}'
@@ -138,7 +138,8 @@ function ProvenanceController(panelId){
                 + '<button class="plot-copy prov-float-btn">make copy</button>'
                 + '<button class="plot-delete prov-float-btn">delete plot</button>'
                 + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
-                +   '<div class="edit-block"><input class="plot-color" type="text" data="color" value="{{color}}" /></div>' +
+                +   '<div class="edit-block"><input class="plot-color" type="text" data="color" value="{{color}}" /></div>'
+                +   '{{selectStyle}}{{selectThickness}}'
                 + '</fieldset>'
                 + '<div class="edit-block">Name: <input class="plot-name" type="text" data="name" /></div>'
                 + '<div class="edit-block"><span class="edit-label">display as:</span><select class="plot-type" data="type"><option value="">graph default</option><option value="line">line</option><option value="column">column</option><option value="area">stacked area</option></select></div>'
@@ -305,8 +306,6 @@ function ProvenanceController(panelId){
                     .off("click")
                     .click(function(){
                         var $liMapPlot = $(this).closest("li");
-
-                        controller.sortableOff();
                         $liMapPlot.find('ol li.component').each(function(){
                             controller.showComponentEditor(this, 'mapPlot');
                         });
@@ -375,9 +374,9 @@ function ProvenanceController(panelId){
             },
             sortableOff: function(){
                 $prov.find("ol.plots").sortable('disable').enableSelection();
-                $prov.find("ol.components").sortable('disable').enableSelection();
                 $prov.find("ol.pointplots").sortable('disable').enableSelection();
                 $prov.find("ol.mapplots").sortable('disable').enableSelection();
+                $prov.find("ol.components").sortable('disable').enableSelection();
             },
             sortableOn: function(){
                 $prov.find("ol.components")
@@ -730,6 +729,7 @@ function ProvenanceController(panelId){
                     if(provPointPlots && provPointPlots.length>0) panelGraph.pointsets = provPointPlots; else delete panelGraph.pointsets;
                     panelGraph.mapconfig = provMapconfig;
                     if(!panelGraph.mapsets && !panelGraph.pointsets) panelGraph.map='';  //remove map
+                    panelGraph.eachPlot(function(plot){delete plot.calculatedFormula});
                     this.provClose();
                     panelGraph.fetchAssets(function(){
                         if(!noRedraw) $('#'+panelId).find(".graph-type").change();  //trigger redaw
@@ -845,7 +845,8 @@ function ProvenanceController(panelId){
                 var options = oPlot.options;
 
                 //TEMPLATE VALUES
-                var plotColor = oPlot.options.color||panelGraph.chart.get('P' + $liPlot.index()).color;
+
+                var plotColor = oPlot.options.color || $liPlot.find('div.line-sample').attr('data');
                 $liPlot.find(".edit-plot, .plot-info").hide();
 
                 //line thickness selector
@@ -878,11 +879,11 @@ function ProvenanceController(panelId){
                 );
                 //EVENTS
                 //text boxes
-                $editDiv.find("input.plot-name").val(oPlot.name()).on('change keydown',function(){
+                $editDiv.find("input.plot-name").val(oPlot.name()).on('change',function(){
                     $(this).val(oPlot.name(oPlot.name(false)!= $(this).val().trim()?$(this).val().trim():'')); //Plot.name() resets name to default name if empty string passed in
                     makeDirty();
-                });
-                $editDiv.find("input.plot-units").val(oPlot.units()).on('change keydown',function(){
+                }).on('keydown',makeDirty);
+                $editDiv.find("input.plot-units").val(oPlot.units()).on('change',function(){
                     if(oPlot.units(true) != $(this).val() && $(this).val().trim()!='') {
                         oPlot.options.units = $(this).val();
                     } else {
@@ -890,7 +891,7 @@ function ProvenanceController(panelId){
                     }
                     $liPlot.find('span.plot-units').html(oPlot.units());
                     makeDirty();
-                });
+                }).on('keydown',makeDirty);
                 $editDiv.find('select.dshift').val(f).change(function(){
                     var newF = $(this).val();
                     var synF = $editDiv.find('select.dshift option:selected').attr('data');
@@ -949,9 +950,11 @@ function ProvenanceController(panelId){
                     controller.set(oPlot.options, $(this));
                     $liPlot.find("div.line-sample").css('background-color',oPlot.options.color);
                 });
-                $editDiv.find("select.plot-thickness").val(oPlot.options.lineWidth).change(function(){
-                    controller.set(oPlot.options, $(this));   //oPlot.options.lineWidth = $(this).val();
-                    $liPlot.find("div.line-sample").css("height",oPlot.options.lineWidth).find("img").css("height",oPlot.options.lineWidth).css("width",(parseInt(oPlot.options.lineWidth.substr(0,1)*38)+'px'))
+                $editDiv.find("select.plot-thickness").val(oPlot.options.lineWidth||2).change(function(){
+                    controller.set(oPlot.options, $(this));
+                    $liPlot.find("div.line-sample")
+                        .css("height",oPlot.options.lineWidth||2)
+                        .find("img").css("height",oPlot.options.lineWidth||2).css("width",(parseInt((oPlot.options.lineWidth||2)*38)+'px'));
                 });
                 $editDiv.find("select.plot-linestyle").val(oPlot.options.lineStyle).change(function(){
                     controller.set(oPlot.options, $(this));   //oPlot.options.lineStyle = $(this).val();
@@ -1044,14 +1047,14 @@ function ProvenanceController(panelId){
 
 
                 //text boxes
-                $editDiv.find("input.plot-name").val(oPointset.name()).on('change keydown',function(){
+                $editDiv.find("input.plot-name").val(oPointset.name()).on('change',function(){
                     if(oPointset.name() != $(this).val().trim()) $(this).val(oPointset.name($(this).val()));  //Plot.name() resets name to default name if emprty string passed in
                     makeDirty();
-                });
-                $editDiv.find("input.plot-units").val(oPointset.units()).on('change keydown',function(){
+                }).on('keydown',makeDirty);
+                $editDiv.find("input.plot-units").val(oPointset.units()).on('change',function(){
                     if(oPointset.units(true) != $(this).val() && $(this).val().trim()!='') options.units = $(this).val(); else delete options.units;
                     makeDirty();
-                });
+                }).on('keydown',makeDirty);
                 $editDiv.find('.plot-edit-k input').change(function(){
                     if(!isNaN(parseFloat(this.value))){
                         options.k = Math.abs(parseFloat(this.value));
@@ -1209,7 +1212,8 @@ function ProvenanceController(panelId){
                     $plot.find('span.plot-formula').hide()
                         .after('<button class="guided">guided editing</button>')
                         .after('<input class="plot-formula">');
-                    $plot.find('input.plot-formula').val(plot.options.userFormula|| plot.calculateFormula().formula).keyup(function(){
+                    $plot.find('input.plot-formula').val(plot.formula()).keyup(function(){
+                        makeDirty();
                         try{
                             var userFormula = $(this).val();
                             if(userFormula.indexOf(';')>=0) throw('invalid mathematical syntax');
@@ -1233,6 +1237,7 @@ function ProvenanceController(panelId){
                     });
                     $plot.find('button.guided').button({icons: {secondary: 'ui-icon-star'}}).click(function(){
                         guidedEditing();
+                        makeDirty();
                     });
                 }
                 function guidedEditing(){
@@ -1242,9 +1247,9 @@ function ProvenanceController(panelId){
                         .after('<button class="manual">manual editing</button>');
                     delete plot.options.userFormula;
                     $plot.find('button.manual').button({icons: {secondary: 'ui-icon-pencil'}}).click(function(){
+                        makeDirty();
                         manualEditing();
                     });
-
                 }
 
             },
@@ -1381,20 +1386,19 @@ function ProvenanceController(panelId){
                 });
 
                 //sync
-                $editDiv.find("input.plot-name").val(oMapPlot.name()).on('change keydown', function(){
+                $editDiv.find("input.plot-name").val(oMapPlot.name()).on('change', function(){
                     controller.set(oMapPlot.options, $(this));  //oMapPlot.options.name = $(this).val();
                     $liMapPlot.find('span.plot-title').html(oMapPlot.name());
-                });
-                $editDiv.find("input.plot-units").val(oMapPlot.units()).on('change keydown', function(){
+                }).on('keydown',makeDirty);
+                $editDiv.find("input.plot-units").val(oMapPlot.units()).on('change', function(){
                     controller.set(oMapPlot.options, $(this));  //oMapPlot.options.units = $(this).val();
                     $liMapPlot.find('span.plot-units').html(oMapPlot.units());
-                });
+                }).on('keydown',makeDirty);
                 $liMapPlot.find('.ehide').hide();
                 $liMapPlot.find('.plot-info').after($editDiv);
                 $editDiv.show();
                 $prov.find('.landing').hide();
             },
-
             setFormula: function(plot, $container){
                 var formula = plot.calculateFormula();
                 if($container) {
@@ -1404,7 +1408,6 @@ function ProvenanceController(panelId){
                     if(!plot.options.name) $container.find('input.plot-name').val(plot.name());
                 }
             },
-
             legendEditor: function($target, obj, type){
                 var options = type == 'M' ? obj.options : obj;
                 //used by both mapsets and pointsets, depending on type = 'X' or 'M'
@@ -1519,7 +1522,6 @@ function ProvenanceController(panelId){
                      }*/
                 }
             },
-
             discreteLegend: function($target, obj, type){
                 var $legend, i, changing, val;
                 var options = (type=='X'?provMapconfig:obj.options);

@@ -72,7 +72,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                     id: null, //gets reordered and set in AnnotationController.build()
                     series: selectedPoint.series.options.id,
                     color: 	'#000000',
-                    from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
+                    from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.freq)
                 });
                 // redraw the point annotations in order and entire annotations table
                 this.build('point');
@@ -92,7 +92,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 text: 	'',
                 id: 'xl' + this.lineNo,
                 color: 	colorsPlotBands[0],
-                from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.period)
+                from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.freq)
             });
             this.lineNo++;
             this.build('table-only');
@@ -156,6 +156,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                                             x: point.x,
                                             y: point.y,
                                             id: annoLetter,
+                                            text: anno.text,
                                             marker: {
                                                 fillColor: anno.color,
                                                 lineColor: anno.color,
@@ -489,8 +490,8 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             if(this.banding=='x-Time'){
                 if(onPoint){
                     var x1, x2;
-                    x1 = formatDateByPeriod(this.bandStartPoint.x, this.bandStartPoint.series.options.period);
-                    x2 = formatDateByPeriod(pointSelected.x, pointSelected.series.options.period);
+                    x1 = formatDateByPeriod(this.bandStartPoint.x, this.bandStartPoint.series.options.freq);
+                    x2 = formatDateByPeriod(pointSelected.x, pointSelected.series.options.freq);
                     this.banding = false;  //band was already drawn in the mouseOver event
                     oGraph.annotations.push({
                         type:	'band',
@@ -679,14 +680,14 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             //console.log(b1 + "=" + num + "/" + den);
             var b0 = avgY - b1 * avgX;
 
-            var m = b1*period.value[series.options.period];
+            var m = b1*period.value[series.options.freq];
             var firstDigit = m.toString().search(/[1-9]/);
             var decimalLocation = m.toString().indexOf('.');
 
             var newSeries = {
-                name:  "Linear regression of " + series.name + "<BR> (m="+common.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.period]+")",
+                name:  "Linear regression of " + series.name + "<BR> (m="+common.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.freq]+")",
                 dashStyle: 'LongDash',
-                period: series.options.period,
+                freq: series.options.freq,
                 lineWidth: 1,
                 color: series.color,
                 data: [],
@@ -726,7 +727,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             var newSeries = {
                 name:  "Average of " + series.name,
                 dashStyle: 'ShortDash',
-                period: series.options.period,
+                freq: series.options.freq,
                 lineWidth: 1,
                 color: series.color,
                 data: [],

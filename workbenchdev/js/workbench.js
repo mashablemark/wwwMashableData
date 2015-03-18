@@ -286,10 +286,9 @@ $(document).ready(function(){
         Highcharts.setOptions({
             tooltip: {
                 formatter: function(){  //shorten the data accord to period; add commas to number; show units
-                    var tooltip = formatDateByPeriod(this.point.x, this.series.options.freq) + '<br>'
-                        + this.series.name.trim() + ':<br>'
-                        + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text;
-                    return tooltip;
+                    return'<b>' + this.series.name.trim() + '</b><br>' +formatDateByPeriod(this.point.x, this.series.options.freq) + ':'
+                    + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text
+                    + (this.point.id&&this.point.options.text?'<br><br>'+this.point.options.text:'');
                 }
             }
         });
@@ -1329,16 +1328,21 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
 function quickViewToGraph(){
     var panelId =  $('#quick-view-to-graphs').val();
     var mapped=false, charted=false;
-    switch($('#quick-view-chart-or-map input:radio:checked').val()){
-        case 'map':
-            mapped = true;
-            break;
-        case 'chart-and-map':
-            mapped = charted = true;
-            break;
-        default:
-            charted = true;
+    if($('#quick-view-chart-or-map:visible').length){
+        switch($('#quick-view-chart-or-map input:radio:checked').val()){
+            case 'map':
+                mapped = true;
+                break;
+            case 'chart-and-map':
+                mapped = charted = true;
+                break;
+            default:
+                charted = true;
+        }
+    } else {
+        charted = true; //default when selector is hidden
     }
+
     if(mapped){ //performs compatibility checks
         var map = $("#quick-view-maps").val();
         if( panelGraphs[panelId]   //this graph already exists
@@ -1368,25 +1372,34 @@ function quickViewToGraph(){
         oGraph.fetchMap(); //preload
     }
     var themeids = [], setids = [];
-    for(var s=0;s<oQuickViewSeries.length;s++){
-        var serie = oQuickViewSeries[s], seriesComp = new MD.Component(serie); //truely a series, as quickview does not support mapping
-        if(charted) oGraph.addPlot([seriesComp]);
-        if(mapped){
-            if(serie.maps && serie.maps[map]){  //final check in case of multiple series in quickview
-                mapComp = new MD.Component(serie);
-                delete mapComp.geoid;
-                delete mapComp.geoname;
-                delete mapComp.latlon;
-                delete mapComp.data;
-                if(mapComp.themeid) {
-                    themeids.push(mapComp.themeid);
-                    setids.push(mapComp.setid);
-                }
-                if(mapComp.isMapSet()){
-                    oGraph.addMapPlot([mapComp]);
-                }
-                if(mapComp.isPointSet()){
-                    oGraph.addPointPlot([mapComp]);
+    if(oQuickViewSeries.plots){
+        if(charted){
+            if(!oGraph.plots) oGraph.plots = [];
+            for(var p=0;p<oQuickViewSeries.plots.length;p++){
+                oGraph.plots.push(oQuickViewSeries.plots[p]);
+            }
+        }
+    } else {
+        for(var s=0;s<oQuickViewSeries.length;s++){
+            var serie = oQuickViewSeries[s], seriesComp = new MD.Component(serie); //truely a series, as quickview does not support mapping
+            if(charted) oGraph.addPlot([seriesComp]);
+            if(mapped){
+                if(serie.maps && serie.maps[map]){  //final check in case of multiple series in quickview
+                    var mapComp = new MD.Component(serie);
+                    delete mapComp.geoid;
+                    delete mapComp.geoname;
+                    delete mapComp.latlon;
+                    delete mapComp.data;
+                    if(mapComp.themeid) {
+                        themeids.push(mapComp.themeid);
+                        setids.push(mapComp.setid);
+                    }
+                    if(mapComp.isMapSet()){
+                        oGraph.addMapPlot([mapComp]);
+                    }
+                    if(mapComp.isPointSet()){
+                        oGraph.addPointPlot([mapComp]);
+                    }
                 }
             }
         }

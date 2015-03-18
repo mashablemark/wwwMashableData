@@ -1089,7 +1089,7 @@ switch($command){
         } else {
             $sql = "UPDATE graphs
             SET userid=$user_id, published='$published ', title=$title, text=$analysis, type='$type', intervalcount=$intervals,
-            fromdt=$from, todt=$to, annotations=$annotations, updatedt=$updatedt, serieslist=$serieslist, map=$map, mapconfig=$mapconfig
+            fromdt=$from, todt=$to, annotations=$annotations, updatedt=$modifieddt, serieslist=$serieslist, map=$map, mapconfig=$mapconfig
             WHERE graphid = " . $gid . " and userid=" . $user_id;
             if(!runQuery($sql,"ManageMyGraphs: update graphs record")){$output = array("status" => "fail on graph record update");break;}
             $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id,"ManageMyGraphs: read the ghash when updating");
