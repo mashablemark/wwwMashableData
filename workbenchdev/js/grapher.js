@@ -498,35 +498,47 @@ MashableData.grapher = function(){
             }
             //loop through the data rows
             var lineIndex = 0;
+
             //MashableData's time conversion series are mathematical creations. Make data as needed
-            function firstLast(MashableSeries, component){
-                if(typeof component.firstdt != 'undefined'){
-                    MashableSeries.firstdt = typeof MashableSeries.firstdt == 'undefined' ? parseInt(component.firstdt) : Math.min(parseInt(component.firstdt), parseInt(MashableSeries.firstdt));
-                    MashableSeries.lastdt = typeof MashableSeries.lastdt  == 'undefined' ? parseInt(component.lastdt ) : Math.max(parseInt(component.lastdt ), parseInt(MashableSeries.lastdt));
-                } else {
-                    if(component.mapsetid || component.pointsetid){
-                        for(location in component.data){
-                            MashableSeries.firstdt = typeof MashableSeries.firstdt == 'undefined' ? parseInt(component.data[location].firstdt) : Math.min(parseInt(component.data[location].firstdt), parseInt(MashableSeries.firstdt));
-                            MashableSeries.lastdt = typeof MashableSeries.lastdt  == 'undefined' ? parseInt(component.data[location].lastdt ) : Math.max(parseInt(component.data[location].lastdt ), parseInt(MashableSeries.lastdt));
-                        }
+            function _firstLast(plotOrGraph, mashableDataDaysPerSeries){
+                //delete plot.firstdt;
+                //delete plot.lastdt;
+                plotOrGraph.eachComponent(function(component){
+                    if(typeof component.firstdt != 'undefined' && component.src != 'MashableData'){
+                        mashableDataDaysPerSeries.firstdt = typeof mashableDataDaysPerSeries.firstdt == 'undefined' ? parseInt(component.firstdt) : Math.min(parseInt(component.firstdt), parseInt(mashableDataDaysPerSeries.firstdt));
+                        mashableDataDaysPerSeries.lastdt = typeof mashableDataDaysPerSeries.lastdt  == 'undefined' ? parseInt(component.lastdt ) : Math.max(parseInt(component.lastdt ), parseInt(mashableDataDaysPerSeries.lastdt));
                     }
-                }
+                });
             }
+
             //find and create any mathematical days per interval series
+            oGraph.eachPlot(function(){
+                var plot = this;
+                plot.eachComponent(function(component){
+                    if(this.src == 'MashableData'){
+                        var mashableDataDaysPerSeries = this;
+                        delete mashableDataDaysPerSeries.firstdt;  //database has 0, but these are not true first and last data dates...
+                        delete mashableDataDaysPerSeries.lastdt;   //..or they could be left over from a previous configuration
+                        _firstLast(plot, mashableDataDaysPerSeries);
+                        if(typeof mashableDataDaysPerSeries.lastdt  == 'undefined')  _firstLast(oGraph, mashableDataDaysPerSeries);
+                        mashableDataDaysPerSeries.data = MashableData.common.dateConversionData(mashableDataDaysPerSeries);
+                    }
+                });
+            });
+
             oGraph.eachComponent(function(i, plot){
                 if(this.src == 'MashableData'){
                     var MashableSeries = this;
                     //if single component, use start and end of graph else use start and end of plot components
                     if(plot.components.length==1){
-                        if(!oGraph.firstdt&&!oGraph.lastdt) oGraph.eachComponent(function(){ firstLast(oGraph, oGraph.assets[this.handle()]) });
+                        if(!oGraph.firstdt&&!oGraph.lastdt) oGraph.eachComponent(function(){ _firstLast(oGraph, oGraph.assets[this.handle()]) });
                         this.firstdt = oGraph.firstdt;
                         this.lastdt = oGraph.lastdt;
                     } else {
                         delete MashableSeries.firstdt;
                         delete MashableSeries.lastdt;
-                        plot.eachComponent(function(){firstLast(MashableSeries, this)});
+                        plot.eachComponent(function(){_firstLast(MashableSeries, this)});
                     }
-                    MashableSeries.data = MashableData.common.dateConversionData(MashableSeries);
                 }
             });
             for(i=0;i<oGraph.plots.length;i++){

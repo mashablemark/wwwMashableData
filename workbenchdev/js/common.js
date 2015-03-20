@@ -111,15 +111,15 @@ MashableData.common = {
     dateConversionData: function dateConversionData(series){
     //if end is not specified, this year is used.
     //if start is not specified, a 10 year interval  is used
-        var key=series.sourcekey, jsStart=series.firstdt, jsEnd=series.lastdt, period=common.period;
-        if(jsStart && typeof jsStart != "object") jsStart = new Date(parseInt(jsStart));
-        if(jsEnd && typeof jsEnd != "object") jsEnd = new Date(parseInt(jsEnd));
+        var key=series.sourcekey, jsStart=false, jsEnd=false, period = MashableData.globals.period;
+        if(series.firstdt) jsStart = new Date(parseInt(series.firstdt));
+        if(series.lastdt) jsEnd = new Date(parseInt(series.lastdt));
         var data = [], altStart;
         var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
         var today = new Date();
         var mashableDate = this.mashableDate;
         switch(key.toUpperCase()){ //time series: apiid = 7; root catid = 382243
-            case "DAYSPERMONTH": //seriesid = 5258277
+            case "DAYSPERMONTH": //setid = 1
                 if(jsEnd){
                     jsEnd = new Date(jsEnd.getUTCFullYear() + '-' + (jsEnd.getUTCMonth()+1) + '-01 UTC');
                 } else {
@@ -135,7 +135,7 @@ MashableData.common = {
                     data.push(mashableDate(jsStart.getTime(), 'M') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+1))/oneDay));
                 }
                 break;
-            case "DAYSPERQUARTER":  //seriesid = 5258276
+            case "DAYSPERQUARTER":  //setid = 2
                 if(jsEnd){
                     jsEnd = new Date(jsEnd.getUTCFullYear() + '-' + (jsEnd.getUTCMonth()+3) + '-01 UTC');
                 } else {
@@ -151,8 +151,7 @@ MashableData.common = {
                     data.push(mashableDate(jsStart.getTime(), 'Q') + ':' +  Math.round(Math.abs(jsStart.getTime() - jsStart.setUTCMonth(jsStart.getUTCMonth()+3))/oneDay));
                 }
                 break;
-            case "DAYSPERYEAR":  //seriesid = 5258275
-                jsEnd = jsEnd || new Date(today.getUTCFullYear() + '-01-01 UTC');
+            case "DAYSPERYEAR":  //setid=3
                 if(jsEnd){
                     jsEnd = new Date(jsEnd.getUTCFullYear() + '-01-01 UTC');
                 } else {
