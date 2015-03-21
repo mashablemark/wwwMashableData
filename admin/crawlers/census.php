@@ -236,10 +236,9 @@ foreach($xmlCensusConfig->theme as $xmlTheme){
         }
     }
     set_time_limit(200);
-    setGhandlesFreqsFirstLast($apiid);
-    set_time_limit(200);
     setMapsetCounts("all", $apiid);
-
+    set_time_limit(200);
+    setGhandlesFreqsFirstLast($apiid);  //also makes newly insert fields searchable
 }
 preprint($status);
 

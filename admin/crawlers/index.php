@@ -169,9 +169,9 @@ END;
 
     case "SetCounts":
         if($api_id>0){
-            setGhandlesFreqsFirstLast($api_id );
             setMapsetCounts("all", $api_id);
             setPointsetCounts("all", $api_id);
+            setGhandlesFreqsFirstLast($api_id ); //newly inserted sets become workbench searchable when sets.freq gets updated
         }
         break;
 

@@ -418,8 +418,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
             if(isset($set["setid"])) setCatSet($catId, $set["setid"]); //don't try to add excluded slavesets
         }
     }
-    setGhandlesFreqsFirstLast($apiid, $themeConfig["theme"]["themeid"]);
     setMapsetCounts("all", $apiid, $themeConfig["theme"]["themeid"]);
+    setGhandlesFreqsFirstLast($apiid, $themeConfig["theme"]["themeid"]); //will enable searching on newly inserted series
     return $status;
 }
 
