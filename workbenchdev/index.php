@@ -204,7 +204,11 @@
     <div id="outer-show-graph-div" style="width:100%;height:100%;position:relative;background-color:white;">
         <div id="highcharts-div" style="width:92%;height:60%;position:static;"></div>
         <br />
-        <select id="quick-view-change-freq" class="right"></select>
+        <span class="right">
+            <select id="quick-view-change-freq" class="right"></select><br>
+            <button id="quick-view-change-geo" class="right">change geography</button>
+            <select id="quick-view-geo-select" class="right"></select>
+        </span>
         <div id="qv-info"></div>
         <br />
         <div id="quick-view-controls" class="no_print">

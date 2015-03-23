@@ -167,6 +167,7 @@ $(document).ready(function(){
     $('#quick-view-chart').button({icons: {secondary: "ui-icon-image"}});
 
     $('#quick-view-add-to-graph').button().click(quickViewToGraph);
+    $quickViewChangeGeo = $('#quick-view-change-geo').button().click(quickViewFetchGeos)
     $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(quickViewClose);
 
     $(".show-graph-link").fancybox({  //TODO: replace index html with dynamic FancyBox invocations per account.js
@@ -1148,13 +1149,21 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
     var qGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
     var $mapSelect =  $('#quick-view-maps');
+    $('#quick-view-geo-select').hide().html('');
     if(obj.plots){ // a graphs object was passed in
         qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
-        $('#quick-view-change-freq').hide();
+        $('#quick-view-change-freq, #quick-view-change-geo').hide();
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
         oQuickViewSeries = aoSeries; //aoSeries is guarented to be an array of series
+
+        //allow geo switching on a single series only
+        if(aoSeries.length==1 && aoSeries[0].settype!='S'){
+            $quickViewChangeGeo.show();
+        } else {
+            $('#quick-view-change-freq, #quick-view-change-geo').hide();
+        }
         qGraph = new MD.Graph();
         var allFreqs = [], allFreq = [];
         for(i=0;i<aoSeries.length;i++){
@@ -1277,13 +1286,11 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         .click(); //set the button text
     $('.show-graph-link').click();
 
-
     function _showHideMapSelector (){
         var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
         var shown = $mapSelect.css("display")!='none';
         if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
     }
-
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
     $(btn).button("disable");
@@ -1295,6 +1302,33 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
     dialogShow('My Series', 'series added.',[]);
     $('#dialog').closest('.ui-dialog').fadeOut(1000, function(){ $('#dialog').dialog('close')});
     //quickView not closed automatically, user can subsequently chart or close
+}
+function quickViewFetchGeos(){
+    if(oQuickViewSeries.length==1 && oQuickViewSeries[0].geoid && oQuickViewSeries[0].geoid>0){
+        var qvSet = oQuickViewSeries[0],
+            params = {command: 'GetSetGeographies'},
+            options = '',
+            geo,
+            isQvSet;
+        if(qvSet.settype=='X') params.mastersetid = qvSet.setid || qvSet.mastersetid;
+        if(qvSet.settype=='M') params.setid = qvSet.setid;
+        callApi(params, function(jso){
+            for(var i=0;i<jso.geographies.length;i++){
+                geo = jso.geographies[i];
+                if(jso.mastersetid){
+                    isQvSet =  geo.latlon == qvSet.latlon;
+                    options += '<option value="'+geo.latlon+'" '+(isQvSet?'selected':'')+'>'+geo.name+'</option>';
+                }  else {
+                    isQvSet =  geo.geoid == qvSet.geoid;
+                    options += '<option value="'+geo.geoid+'" '+(isQvSet?'selected':'')+'>'+geo.name+'</option>';
+                }
+            }
+            $quickViewChangeGeo.slideUp();
+            var $geoSelect = $('#quick-view-geo-select').html(options).slideDown();
+        });
+    } else {
+        dialogShow("change geography", "Expecting to change geography of a single series in geoset. Problems encountered.");
+    }
 }
 function quickViewToGraph(){
     var panelId =  $('#quick-view-to-graphs').val();

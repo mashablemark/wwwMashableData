@@ -8,7 +8,7 @@
 $event_logging = true;
 $sql_logging = false;
 $debug = true;  //no file fetch
-$fetchData = true;  //no file fetch
+$fetchData = false;  //no file fetch
 
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
@@ -296,26 +296,28 @@ class FredList
         $processedForSave = 0;
         foreach($this->sets as $setName => &$multiUnitsFreqsSet){
             foreach($multiUnitsFreqsSet as $caseInsenstiveUnits => &$freqsBranch){
-                ksort($freqsBranch); //aimed at improving the insert performance
+                ksort($freqsBranch); //make save into setdata in order of PK (should be faster)
                 foreach($freqsBranch as $freq => $setFreqBranch){  //referenced by value in hopes of not bloating $this->sets with data array
                     $setid = false;
                     $masterSetid = null;
                     $setSize = count($setFreqBranch);
                     if($debug) printNow("$setName ($freq; $caseInsenstiveUnits): $setSize series @ ". strftime ("%r"));
+
                     //get all the data and notes first (need to determine if metadata is at the set or series level)
                     $setMetaData = null;
-                    $saveCount = 0;
-                    ksort($setFreqBranch);
-                    //if there are are updates needed in this branch
+                    ksort($setFreqBranch); //make save into setdata in order of PK (should be faster)
+
+                    //1. see if there are are updates in this branch
                     $branchUpdates = false;
                     foreach($setFreqBranch as $geoKey => &$seriesInfo){
                         if($seriesInfo["apidt"]!=$seriesInfo["dbUpdateDT"]) $branchUpdates = true;
                     }
+                    //2. if any updates in branch, than we need to get metadata for all series so we can
+                    //figure out if the metadata should be series or set based
                     if($branchUpdates) {
                         foreach($setFreqBranch as $geoKey => &$seriesInfo){
                             if($seriesInfo["apidt"]!=$seriesInfo["dbUpdateDT"]) {
                                 $this->getData($seriesInfo, false);
-                                $saveCount++;
                             } elseif(!isset($seriesInfo["data"]) ) {
                                 $this->getData($seriesInfo, true);
                             }
@@ -328,10 +330,9 @@ class FredList
                             }
                         }
                     }
-                    if($saveCount==1 && $setSize>1) $setMetaData = false;
                     foreach($setFreqBranch as $geoKey => &$seriesInfo){
                         if(isset($seriesInfo["lastDate100k"]) && $seriesInfo["lastDate100k"]>0){ //FRED has a bunch of early 20th century series.  If they end before 1970, skip it!
-                            if($debug && intval(++$processedForSave/1000)*1000==$processedForSave) printNow("Save $processedForSave series. ". strftime ("%r")." ");
+                                                if($debug && intval(++$processedForSave/1000)*1000==$processedForSave) printNow("Save $processedForSave series. ". strftime ("%r")." ");
                             if($seriesInfo["setid"]!==null){  //this could be a set or a masterset...
                                 if($seriesInfo["latlon"]==""){
                                     $setid = $seriesInfo["setid"];
@@ -339,19 +340,6 @@ class FredList
                                     $masterSetid = $seriesInfo["setid"]; //childset has been saved in a previous ingestion
                                 }
                             } else {
-                                /*if(isset($this->histogram[$setSize])) $this->histogram[$setSize]++; else $this->histogram[$setSize] = 1;
-                                $mapset = false;
-                                $pointset = false;
-                                foreach($setFreqBranch as $geoKey => &$seriesInfo){
-                                    $geoParts = explode(":", $geoKey);
-                                    if(strlen($geoParts[1])>0) $pointset = true; else $mapset = true;
-                                }
-                                if($pointset && $mapset) {
-                                    printNow("Mixed point/regions set for $setName ($freq $caseInsenstiveUnits)");
-                                    preprint($setFreqBranch);
-                                    die();
-                                }*/
-
                                 //if a point, save/get its mastersetid
                                 if($seriesInfo["latlon"]!="" && $masterSetid==null){
                                     //TODO: allow updates to previously save sets
@@ -396,7 +384,7 @@ class FredList
                             }
                             //preprint($seriesInfo);
                             if($seriesInfo["apidt"]!=$seriesInfo["dbUpdateDT"]) {
-                                saveSetData($this->status, $seriesInfo["latlon"]==""?$setid:$masterSetid, $apiid, $seriesInfo["skey"], $freq, $seriesInfo["geoid"], $seriesInfo["latlon"], $seriesInfo["data"], $seriesInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"] : $seriesInfo["notes"]);
+                                saveSetData($this->status, $seriesInfo["latlon"]==""?$setid:$masterSetid, $apiid, $seriesInfo["skey"], $freq, $setSize<$minSetSize&&$seriesInfo["latlon"]==""?0:$seriesInfo["geoid"], $seriesInfo["latlon"], $seriesInfo["data"], $seriesInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"] : $seriesInfo["notes"]);
                             } else {
                                 $this->status["skipped"]++;
                             }
@@ -591,7 +579,8 @@ class FredList
                 } else {
                     //loop through the geographies and try to find a match
                     foreach($geographies as $name=>$geography){
-                        if(!($geography["geoset"]=="msa"&&!$geoset)){   //this is necessary because FRED is so messed up with duplicates
+                        //use msa geographies only for MSAs
+                        if(($geography["geoset"]=="msa")==$pointSet){   //this is necessary because FRED is so messed up with duplicates
                             $regex = "#". $geography["regexes"]."#";
                             if(preg_match($regex, $geoName, $geoMatches)===1 && ($geography["exceptex"]==null || preg_match("#". $geography["exceptex"]."#", $geoName)==0 )){
                                 //match!

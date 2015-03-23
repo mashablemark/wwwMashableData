@@ -1588,15 +1588,15 @@ switch($command){
         //provides a list of geographies in set when user wants to switch geography for a particular series
         //input param: setid or mastersetid
         if(isset($_POST["setid"])){ //mapset
-            intval($_POST["setid"]);
+            $setid = intval($_POST["setid"]);
             $output = [
                 "status" => "ok",
                 "setid" => $setid,
                 "geographies" => []
             ];
-            $sql = "select g.name, g.geoid
+            $sql = "select distinct g.name, g.geoid
                 from setdata sd
-                join geographies g on g.geoid=sd.$geoid
+                join geographies g on g.geoid=sd.geoid
                 where setid = $setid
                 order by g.name";
             $result = runQuery($sql);
@@ -1607,7 +1607,7 @@ switch($command){
             $mastersetid = intval($_POST["mastersetid"]);
             $output = [
                 "status" => "ok",
-                "mastersetid" => $setid,
+                "mastersetid" => $mastersetid,
                 "geographies" => []
             ];
             $sql = "select s.name, s.setid, s.latlon
@@ -1615,11 +1615,11 @@ switch($command){
                     where mastersetid = $mastersetid
                     order by s.name";
             $result = runQuery($sql);
-            $nameWords = false;
-            $matchingWordCount = 999; //impossibley high
+            $firstNameWords = false;
+            $matchingWordCount = 999; //impossibly high
             while($row = $result->fetch_assoc()){
                 $output["geographies"][] = $row;
-                if(!$nameWords){
+                if(!$firstNameWords){
                     $firstNameWords = explode(" ", $row["name"]);
                     $wordCount = count($firstNameWords);
                 } else {
