@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/global/js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link  rel="stylesheet" href="workbench.css?v=<?=$workbenchVersion?>" />
     <link rel="stylesheet" href="/global/js/loadmask/jquery.loadmask.css?v=<?=$workbenchVersion?>" type="text/css">
-    <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
+    <?php if(false&&strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>
         <!--domestic JavaScript files-->
         <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script>
         <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
@@ -207,7 +207,9 @@
         <span class="right">
             <select id="quick-view-change-freq" class="right"></select><br>
             <button id="quick-view-change-geo" class="right">change geography</button>
-            <select id="quick-view-geo-select" class="right"></select>
+            <div class="widget right" style="margin-right: 33px">
+                <select id="quick-view-geo-select"></select>
+            </div>
         </span>
         <div id="qv-info"></div>
         <br />
