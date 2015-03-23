@@ -26,7 +26,7 @@ function runQuery($sql, $log_name = 'sql logging'){
     $result = $db->query($sql);
     if($result==false){
         logEvent('bad query', substr($sql,0,2000));
-        die('bad query: '.$sql);
+        die("bad query ($log_name): $sql");
     }
     return $result;
 }
@@ -420,6 +420,7 @@ function setCatSet($catid, $setid, $geoid = 0){
 }
 
 function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
+    //will enable searching on newly inserted series by updating sets.freq from its default value on note_searchable
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
     $sql = "insert into temp (id1, text1, text2, `int1`, `int2`)
@@ -435,24 +436,28 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
     runQuery("update sets s join temp t on s.setid=t.id1
     set s.ghandles = concat(t.text1,','), s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
 
-    //points
+    //freqs, firstdt, lastdt and ghandles for points!!! (runs in 33sec for St Louis FRED = 31,000 markers first time; second time = 27sec)
+    //note ghandles makes new sets searchable
     $sql = "update sets s join
         (
-            select s2.setid, min(sd.firstdt100k) as firstsetdt100k, max(sd.lastdt100k) as lastsetdt100k
+            select s2.setid, min(sd.firstdt100k) as firstsetdt100k, max(sd.lastdt100k) as lastsetdt100k,
+                group_concat(distinct concat('G_',geoid)) as pointghandles,
+            	group_concat(distinct concat('F_',sd.freq)) as pointfreqs
             from setdata sd join sets s2 on sd.setid=s2.mastersetid and s2.latlon = sd.latlon
             where s2.mastersetid is not null and s2.latlon <>'' ".($apiid == "all"?"":" and s2.apiid=$apiid").($themeid == "all"?"":" and s2.themeid=$themeid")."
+            group by s2.setid
         ) minmax
         on minmax.setid = s.setid
-        set s.firstsetdt100k = minmax.firstsetdt100k, s.lastsetdt100k=minmax.lastsetdt100k";
+        set s.firstsetdt100k = minmax.firstsetdt100k, s.lastsetdt100k=minmax.lastsetdt100k,
+            s.ghandles = pointghandles, s.freqs = pointfreqs";
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast set points first last");
 }
 
 function setMapsetCounts($setid="all", $apiid, $themeid = false){
 //step1:  determine sets' maximum map coverage in percent (8.6s for 6024 sets = 1 million setdata rows)
     $themeFilter = $themeid?" and themeid=$themeid ":"";
-    $sqlSetMaxCov = "UPDATE sets s join (SELECT setid, max(coverage) as maxcov from (SELECT
-          s.setid, mg.map,
-          ceiling(count(distinct sd.geoid)*100/max(m.geographycount)) as coverage
+    $sqlSetMaxCov = "UPDATE sets s join (SELECT setid, max(coverage) as maxcov from (
+        SELECT s.setid, mg.map, ceiling(count(distinct sd.geoid)*100/max(m.geographycount)) as coverage
         FROM sets s
             JOIN setdata sd ON s.setid=sd.setid
             JOIN mapgeographies mg ON sd.geoid=mg.geoid
@@ -460,7 +465,7 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
         WHERE sd.latlon='' and sd.geoid<>0  and s.apiid=$apiid $themeFilter
         GROUP BY s.setid, mg.map) mc group by setid) mc2
          ON s.setid=mc2.setid
-        SET s.maxmapcoverage=least(100,maxcov)";
+        SET s.maxmapcoverage=least(100,maxcov), s.settype='MS_'";
     runQuery($sqlSetMaxCov,"set Max MapSet coverage");
 
 //step 2: set the sets.maps field (exec time 13.1s for 6024 sets = 1 million setdata rows)
@@ -480,6 +485,14 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
         ) mc2 on s.setid=mc2.setid
         set s.maps=mapcounts, s.settype='MS_'";
     runQuery($sqlSetMaps,"set Mapset map Counts (sets.maps)");
+//set 3. set sets.elements = count of distinct map element (region or points) in set = runs in 2 sets for FRED!
+    runQuery(
+        "update sets su join (select s.setid,  count(distinct sd.geoid) as elementscount
+            from sets s join setdata sd on s.setid=sd.setid
+            where s.apiid=$apiid and sd.latlon='' and sd.geoid<>0
+            group by s.setid) as sc on su.setid=sc.setid
+            set su.elements = sc.elementscount",
+        "set element count for Mapsets");
 }
 
 function setPointsetCounts($setid="all", $apiid = "all"){
@@ -488,7 +501,8 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     runQuery("SET SESSION group_concat_max_len = 4000;","setPointsetCounts");
 
     //subquery1 finds maps for which points' geoids is a component (e.g. USA)
-    $subQuery1 = "SELECT s.setid, mg.map, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount
+    $subQuery1 = "SELECT s.setid, mg.map, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount,
+        count(distinct sd.geoid, sd.latlon) as markercount
         FROM sets s JOIN setdata sd on s.setid=sd.setid JOIN mapgeographies mg on sd.geoid=mg.geoid
         WHERE sd.latlon<>'' and mg.map<>'world' and s.settype='XS_'";
     if($apiid != "all") $subQuery1 .= " and apiid=".$apiid;
@@ -496,7 +510,8 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     $subQuery1 .= " group by s.setid, mg.map ";
 
     //subquery2 finds maps whose bunny = points' geoids (e.g. Virginia)
-    $subQuery2 = "SELECT sd.setid, m.map, concat('\"M_',m.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount
+    $subQuery2 = "SELECT sd.setid, m.map, concat('\"M_',m.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount,
+        0 as markercount
         FROM sets s JOIN setdata sd on s.setid=sd.setid JOIN maps m on sd.geoid=m.bunny
         WHERE sd.latlon<>'' and s.settype='XS_' ";
     if($apiid != "all") $subQuery2 .= " and apiid=".$apiid;
@@ -507,6 +522,16 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     runQuery($insertSql, "setPointsetCounts");
     runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;", "setPointsetCounts");
     runQuery("truncate temp;","setPointsetCounts");
+
+    //set 3. mastersets' sets.elements = count of distinct map element (region or points) in set = runs in 15 secs for FRED!
+    runQuery(
+        "update sets su join (select s.setid,  count(distinct sd.geoid, sd.latlon) as elementscount
+            from sets s join setdata sd on s.setid=sd.setid
+            where s.apiid=$apiid and sd.latlon<>'' and sd.geoid<>0
+            group by s.setid) as sc on su.setid=sc.setid
+            set su.elements = sc.elementscount",
+        "set element count for Mapsets");
+
 //TODO: alias sets' from and to dates and frequency
 /*joining to mastersetid in newsearch eliminates the need to replicate
     //2. update the points' maps
@@ -529,18 +554,22 @@ function setPointsetCounts($setid="all", $apiid = "all"){
 */
 }
 
+function setAllCountsHandles($api_id){
+    setMapsetCounts("all", $api_id);
+    setPointsetCounts("all", $api_id);
+    setGhandlesFreqsFirstLast($api_id ); //newly inserted sets become workbench searchable when sets.freq gets updated
+}
+
 
 function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null, $mastersetid=null, $type="S"){
     global $db;
-    if($type!="S") $type .= "S_";
+    if($type!="S") $type .= "S_";  //MS_ or XS_ for full text search
     if($setKey){
         $setKeySql = safeStringSQL($setKey);
-        $sql = "select s.* from sets s where s.apiid=$apiid and s.setkey=$setKeySql
-         union DISTINCT
-        select distinct s.* from sets s join setdata sd on s.setid=sd.setid where apiid=$apiid and sd.skey=$setKeySql";
+        $sql = "select s.* from sets s where s.apiid=$apiid and s.setkey=$setKeySql";  //each API ingestor knows whether it is dealing with setkeys or serieskeys
     } else {
         $sql = "select * from sets where apiid=$apiid and name=".safeStringSQL($name, true)
-            ." and units =".safeStringSQL($units,false) ." and settype='$type'";  //mapsets and pointsets may same name
+            ." and units =".safeStringSQL($units,false) ." and settype='$type'";  //mapsets and pointsets may *not* have same name
         if(strtolower($themeid)!='null') $sql .= " and themeid = $themeid";
     }
     $result = runQuery($sql, "getSet select");
@@ -570,7 +599,7 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         }
         return $row["setid"];
     } elseif($result->num_rows==0) {
-//      printNow(safeStringSQL($apiid));printNow(safeStringSQL($setKey));printNow(safeStringSQL($name));printNow(safeStringSQL($apidt));printNow(safeStringSQL($units));printNow(safeStringSQL($latlon));printNow(safeStringSQL($lasthistoricaldt));printNow(safeStringSQL($metadata));printNow(safeStringSQL($src));printNow(safeStringSQL($url));
+        //note:  sets.freq field defaults to not_searchable, which is screened out of workbench searches.  sets.freq will be set be final processing step      printNow(safeStringSQL($apiid));printNow(safeStringSQL($setKey));printNow(safeStringSQL($name));printNow(safeStringSQL($apidt));printNow(safeStringSQL($units));printNow(safeStringSQL($latlon));printNow(safeStringSQL($lasthistoricaldt));printNow(safeStringSQL($metadata));printNow(safeStringSQL($src));printNow(safeStringSQL($url));
         $sql = "insert into sets (apiid, setkey, name, namelen, apidt, units, latlon, lasthistoricaldt,
                 themeid, metadata, src, url, mastersetid, settype) VALUES ("
             . $apiid
@@ -602,8 +631,9 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
     }
 }
 
-function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
+function saveSetData(&$status, $setid, $apiid = null, $seriesKey = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
     global $MAX_SERIES_POINTS;  //very large string (>500KB) data strings can cause the MySql connection object to lose its mind.  Therefore, limit the length and avoid "on duplicate key" syntax which double SQL length
+    $time_start_saveSetData = microtime(true);
     if(!$apidt) $apidt =  date("Ymd");
     sort($arrayData);
     $pointCount = count($arrayData);
@@ -615,43 +645,58 @@ function saveSetData(&$status, $setid, $apiid = null, $key = null, $freq, $geoid
     $data = implode("|", $arrayData);
 
     $skip = false;  //change to true if exists with same key and matching data
-    if($key && $apiid){ //if source or set key is given, ensure the setdata record's setid and latlon match $setid and $latlon; else clear it and reinsert it
-        $result = runQuery("select sd.setid, sd.freq, sd.geoid, sd.latlon, sd.data
+    if($seriesKey && $apiid){ //if source or set key is given, ensure the setdata record's setid and latlon match $setid and $latlon; else clear it and reinsert it
+        $findSQL = "select sd.setid, sd.freq, sd.geoid, sd.latlon, sd.data
         from setdata sd join sets s on sd.setid=s.setid
-        where s.apiid = $apiid and (s.setkey='$key' or sd.skey='$key') and sd.freq='$freq' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false));
+        where (s.apiid = $apiid and sd.skey='$seriesKey')
+            or (s.setid=$setid and sd.freq='$freq' and sd.geoid=$geoid and sd.latlon=".safeStringSQL($latlon, false).")";
+        $result = runQuery($findSQL);
     } else {
-        $result = runQuery("select data from setdata where setid=$setid and freq='$freq' and geoid=$geoid and latlon=".safeStringSQL($latlon, false));
+        $findSQL = "select data from setdata where setid=$setid and freq='$freq' and geoid=$geoid and latlon=".safeStringSQL($latlon, false);
+        $result = runQuery($findSQL);
     }
+    $logAs .= " findSQL :$findSQL ";
     if($result->num_rows==0){
         $insert = true;
         $status["added"]++;
-    } else {
+    } elseif($result->num_rows==1){
         $setData = $result->fetch_assoc();
-        if($key && ($setData["setid"]!=$setid || $setData["freq"]!=$freq || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
-            //in the off chance that the identifying data for source key (such as latlon) has been updated, delete record and reinsert below
-            runQuery("delete from setdata where setid=$setData[setid] and freq='$setData[freq]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
-            $insert = true;
+        if($seriesKey && ($setData["setid"]!=$setid || $setData["freq"]!=$freq || $setData["geoid"]!=$geoid || $setData["latlon"]!=$latlon)){
+            if($setData["setid"]==$setid){//in the off chance that the identifying data for source key (such as latlon) has been updated, delete record and reinsert below
+                runQuery("delete from setdata where setid=$setData[setid] and freq='$setData[freq]' and geoid=$setData[geoid] and latlon='$setData[latlon]'");
+                $logAs .= " (deleted setdata before insert) ";
+                $insert = true;
+            } else {
+                logEvent("mismatched set & setdata in saveSetData", $findSQL);  //if the setid is different, we have problems.
+                return false;
+            }
         } else {
             $insert = false;
         }
-        if($setData["data"]==$data){
+        if(!$insert && $setData["data"]==$data){
             $status["skipped"]++;
             $skip = true;
         } else {
             $status["updated"]++;
         }
+    } else { //error! more than one found
+        logEvent("dup setdata in saveSetData", $findSQL);
+        return false;
     }
     if($skip){
         return 0;
     } else {
         if($insert){  //note: avoid "insert on duplicate key" syntax as the connection can loose its mind!
             $sql = "insert into setdata (setid, freq, geoid, latlon,".($metadata===false?"":"metadata,")." data, firstdt100k, lastdt100k, apidt, skey)
-                values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($key) . ")";
+                values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($seriesKey) . ")";
         } else {
-            $sql = "update setdata set firstdt100k=$firstDate100k, lastdt100k=$lastDate100k, data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($key))
+            $sql = "update setdata set firstdt100k=$firstDate100k, lastdt100k=$lastDate100k, data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($seriesKey))
             . " where setid=$setid and freq='$freq' and geoid=$geoid and latlon= '$latlon'";
         }
-        return runQuery($sql, $logAs);
+        $time_start_insert = microtime(true);
+        $result = runQuery($sql, $logAs);
+        //print(((microtime(true)-$time_start_saveSetData)/1000)."ms for saveSetData (".((microtime(true)-$time_start_insert)/1000)." for the insert)<br>");
+        return $result;
     }
 }
 

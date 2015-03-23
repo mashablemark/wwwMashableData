@@ -165,9 +165,10 @@ td.wrap{
     overflow: visible;
     white-space: normal;
 }
-td.dte{
+td.dte, td.set-size{
     overflow:hidden;
     white-space:nowrap;
+    text-align: right;
 }
 td.maps-to{
   text-overflow: ellipsis;
@@ -240,7 +241,7 @@ option.other-maps{
   background: orange;
 }
 #quick-view-maps,#quick-view-viz, #quick-view-to-graphs{
-  max-width: 300px;
+  max-width: 200px;
   height: 20px;
 }
 #quick-view-controls-add{
@@ -1030,14 +1031,6 @@ span.ui-button-text{
     font-size: 10px;
 }
 
-.browse-rolldown {background-position: -64px -192px;}  /*.ui-icon-circle-triangle-s*/
-td.expandable:hover .browse-rolldown, .browse-rolldown:hover { background-position: -128px -192px;}   /*ui-icon-circle-arrow-s*/
-td.expandable:hover{cursor: pointer;}
-.browse-rollup{ background-position: -96px -192px; }  /*ui-icon-circle-triangle-n*/
-.browse-rollup:hover{ background-position: -160px -192px; }  /*ui-icon-circle-arrow-n */
-.browse-right  { background-position: -48px -192px; float: right; margin-left: 5px}    /*.ui-icon-circle-triangle-e*/
-.browse-right:hover, td.cat:hover .browse-right, .browsed-right { background-position: -112px -192px; cursor: pointer;}  /*ui-icon-circle-arrow-e*/
-
 .ui-seldected{
     background: #F39814;
     color: white;
@@ -1151,25 +1144,73 @@ div.blue-inset{
 .charttools{
     width: 110px;
 }
-#cat-chains{
-    padding:5px;
+
+
+.browse-rolldown {background-position: -64px -192px;}  /*.ui-icon-circle-triangle-s*/
+td.expandable:hover .browse-rolldown, .browse-rolldown:hover { background-position: -128px -192px;}   /*ui-icon-circle-arrow-s*/
+td.expandable:hover{cursor: pointer;}
+.browse-rollup{ background-position: -96px -192px; }  /*ui-icon-circle-triangle-n*/
+.browse-rollup:hover{ background-position: -160px -192px; }  /*ui-icon-circle-arrow-n */
+.browse-right  { background-position: -48px -192px; float: right; margin-left: 5px}    /*.ui-icon-circle-triangle-e*/
+.browse-right:hover, td.cat:hover .browse-right, .browsed-right { background-position: -112px -192px; cursor: pointer;}  /*ui-icon-circle-arrow-e*/
+
+
+//category browser styles
+#cat-browser{
+  display: inline-flex;
 }
-#cat-chains td{
-    vertical-align: top;
-    padding:5px;
-    background-color: #add8e6;
+.cat-item{
+  display: block;
+  padding: 2px 30px 2px 5px;
+  position: relative;
+  left: -20px;
 }
-#cat-chains a{
-    color: #2e83ff;
-    cursor:pointer;
+li.cat-level{
+  display: inline-table;
+  list-style-type: none;
 }
-#cat-chains a:hover{
-    text-decoration:underline;
+li.cat-level li{
 }
-span.sibling{
-    margin-right: 15px;
-    display: inline-block;
+.cat-div{
+  display: inline-block;
+  background-color: lightyellow;
+  margin-left: 10px;
+  padding: 5px 0;
+  border: dotted thin yellow;
 }
+.in-path{
+  background: lightcoral;
+}
+.cat-open-indicator{
+  position: absolute;
+  right: -18px;
+}
+.cat-show-children{
+  position: absolute;
+  right: 5px;
+  border: thin #d3d3d3 solid;
+  cursor: pointer;
+}
+.cat-show-children:hover{
+  border: thin blue solid;
+}
+.cat-show-children span{
+  background-position: 0 -96px;
+}
+.cat-show-children span:hover{
+  background-position: -16px -96px;
+}
+.cat-has-sets{
+  color: blue;
+}
+.cat-has-sets:hover{
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+
+
+
 .dataTables_info{
     display:inline-block;
     width: auto;
@@ -1202,7 +1243,6 @@ span.sibling{
     background-color: white;
 }
 
-td.dte{text-align: right;}
 td.dt-url, td.dt-views, td.dt-delete, td.dt-freq,  td.dt-count, td.dt-vw, td.dt-sv{text-align: center;}
 td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline-block;}
 #tblPublicSeries td.cat:hover, table.dataTable td.url:hover, table.dataTable td.title:hover, table.dataTable td.url:hover{
@@ -1253,7 +1293,19 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
     background-image: none;
     top: 1px;
 }
-
+#series_search_source{
+  width: 100px;
+}
+#series_search_freq{
+  width: 40px;
+}
+#find-data-map{
+  max-width: 100px;
+}
+.map-list-item.selector-selected{
+  background-color: blue;
+  color: white;
+}
 #cloud-series-search {
     display: inline-block;
     padding: 4px 0 1px 4px;
@@ -1269,27 +1321,27 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
 /*very light + border theme*/
 #series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{
     background-color: #d1e65c;
-    border-top: 1px solid #a2bc13;
+/*    border-top: 1px solid #a2bc13;
     border-left: 1px solid #a2bc13;
-    border-right: 1px solid #a2bc13;
+    border-right: 1px solid #a2bc13;*/
 }
 #series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover, #cloud-series{
     background-color: #faefaf;
-    border-top: 1px solid #e3cf57;
+/*    border-top: 1px solid #e3cf57;
     border-left: 1px solid #e3cf57;
-    border-right: 1px solid #e3cf57;
+    border-right: 1px solid #e3cf57;*/
 }
 #series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover, #myGraphs{
     background-color: #bcdef5;
-    border-top: 1px solid #6ca6cd;
+/*    border-top: 1px solid #6ca6cd;
     border-left: 1px solid #6ca6cd;
-    border-right: 1px solid #6ca6cd;
+    border-right: 1px solid #6ca6cd;*/
 }
 #series-tabs li.public-graphs.ui-tabs-selected, #series-tabs li.public-graphs:hover, #publicGraphs{
     background-color: #ffeabf;
-    border-top: 1px solid #ff9912;
+/*    border-top: 1px solid #ff9912;
     border-left: 1px solid #ff9912;
-    border-right: 1px solid #ff9912;
+    border-right: 1px solid #ff9912;*/
 }
 .dataTables_processing{
     background-color: #fff4e5;
@@ -1300,7 +1352,7 @@ td.dt-url span, td.dt-views, td.dt-delete span, td.dt-count span{display: inline
 #series-tabs li.local-series.ui-tabs-selected, #series-tabs li.local-series:hover, #local-series{
     background: rgb(102,204,255);
 }
-#series-tabs li.cloud-series.ui-tabs-selected, #series-tabs li.cloud-series:hover, #cloud-series{
+#series-tabs li.eries.ui-tabs-selected, #series-tabs li.cloud-series:hover, #cloud-series{
     background:  rgb(175,234,42);
 }
 #series-tabs li.my-graphs.ui-tabs-selected, #series-tabs li.my-graphs:hover, #myGraphs{

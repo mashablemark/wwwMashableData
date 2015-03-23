@@ -155,7 +155,7 @@ function ProvenanceController(panelId){
                 +'</div>',
             pointPlotEditor:  '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
-                + '<div class="edit-block"><input class="marker-color" type="text" data="color" value="{{color}}" /></div>'
+                + '<div class="edit-block marker-color"><input class="marker-color" type="text" data="color" value="{{color}}" /></div>'
                 + '<div class="edit-block">name: </span><input class="plot-name" type="text"  /></div>'
                 + '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" type="text" /><span class="plot-edit-k"><input class="short" value="{{k}}"> </div><br>'
                 + '<span class="edit-label">Point calculations:</span>'
@@ -1066,18 +1066,18 @@ function ProvenanceController(panelId){
                     $(this).val(options.k||1);
                 });
                 //color picker
-                $editDiv.find('.marker-color').colorPicker().change(function(){
+                $editDiv.find('input.marker-color').colorPicker().change(function(){
                     controller.set(options, $(this));  //particular pointPlot options;
                     $editDiv.find('div.marker').css('background-color', $(this).val()); //set the hidden marker's color for correction resume
                 });
                 function showHideMarkerColorPicker(){ //show if this and all other pointPlot are not fill
                     for(var ps=0; ps<provPointPlots.length;ps++){
                         if(provPointPlots[ps].options.attribute == 'fill') {
-                            $editDiv.find('.color-picker.marker-color').hide();
+                            $editDiv.find('div.marker-color').hide();
                             return;
                         }
                     }
-                    $editDiv.find('.color-picker.marker-color').show();
+                    $editDiv.find('div.marker-color').show();
                 }
                 showHideMarkerColorPicker();
 
@@ -1089,6 +1089,7 @@ function ProvenanceController(panelId){
                         controller.set(options, $(this)); //plot.options.attribute
                         pointPlotLegend.setRadLabel();
                         pointPlotLegend.legendOptionsShowHide();
+                        showHideMarkerColorPicker();
                     });
                 if(!options.componentData)options.componentData='required';
                 $editDiv.find("div.edit-math").find("input[id='"+options.componentData+"-"+panelId+"']").click().end().buttonset()
@@ -1466,15 +1467,17 @@ function ProvenanceController(panelId){
                     .spinner({
                         min: 2,
                         max:200,
-                        spin: function(event, ui){
-                            if(type=='M' || options.attribute!='fill'){
-                                provMapconfig.maxRadius = $(this).val();
-                            } else {
-                                provMapconfig.fixedRadius = $(this).val();
-                            }
-                            makeDirty();
-                        }
+                        spin: _handleSpin,
+                        change: _handleSpin
                     });
+                function _handleSpin(event, ui){
+                    if(type=='M' || options.attribute!='fill'){
+                        provMapconfig.maxRadius = $(this).val();
+                    } else {
+                        provMapconfig.fixedRadius = $(this).val();
+                    }
+                    makeDirty();
+                }
                 $legend.find('.color-picker.pos').colorPicker().change(function(){
                     controller.set(options, $(this));  //options.posColor = this.value;  // this is a universal val for pointsets
                     $legend.find('.continuous-strip-pos').html(continuousColorStrip('#CCCCCC', options.posColor));

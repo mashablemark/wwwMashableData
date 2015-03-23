@@ -124,13 +124,13 @@ switch($command){
             $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
                 . $db->real_escape_string( $_POST['iDisplayLength'] );
         }
-        $aColumns=array("name", "units", "firstdt", "lastdt");
+        $aColumns=array("name", "units", "elements", "firstdt", "lastdt");
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         left(s.settype,1) as settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units,
         replace(coalesce(s2.freqs, s.freqs),'F_','') as freqs, s.titles, coalesce(s.src, a.name) as src,
         coalesce(s.url, a.url) as url, s.firstsetdt100k*100000 as firstdt, s.lastsetdt100k* 100000 as lastdt,
-        s.apiid, replace(coalesce(s2.maps, s.maps),'M_','') as maps, s.ghandles
+        s.apiid, replace(coalesce(s2.maps, s.maps),'M_','') as maps, s.ghandles, s.elements
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
         //handle may be modified in read loop depending on detected geographies and
@@ -374,6 +374,25 @@ switch($command){
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         while ($aRow = $result->fetch_assoc()) {
             $output['aaData'][] = $aRow;
+        }
+        break;
+    case "GetMySets":
+        requiresLogin();
+        $user_id =  intval($_POST['uid']);
+        $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
+            maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
+            savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
+            FROM sets s
+            inner join  mysets ms on s.setid=ms.setid
+            left outer join users u on s.userid=u.userid
+            WHERE ms.userid=" . $user_id;
+        $result = runQuery($sql);
+        $output = array("status"=>"ok","series" => array());
+        while ($aRow = $result->fetch_assoc()){
+            $aRow["rawmaps"] = $aRow["maps"] ;
+            $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
+            $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
+            $output["sets"][handle($aRow)] = $aRow;
         }
         break;
     case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetGraph
@@ -922,93 +941,65 @@ switch($command){
                         cardStateProv: $screen.find('input.cardStateProv').val(),
                         cardPostal: $screen.find('input.cardPostal').val(),
                         cardCountry: $screen.find('input.cardCountry').val()*/
-    case "GetMySets":
-        requiresLogin();
-        $user_id =  intval($_POST['uid']);
-        $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
-            maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
-            savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
-            FROM sets s
-            inner join  mysets ms on s.setid=ms.setid
-            left outer join users u on s.userid=u.userid
-            WHERE ms.userid=" . $user_id;
-        $result = runQuery($sql);
-        $output = array("status"=>"ok","series" => array());
-        while ($aRow = $result->fetch_assoc()){
-            $aRow["rawmaps"] = $aRow["maps"] ;
-            $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
-            $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
-            $output["sets"][handle($aRow)] = $aRow;
+
+    case "GetCatChain":  //gets a single chain (even if set is multihomed) with all siblings at each level
+        $setid = intval($_POST["setid"]);
+        $geoid = isset($_POST["geoid"])?intval($_POST["geoid"]):0;
+
+        $parentId = false;
+        if($setid>0){ //try to get the starting cat
+            $result = runQuery("select catid, parentid from categorysets cs join catcat cc on cs.catid=cc.childid where setid=$setid and geoid=$geoid");
+            if($result->num_rows>0){
+                $row = $result->fetch_assoc();
+                $catid = $row["catid"];
+                $parentId = $row["parentid"];
+            }
         }
-        break;
-    case "GetCatChains":
-        $setid = intval($_POST["sid"]);
-        if($setid == 0){ //get list of APIs to browse = select children of root category
-            $sql = "SELECT c.catid, c.name, COUNT( DISTINCT cs2.setid ) AS scount, COUNT( DISTINCT cc2.childid ) AS children
-                FROM categories c
-                INNER JOIN catcat cc ON c.catid = cc.childid
-                LEFT OUTER JOIN categorysets cs2 ON c.catid = cs2.catid
-                LEFT OUTER JOIN catcat cc2 ON cc.childid = cc2.parentid
-                WHERE cc.parentid =1
-                GROUP BY c.catid, c.apicatid, c.name";
-        } else {
-            $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs2.setid ) AS scount,
-             COUNT(DISTINCT childid ) AS children
-            FROM categories c
-              INNER JOIN categorysets cs ON  c.catid = cs.catid
-              INNER JOIN categorysets cs2 ON  c.catid = cs2.catid
-              LEFT OUTER JOIN catcat cc ON c.catid = cc.parentid
-            WHERE cs.setid = $setid and c.catid<>1
-            GROUP BY c.catid, c.apicatid, c.name";
-            //don't get the root category (catid=1)
+
+        if(!$parentId) {
+            $setid = 0;
+            $catid = 0;
+            $parentId = 1;  //root cat
         }
-        logEvent("GetCatChains: get series cats", $sql);
-        $catrs = runQuery($sql);
-        $chains = array();
-        while($catinfo = $catrs->fetch_assoc()){
-            $chains["C".$catinfo["catid"]] = array(array("catid"=>$catinfo["catid"], "name"=>$catinfo["name"], "scount"=>$catinfo["scount"], "children"=>$catinfo["children"]));
+
+        $chain = [];
+        $maxLevels = 20; //safety counter to avoid infinite loops
+        while($parentId && count($chain)<$maxLevels){
+            $children = getCatChildren($parentId);
+            foreach($children as $i =>&$category){
+                if($category["catid"]==$catid){
+                    $category["in-path"] = true;
+                    break;
+                }
+            }
+            $level = [
+                "children" => $children,
+                "catid" => $parentId
+            ];
+            array_unshift($chain, $level);
+            $result = runQuery("select parentid from catcat where childid=$parentId");
+            if($result->num_rows>0){
+                $row = $result->fetch_assoc();
+                $catid = $parentId;
+                $parentId = $row["parentid"];
+            } else {
+                $parentId = false;
+            }
         }
-        while(BuildChainLinks($chains)){}  //work occurs in BuildChains (note: $chains passed by ref)
-        $output = array("chains"=>$chains);
-        $output["sid"] = $setid;
-        $output["status"] = "ok";
-        break;
-    case "GetCatSiblings":
-        $catid = intval($_POST["catid"]);
-        $sql = "SELECT c.catid, c.name, COUNT(DISTINCT cs.setid ) AS scount
-            , COUNT(DISTINCT kids.childid ) AS children
-            FROM catcat parent
-            INNER JOIN catcat siblings ON siblings.parentid = parent.parentid
-            INNER JOIN  categories c  ON c.catid = siblings.childid
-            LEFT OUTER JOIN categorysets cs ON  siblings.childid = cs.catid
-            LEFT OUTER JOIN catcat kids ON siblings.childid = kids.parentid
-            WHERE parent.childid =  $catid
-            GROUP BY c.catid, c.name
-            ORDER BY c.name";
-        logEvent("GetCatSiblings", $sql);
-        $catrs = runQuery($sql);
-        $output = array("status" => "ok", "siblings"=>array());
-        while($sibling = $catrs->fetch_assoc()){
-            array_push($output["siblings"], $sibling);
-        }
+        $output = [
+            "chain" => $chain,
+            "setid" => $setid,
+            "geoid" => $geoid,
+            "status" => "ok"
+        ];
         break;
     case "GetCatChildren":
         $catid = intval($_POST["catid"]);
-        $sql = "SELECT
-            c.catid, c.name, COUNT(DISTINCT cs.setid ) AS scount, COUNT(DISTINCT kids.childid ) AS children
-            FROM catcat siblings
-            INNER JOIN  categories c  ON c.catid = siblings.childid
-            LEFT OUTER JOIN categorysets cs ON  siblings.childid = cs.catid
-            LEFT OUTER JOIN catcat kids ON siblings.childid = kids.parentid
-            WHERE siblings.parentid =  $catid
-            GROUP BY c.catid, c.name
-            ORDER BY c.name";
-        logEvent("GetCatChildren", $sql);
-        $catrs = runQuery($sql);
-        $output = array("status" => "ok", "children"=>array());
-        while($child = $catrs->fetch_assoc()){
-            array_push($output["children"], $child);
-        }
+        $output  = [
+            "children"=>  getCatChildren($catid),
+            "catid" => $catid,
+            "status" => "ok"
+        ];
         break;
     case "DeleteMyGraphs":
         requiresLogin();
@@ -1587,11 +1578,71 @@ switch($command){
         break;
     case  "GetAnnotation":
         $sql = "SELECT annoid, name, description, annotation from annotations where annoid=". intval($_POST['annoid']);
-        logEvent($command,$sql);
         $result = runQuery($sql);
         $output = array("status" => "annotation not found");
         while ($aRow = $result->fetch_assoc()) {
             $output = array("status" => "ok","annoid"=>$aRow["annoid"],"name"=>$aRow["name"],"description"=>$aRow["description"],"annotation"=>$aRow["annotation"]);
+        }
+        break;
+    case "GetSetGeographies":
+        //provides a list of geographies in set when user wants to switch geography for a particular series
+        //input param: setid or mastersetid
+        if(isset($_POST["setid"])){ //mapset
+            intval($_POST["setid"]);
+            $output = [
+                "status" => "ok",
+                "setid" => $setid,
+                "geographies" => []
+            ];
+            $sql = "select g.name, g.geoid
+                from setdata sd
+                join geographies g on g.geoid=sd.$geoid
+                where setid = $setid
+                order by g.name";
+            $result = runQuery($sql);
+            while($row = $result->fetch_assoc()){
+                $output["geographies"][] = $row;
+            }
+        } elseif(isset($_POST["mastersetid"])){ //pointset
+            $mastersetid = intval($_POST["mastersetid"]);
+            $output = [
+                "status" => "ok",
+                "mastersetid" => $setid,
+                "geographies" => []
+            ];
+            $sql = "select s.name, s.setid, s.latlon
+                    from sets s
+                    where mastersetid = $mastersetid
+                    order by s.name";
+            $result = runQuery($sql);
+            $nameWords = false;
+            $matchingWordCount = 999; //impossibley high
+            while($row = $result->fetch_assoc()){
+                $output["geographies"][] = $row;
+                if(!$nameWords){
+                    $firstNameWords = explode(" ", $row["name"]);
+                    $wordCount = count($firstNameWords);
+                } else {
+                    $thisNameWords = explode(" ", $row["name"]);
+                    for($i=0;$i<$wordCount;$i++){
+                        if($firstNameWords[$i]!=$thisNameWords[$i]){
+                            if($matchingWordCount>$i) $matchingWordCount = $i;
+                            break;
+                        }
+                    }
+                }
+            }
+            $matchingWords = array_slice($firstNameWords, 0, $matchingWordCount);
+            $prefix = implode(" ", $matchingWords);
+            $trimPos = strlen($prefix);
+            if($matchingWordCount>0 && $matchingWordCount<999){
+                foreach($output["geographies"] as $i=>$geography){
+                    $placeName = substr($geography["name"], $trimPos);
+                    $output["geographies"][$i]["name"] = $placeName;
+                }
+            }
+        } else {
+            $output = ["status" => "invalid parameters"];
         }
         break;
     default:
@@ -1605,6 +1656,24 @@ closeConnection();
 
 
 //shared routines
+function getCatChildren($parentId){  //used by the category browser routines
+    $sql = "SELECT
+            c.catid, c.name, COUNT(DISTINCT cs.setid ) AS scount, COUNT(DISTINCT kids.childid ) AS children
+            FROM catcat siblings
+            INNER JOIN  categories c  ON c.catid = siblings.childid
+            LEFT OUTER JOIN categorysets cs ON  siblings.childid = cs.catid
+            LEFT OUTER JOIN catcat kids ON siblings.childid = kids.parentid
+            WHERE siblings.parentid =  $parentId
+            GROUP BY c.catid, c.name
+            ORDER BY c.name";
+    $result = runQuery($sql);
+    $catChildren = [];
+    while($child = $result->fetch_assoc()){
+        $catChildren[] = $child;
+    }
+    return $catChildren;
+}
+
 function BuildChainLinks(&$chains){
     $recurse = false;
     foreach($chains as $name => $chain){
@@ -1819,13 +1888,16 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
         $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
     $mapCode = safeStringSQL($map);
-    $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.themeid, s.metadata as setmetadata, s.src, s.url, s.units,
+    $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.apiid, s.themeid,
+      coalesce(s.metadata,t.meta) as setmetadata, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url, s.units,
       g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
       sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
     FROM sets s JOIN setdata sd on s.setid=sd.setid
       JOIN geographies g on sd.geoid=g.geoid
       JOIN mapgeographies mg on sd.geoid = mg.geoid and mg.geoid=g.geoid
       JOIN maps m on mg.map=m.map
+      LEFT OUTER JOIN themes t on s.themeid = t.themeid
+      LEFT OUTER JOIN apis a on s.apiid = a.apiid
     WHERE (" . implode(" OR ", $setFilters) . ")
       and mg.map  = $mapCode and m.map = $mapCode";
     if($mustBeOwnerOrPublic){
@@ -1846,6 +1918,7 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
                 "units"=>$row["units"],
                 "freq"=>$row["freq"],
                 "src"=>$row["src"],
+                "apiid"=>$row["apiid"],
                 "themeid"=>$row["themeid"],
                 "setmetadata"=>$row["setmetadata"],
                 "settype"=>$row["settype"],

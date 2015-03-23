@@ -1619,7 +1619,7 @@ MashableData.grapher = function(){
                                 zoomAnimate: true,
                                 markersSelectable: true,
                                 markerStyle: {
-                                    initial: {r: 5},
+                                    initial: {r: oGraph.mapconfig.maxRadius || 5},
                                     selected: {
                                         "stroke-width": 4,
                                         stroke: 'yellow'
@@ -1927,10 +1927,10 @@ MashableData.grapher = function(){
                                             found = false;
                                             comps = pointset.components;
                                             for(c=0;c<comps.length;c++){
-                                                if(comps[c].handle[0]=='X' && oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]){
+                                                if(comps[c].isPointSet() && oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]){
                                                     found = true;
-                                                    sHandle = oGraph.assets[comps[c].handle()].data[selectedMarkers[i]].handle;
-                                                    popGraph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle()].units, period: oGraph.assets[comps[c].handle()].freq}, oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
+                                                    var sHandle = oGraph.assets[comps[c].handle()].data[selectedMarkers[i]].handle;
+                                                    popGraph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle()].units, freq: oGraph.assets[comps[c].handle()].freq, freqs: oGraph.assets[comps[c].handle()].freqs}, oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
                                                     comps[c].handle = sHandle;
                                                 } else {
                                                     popGraph.assets[comps[c].handle()] = oGraph.assets[comps[c].handle()];
@@ -3035,7 +3035,7 @@ MashableData.grapher = function(){
                     }
                 }
                 function _calcMap(graph, mapIndex){
-                    //vars that will make up the return object
+                    //vars that will be assemble into an output object and returned
                     var mapTitle, mapFreq, mapUnits, mapDates={}, aMapDates=[], markers={}, dateKey;
                     var markerData = {}; //2D object array:  [mdDate][shandle]=value
                     var regionData = {};  //2D object array:  [mdDate][region-code]=value

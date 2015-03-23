@@ -62,7 +62,7 @@ var colWidths = {
     drillIcon: 35,
     count: 60,
     scrollbarWidth: 35,
-    padding: 11
+    padding: 9
 };
 var layoutDimensions = {
     heights: {
@@ -91,7 +91,7 @@ var $dtFindDataTable;  //...setupFindDataTable
 var $dtMyGraphs;    //...setupMyGraphsTable
 var $dtPublicGraphs;   //...setupPublicGraphsTable
 var searchCatId = 0;  //set on API browser selection in hash, cleared on public series search text change
-var browsedCats = {}; //saves info of categories browsed to assist that function, cache db queries and provide name lookup cabilibilti for the category search function
+var searchCatName = false;
 var lastSeriesSearch="", lastGraphSearch=""; //kill column sorting on new searches.  Sort is by name length asc to show most concise (best fit) first
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
@@ -275,7 +275,7 @@ $(document).ready(function(){
      };
      */
     $('body').resize(resizeCanvas);
-    $('#series_search_periodicity, #series_search_source, #series-search-button').click(seriesCloudSearch);
+    $('#series-search-button').click(seriesCloudSearch);
     $('#show-hide-pickers').click(function(){
         showHideGraphEditor();
         setPanelHash();
@@ -341,15 +341,17 @@ function parseHash(newHash, oldHash){
                 }
                 if($graphTabs.find("li.graph-tab").length>0) $("#show-hide-pickers").show();
                 break;
-            case 'cs': //cloud series
+            case 'cs': //cloud series = find data tab
                 $('#series-tabs').find('li.cloud-series a').click();
                 $search = $('#series_search_text');
                 searchCatId == oH.cat||0;
-                $('#series_search_periodicity').val(oH.f||'all'); //search executes on freq change
+                $('#series_search_freq').val(oH.f||'all'); //search executes on freq change
                 $('#series_search_source').val(oH.api||'all'); //search executes on API change
+                var map = oH.map||'none';
+                $('#find-data-map').html('<option value="'+map+'" selected>'+MashableData.globals.maps[map].name+'</option>');
                 $('#public-settype-radio').find('input[value='+(oH.sets||'all')+']').click(); //search executes on sets change
                 if(searchCatId!=0){
-                    $search.val("category: " + browsedCats[searchCatId].name);
+                    $search.val("category" + (searchCatName?': ' + searchCatName:''));
                     seriesCloudSearch();
                 } else {
                     if(decodeURI(oH.s)!=$search.val()){
@@ -428,7 +430,7 @@ function resizeCanvas(){
     layoutDimensions.heights.innerDataTable = layoutDimensions.heights.pickers  - layoutDimensions.heights.tableControls -  layoutDimensions.heights.scrollHeads -40;
     $("div.dataTables_scrollBody").height(layoutDimensions.heights.innerDataTable);
 
-    //datatable
+    //datatables
     layoutDimensions.widths.canvas = $("#canvas").innerWidth();
     //mySeries
     layoutDimensions.widths.mySeriesTable.table = layoutDimensions.widths.canvas-8*colWidths.padding-colWidths.scrollbarWidth;
@@ -440,12 +442,12 @@ function resizeCanvas(){
     $('#series-table_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.mySeriesTable.columns.series+'px')
         .end().find('th.units').width(layoutDimensions.widths.mySeriesTable.columns.units+'px')
         .end().find('th.cat').width(layoutDimensions.widths.mySeriesTable.columns.category+'px');
-    //publicSeries
-    layoutDimensions.widths.publicSeriesTable.table = layoutDimensions.widths.canvas-7*colWidths.padding-colWidths.scrollbarWidth;
-    remainingInnerWidths =  layoutDimensions.widths.publicSeriesTable.table - (colWidths.freq + colWidths.src + 2*colWidths.mmmyyyy);
-    layoutDimensions.widths.publicSeriesTable.columns.series = remainingInnerWidths * 0.4;
-    layoutDimensions.widths.publicSeriesTable.columns.units = remainingInnerWidths * 0.3;
-    layoutDimensions.widths.publicSeriesTable.columns.category = remainingInnerWidths * 0.3;
+    //Find Data
+    layoutDimensions.widths.publicSeriesTable.table = layoutDimensions.widths.canvas-9*colWidths.padding-colWidths.scrollbarWidth;
+    remainingInnerWidths =  layoutDimensions.widths.publicSeriesTable.table - (colWidths.map + colWidths.freq + colWidths.src + 3*colWidths.mmmyyyy);
+    layoutDimensions.widths.publicSeriesTable.columns.series = remainingInnerWidths * 0.5;
+    layoutDimensions.widths.publicSeriesTable.columns.units = remainingInnerWidths * 0.25;
+    layoutDimensions.widths.publicSeriesTable.columns.category = remainingInnerWidths * 0.25;
     $('#tblPublicSeries_wrapper').find('thead').find('th.title').width(layoutDimensions.widths.publicSeriesTable.columns.series+'px')
         .end().find('th.units').width(layoutDimensions.widths.publicSeriesTable.columns.units+'px')
         .end().find('th.cat').width(layoutDimensions.widths.publicSeriesTable.columns.category+'px');
@@ -485,7 +487,7 @@ function setupMyDataTable(){
             //     "sScrollX": tableWidth + "px",
             "aaSorting": [[MY_SERIES_DATE,'desc']],
             "aoColumns": [
-                { "mData": "name", "sTitle": "Series Name<span></span>", "sClass": 'title', "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.series + "px",
+                { "mData": "name", "sTitle": "Set Name<span></span>", "sClass": 'title', "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.series + "px",
                     "mRender": function(value, type, obj){
                         return ((obj.settype=='M')?iconsHMTL.mapset:'')
                             + ((obj.settype=='X')?iconsHMTL.pointset:'')
@@ -559,8 +561,8 @@ function setupFindDataTable(){
             aoData.push({name: "mapfilter", value: $("#find-data-map").val()});
             aoData.push({name: "freq", value: $("#series_search_freq").val()});
             aoData.push({name: "apiid", value: $("#series_search_source").val()});
+            aoData.push({name: "settype", value: $("#public-settype-radio input:checked").val()});
             aoData.push({name: "catid", value: searchCatId});
-            aoData.push({name: "settype", value: $("input:radio[name=public-settype-radio]:checked").val()});
             aoData.push({name: "lastSearch", value: lastSeriesSearch});
             aoData.push({name: "search", value: thisSearch});
             if(lastSeriesSearch!=thisSearch) {
@@ -602,7 +604,7 @@ function setupFindDataTable(){
         "aaSorting": [],  //[[8,'desc']],  using namelen to show shortest first by default
         "iDeferLoading": 0,
         "aoColumns": [
-            { "mData":"name", "sTitle": "Series Name<span></span>", "bSortable": true, "sWidth": layoutDimensions.widths.publicSeriesTable.columns.series + "px", "sClass": "title",
+            { "mData":"name", "sTitle": "Set Name<span></span>", "bSortable": true, "sWidth": layoutDimensions.widths.publicSeriesTable.columns.series + "px", "sClass": "title",
                 "mRender": function(value, type, obj){
                     return ((obj.settype=='M')?iconsHMTL.mapset:'')
                         + ((obj.settype=='X')?iconsHMTL.pointset:'')
@@ -611,8 +613,9 @@ function setupFindDataTable(){
                         + '<span class="handle">' + obj.handle() + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
-            { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": true, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
+            { "mData":"elements", "sTitle": "Set size<span></span>", "sClass": "set-size", "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "mRender": function(value, type, obj){return value==0?'':value}},
+            { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": false, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
+            { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": false, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){
                 return (parseInt(obj.firstdt)&&parseInt(obj.lastdt))?spanWithTitle(formatDateByPeriod(value, obj.freqs[0])):'';
             }},
@@ -648,8 +651,12 @@ function setupFindDataTable(){
         });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
-    //mapset/markerset selector replaced by the map selector functionality $('#public-settype-radio').buttonset().find("input").change(function(){seriesCloudSearch()});
+
+    $('#public-settype-radio').buttonset().find("input").change(seriesCloudSearch);
     $('#find-data-map').click(common.selectMap);
+    $('#series_search_freq').change(seriesCloudSearch);
+    $('#series_search_source').change(seriesCloudSearch);
+
     $('#series_search_text')
         .val('enter search keywords (-keyword to exclude)')
         .keyup(function(event){ seriesCloudSearchKey(event)})
@@ -1137,7 +1144,6 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
         quickGraph(series, map, showAddSeries);
     }
 }
-
 function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
     var qGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
@@ -1200,6 +1206,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
     quickChartOptions.chart.renderTo = 'highcharts-div';
     quickChart = new Highcharts.Chart(quickChartOptions);
 
+    //set the notes and fill the map selector
     var serie, qvNotes='';
     if(!obj.plots){ //only if single series
         if(aoSeries.length==1){
@@ -1211,33 +1218,35 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
             if(serie.src) qvNotes += '<tr><td>API Source:</td><td><a href="'+serie.url+'" target="_blank">' + serie.src + (serie.sourcekey?' (source key: '+serie.sourcekey +') ':'') +'</a></td></tr>';
             //if(serie.sourcekey) qvNotes += '<tr><td>API Source Key:</td><td>' + serie.sourcekey + '</td></tr>';
             if(qvNotes) qvNotes = '<table>' + qvNotes + '</table>';
+            qvNotes = '<span class="right">'+serie.setid+'</span>'+qvNotes;
         }
 
         //determine whether and which maps to show in the selector
-        var mapList = globals.orderedMapList, maps = globals.maps;
+        var mapList = globals.orderedMapList, maps = globals.maps, minMapCount = serie.settype=='X'? 0 : 1;
         if(serie.maps){
-            for(i=0;i<mapList.length;i++){ //primary loop= orderedlist to preserve order in eventual
+            for(i=0;i<mapList.length;i++){ //primary loop = use ordered mapList to preserve order in eventual selector
                 for(j=0;j<aoSeries.length;j++){  //synthetic series will get their mapsets' map property
                     serie = aoSeries[j];
-                    if(serie.maps[mapList[i].map]>1){ //this map is match!
-                        setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+'%)</option>');
+                    if(serie.maps[mapList[i].map] > minMapCount){ //this map is match!
+                        setMaps.push('<option value="'+mapList[i].map+'"'+ (serie.preferredMap=mapList[i].map?' selected':'')+'">'+mapList[i].name +' ('+serie.maps[mapList[i].map]+(serie.settype=='X'?' points':'%')+')</option>');
                         break;
                     }
                 }
             }
         }
     }
+    $('#qv-info').html(qvNotes);
 
+    //initial map and/or chart buttonset visibility + map selector fill
     if(setMaps.length){ //make sure we have maps to show
-        //$('button.quick-view-maps').button({icons: {secondary: sets[0][0]=='M'?"ui-icon-flag":"ui-icon-pin-s"}}).show();
         $('#quick-view-chart-or-map').show().find('input').off().click(_showHideMapSelector);
-        $mapSelect.html(setMaps.join(''));
+        map = $mapSelect.html(setMaps.join('')).val(map).val();  //if no passed in map preference, set it to the first map = used in determining graph capatilibity
         _showHideMapSelector();
     } else {
         $mapSelect.hide();
         $('#quick-view-chart-or-map').hide();
     }
-    $('#qv-info').html(qvNotes);
+
     if(showAddSeries && someNewSeries){
         $('#quick-view-to-series').show();
     } else {
@@ -1249,22 +1258,23 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         $('#quick-view-delete-series').hide();
     }
     //populate the graph selector
-    var graphOptions = '<option value="new">new graph</option>';
+    var currentGraphId = visiblePanelId(), graphOptions = '<option value="new">new graph</option>';
     $('div.graph-panel').each(function(){
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
-        graphOptions+='<option value="'+this.id+'"'+(($tabLink.closest("li").hasClass("ui-tabs-selected"))?' selected':'')+'>'+$tabLink.get(0).innerHTML+'</option>';
+        graphOptions+='<option value="'+this.id+'">'+$tabLink.html()+'</option>'; //initial selection set below
     });
+
     //populate the cube selector
     fillCubeSelector($('#quick-view-select-viz'), setids, themeids);
 
     //program the "add to graph" button
-    $('#quick-view-to-graphs').html(graphOptions).val(visiblePanelId())
+    var addTo = currentGraphId && panelGraphs[currentGraphId].map && map && panelGraphs[currentGraphId].map==map?currentGraphId:'new';
+    $('#quick-view-to-graphs').html(graphOptions).val(addTo)
         .off()
         .click(function(){
             $('#quick-view-add-to-graph').find('.ui-button-text').html(($(this).val()=='new')?'create graph':'add to graph');
         })
         .click(); //set the button text
-    //$('#quick-view-add-to-graph').button("enable");
     $('.show-graph-link').click();
 
 
@@ -1286,48 +1296,6 @@ function quickViewToSeries(btn){ //called from button. to add series shown in ac
     $('#dialog').closest('.ui-dialog').fadeOut(1000, function(){ $('#dialog').dialog('close')});
     //quickView not closed automatically, user can subsequently chart or close
 }
-/*function quickViewToChart(btn){
-    var graph, panelId =  $('#quick-view-to-graphs').val();
-    if(oQuickViewSeries.plots){  //we have a complete graph object!
-        if(panelId!='new') {
-            var plots = oQuickViewSeries.plots, oGraph = panelGraphs[panelId];
-            oGraph.controls.provenance.commitChanges(false); //commit any prov panel changes, but do not redraw graph
-            if(!oGraph.plots) oGraph.plots=[];
-            for(var p=0;p<plots.length;p++){
-                oGraph.plots.push(plots[p]);
-            }
-            for(var asset in oQuickViewSeries.assets){
-                panelGraphs[panelId].assets[asset] = panelGraphs[panelId].assets[asset] || oQuickViewSeries.assets[asset];
-            }
-            $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-            oGraph.controls.redraw();
-        } else {
-            buildGraphPanel(oQuickViewSeries);
-        }
-    } else {
-        if(!(oQuickViewSeries instanceof  Array)) oQuickViewSeries = [oQuickViewSeries];
-        if(panelId!='new'){
-            graph = panelGraphs[panelId];
-            graph.controls.provenance.commitChanges(false); //commit any prov changes but do not redraw
-        } else {
-            graph = new MD.Graph();
-        }
-        for(var i=0;i<oQuickViewSeries.length;i++){
-
-            graph.addPlot([new MD.Component(oQuickViewSeries[i])]);
-        }
-        if(panelId!='new'){
-            $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-
-            graph.controls.redraw();
-        } else {
-            buildGraphPanel(graph);
-        }
-    }
-    quickViewClose();
-    hideGraphEditor();  //show graph instead My Series table of $('#local-series').click();
-    setPanelHash();
-}*/
 function quickViewToGraph(){
     var panelId =  $('#quick-view-to-graphs').val();
     var mapped=false, charted=false;
@@ -1497,6 +1465,7 @@ function quickViewClose(){
     $('#fancybox-close').click();
 }
 
+//series editor
 function editSeries(series){//array of series to edit
     if($('#outer-show-graph-div:visible').length==1) quickViewClose();
     if(series.length==1){  //only can edit a series' set if we are editing a single series
@@ -1549,7 +1518,6 @@ function editSeries(series){//array of series to edit
     } else
         showSeriesEditor(series);
 }
-
 function showSeriesEditor(toEdit, map){ //toEdit is either an array of series object or a Map/Pointset handle
     if(!account.loggedIn()) {
         dialogShow("account required", dialogues.signInRequired);
@@ -2180,261 +2148,6 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
     }
 }
 
-/*
- API SERIES BROWSE FUNCTIONS
-
- table#cat-chains
- tr
- td.cat-branch[.[expandable|.expanded]]
- div.[in-path|sibling] data=catid
- span[.[ui-icon.browse-rolldown|ui-icon.ui-icon-stop]]
- [a]cat name
- span[.[ui-icon.browse-right|ui-icon.browsed-right]]
-
- */
-
-function browseFromSeries(seriesId){ //initial chain-table build only
-    callApi({command:'GetCatChains', sid: seriesId||0},function(jsoData, textStatus, jqXH){
-        var chainCount = 0, i, maxHeight=0;
-        var $chainTable = $('<table id="cat-chains">');
-        //need to construct object tree structure from the rectangular recordset to effectively combine and sort chains
-        var chainTree = {}, branch, nextLevel, parentid;
-        console.log(jsoData.chains);
-        for(var chain in jsoData.chains){ //chain is the category handle
-            branch = chainTree;
-            parentid = null;
-            if(jsoData.chains[chain].length>maxHeight) maxHeight = jsoData.chains[chain].length; //each chain in chains contains an array of categories starting with the terminal descendant (same catid as the chain's handle)
-            for(i=jsoData.chains[chain].length-1;i>=0;i--){ //start at the api root and work back to terminal descendant
-                browsedCats[jsoData.chains[chain][i].catid] = jsoData.chains[chain][i];
-                browsedCats[jsoData.chains[chain][i].catid].parentid = parentid; //root parentID is null
-                if(parentid!==null){ //don't actually show the root cat
-                    if(branch[jsoData.chains[chain][i].name]){
-                        branch[jsoData.chains[chain][i].name].catProps.count++;  //essentially rowspan
-                    } else {
-                        branch[jsoData.chains[chain][i].name] = {catProps: jsoData.chains[chain][i]}; //initialize the category properties to be what comes out of the db
-                        if(jsoData.chains[chain].length-1!=i)branch[jsoData.chains[chain][i].name].catProps.siblings=jsoData.chains[chain][i+1].children;
-                        branch[jsoData.chains[chain][i].name].catProps.count = 1; //add to category properties the width or rowspan
-                        branch[jsoData.chains[chain][i].name].catProps.parentid = parentid; //... and the parentid for future reference = 0 for top level categories = APIs
-                    }
-                    branch = branch[jsoData.chains[chain][i].name];  //branch climbs up the chainTree
-                }
-                parentid = jsoData.chains[chain][i].catid;  //the current category is the next level's parent
-            }
-            $chainTable.append('<tr></tr>');  //add a row for each chain = number of categories to which the browsed series belongs
-            chainCount++;
-        }
-        //now that the chainTree object is created, make the table
-        var terminated = false, $cell, props;
-        var levelBranches = [], branchName, childless;
-        for(branchName in chainTree){if(branchName!="catProps")levelBranches.push(chainTree[branchName])} //prime the tree climb
-        while(!terminated){
-            terminated = true;
-            nextLevel= [];
-            for(i=0;i<levelBranches.length;i++){
-
-                //1. check if branch is terminated
-                if(levelBranches[i]==null){
-                    nextLevel.push(null);
-                } else {  //2. if not: create cell, indicate not terminated. and provided new reference(s)
-                    terminated = false;
-                    childless=true;
-                    for(branch in levelBranches[i]){
-                        if(branch!="catProps"){ //catProps is mixed in with the children name (which is repeated it is catProps = awkward and inefficient!)
-                            nextLevel.push(levelBranches[i][branch]);
-                            childless=false;
-                        }
-                    }
-                    if(childless) nextLevel.push(null);
-                    props = levelBranches[i].catProps;
-                    $cell = $('<td class="cat-branch'+(props.children>0?' expandable':'')+'" rowspan="'+props.count+'">'
-                        + '<div class="in-path" data="'+ props.catid +'">'
-                        + (props.siblings>1 && seriesId?'<span class="ui-icon browse-rolldown" title="show sibling categories"></span>':'')
-                        + (parseInt(props.scount)>0?'<a title="Click to view the '+props.scount+' series in this category">'+ props.name+ ' (' + props.scount + ')</a>':'<span class="title">'+props.name+'</span>')
-                        + (props.children>0?(childless?'<span class="ui-icon browse-right">show child categories</span>':'<span class="ui-icon browsed-right">child categories shown to right</span>'):'')
-                        + '</div>'
-                        + '</td>');
-                    //$cell.find('.browse-rolldown').click(function(){showSiblingCats(this)});
-                    //$cell.find('a').click(function(){publicCat($(this).closest('span.chain').attr('data'))});
-                    //$cell.find('.browse-right').click(function(){showChildCats(this, $(this).attr('data'))});
-                    $chainTable.find("tr:eq("+i+")").append($cell);
-                }
-            }
-            levelBranches = nextLevel;
-        }
-        /*        $chainTable.find('td.expandable').click(function(){
-         var $td = $(this);
-         if($td.hasClass('expandable')){
-         showSiblingCats($td.find('span.chain'));
-         }
-         });*/
-        $chainTable.click(chainTableClick);
-        if($('#cloud-series:visible').length==1){
-            $('div#browse-api').height($('#cloud-series').height()).width($('#cloud-series').width());
-        }
-        $('div#browse-api')
-            .empty()
-            .prepend('<span style="padding:5px;">Click below to expand sibling and child categories.  Categories containing series are shown as links.  Note that a series can be in more than one category.</span>'
-                //+ '<button id="browse-reset">reset</button> '
-                + '<button id="browse-close" class="right">close</button>')
-            .append($chainTable)
-            .fadeIn();
-        //$('#browse-reset').button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}, disabled: true}).click(function(){browseFromSeries(seriesId);});
-        $('#browse-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){browseClose();});
-    });
-}
-
-function showSiblingCats(node){
-    var catId, props, $tcat;
-    var $div = $(node).closest('div');
-    var $td = $div.closest('td');
-    var isOpened = $div.find('span.ui-icon-stop').length==1;
-    $tcat = $('#cat-chains'); //table
-    $tcat.find('div.sibling').remove();  //remove siblings anywhere in table
-    $tcat.find('.ui-icon.ui-icon-stop')
-        .removeClass("ui-icon-stop")
-        .addClass("browse-rolldown"); //revert the original cat's bullet with a roll-down
-    var $tdOld = $tcat.find('td.expanded').removeClass('expanded').addClass("expandable");
-    /*        .remove('span.browse-right')
-     .find('.ui-icon-stop').removeClass('ui-icon-stop')
-     .end();*/
-    if($tdOld.length==1 && $tdOld.html()=="") $tdOld.remove();
-    if(isOpened)return; //don't fetch.  above code already removed the siblings
-
-    catId = $td.addClass("expanded").removeClass("expandable").find('.browse-rolldown')
-        .removeClass('browse-rolldown')
-        .addClass('ui-icon-stop')
-        .end().find('div').attr('data');
-    var parent = browsedCats[browsedCats[catId].parentid];
-    if(parent.childrenCats){
-        buildSiblings(parent.childrenCats);
-    } else {
-        callApi({command: "GetCatSiblings", catid: catId}, function(jsoData, textStatus, jqXH){
-            parent.childrenCats = [];
-            for(var i=0;i<jsoData.siblings.length;i++){
-                props = jsoData.siblings[i];
-                parent.childrenCats.push(props.catid);
-                if(!browsedCats[props.catid]) {
-                    props.parentid = parent.catid;
-                    browsedCats[props.catid] = props;
-                }
-            }
-            buildSiblings(parent.childrenCats);
-        });
-    }
-    function buildSiblings(siblings){
-        var sibling, $newSibling;
-        $div.find('browse-rolldown').removeClass('browse-rolldown').addClass('ui-icon-stop');
-        for(var i=0;i<siblings.length;i++){
-            sibling = browsedCats[siblings[i]];
-            if(sibling.catid==catId){
-                if(sibling.children>0){
-                    $newSibling = $('<span class="ui-icon browse-right" title="show child categories" data="'+sibling.catid+'"></span>');
-                    $newSibling.find('.browse-right').click(function(){showChildCats(this)});
-                    $td.find("span.chain").append();
-                }
-            } else {
-                $newSibling = $('<div class="sibling" data="'+sibling.catid+'">'
-                    + ((sibling.children>0)?' <span class="ui-icon browse-right" title="show child categories">show children categories</span>':'' )
-                    + '<span class="ui-icon ui-icon-stop"></span><span class="sibling">'
-                    + (sibling.scount>0?'<a title="Click to view the '+sibling.scount+' series in this category">' + sibling.name +' (' + sibling.scount + ')</a>':sibling.name) + '</span>'
-                    + '</div>');
-                $newSibling.find('.browse-right').click(function(){showChildCats(this)});
-                $td.append($newSibling);
-            }
-        }
-    }
-}
-
-function showChildCats(node){
-    var child, $currentTd;
-    var parentId = $(node).closest('div').attr("data");
-    if(browsedCats[parentId].childrenCats){
-        buildChildren(browsedCats[parentId].childrenCats);
-    } else {
-        callApi({command: "GetCatChildren", catid: parentId}, function(jsoData, textStatus, jqXH){
-            browsedCats[parentId].childrenCats = [];
-            //console.info(jsoData.children);
-            for(var i=0;i<jsoData.children.length;i++){
-                child = jsoData.children[i];
-                if(!browsedCats[child.catid]) {
-                    child.parentid = parentId;
-                    browsedCats[child.catid] = child;
-                }
-                browsedCats[parentId].childrenCats.push(child.catid);
-            }
-            buildChildren(browsedCats[parentId].childrenCats);
-        });
-    }
-    function buildChildren(childrenCats){
-        //rebuild the table root while fetching occurring, starting with clicked span working up
-        var newTds='', nextCatId = parentId;
-
-        while(browsedCats[nextCatId].parentid!==null){
-            newTds = '<td class="cat-branch'+(browsedCats[nextCatId].children>0?' expandable':'')+'">'
-                + '<div class="in-path">'
-                + (browsedCats[nextCatId].siblings>0?'<span class="ui-icon browse-rolldown" title="show sibling categories"></span>':'')
-                + (parseInt(browsedCats[nextCatId].scount)>0?'<a title="Click to view the '+browsedCats[nextCatId].scount+' series in this category" >' + browsedCats[nextCatId].name +' (' + browsedCats[nextCatId].scount + ')</a>':browsedCats[nextCatId].name)
-                + '<span class="ui-icon browsed-right">child categories shown to right</span>'
-                + '</div></td>'
-                + newTds;
-            nextCatId = browsedCats[nextCatId].parentid;
-        }
-        var $chainTable = $('#cat-chains').html("<tr>"+newTds+"</tr>");
-        $chainTable.find('span.browse-rolldown').click(function(){showSiblingCats(this)});
-        $currentTd = $('<td class="chain expanded"></td>');
-        for(var i=0;i<childrenCats.length;i++){
-            child = browsedCats[childrenCats[i]];
-
-            $currentTd.append('<div data="' + child.catid + '">'
-                + ((child.children>0)?' <span class="ui-icon browse-right" data="'+child.catid+'" title="show child categories"></span>':'' )
-                + '<span class="ui-icon ui-icon-stop"></span>'
-                + (parseInt(child.scount)>0?'<a title="Click to view the '+child.scount+' series in this category" >' + child.name +' (' + child.scount + ')</a>':child.name)
-                + '</div>');
-        }
-        $chainTable.find('tr').append($currentTd);
-        //$("button.browse-reset").button("enable");
-        /* $chainTable.find('td.expandable').click(function(){
-         var $td = $(this);
-         if($td.hasClass('expandable')){
-         showChildCats(this, $td.find('span.chain').attr('data'));
-         }
-         });*/
-    }
-
-}
-
-function publicCat(catId){
-    searchCatId = catId; //global var. reset on filter change
-    hasher.replaceHash(panelHash()); //set the hash using the global searchCatID, which is then interpreted by the has listener parseHash()
-}
-
-function chainTableClick(evt){//unified click event = detect which object clicked and execute accordingly
-    var target = evt.target;
-    switch(target.nodeName){
-        case 'A':  //
-            publicCat($(target).closest('div').attr('data'));
-            break;
-        case 'TD':
-            var children = $(target).children('DIV');
-            if(children.length!=1) return; //only fall through to general DIV&SPAN handler if single DIV in TD
-            target = $(children).get(0);
-        case 'DIV':  // in-path | sibling
-        case 'SPAN': // browse-right | browsed-right | browse-rolldown | ui-icon-stop
-            if($(target).hasClass('browse-right')) return showChildCats(target); //expand and exit click handler
-            if($(target).hasClass('browsed-rolldown')) return showSiblingCats(target); //
-            var $div = $(target).closest('div');
-            if($div.find('span.browse-right').length==1) return showChildCats(target);  //this order prioritizes showing children over showing siblings!
-            if($div.find('span.browse-rolldown').length==1) return showSiblingCats(target);
-            break; //nothing found at this point
-    }
-}
-
-
-function browseClose(){
-    $('div#browse-api').fadeOut(function(){$(this).empty()});
-    //$('div#cloudSeriesTableDiv').fadeIn();
-}
-
 //USER ACCOUNT FUNCTIONS
 function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library loads and determines that user is authenticated
     if(account.loggedIn()) return account.info.userId;
@@ -2770,7 +2483,7 @@ function panelHash(){
                 return encodeURI('t=cs&cat='+searchCatId);
             } else {
                 $search = $('#series_search_text');
-                return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val()+'&f='+$('#series_search_periodicity').val())+'&api='+$('#series_search_source').val()+'&sets='+$('#public-settype-radio').find('input:checked').val());
+                return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val()+'&f='+$('#series_search_freq').val())+'&api='+$('#series_search_source').val()+'&sets='+$('#public-settype-radio').find('input:checked').val()+'&map='+$('#find-data-map').val());
             }
         case '#myGraphs':
             $search = $('#my_graphs_table_filter input');

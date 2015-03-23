@@ -174,6 +174,7 @@
             if($target.hasClass('map-list-item')){
                 var selectedMap = $target.attr('data');
                 $('#find-data-map').html('<option value="'+selectedMap+'" selected>'+MashableData.globals.maps[selectedMap].name+'</option>');
+                seriesCloudSearch();
                 $divHtml.remove();
                 return selectedMap;
             } else {

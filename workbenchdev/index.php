@@ -49,6 +49,7 @@
         <script type="text/javascript" src="/workbenchdev/js/jstat.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/workbench.js?v=<?=$workbenchVersion?>"></script>
+        <script type="text/javascript" src="/workbenchdev/js/cat_browser.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/account.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/annotator.js?v=<?=$workbenchVersion?>"></script>
         <script type="text/javascript" src="/workbenchdev/js/provenance.js?v=<?=$workbenchVersion?>"></script>
@@ -122,16 +123,21 @@
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
+                    <div id="public-settype-radio">
+                        <input type="radio" id="public-all-series" name="public-mapset-radio"  value="all" checked><label for="public-all-series" value="all">all</label>
+                        <input type="radio" id="public-mapset-only" name="public-mapset-radio" value="M"><label for="public-mapset-only" title="Show only sets that can be mapped as countries, states, or regions">map sets <span class="ui-icon ui-icon-mapset"></span></label>
+                        <input type="radio" id="public-pointset-only" name="public-mapset-radio" value="X"><label for="public-pointset-only" title="Show sets that can mapped as point markers, each having defined a longitude and latitude">marker sets <span class="ui-icon ui-icon-pointset"></span></label></div>
+                    <select id="find-data-map"><option value="none">no map filter</option> </select>
                     <select id="series_search_freq">
-                        <option selected="selected" value="all">all frequencies</option>
-                        <option value="D">daily</option>
-                        <option value="W">weekly</option>
-                        <option value="M">monthly</option>
-                        <option value="Q">quarterly</option>
-                        <option value="SA">semi-annual</option>
-                        <option value="A">annual</option>
+                        <option selected="selected" value="all">all&nbsp;&nbsp;(all frequencies)</option>
+                        <option value="D">D&nbsp;&nbsp;(daily)</option>
+                        <option value="W">W&nbsp;&nbsp;(weekly)</option>
+                        <option value="M">M&nbsp;&nbsp;(monthly)</option>
+                        <option value="Q">Q&nbsp;&nbsp;(quarterly)</option>
+                        <option value="S">S&nbsp;&nbsp;(semi-annual)</option>
+                        <option value="A">A&nbsp;&nbsp;(annual)</option>
                     </select>
-                    <select title="filter results by source" width="50px" id="series_search_source">
+                    <select title="filter results by source" id="series_search_source">
                         <option value="ALL">all sources</option>
                         <option value="9">European Union Statistics (Eurostats)</option>
                         <option value="6">Joint Oil Data Initiative</option>
@@ -143,7 +149,6 @@
                         <option value="7">time conversions</option>
                     </select>
                     <div id="public-settype-radio" style="display:none;"><input type="radio" id="public-all-series" name="public-settype-radio"  value="all" checked><label for="public-all-series" value="all">all</label><input type="radio" id="public-mapset-only" name="public-settype-radio" value="MS"><label for="public-mapset-only">map sets <span class="ui-icon ui-icon-mapset" title="Show only series that are part of a map set."></span></label><input type="radio" id="public-pointset-only" name="public-settype-radio" value="XS"><label for="public-pointset-only">marker sets <span class="ui-icon ui-icon-pointset" title="Show only series that are part of a set series, each having defined a longitude and latitude."></span></label></div>
-                    <select id="find-data-map"><option value="none">no map filter</option> </select>
                     <button id="series-search-button">search</button>
                 </div>
                 <div id="cloud_series_bar_controls" style="display:inline;margin:5px, 2px, 0px, 5px; padding:0px;color:white;">

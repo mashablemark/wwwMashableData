@@ -117,7 +117,12 @@ MashableData.Set = function(SetParams){
         return(this.freqs[0]);  //whatever
     };
     MashableData.Set.prototype.name = function(){
-        if(this.seriesname) return this.seriesname;
+        if(!this.isSeries()){
+            return this.setname;
+        } else {
+            if(this.seriesname) return this.seriesname;
+        }
+        //if still here...
         var name = this.setname, elipseCode = '&hellip;', pos;
         if(this.geoname){
             pos = name.indexOf(elipseCode);
@@ -150,9 +155,9 @@ MashableData.Set = function(SetParams){
     };
     MashableData.Set.prototype.mapList = function(){
         if(this.maps){
-            var mapCode, mapNames = [];
+            var mapCode, mapNames = [], minMappable = this.settype=='X'?0:1;
             for(mapCode in this.maps){
-                if(this.maps[mapCode]>1 && globals.maps[mapCode]) mapNames.push(globals.maps[mapCode].name);
+                if(this.maps[mapCode]>minMappable && globals.maps[mapCode]) mapNames.push(globals.maps[mapCode].name);
             }
             return mapNames.join('; ');
         } else return "";
