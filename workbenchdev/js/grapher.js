@@ -414,7 +414,7 @@ MashableData.grapher = function(){
             );
             function createGraph(graph){
                 //get the map too if needed
-                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?[(globals.isEmbedded?'//remote.mashabledata.com/':'/global/js/maps/')+ graph.mapFile +'.js']:[]);
+                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?[(globals.isEmbedded?'//www.mashabledata.com/global/js/maps/':'/global/js/maps/')+ graph.mapFile +'.js']:[]);
                 require(fileAssets, function(){ //blocking check to ensure required libraries have loaded
                     buildGraphPanel(graph);  //panelId not passed -> new panel
                     if(onComplete) onComplete();
@@ -1146,7 +1146,7 @@ MashableData.grapher = function(){
                                 '<div id="embed-info">' +
                                     '<button class="right" id="embed-info-close">close</button>' +
                                     '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
-                                    '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/preview?graphcode='+oGraph.ghash+'" target="_blank">graph\'s preview page</a>. ' +
+                                    '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/preview'+(globals.isDev?'dev':'')+'?graphcode='+oGraph.ghash+'" target="_blank">graph\'s preview page</a>. ' +
                                     '<textarea id="link-html">&lt;div class=&quot;mashabledata_embed&quot; data=&quot;'+oGraph.ghash+'&quot;&gt;&lt;/div&gt;</textarea>' +
                                     '</div>';
                             $.fancybox(linkDivHTML,

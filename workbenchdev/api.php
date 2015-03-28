@@ -445,8 +445,8 @@ switch($command){
                     //$output = ["json"=>$graph_json];
                     $output["cache_age"] =  $age / 1000 . "s";
                 } else {
-                    //cache needs refreshing
-                    runQuery("update graphcache set lastrefreshtime = $currentmt where ghash=$ghash_var");
+                    //cache needs refreshing = add 10 seconds to the clock to prevent other threads from recreating the graph object while this one does its job
+                    runQuery("update graphcache set refreshmtime = coalesce(refreshmtime, createmtime)+10000 where ghash=$ghash_var");
                 }
             }
             if(!isset($output)){
@@ -501,7 +501,7 @@ switch($command){
                 $sql = "
                     insert into embedlog (host, obj, objfetches) values ($host, $ghash_var, 1)
                     on duplicate key
-                    update embedlog set objfetches=objfetches+1 where host=$host and obj=$ghash_var
+                    update objfetches=objfetches+1
                 ";
                 runQuery($sql);
             }
@@ -688,8 +688,8 @@ switch($command){
                     $output = json_decode($cube_json, true, 512, JSON_HEX_QUOT);
                     $output["cache_age"] =  $age / 1000 . "s";
                 } else {
-                    //cache needs refreshing
-                    runQuery("update graphcache set lastrefreshtime = $currentmt where ghash=$ghash_var");
+                    //cache needs refreshing (give this thread 10 seconds to create new object and update db below
+                    runQuery("update graphcache set refreshmtime = coalesce(refreshmtime, createmtime)+10000 where ghash=$ghash_var");
                 }
             }
             if(!isset($output)){

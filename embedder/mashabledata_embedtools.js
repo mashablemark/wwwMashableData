@@ -5,7 +5,14 @@
  For embedded visualization, supporting libraries to be loaded before  mashabledata_embedtools.js:
  jQuery.js (required)
  Highcharts (optional)
- jQuery-UI (optional)
+ jQuery-UI (required) 
+
+ UglifyJS embedder plugin
+ scope: plugin files
+ Program: C:\wamp\www\node_modules\.bin\uglifyjs.cmd
+ Arguments: $ProjectFileDir$\global\js\jvectormap\jquery-jvectormap-1.2.2.min.js $ProjectFileDir$\global\js\flot\jquery.flot.min.js $ProjectFileDir$\global\js\flot\excanvas.min.js $ProjectFileDir$\global\js\require\require.2.1.1.min.js $ProjectFileDir$\global\js\fancybox\jquery.fancybox-1.3.4.pack.js $ProjectFileDir$\global\js\loadmask\jquery.loadmask.min.js $ProjectFileDir$\global\js\colour\colour.js  $ProjectFileDir$\workbenchdev\js\globals.js $ProjectFileDir$\workbenchdev\js\common.js $ProjectFileDir$\workbenchdev\js\set.js $ProjectFileDir$\workbenchdev\js\plot.js $ProjectFileDir$\workbenchdev\js\graph.js $ProjectFileDir$\workbenchdev\js\maps.js  $ProjectFileDir$\workbenchdev\js\grapher.js   $ProjectFileDir$\workbenchdev\js\jstat.js  $ProjectFileDir$\workbenchdev\js\shims.js  $ProjectFileDir$\workbenchdev\js\annotator.js  $ProjectFileDir$\workbenchdev\js\treemap.js  $FilePath$ -o embedder\mashabledata_embedtools.min.js
+ Working Dir: c:\wamp\www\
+ Output paths: embedder\mashabledata_embedtools.min.js
 
  */
 //jquery.ie.cors.js copyright 2013 Allen Institute for Brain Science Licensed under the Apache License

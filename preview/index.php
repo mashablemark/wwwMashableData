@@ -1,3 +1,4 @@
+<?php $workbenchVersion = "0.9";  ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
     <html>
         <head>
@@ -28,17 +29,17 @@
             <script type="text/javascript" src="/global/js/require/require.2.1.1.min.js"></script><!--15kb-->
             <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script><!--16kb+images-->
             <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script><!--2kb+images-->
-    <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/globals.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/common.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/set.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/plot.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/graph.js"></script>
+            <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
+            <script type="text/javascript" src="/workbenchdev/js/globals.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/common.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/set.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/plot.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/maps.js?v=<?=$workbenchVersion?>"></script>
-            <script type="text/javascript" src="/workbenchdev/js/grapher.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/jstat.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/shims.js"></script>
-            <script type="text/javascript" src="/workbenchdev/js/annotator.js"></script>
+            <script type="text/javascript" src="/workbenchdev/js/grapher.js?v=<?=$workbenchVersion?>"></script>
+    <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/jstat.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/annotator.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/treemap.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/embedder/mashabledata_embedtools.js"></script>
 <?php } else { ?>

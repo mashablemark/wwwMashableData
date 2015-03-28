@@ -5,6 +5,13 @@
  * Time: 9:04 PM
  */
 
+/* UglifyJS workbench NODEJS seting in PhpStorm
+    Program: C:\wamp\www\node_modules\.bin\uglifyjs.cmd
+    Arguments: globals.js common.js set.js plot.js graph.js maps.js grapher.js jstat.js shims.js workbench.js cat_browser.js  account.js  annotator.js provenance.js treemap.js -o workbench.min.js -m toplevel,eval
+    Working Dir: $FileDir$
+    Output paths: workbench.min.js
+*/
+
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
 var buildGraphPanel = grapher.buildGraphPanel,

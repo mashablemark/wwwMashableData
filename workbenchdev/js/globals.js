@@ -10,6 +10,7 @@ var MashableData = {
     globals: {
         totalServerTime: 0,
         isEmbedded: (window.location.hostname.indexOf('www.mashabledata.com')===-1 || window.location.pathname.indexOf('workbench')===-1),
+        isDev: (window.location.hostname.indexOf('www.mashabledata.com')!==-1 && window.location.pathname.indexOf('workbenchdev')!==-1),
         lang: {
             decimalPoint : '.',
             thousandsSep: ','

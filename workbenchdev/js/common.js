@@ -386,13 +386,13 @@ MashableData.common = {
         if(!embed && params.modal!='none') mask();
         $.ajax({
             type: embed?'GET':'POST', //IE only allows GET vars for CORS
-            url: embed?"//remote.mashabledata.com/":"api.php",
+            url: embed?"//www.mashabledata.com/global/js/maps":"api.php",
             encoding:"UTF-8",
             cache: false,
             data: data,
             dataType: 'json',
             success: function(jsoData, textStatus, jqXHR){
-                console.info(jsoData);
+                if(MashableData.globals.isDev) console.info(jsoData);
                 if(jsoData.status=="ok"){
                     if(!embed){
                         globals.totalServerTime += parseFloat(jsoData.exec_time);
