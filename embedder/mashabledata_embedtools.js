@@ -5,7 +5,7 @@
  For embedded visualization, supporting libraries to be loaded before  mashabledata_embedtools.js:
  jQuery.js (required)
  Highcharts (optional)
- jQuery-UI (required) 
+ jQuery-UI (required)
 
  UglifyJS embedder plugin
  scope: plugin files
