@@ -37,7 +37,7 @@
             <script type="text/javascript" src="/workbenchdev/js/graph.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/maps.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/grapher.js?v=<?=$workbenchVersion?>"></script>
-    <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
+            <script type="text/javascript" src="/workbenchdev/js/shims.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/jstat.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/annotator.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/treemap.js?v=<?=$workbenchVersion?>"></script>
@@ -46,13 +46,56 @@
     <script type="text/javascript" src="/embedder/mashabledata_embedtools.min.js"></script>
 <?php }  ?>
         </head>
-<body>
+<body style="font-family: arial, sans-serif;padding: 10px;">
 <?php
     $graphcode = isset($_REQUEST["graphcode"])?$_REQUEST["graphcode"]:"7d46bf418efc7e417ec5cba6e533566c";
 ?>
-    <p>This is an plain HTML page with the MashableData embedder JavaScrip library referenced.  After the page loads, the library searches for DIV element of class="mashabledata_embed" and instantiates an interactive graph corresponding to the data attribute:</p>
-    <span style="font-family: sans-serif; font;background-color: lightcyan;margin-bottom: 15px; padding: 5px;">&lt;div class="mashabledata_embed"  data="<?=$graphcode ?>"&gt;&lt;/div&gt;</span>
+<h2>How to Embed a MashableData visualization on your website</h2>
+    <p>This is an plain HTML page with the MashableData embedder JavaScrip library referenced.  After the page loads, the library searches for DIV elements of class="mashabledata_embed" and instantiates an interactive graph in each DIV corresponding to the data attribute.</p>
+<h3>Libraries</h3>
+<div style="border: thin solid black;color: #00008b;margin: 10px;padding: 10px;">
+    &lt;!-- jQuery is required if not already built into your website and jQueryUI is required for animated maps --&gt;<br />
+    &lt;script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"&gt;&lt;/script&gt;<br />
+    &lt;script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"&gt;&lt;/script&gt;<br />
+    <br />
+    &lt;!-- the MashableDate Embed Tool libaray must be saved to your webserver --&gt;<br />
+    &lt;script type="text/javascript" src="<a href="/embedder/mashabledata_embedtools.min.js">/embedder/mashabledata_embedtools.min.js</a>&gt;&lt;/script&gt;<br />
+    <br />
+    &lt;!--CSS files--&gt;<br />
+    &lt;link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.9.2.custom.css" /&gt;<br />
+    &lt;link rel="stylesheet" href="<a href="/embedder/mashabledata_embedtools.css">/embedder/mashabledata_embedtools.css</a> /&gt;<br />
+</div>
+<div style="color:darkred;display: inline-block; background-color:lightpink;margin:20px;padding:20px;">Important <a href="#hv">additional instructions for high volume websites</a> (100,000 pages per hour or more) at bottom of the page</div>
 
-    <div class="mashabledata_embed"  data="<?=$graphcode ?>" style="margin: 10px; height: 1000px;border: thin solid black;"></div>
+<h3>HTML</h3>
+In the body on your webpage, add the following HTML and MashableData_embedtool.js does the rest!
+<div style="border: thin solid black;color: #00008b;margin: 10px;padding: 10px;">
+    &lt;div class="mashabledata_embed"  data="<?=$graphcode ?>"&gt;&lt;/div&gt;<br />
+</div>
+
+
+
+    <div class="mashabledata_embed"  data="<?=$graphcode ?>" style="margin: 0; height: 1000px;border: thin solid black;"></div>
+
+<br />
+<br />
+<br />
+
+<h3><a id="hv">Additional instructions for high volume websites</a> (>100,000 embedded visualization views per hour)</h3>
+
+<p>MashableData.com allows embedded graph&rsquo;s to request data and map definitions from our servers using Cross-Domain
+    Origin Scripting (CORS).  This simplifies embedding your MashableData visualizations and our cached Content Delivery
+    Network can meet the needs of the vaste majority of websites.</p>
+<p>However, high volume websites are required to include the graph and map definitions on webpage with embedded MashableData
+    visualization expecting very high volumes.</p>
+<p>This is done by copying the JavaScript below into an inline
+    &lt;SCRIPT&gt; tag or into a JavaScript file that is referenced by your webpage.  This removes all dependencies on
+    the MashableData servers and the only limitations is your own servers and content delivery network.</p>
+<p>Failure to do so may result in refused requests for data for graphs exceeding 100,000 impressions per hour.</p>
+
+<textarea id="MashableData_graphData" style="width:90%;height:500px;border: thin solid black;color: #00008b;margin: 10px;padding: 10px;">
+//embedded graph definition for <?=$graphcode ?>
+
+</textarea>
 
 </body>

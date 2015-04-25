@@ -53,6 +53,14 @@ MashableData.Set = function(SetParams){
             return false;
         }
     };
+    MashableData.Set.prototype.chartData = function(updatedData){
+        var point, chartData = this.parsedData(updatedData);
+        for(var i=0;i<chartData.length;i++){
+            point = chartData[i].split(':');
+            chartData[i] = [Date.parse(common.dateFromMdDate(point[0] )), point[1]==="null"||point[1]===null ? null : parseFloat(point[1])];
+        }
+        return chartData;
+    };
     MashableData.Set.prototype.fetchData = function(settings, callBack){
         var self = this;
         if(settings){ //optional definition of map, geoid, latLon and frequency

@@ -21,8 +21,7 @@ var buildGraphPanel = grapher.buildGraphPanel,
     oMySets = globals.MySets,
     oMyGraphs = globals.MyGraphs,
     hcColors = globals.hcColors,
-    colorsPlotBands = globals.colorsPlotBands,
-    graphScriptFiles = globals.graphScriptFiles;
+    colorsPlotBands = globals.colorsPlotBands;
 var createMyGraph = grapher.createMyGraph,
     formatDateByPeriod = grapher.formatDateByPeriod,
     visiblePanelId = grapher.visiblePanelId,
@@ -174,7 +173,7 @@ $(document).ready(function(){
     $('#quick-view-chart').button({icons: {secondary: "ui-icon-image"}});
 
     $('#quick-view-add-to-graph').button().click(quickViewToGraph);
-    $quickViewChangeGeo = $('#quick-view-change-geo').button().click(quickViewFetchGeos)
+    $quickViewChangeGeo = $('#quick-view-change-geo').button().click(quickViewFetchGeos);
     $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(quickViewClose);
 
     $(".show-graph-link").fancybox({  //TODO: replace index html with dynamic FancyBox invocations per account.js
@@ -289,7 +288,7 @@ $(document).ready(function(){
         setPanelHash();
     });
 
-    require(graphScriptFiles, function(){
+    require(globals.graphScriptFiles, function(){
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
         Highcharts.setOptions({
             tooltip: {
@@ -1162,17 +1161,24 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
     if(obj.plots){ // a graphs object was passed in
         qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
-        $('#quick-view-change-freq, #quick-view-change-geo').hide();
+        var $qvChangeFreq = $('#quick-view-change-freq').hide();
+        if($qvChangeFreq.selectmenu) $qvChangeFreq.selectmenu('destroy');
+        $quickViewChangeGeo.hide();
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
         oQuickViewSeries = aoSeries; //aoSeries is guarented to be an array of series
 
         //allow geo switching on a single series only
+        $('#quick-view-geo-select').hide();  //hide the autocomplete
+
         if(aoSeries.length==1 && aoSeries[0].settype!='S'){
-            $quickViewChangeGeo.show();
+            $quickViewChangeGeo.show(); //show the autocomplete fill button
+            $('#outer-show-graph-div .ui-autocomplete').remove();
         } else {
-            $('#quick-view-change-freq, #quick-view-change-geo').hide();
+            $('#quick-view-change-freq').hide().selectmenu('destroy');
+            $quickViewChangeGeo.hide();
         }
+
         qGraph = new MD.Graph();
         var allFreqs = [], allFreq = [];
         for(i=0;i<aoSeries.length;i++){
@@ -1185,16 +1191,16 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
             $.each(aoSeries[0].freqs, function(f, freq){ //previous test guarentee that all aoSeries have identical freq and freqs
                 options += '<option value="'+freq+'" '+(freq==aoSeries[0].freq?'selected':'')+'>'+globals.period.name[freq]+'</option>';
             });
-            $('#quick-view-change-freq').html(options).show().off().change(function(){
+            $('#quick-view-change-freq').html(options).off().change(function(){
                 var newF = this.value;
                 $.each(aoSeries, function(){
                     this.freq = newF;
                     delete this.data;
-                });
+                }).selectmenu();
                 preview(aoSeries, map, showAddSeries);
             });
         } else {
-            $('#quick-view-change-freq').hide();
+            $('#quick-view-change-freq').hide().selectmenu('destroy');
         }
     }
 
@@ -1333,7 +1339,9 @@ function quickViewFetchGeos(){
                 }
             }
             $quickViewChangeGeo.slideUp();
-            var $geoSelect = $('#quick-view-geo-select').html(options).slideDown();
+            var $geoSelect = $('#quick-view-geo-select').html(options).off().slideDown().change(function(){
+                console.log($(this).val());
+            });
 
             //autocomplete widget
             $geoSelect.combobox();
@@ -1360,19 +1368,35 @@ function quickViewFetchGeos(){
         _createAutocomplete: function() {
             var selected = this.element.children( ":selected" ),
                 value = selected.val() ? selected.text() : "";
-
+            var widget = this;
             this.input = $( "<input>" )
                 .appendTo( this.wrapper )
                 .val( value )
                 .attr( "title", "" )
+                .focus(function(){$(this).select(); })
+                .keyup(function(event){
+                    var keyCode = ('which' in event) ? event.which : event.keyCode;
+                    if(keyCode == 13 || keyCode == 9) {  //return or tab keys
+                        //TRYING TO GRAB FIRST ITEM FROM UL, BUT SOMEWHAT CHALLENGING
+                        // var firstItem = widget.element.children( "li:first a");
+                        //this.val(firstItem.html());
+                    }
+            })
                 .addClass( "custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left" )
                 .autocomplete({
                     delay: 0,
+                    position: {
+                        my: "right bottom",
+                        at: "right top",
+                        //collision: "flipfit",
+                        within: "#fancybox-content"
+                    },
                     minLength: 0,
                     source: $.proxy( this, "_source" )
                 })
                 .tooltip({
-                    tooltipClass: "ui-state-highlight"
+                    tooltipClass: "ui-state-highlight",
+                    content: "search or select from list"
                 });
 
             this._on( this.input, {
@@ -1437,16 +1461,20 @@ function quickViewFetchGeos(){
 
             // Selected an item, nothing to do
             if ( ui.item ) {
+                _fetchSerieForNewGeo($(ui.item.option).val());
                 return;
             }
 
             // Search for a match (case-insensitive)
             var value = this.input.val(),
                 valueLowerCase = value.toLowerCase(),
-                valid = false;
+                valid = false,
+                geoid;
             this.element.children( "option" ).each(function() {
                 if ( $( this ).text().toLowerCase() === valueLowerCase ) {
                     this.selected = valid = true;
+                    geoid = $(this).val();
+                    _fetchSerieForNewGeo(geoid);
                     return false;
                 }
             });
@@ -1466,6 +1494,43 @@ function quickViewFetchGeos(){
                 this.input.tooltip( "close" ).attr( "title", "" );
             }, 2500 );
             this.input.autocomplete( "instance" ).term = "";
+
+
+            //private function to fetch and show new serie
+            function _fetchSerieForNewGeo(newGeoid){
+                //fire a change of geo here if geoid != oQuickViewSeries[0].geoid
+                if(oQuickViewSeries.length==1 && oQuickViewSeries[0].geoid != geoid){
+                    var serie = oQuickViewSeries[0];
+                    callApi(
+                        {
+                            command:  'GetSeries',
+                            series: {
+                                "newgeo": {
+                                    setid: serie.mastersetid || serie.setid,
+                                    freq: serie.freq,
+                                    geoid: newGeoid, //from autocomplete!!
+                                    latlon: serie.latlon
+                                }
+                            }
+                        },
+                        function(jsoData, textStatus, jqXH){
+                            var newSerie = new MD.Set(jsoData.series['newgeo']);
+                            if(oQuickViewSeries[0].preferredMap) newSerie.preferredMap = oQuickViewSeries[0].preferredMap;
+                            oQuickViewSeries[0] = newSerie;
+                            quickChart.get('P0').remove();
+                            quickChart.addSeries({
+                                color: globals.hcColors[0],
+                                dashStyle: 'solid',
+                                data: newSerie.chartData(),
+                                name: newSerie.name(),
+                                freq: newSerie.freq,
+                                id: 'P0'
+                            });
+                            quickChart.setTitle({text: newSerie.name()});
+                        }
+                    );
+                }
+            }
         },
 
         _destroy: function() {
@@ -1635,6 +1700,7 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
         }
         if(!currentCubeAccountedFor && graph && graph.cubeid) cubeOptions = '<select value="' + graph.cubeid + '" selected>' + graph.cubename || 'data cube' + '</select>' + cubeOptions;
         $cubeSelector.html(cubeOptions);
+        if(graph && graph.mapconfig) $cubeSelector.val(graph.mapconfig.mapViz);
     }
     return possibleCubes;
 }

@@ -12,12 +12,13 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     this.assets = properties.assets || {};
     this.gid = properties.gid || null;
     this.ghash = properties.ghash || null;
+    this.intervals = properties.intervals || null;
     this.analysis = properties.analysis || null;
     this.mapconfig = properties.mapconfig || {};
     this.start = properties.start || null;
     this.end = properties.end || null;
     this.published = properties.published || 'N';
-    this.userid = parseInt(properties.userid)||null
+    this.userid = parseInt(properties.userid)||null;
 
     //inflaters
     if(typeof this.annotations =="string") this.annotations = safeParse(this.annotations, []);
@@ -159,11 +160,17 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         var graph = this;
         if(graph.map){
             if(!graph.mapFile) graph.mapFile = globals.maps[graph.map].redef?graph.map:globals.maps[graph.map].jvectormap;
-            var requiredFile = ['/global/js/maps/'+ graph.mapFile +'.js'];
-            require(requiredFile, function(){
-                if(globals.maps[graph.map].redef) common.makeMap(graph.map);  //if this a regional map derived from a master map (eg. world -> WB regions)
+            var requiredFile = ['//www.mashabledata.com/global/js/maps/'+ graph.mapFile +'.js']; //http or https; this directory allows CORS
+            //note: if jvm not yet loaded (non-blocking prefetches) it will be during final blocking fetchMap deep inside buildGraphPanel()
+            if(window.jvm && !jvm.Map.maps[graph.mapFile]){  //allow embedded visualization to include mapFile directly.  require.js does not make this distinction
+                require(requiredFile, function(){
+                    if(globals.maps[graph.map].redef) common.makeMap(graph.map);  //if this a regional map derived from a master map (eg. world -> WB regions)
+                    if(callback) callback();
+                });
+            } else {
+                if(window.jvm && globals.maps[graph.map].redef) common.makeMap(graph.map);
                 if(callback) callback();
-            });
+            }
         } else if(callback) callback();
     };
     Graph.prototype.changeMap = function(mapCode, callback){
@@ -276,7 +283,6 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             map: this.map,
             mapconfig: $.stringify(this.mapconfig),
             modifieddt: now,
-
             intervals: this.intervals,
             cubeid: this.cubeid,
             type: this.type,

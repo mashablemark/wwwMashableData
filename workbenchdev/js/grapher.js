@@ -19,7 +19,6 @@ MashableData.grapher = function(){
         op = globals.op,
         oMyGraphs = globals.MyGraphs,
         isIE = globals.isIE,
-        graphScriptFiles = globals.graphScriptFiles,
         dateFromMdDate = common.dateFromMdDate,
         rationalize = common.rationalize,
         callApi = common.callApi;
@@ -400,23 +399,42 @@ MashableData.grapher = function(){
         },
         createMyGraph: function createMyGraph(ghash, onComplete){ //id can either be a graph id (int) or a ghash
             console.time('createMyGraph');
-            //1. check to see if it is a gid of a graph that is already loaded in MyGraphs
-            callApi(
-                {command: globals.isEmbedded?'GetEmbeddedGraph':'GetFullGraph', ghash: ghash},
-                function(oReturn, textStatus, jqXH){
-                    for(var ghandle in oReturn.graphs){
-                        //if user wants to save, it must be saved as a copy if graph.userid <> this user (enforced in API too)
-                        var graphModel = new MD.Graph(oReturn.graphs[ghandle]);
-                        graphModel.fetchMap();  //prefetch:  gating fetch jsut before map draw
-                        createGraph(graphModel);  //new obj for API = no need to creat working copy
-                    }
-                }
-            );
-            function createGraph(graph){
-                //get the map too if needed
-                var fileAssets = (globals.isEmbedded?[]:graphScriptFiles).concat(graph.mapFile?[(globals.isEmbedded?'//www.mashabledata.com/global/js/maps/':'/global/js/maps/')+ graph.mapFile +'.js']:[]);
-                require(fileAssets, function(){ //blocking check to ensure required libraries have loaded
-                    buildGraphPanel(graph);  //panelId not passed -> new panel
+            var graphModel;
+            //1. check to see if the blueprint of an embedded graph is preloaded as a script
+            if(globals.isEmbedded && MashableData.globals.graphBluePrints[ghash]){
+                graphModel = new MD.Graph(MashableData.globals.graphBluePrints[ghash]);
+                graphModel.fetchMap();  //if the bluePrint is loaded, so should the map def.  This call is (a) for insurance and (b) creates derivative maps as needed
+                _createGraph();  //new obj for API = no need to create working copy
+                callApi({command: 'GetEmbeddedGraph', ghash: ghash, logonly: true}); //still log the embedded usage (non-blocking and no data is fetched)
+            } else {
+                callApi(
+                    {command: globals.isEmbedded?'GetEmbeddedGraph':'GetFullGraph', ghash: ghash},
+                    function(oReturn, textStatus, jqXH){
+                        for(var ghandle in oReturn.graphs){
+                            //if user wants to save, it must be saved as a copy if graph.userid <> this user (enforced in API too)
+                            graphModel = new MD.Graph(oReturn.graphs[ghandle]);
+                            graphModel.fetchMap();  //prefetch and continue proocessing without waitng for call back (a second gating fetchMap() call occurs deep inside buildGraphPanel() just before map draw)
+                            // if(globals.isEmbedded){
+                                MashableData.globals.graphBluePrints[ghash] = oReturn.graphs[ghandle]; //share if shown twice on same webpage
+                                if(document.URL.indexOf('mashabledata.com/preview')!==-1){
+                                    //for preview pages, show the data and the map file in a DIV as part of the instructions for high volume websites
+                                    var graphDataHtml = 'MashableData.globals.graphBluePrints["'+ghash+'"] = ' + JSON.stringify(oReturn.graphs[ghandle]);
+                                    var $JsonDiv = $('#MashableData_graphData');
+                                    $JsonDiv.html($JsonDiv.html() + '&#13;&#10;&#13;&#10;' + graphDataHtml + '&#13;&#10;&#13;&#10;');
+                                    if(graphModel.mapFile){
+                                        $.get('/global/js/maps/'+ graphModel.mapFile +'.js', function(mapDef){
+                                            $JsonDiv.html($JsonDiv.html() + mapDef + '&#13;&#10;');
+                                        });
+                                    }
+                                }
+                            }
+                            _createGraph();  //new obj for API = no need to creat working copy
+                        }
+                );
+            }
+            function _createGraph(){
+                require(globals.isEmbedded?[]:globals.graphScriptFiles, function(){ //blocking check to ensure required libraries have loaded
+                    buildGraphPanel(graphModel);  //panelId not passed -> new panel
                     if(onComplete) onComplete();
                 });
             }
@@ -1240,6 +1258,7 @@ MashableData.grapher = function(){
                             return formatDateByPeriod(oGraph.calculatedMapData.dates[values[0]].dt.getTime(), oGraph.calculatedMapData.freq)+' - '
                                 + formatDateByPeriod(oGraph.calculatedMapData.dates[values[1]].dt.getTime(), oGraph.calculatedMapData.freq);
                         }
+                        _makeDirty();
                     };
                     $thisPanel.find('div.crop-slider').slider(
                         { //max and value[] are set in setCropSlider() after Highchart is called below
@@ -1330,10 +1349,12 @@ MashableData.grapher = function(){
                                 }
                             }
                             oGraph.type=$(this).val();
+                            _makeDirty();
                             _redraw();
                         });
-                    fillCubeSelector($thisPanel.find('select.map-viz-select'), [], [], oGraph);
-                    $thisPanel.find('select.map-viz-select')
+                    var $vizSelect = $thisPanel.find('select.map-viz-select');
+                    fillCubeSelector($vizSelect, [], [], oGraph);
+                    $vizSelect
                         .change(function(){
                             var val = $(this).val();
                             if(!isNaN(val)){
@@ -1622,19 +1643,17 @@ MashableData.grapher = function(){
                                     initial: {r: oGraph.mapconfig.maxRadius || 5},
                                     selected: {
                                         "stroke-width": 4,
-                                        stroke: 'yellow'
+                                        "stroke": 'yellow'
                                     }
                                 }, //default for null values in the data
                                 regionStyle: {
                                     selected: {
                                         "stroke-width": 2,
-                                        stroke: 'black',
-                                        fill: "#ffff80"
+                                        "stroke": 'yellow',
+                                        "fill": null
                                     },
                                     hover: {
-                                        "stroke-width": 2,
-                                        stroke: 'black',
-                                        "fill-opacity": 1
+                                        "fill-opacity": 0.8
                                     }
                                 },
                                 series: {
@@ -1706,7 +1725,8 @@ MashableData.grapher = function(){
                                                     break;
                                             }
                                             label.html(
-                                                '<div><b>'+$map.getRegionName(code)+'</b><br>'+calculatedMapData.title+':<br>'
+                                                '<div><b>'+$map.getRegionName(code)+'</b><br>'+calculatedMapData.title
+                                                    + ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
                                                     + valueReport
                                                     + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*sparkData.length)+'px;margin:0 5px;"></div>'
                                             ).css("z-Index",400);
@@ -1846,7 +1866,7 @@ MashableData.grapher = function(){
                             var $jvmap = $thisPanel.find('div.mashabledata_jvmap');
                             $jvmap.html('').vectorMap(vectorMapSettings);
                             $map = $jvmap.vectorMap('get', 'mapObject');
-                            if(oGraph.mapconfig.showLegend) _drawMap_makeLegend($map);
+                            if(oGraph.mapconfig.showLegend) gLegend = _drawMap_makeLegend($map);
                         } else {
                             $map = false;
                         }
@@ -1856,7 +1876,7 @@ MashableData.grapher = function(){
                         oGraph.controls.map = $map;
                         var $mapDateDiv = $('<div class="mashabledata_map-date"></div>').prependTo($thisPanel.find('div.jvectormap-container'));
                         //BBBUUUUBBBBBLLEESS!!!!!
-                        var $g = $thisPanel.find('div.mashabledata_jvmap svg g:first');  //goes in createGraph closure
+                        var $g = $thisPanel.find('div.mashabledata_jvmap svg g:first');  //goes in _createGraph closure
                         if(_drawMap_isBubble()){
                             _drawMap_positionBubbles();
                             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
@@ -1875,6 +1895,12 @@ MashableData.grapher = function(){
                                     change: function( event, ui ) { //this event fires when the map is first loaded
                                         val = ui.value;
                                         _drawMap_setRegionsMarkersAttribute(val);
+                                        if(val==calculatedMapData.endDateIndex){
+                                            if(!$map.getSelectedRegions().length) $('.mashabledata_make-map.ui-button').button('disable');
+                                        } else {
+                                            $('.mashabledata_make-map.ui-button').button('enable');
+                                        }
+                                        $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq));
                                     }
                                 })
                                 .slider("value", calculatedMapData.endDateIndex); //needed for first draw, but double triggers on true _redraw = not end of the world
@@ -1883,7 +1909,9 @@ MashableData.grapher = function(){
                             _drawMap_setRegionsMarkersAttribute(calculatedMapData.startDateIndex);
                         }
                         var $graphSelected = $thisPanel.find('.mashabledata_map-graph-selected');
-                        $graphSelected.button({icons:{secondary: 'ui-icon-image'}}).off()
+                        $graphSelected
+                            .button($thisPanel.width()>650?{icons:{secondary: 'ui-icon-image'}}:null)
+                            .off()
                             .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
                                 /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
                                  If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
@@ -1987,32 +2015,35 @@ MashableData.grapher = function(){
                             });
                         var $play = $thisPanel.find('.mashabledata_map-play');
                         if(calculatedMapData.startDateIndex!=calculatedMapData.endDateIndex){ //don't show the map slider and play controls if there only a single date
-                            $play.off().click(function(){
-                                var stepStart, stepEnd, timeToKill, optimalStepTime = Math.min(10000/calculatedMapData.dates.length, 500);  //total animation will take no more than 10 seconds
-                                if($play.attr("title")=="play"){
-                                    $play.button({text: false, icons: {primary: "ui-icon-pause"}}).attr("title","pause");
-                                    advanceSlider();
-                                } else {
-                                    $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
-                                }
-                                function advanceSlider(){
-                                    if($play.attr("title")=="pause"){
-                                        stepStart = new Date();
-                                        var newValue = $mapSlider.slider("value")+1;
-                                        if(newValue>calculatedMapData.endDateIndex) newValue = calculatedMapData.startDateIndex;
-                                        $mapSlider.slider("value", newValue);
-                                        stepEnd = new Date();
-                                        timeToKill = Math.max(1, optimalStepTime - (stepEnd.getTime()-stepStart.getTime()));
-                                        if(newValue==calculatedMapData.endDateIndex){
-                                            $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
-                                        } else {
-                                            if($play.attr("title")=="pause"){
-                                                window.setTimeout(advanceSlider, timeToKill);
+                            $play
+                                .off()
+                                .click(function(){
+                                    var stepStart, stepEnd, timeToKill, optimalStepTime = Math.min(10000/calculatedMapData.dates.length, 500);  //total animation will take no more than 10 seconds
+                                    if($play.attr("title")=="play"){
+                                        $play.button({text: false, icons: {primary: "ui-icon-pause"}}).attr("title","pause");
+                                        advanceSlider();
+                                    } else {
+                                        $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
+                                    }
+                                    function advanceSlider(){
+                                        if($play.attr("title")=="pause"){
+                                            stepStart = new Date();
+                                            var newValue = $mapSlider.slider("value")+1;
+                                            if(newValue>calculatedMapData.endDateIndex) newValue = calculatedMapData.startDateIndex;
+                                            $mapSlider.slider("value", newValue);
+                                            stepEnd = new Date();
+                                            timeToKill = Math.max(1, optimalStepTime - (stepEnd.getTime()-stepStart.getTime()));
+                                            if(newValue==calculatedMapData.endDateIndex){
+                                                $play.button({text: false, icons: {primary: "ui-icon-play"}}).attr("title", "play");
+                                            } else {
+                                                if($play.attr("title")=="pause"){
+                                                    window.setTimeout(advanceSlider, timeToKill);
+                                                }
                                             }
                                         }
                                     }
-                                }
-                            }).button({text: false, icons: {primary: "ui-icon-play"}});
+                                })
+                                .button({text: false, icons: {primary: "ui-icon-play"}});
                             $thisPanel.find('.mashabledata_map-step-backward').off()
                                 .click(function(){
                                     $mapSlider.slider("value",$mapSlider.slider("value")-1);
@@ -2033,7 +2064,7 @@ MashableData.grapher = function(){
                             });  //initialize here rather than set slider value which would trigger a map _redraw
                         var noCubeRedraw = false;
                         $thisPanel.find('.mashabledata_make-map')
-                            .button({icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}).off()
+                            .button($thisPanel.width()>650?{icons: {secondary: 'ui-icon-arrowrefresh-1-s'}}:null).off()
                             .click(function(){
                                 noCubeRedraw = true;
                                 $map.clearSelectedMarkers();
@@ -2044,11 +2075,15 @@ MashableData.grapher = function(){
                                  $map.addMarkers(calculatedMapData.markers);
                                  calculatedMapData  = _calcMap(oGraph);
                                  _calcAttributes(oGraph);
-                                 _drawMap_bubbleCalc();
-                                 $mapSlider.slider("value", calculatedMapData.dates.length-1);*/
+                                 _drawMap_bubbleCalc();*/
+                                $mapSlider.slider("value", calculatedMapData.endDateIndex);
                                 $thisPanel.find('.mashabledata_map-graph-selected, .mashabledata_make-map.ui-button').button('disable');
                             });
-                        if(!isEmbedded){
+                        if(isEmbedded){
+                            //set the slider width here after all the button calls
+                            var sliderWidth = Math.max(100, $thisPanel.find('.mashabledata_map-controls').outerWidth(true)-$thisPanel.find('.mashabledata_map-step-backward').outerWidth(true)-$play.outerWidth(true)-$thisPanel.find('.mashabledata_map-step-forward').outerWidth(true)-$thisPanel.find('.mashabledata_map-graph-selected').outerWidth(true)-$thisPanel.find('.mashabledata_make-map').outerWidth(true)-30);
+                            $mapSlider.width(sliderWidth);
+                        } else {
                             $thisPanel.find('button.group').button({icons: {secondary: 'ui-icon-circle-plus'}}).off()
                                 .click(function(){
                                     if(mergablity.newMerge){
@@ -2133,7 +2168,7 @@ MashableData.grapher = function(){
                                 });
                         }
                         //legend no longer a user option:  set in workbench only and uses JVM 2.0 legend rather than SVG
-                        var gLegend = false,
+                        var gLegend,
                             makeLegend;  //reference to _drawmap_makeLegend()
                         $thisPanel.find('input.mashabledata_legend').change(function(){
                             oGraph.mapconfig.showLegend = ($(this).prop('checked'));
@@ -2227,7 +2262,7 @@ MashableData.grapher = function(){
                                 }
                             }
                             list.sort(function(a,b){return (oGraph.mapconfig.mapViz=='list-desc'?-1:1)*(a.value - b.value);});
-                            var html='<div class="mashabledata_map-list"><table><thead><th>Rank <br>' + $thisPanel.find('div.mashabledata_map-date').html() + '</th><th>' + calculatedMapData.title + '</th><th>' + units + '</th></thead><tbody>';
+                            var html='<div class="mashabledata_map-list"><table><thead><th>Rank <br>' + $mapDateDiv.html() + '</th><th>' + calculatedMapData.title + '</th><th>' + units + '</th></thead><tbody>';
                             for(var i=0;i<list.length;i++){
                                 html += '<tr data="'+list[i].id+'"><td>'+ (i+1) +'</td><td>'+ list[i].name +'</td><td>'+ list[i].value +'</td></tr>';
                             }
@@ -2423,7 +2458,7 @@ MashableData.grapher = function(){
                                 index,
                                 thisCode;
                             if(code && isSelected && selectedRegions.indexOf(code)===-1) selectedRegions.push(code);
-                            var vizChartGeos = getVizChartGeos(selectedRegions, oGraph, mapPlot, oGraph.mapconfig.mapViz=='line-bunnies'||oGraph.mapconfig.mapViz=='line-bunnies');
+                            var vizChartGeos = getVizChartGeos(selectedRegions, oGraph, mapPlot, oGraph.mapconfig.mapViz=='line-bunnies'||oGraph.mapconfig.mapViz=='bar-component-bunnies');
                             switch(oGraph.mapconfig.mapViz){
                                 case 'scatter':
                                     if(vizChartGeos.length){
@@ -3006,6 +3041,7 @@ MashableData.grapher = function(){
                         }
                         unmask();
                     }, 10);
+                    _makeDirty();
                 }
                 function _makeDirty(){
                     oGraph.isDirty = true;
@@ -3040,7 +3076,7 @@ MashableData.grapher = function(){
                     var markerData = {}; //2D object array:  [mdDate][shandle]=value
                     var regionData = {};  //2D object array:  [mdDate][region-code]=value
                     //local vars
-                    var mapRegionNames = {}, c, i, j, point, points, mddt, handle, dateHasData, valuesObject, pointHasData, y;
+                    var mapRegionNames = {}, c, i, j, point, points, mddt, handle, dateHasData, dateHasRegionData, valuesObject, pointHasData, y;
                     var dataMin, dataMax;
                     //var pointMin=null, pointMax=null;
                     var oMapDates = {};
@@ -3065,7 +3101,7 @@ MashableData.grapher = function(){
                             if(components[i].isMapSet()){
                                 for(geo in graph.assets[components[i].handle()].data){
                                     if(!geos[geo]) { //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
-                                        geos[geo]=true;
+                                        geos[geo]= graph.assets[components[i].handle()].data[geo].isBunny?'b':'r';
                                         sortedGeoList.push({geo: geo, name: graph.assets[components[i].handle()].geoname});
                                     }
                                     data = graph.assets[components[i].handle()].data[geo].data.split('|');
@@ -3105,6 +3141,7 @@ MashableData.grapher = function(){
                             dataMin = Number.MAX_VALUE;
                             dataMax = Number.MIN_VALUE;
                             dateHasData = false;
+                            dateHasRegionData = false;
                             for(geo in geos){
                                 valuesObject = {};
                                 y = true;
@@ -3159,16 +3196,17 @@ MashableData.grapher = function(){
                                         if(!regionData[dateKey]) regionData[dateKey] = {};
                                         regionData[dateKey][geo] = y;
                                         dateHasData = true;
-                                        dataMin = Math.min(dataMin||y, y);
-                                        dataMax = Math.max(dataMax||y, y);
+                                        if(geos[geo]=='r') {//skip the bunnies
+                                            dataMin = Math.min(dataMin||y, y);
+                                            dataMax = Math.max(dataMax||y, y);
+                                            dateHasRegionData = true;
+                                        }
                                     }
                                 }
                             }
-                            if(dateHasData){ //if all nulls, don't include this datum point
-                                mapDates[dateKey] = {regionMin: dataMin, regionMax: dataMax};
-                            } else {
-                                delete regionData[dateKey];
-                            }
+                            if(dateHasRegionData) mapDates[dateKey] = {regionMin: dataMin, regionMax: dataMax}; //not just bunny data
+                            if(!dateHasData) delete regionData[dateKey]; //if all nulls, don't include this datum point
+
                         }
                     }
                     var fillUnits, radiusUnits;
@@ -4069,7 +4107,7 @@ MashableData.grapher = function(){
         var vizChartGeos = [], geoInfo, containingGeoInfo;
         if(includeBunnies){
             if(mapsList[oGraph.map].bunny) {
-                geoInfo = getGeoInfo(mapsList[oGraph.map].bunny, oGraph, mapPlot);
+                geoInfo = _getGeoInfo(mapsList[oGraph.map].bunny, oGraph, mapPlot);
                 if(geoInfo){
                     geoInfo.bunny = true;
                     //containingIds.push(geoInfo.geoid);
@@ -4080,16 +4118,16 @@ MashableData.grapher = function(){
         }
         for(i=0;i<selectedRegions.length;i++){
             var regionCode = selectedRegions[i];
-            if(geoInfo = getGeoInfo(regionCode, oGraph, mapPlot)){
+            if(geoInfo = _getGeoInfo(regionCode, oGraph, mapPlot)){
                 if(includeBunnies && geoInfo.c_geoid){
-                    containingGeoInfo = getGeoInfo(geoInfo.c_geoid, oGraph, mapPlot);
+                    containingGeoInfo = _getGeoInfo(geoInfo.c_geoid, oGraph, mapPlot);
                     if(containingGeoInfo) vizChartGeos.push(containingGeoInfo);
                 }
                 vizChartGeos.push(geoInfo);
             }
         }
         return vizChartGeos;
-        function getGeoInfo(geoid, oGraph, mapPlot){
+        function _getGeoInfo(geoid, oGraph, mapPlot){
             var info, mapCode;
             if(isNaN(geoid)){ //jvm code
                 info = {code: geoid};

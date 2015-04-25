@@ -428,89 +428,63 @@ switch($command){
         }
         break;
     case "GetEmbeddedGraph":  //data and all: the complete protein!
+        //embedded graphs make requests to /graph_data which checks the cache first
+        //so if here, the cache is old or missing!
+
         $ghash =  $_REQUEST['ghash'];
         if(strlen($ghash)>0){
             $ghash_var = safeStringSQL($ghash);
-            $currentmt = microtime(true);
-            //1. check cache
-            $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefreshtime, graphjson from graphcache where ghash=$ghash_var";
-            $result = runQuery($sql);
-            if($result->num_rows==1){
-                $row = $result->fetch_assoc();
-                $age = $currentmt-$row['createmtime'];
-                if($age<$cache_TTL*60*1000 && ($row['lastrefreshtime']==null || $currentmt-$row['lastrefreshtime']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
-                    //cache good! (or another refresh in progress...)
-                    $graph_json = (string) $row["graphjson"];
-                    $output = json_decode($graph_json, true, 512, JSON_HEX_QUOT);
-                    //$output = ["json"=>$graph_json];
-                    $output["cache_age"] =  $age / 1000 . "s";
-                } else {
-                    //cache needs refreshing = add 10 seconds to the clock to prevent other threads from recreating the graph object while this one does its job
-                    runQuery("update graphcache set refreshmtime = coalesce(refreshmtime, createmtime)+10000 where ghash=$ghash_var");
-                }
-            }
-            if(!isset($output)){
-                //2. fetch if not in cache or needs refreshing
-                $output = getGraphs(0, $ghash);
-                //trim data based on graph end, start and interval dates using dataSliver()
-                foreach($output["graphs"] as $ghandle => $graph){
-                    foreach($graph["assets"] as $ahandle => $asset){
-                        unset($output["graphs"][$ghandle]["assets"][$ahandle]["maps"]);
-                        if($graph["start"] || $graph["end"] || $graph["intervals"]){
-                            $atype = (substr($ahandle, 0, 1));
-                            switch($atype){
-                                case "M":
-                                    foreach($asset["data"] as $geo => $series){
-                                        $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                        /*                                        $output["freq"]= $asset["freq"];
-                                                                                $output["firstdt"]=$series["firstdt"];
-                                                                                $output["lastdt"]=$series["lastdt"];
-                                                                                $output["start"]=$graph["start"];
-                                                                                $output["end"]=$graph["end"];
-                                                                                $output["intervals"]=$graph["intervals"];
-                                                                                $output["sliver"] = $series["data"];*/
-                                    }
-                                    break;
-                                case "U":
-                                case "S":
-                                    $asset["data"] = dataSliver($asset["data"], $asset["freq"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                    break;
-                                case "X":
-                                    foreach($asset["data"] as $latlon => $series){
-                                        $series["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                    }
-                                    break;
-                            }
+            //2. fetch if not in cache or needs refreshing
+            $output = getGraphs(0, $ghash);
+            //trim data based on graph end, start and interval dates using dataSliver()
+            foreach($output["graphs"] as $ghandle => $graph){
+                foreach($graph["assets"] as $ahandle => $asset){
+                    unset($output["graphs"][$ghandle]["assets"][$ahandle]["maps"]);
+                    if($graph["start"] || $graph["end"] || $graph["intervals"]){
+                        $atype = (substr($ahandle, 0, 1));
+                        switch($atype){
+                            case "M":
+                                foreach($asset["data"] as $geo => $series){
+                                    $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                    /*                                        $output["freq"]= $asset["freq"];
+                                                                            $output["firstdt"]=$series["firstdt"];
+                                                                            $output["lastdt"]=$series["lastdt"];
+                                                                            $output["start"]=$graph["start"];
+                                                                            $output["end"]=$graph["end"];
+                                                                            $output["intervals"]=$graph["intervals"];
+                                                                            $output["sliver"] = $series["data"];*/
+                                }
+                                break;
+                            case "U":
+                            case "S":
+                                $asset["data"] = dataSliver($asset["data"], $asset["freq"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                break;
+                            case "X":
+                                foreach($asset["data"] as $latlon => $series){
+                                    $series["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                                }
+                                break;
                         }
                     }
                 }
-                //3. insert or update cache
-                $global_sql_logging = $sql_logging;  //don't log these massive inserts
-                $sql_logging = false;
-                $cache_var = safeStringSQL(json_encode($output, JSON_HEX_QUOT));
-                $sql = "insert into graphcache (ghash, createmtime, graphjson) values ($ghash_var, $currentmt, $cache_var)";
-                //two steps instead of 'on duplicate key' to void submitting massive json string twice in one SQL statement
-                runQuery("delete from graphcache where ghash=$ghash_var");
-                runQuery($sql);
-                $sql_logging = $global_sql_logging;
+
             }
-            //4. log embedded usage
-            //if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
-            if(isset($_REQUEST["host"])){
-                $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
-                $sql = "
-                    insert into embedlog (host, obj, objfetches) values ($host, $ghash_var, 1)
-                    on duplicate key
-                    update objfetches=objfetches+1
-                ";
-                runQuery($sql);
-            }
-            //5. carry on...
+            //2. check uid...
             if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
             } else {
                 $output['userid'] = null;  //cannot save graph; only save as a copy
             }
+            //3. create / update cache file
+            if (!is_dir($cacheRoot . $cacheSubPath ))
+            {
+                mkdir($cacheRoot . $cacheSubPath, 0755, true);
+            }
+            $cfp = fopen($cacheFile, 'w');
+            if(flock($cfp, LOCK_EX)){
+                fwrite($cfp, json_encode($output, JSON_HEX_QUOT));
+            }
+            fclose($cfp);
         } else {
             $output = array("status"=>"The graph requested not available.  The author may have unpublished or deleted it.");
         }
@@ -553,7 +527,7 @@ switch($command){
         if($map = isset($_POST["map"]) ? $_POST["map"] : false){
             $output["map"] = $map;
             if($mapSets = (isset($_POST["mapSets"]) && count($_POST["mapSets"])>0) ? $_POST["mapSets"] : false){
-                getMapSets($output["assets"], $map, $mapSets, true);
+                getMapSets($output["assets"], $map, $mapSets, true, true);
             }
             if($pointSets = (isset($_POST["pointSets"]) && count($_POST["pointSets"])>0) ? $_POST["pointSets"] : false){
                 getPointSets($output["assets"], $map, $pointSets, true);
@@ -769,7 +743,7 @@ switch($command){
         $output["assets"] = [];
         if(isset($_POST["sets"]["mapSets"])){
             foreach($_POST["sets"]["mapSets"] as $handle=>$set){
-                getMapSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]]);
+                getMapSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]], false, true);
             }
         }
         if(isset($_POST["sets"]["pointSets"])){
@@ -1113,6 +1087,9 @@ switch($command){
             }
         }
         //clear the cache when a graph is saved (if new or not previously cached, nothing gets deleted)
+        $cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
+        $cacheSubPath = substr($ghash,0,2) . "/" . substr($ghash, 2, 2) . "/";
+        shell_exec("rm -f ".$cacheRoot.$cacheSubPath.$ghash."*");
         runQuery("delete from graphcache where ghash='$ghash'");
         break;
     case "ManageMySeries":
@@ -1717,7 +1694,7 @@ function setGhash($gid){  //does not check permissions!
 }
 
 function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEmbeddedGraph"
-    global $ft_join_char;
+    global $ft_join_char, $command;
 //if $userid = 0, must be a public graph; otherwise must own graph
 //note that series data is returned only if ghash is specified (i.e. a single graph request)
 //mapset data is not returned.  Requires a call to getGraphMapSets
@@ -1792,10 +1769,10 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
             $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
             $output['graphs']['G' . $gid]["bunny"] = $aRow["bunny"];
             $mapconfig = $aRow["mapconfig"];
+            $decodedMapconfig = json_decode($mapconfig, true); //also used to detect bunnies
             if($aRow["legend"]){
-                $json = json_decode($mapconfig, true);
-                $json["legendLocation"] = $aRow["legend"] ? $aRow["legend"] : "TR";  //why??  because embedded graphs will not have maplist
-                $mapconfig = json_encode($json);
+                $decodedMapconfig["legendLocation"] = $aRow["legend"] ? $aRow["legend"] : "TR";  //why??
+                $mapconfig = json_encode($decodedMapconfig);
             }
             $output['graphs']['G' . $gid]["mapconfig"] = $mapconfig;
             $output['graphs']['G' . $gid]["mapFile"] = $aRow["jvectormap"];
@@ -1843,7 +1820,8 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
                 );
             } elseif($aRow["settype"]=='M' && $aRow["geoid"]===null && $aRow["latlon"]==""){
                 //each pointSet asset created separately (note:  routine adds the data structure to $output.assets
-                getMapSets($output['graphs']['G' . $gid]["assets"], $aRow["map"], [["setid"=>$aRow["setid"], "freq"=>$aRow["freq"]]]);
+                $getBunnies = $command!="GetEmbeddedGraph" || (isset($decodedMapconfig["mapViz"]) && $decodedMapconfig["mapViz"]=="line-bunnies");
+                getMapSets($output['graphs']['G' . $gid]["assets"], $aRow["map"], [["setid"=>$aRow["setid"], "freq"=>$aRow["freq"]]], false, $getBunnies);
             } elseif($aRow["settype"]=='X' && $aRow["geoid"]===null && $aRow["latlon"]==""){
                 //each pointSet asset created separately (note:  routine adds the data structure to $output.assets
                 getPointSets($output['graphs']['G' . $gid]["assets"], $aRow["map"], [["setid"=>$aRow["setid"], "freq"=>$aRow["freq"]]]);
@@ -1876,21 +1854,23 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
     return $output;
 }
 
-function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
+function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false, $getBunnies = false){
 //used by:
-//    "GetMapSet" command from workbench.QuickViewToMap and workbench.getGraphMapSets()
+//    "GetSet" command from workbench.QuickViewToMap and workbench.getGraphMapSets()
 //    "GetFullGraph" command (api.getGraphs()) from grapher.createMyGraph() only
 //    "GetEmbeddedGraph" command (api.getGraphs()) from grapher.createMyGraph() only
+
     global $db, $orgid;
     $setFilters = [];
     //print_r($requestedSets);
     for($i=0;$i<count($requestedSets);$i++){
         $setFilters[] = "(s.setid=".$requestedSets[$i]["setid"]." AND sd.setid=".$requestedSets[$i]["setid"]." AND sd.freq='".$requestedSets[$i]["freq"]."')";
     }
+    $bunnies = []; //associative array of geoids for secondary fetch if requested
     $mapCode = safeStringSQL($map);
     $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.apiid, s.themeid,
       coalesce(s.metadata,t.meta) as setmetadata, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url, s.units,
-      g.jvectormap as map_code, s.userid, s.orgid, sd.geoid, g.name as geoname,
+      g.jvectormap as map_code, g.containingid, m.bunny, s.userid, s.orgid, sd.geoid, g.name as geoname,
       sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
     FROM sets s JOIN setdata sd on s.setid=sd.setid
       JOIN geographies g on sd.geoid=g.geoid
@@ -1905,11 +1885,16 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     }
     $sql .= " ORDER by  setid";
     $result = runQuery($sql, "getMapSets");
-    $currentMapSetId = 0;
+    $currentMapSetId = false;
+    $currentFreq = false;
+    $handle = false;
     while($row = $result->fetch_assoc()){
         if($currentMapSetId!=$row["setid"]){
+            if($getBunnies  && $currentMapSetId>0) getBunnies($assets[$handle]["data"], $currentMapSetId, $currentFreq, $bunnies);
+            $bunnies = [];  //clear
             //new mapset = need header
             $currentMapSetId=$row["setid"];
+            $currentFreq=$row["freq"];
             $handle = "M".$currentMapSetId.$row["freq"];
             $assets[$handle] = array(
                 "setid"=>$currentMapSetId,
@@ -1928,10 +1913,12 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
             );
             $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
             $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
+            if($getBunnies && $row["bunny"] && !in_array($row["bunny"], $bunnies)) $bunnies[] = $row["bunny"];
         }
         $assets[$handle]["data"][$row["map_code"]] = [
             "handle"=>"S".$row["setid"].$row["freq"]."G".$row["geoid"],
             "geoid"=>$row["geoid"],
+            "cid"=>$row["containingid"],
             "geoname"=>$row["geoname"],
             "data"=>$row["data"],
             "firstdt"=>$row["firstdt100k"]*100000,
@@ -1942,12 +1929,32 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
         if($row["latlon"]!=null) $assets[$handle][$row["map_code"]]["latlon"] = $row["latlon"];
         $assets[$handle]["firstdt"] = min($assets[$handle]["firstdt"], $row["firstdt100k"]*100000);
         $assets[$handle]["lastdt"] = max($assets[$handle]["lastdt"], $row["lastdt100k"]*100000);
+        if($getBunnies && $row["containingid"] && !in_array($row["containingid"], $bunnies)) $bunnies[] = $row["containingid"];
     }
-    /*//after reading the rows, indicate order (could be done client side...)
-    for($i=0;$i<count($regionSets);$i++){
-        $assets["M".$regionSets[$i]["setid"]."G".$regionSets[$i]["geoid"]]["order"]=$i+1;
-    }*/
-    //return $assets;
+
+    if($getBunnies && $currentMapSetId>0) getBunnies($assets[$handle]["data"], $currentMapSetId, $currentFreq, $bunnies);
+
+}
+
+function getBunnies(&$data, $setId, $freq, $bunnies){
+    if(count($bunnies)>0){  //get the map's bunny plus the containing ids
+        $sql = "select setid, freq, g.geoid, data, firstdt100k, lastdt100k, g.name as geoname, g.containingid, g.jvectormap as map_code
+            from setdata sd inner join geographies g on sd.geoid = g.geoid
+            where sd.setid=$setId and sd.freq = '$freq' and sd.latlon='' and sd.geoid in (".implode(",",$bunnies).")";
+        $result = runQuery($sql);
+        while($row = $result->fetch_assoc()){
+            $data["G".$row["geoid"]] = [
+                "handle"=>"S".$row["setid"].$row["freq"]."G".$row["geoid"],
+                "geoid"=>$row["geoid"],
+                "geoname"=>$row["geoname"],
+                "cid"=>$row["containingid"],
+                "data"=>$row["data"],
+                "firstdt"=>$row["firstdt100k"]*100000,
+                "lastdt"=>$row["lastdt100k"]*100000,
+                "isBunny"=>true
+            ];
+        }
+    }
 }
 
 function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){

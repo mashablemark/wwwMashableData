@@ -67,7 +67,7 @@
     //Group for user series edit
     <script type="text/javascript" src="js/jquery.handsontable.js"></script>
     <script  type="text/javascript" src="js/jquery.contextMenu.js"></script>
-    <script  type="text/javascript" src="js/jquery-jvectormap-1.1.1.min.js"></script>
+    <script  type="text/javascript" src="js/jquery-jvectormap-2.0.1.min.js"></script>
     -->
 
     <!--dynamic loading of maps by REQUIRES as needed-->
@@ -205,9 +205,9 @@
         <div id="highcharts-div" style="width:92%;height:60%;position:static;"></div>
         <br />
         <span class="right">
-            <select id="quick-view-change-freq" class="right"></select><br>
-            <button id="quick-view-change-geo" class="right">change geography</button>
-            <div class="widget right" style="margin-right: 33px">
+            <select id="quick-view-change-freq" class="ui-widget ui-state-default" style="margin-bottom: 5px;width: 233px;padding: 3px;"></select><br>
+            <button id="quick-view-change-geo">change geography</button>
+            <div class="widget" style="margin-right: 33px">
                 <select id="quick-view-geo-select"></select>
             </div>
         </span>

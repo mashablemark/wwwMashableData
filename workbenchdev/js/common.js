@@ -386,7 +386,7 @@ MashableData.common = {
         if(!embed && params.modal!='none') mask();
         $.ajax({
             type: embed?'GET':'POST', //IE only allows GET vars for CORS
-            url: embed?"//www.mashabledata.com/global/js/maps":"api.php",
+            url: embed?"//www.mashabledata.com/graph_data":"api.php",
             encoding:"UTF-8",
             cache: false,
             data: data,
