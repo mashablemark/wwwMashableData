@@ -415,21 +415,21 @@ MashableData.grapher = function(){
                             graphModel = new MD.Graph(oReturn.graphs[ghandle]);
                             graphModel.fetchMap();  //prefetch and continue proocessing without waitng for call back (a second gating fetchMap() call occurs deep inside buildGraphPanel() just before map draw)
                             // if(globals.isEmbedded){
-                                MashableData.globals.graphBluePrints[ghash] = oReturn.graphs[ghandle]; //share if shown twice on same webpage
-                                if(document.URL.indexOf('mashabledata.com/preview')!==-1){
-                                    //for preview pages, show the data and the map file in a DIV as part of the instructions for high volume websites
-                                    var graphDataHtml = 'MashableData.globals.graphBluePrints["'+ghash+'"] = ' + JSON.stringify(oReturn.graphs[ghandle]);
-                                    var $JsonDiv = $('#MashableData_graphData');
-                                    $JsonDiv.html($JsonDiv.html() + '&#13;&#10;&#13;&#10;' + graphDataHtml + '&#13;&#10;&#13;&#10;');
-                                    if(graphModel.mapFile){
-                                        $.get('/global/js/maps/'+ graphModel.mapFile +'.js', function(mapDef){
-                                            $JsonDiv.html($JsonDiv.html() + mapDef + '&#13;&#10;');
-                                        });
-                                    }
+                            MashableData.globals.graphBluePrints[ghash] = oReturn.graphs[ghandle]; //share if shown twice on same webpage
+                            if(document.URL.indexOf('mashabledata.com/preview')!==-1){
+                                //for preview pages, show the data and the map file in a DIV as part of the instructions for high volume websites
+                                var graphDataHtml = 'MashableData.globals.graphBluePrints["'+ghash+'"] = ' + JSON.stringify(oReturn.graphs[ghandle]);
+                                var $JsonDiv = $('#MashableData_graphData');
+                                $JsonDiv.html($JsonDiv.html() + '&#13;&#10;&#13;&#10;' + graphDataHtml + '&#13;&#10;&#13;&#10;');
+                                if(graphModel.mapFile){
+                                    $.get('/global/js/maps/'+ graphModel.mapFile +'.js', function(mapDef){
+                                        $JsonDiv.html($JsonDiv.html() + mapDef + '&#13;&#10;');
+                                    });
                                 }
                             }
-                            _createGraph();  //new obj for API = no need to creat working copy
                         }
+                        _createGraph();  //new obj for API = no need to creat working copy
+                    }
                 );
             }
             function _createGraph(){
@@ -462,9 +462,9 @@ MashableData.grapher = function(){
                         zIndex: 10,
                         marker: {
                             enabled: true,
-                            radius: 5,
+                            radius: 3,
                             symbol: 'circle',
-                            fillColor: '#FFFFFF',
+                            //fillColor: '#FFFFFF',
                             //lineColor: null,
                             states: {
                                 hover: {
@@ -498,7 +498,8 @@ MashableData.grapher = function(){
                 title: {
                     text: oGraph.title,
                     style: {cursor: 'pointer'}
-                }, // tooltip: {shared:true, crosshairs:[true,false]},
+                },
+                //tooltip: {shared:true, crosshairs:[true,false]},
                 xAxis: {
                     type: 'datetime',
                     min: (oGraph.start===null)?(oGraph.intervals?intervalStartDt(oGraph):null):parseInt(oGraph.start),
@@ -820,151 +821,151 @@ MashableData.grapher = function(){
                 if(isEmbedded) {
                     panelHTML =
                         '<div class="mashabledata_chart-map">' +
-                            '<div class="mashabledata_chart"></div>' +
-                            '<div class="mashabledata_map" style="display:none;">' +
-                            '<div class="mashabledata_maptabs"></div>' +
-                            '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
-                            '<div class="mashabledata_map-and-cub-viz">' +
-                            '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
-                            '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
-                            '</div>' +
-                            '<div class="container mashabledata_map-controls">' +
-                            '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
-                            '<button class="mashabledata_map-step-backward">step backwards</button>' +
-                            '<button class="mashabledata_map-play">play</button>' +
-                            '<button class="mashabledata_map-step-forward">step forwards</button>' +
-                            '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
-                            '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
-                            '</div>' +
-                            '</div>' +
-                            '<div class="mashabledata_graph-analysis"></div>' +
-                            '</div>';
+                        '<div class="mashabledata_chart"></div>' +
+                        '<div class="mashabledata_map" style="display:none;">' +
+                        '<div class="mashabledata_maptabs"></div>' +
+                        '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
+                        '<div class="mashabledata_map-and-cub-viz">' +
+                        '<div class="mashabledata_cube-viz right" style="width:29%;display:none;border:thin black solid;"></div>' +
+                        '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
+                        '</div>' +
+                        '<div class="container mashabledata_map-controls">' +
+                        '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
+                        '<button class="mashabledata_map-step-backward">step backwards</button>' +
+                        '<button class="mashabledata_map-play">play</button>' +
+                        '<button class="mashabledata_map-step-forward">step forwards</button>' +
+                        '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
+                        '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="mashabledata_graph-analysis"></div>' +
+                        '</div>';
                 } else {
                     panelHTML =
                         '<div class="provenance graph-sources graph-subpanel" style="display: none;"></div>' +
-                            '<div class="graph-chart graph-subpanel">' +
-                            '<div class="resize">' +
-                            '<p>Drag the lower nd right edge of the visualizations\' borders to fix the exact dimensions of the maps and graphs.  The default is to expand to fit the container.  Exact sizing ensures that what you see in the workbench is what your website\'s visitors will see.</p>' +
-                            '<button class="size_reset">use default sizing</button><br />' +
-                            '<button class="size_set">finished resizing</button>' +
-                            '</div>' +
-                            '<div class="graph_control_panel" style="font-size: 11px !important;">' +
+                        '<div class="graph-chart graph-subpanel">' +
+                        '<div class="resize">' +
+                        '<p>Drag the lower nd right edge of the visualizations\' borders to fix the exact dimensions of the maps and graphs.  The default is to expand to fit the container.  Exact sizing ensures that what you see in the workbench is what your website\'s visitors will see.</p>' +
+                        '<button class="size_reset">use default sizing</button><br />' +
+                        '<button class="size_set">finished resizing</button>' +
+                        '</div>' +
+                        '<div class="graph_control_panel" style="font-size: 11px !important;">' +
                             //default series type (line, column..)
-                            '<div class="configuration" style="border: none;">' +
-                            '<fieldset>' +
-                            '<legend>&nbsp;Configure&nbsp;</legend>' +
-                            '<div class="graph-type">default graph type ' +
-                            '<select class="graph-type">' +
-                            '<option value="auto">auto (line &amp; column)</option>' +
-                            '<option value="line">line</option>' +
-                            '<option value="marker">line with markers</option>' +
-                            '<option value="column">column</option>' +
-                            '<option value="stacked-column">stacked column</option>' +
-                            '<option value="area-percent">stacked percent</option>' +
-                            '<option value="area">stacked area</option>' +
-                            '<option value="logarithmic">logarithmic</option>' +
-                            '<option value="normalized-line">normalized line</option>' +
-                            '<option value="pie">pie</option>' +
-                            '</select>' +
-                            '</div>' +
-                            '<div class="graph-map-mode">default map type ' +
-                            '<select class="graph-map-mode">' +
-                            '<option value="heat">colored heat map of values</option>' +
-                            '<option value="abs-change">colored heat map of changes</option>' +
-                            '<option value="percent-change">colored heat map of percent changes</option>' +
-                            '<option value="bubbles">overlay circles to show values</option>' +
-                            '<option value="change-bubbles">overlay circles to show changes</option>' +
-                            '<option value="max">shows when max value was reached</option>' +
-                            '<option value="min">shows when min value was reached</option>' +
-                            '<option value="treemap">abstract values to rectangles</option>' +
-                            '<option value="change-treemap">abstract change to rectangles</option>' +
-                            '</select>' +
-                            '</div>' +
-                            '<div class="change-basemap">base map ' +
-                            '<select class="change-basemap"></select>' +
-                            '<div class="mashabledata_legend"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>show legend for all maps</label></div>' +
-                            '<div class="map-viz-select">map interactive' +
-                            '<select class="map-viz-select">' +
-                            '</select>' +
-                            '</div>' +
+                        '<div class="configuration" style="border: none;">' +
+                        '<fieldset>' +
+                        '<legend>&nbsp;Configure&nbsp;</legend>' +
+                        '<div class="graph-type">default graph type ' +
+                        '<select class="graph-type">' +
+                        '<option value="auto">auto (line &amp; column)</option>' +
+                        '<option value="line">line</option>' +
+                        '<option value="marker">line with markers</option>' +
+                        '<option value="column">column</option>' +
+                        '<option value="stacked-column">stacked column</option>' +
+                        '<option value="area-percent">stacked percent</option>' +
+                        '<option value="area">stacked area</option>' +
+                        '<option value="logarithmic">logarithmic</option>' +
+                        '<option value="normalized-line">normalized line</option>' +
+                        '<option value="pie">pie</option>' +
+                        '</select>' +
+                        '</div>' +
+                        '<div class="graph-map-mode">default map type ' +
+                        '<select class="graph-map-mode">' +
+                        '<option value="heat">colored heat map of values</option>' +
+                        '<option value="abs-change">colored heat map of changes</option>' +
+                        '<option value="percent-change">colored heat map of percent changes</option>' +
+                        '<option value="bubbles">overlay circles to show values</option>' +
+                        '<option value="change-bubbles">overlay circles to show changes</option>' +
+                        '<option value="max">shows when max value was reached</option>' +
+                        '<option value="min">shows when min value was reached</option>' +
+                        '<option value="treemap">abstract values to rectangles</option>' +
+                        '<option value="change-treemap">abstract change to rectangles</option>' +
+                        '</select>' +
+                        '</div>' +
+                        '<div class="change-basemap">base map ' +
+                        '<select class="change-basemap"></select>' +
+                        '<div class="mashabledata_legend"><label><input type="checkbox" class="mashabledata_legend" '+(oGraph.mapconfig.showLegend?'checked':'')+'>show legend for all maps</label></div>' +
+                        '<div class="map-viz-select">map interactive' +
+                        '<select class="map-viz-select">' +
+                        '</select>' +
+                        '</div>' +
                             //change map selector and default
-                            '</div>' +
-                            '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
-                            '<table>' +
-                            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
-                            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
-                            '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
-                            '<div class="crop-slider"></div>' +
-                            '</td></tr>' +
-                            '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
-                            '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
-                            '</table>' +
-                            '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
-                            '</div>' +
-                            '<button class="provenance">more configurations</button>' +
-                            '<button class="resize">set size</button>' +
-                            '</fieldset>' +
-                            '</div>' +
-                            '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
-                            '<table class="annotations"></table>' +
-                            '</fieldset>'+
-                            '</div>' +
-                            '<div class="downloads">' +
-                            '<fieldset>' +
-                            '<legend>&nbsp;Download&nbsp;</legend>' +
-                            '<select class="download-selector"></select> ' +
-                            'format: ' +
-                            '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
+                        '</div>' +
+                        '<div class="crop-tool"><fieldset><legend>Crop graph</legend>' +
+                        '<table>' +
+                        '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-no-crop" class="rad-no-crop"></td><td><label for="'+ panelId +'-rad-no-crop">no cropping (graph will expand as new data is gathered)</label></td></tr>' +
+                        '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-hard-crop" class="rad-hard-crop"></td><td>' +
+                        '<div class="crop-dates"><i>select this option and slide endpoints for a fixed crop</i></div>' +
+                        '<div class="crop-slider"></div>' +
+                        '</td></tr>' +
+                        '<tr><td><input type="radio" name="'+ panelId +'-rad-crop" id="'+ panelId +'-rad-interval-crop" class="rad-interval-crop"></td>' +
+                        '<td><label for="'+ panelId +'-rad-interval-crop">show latest <input class="interval-crop-count" value="'+(oGraph.intervals||5)+'"> <span class="interval-crop-period"></span></label></td></tr>' +
+                        '</table>' +
+                        '<button class="graph-crop" style="display: none;">crop</button></fieldset>' +
+                        '</div>' +
+                        '<button class="provenance">more configurations</button>' +
+                        '<button class="resize">set size</button>' +
+                        '</fieldset>' +
+                        '</div>' +
+                        '<div class="annotations"><fieldset><legend>Chart annotations</legend>' +
+                        '<table class="annotations"></table>' +
+                        '</fieldset>'+
+                        '</div>' +
+                        '<div class="downloads">' +
+                        '<fieldset>' +
+                        '<legend>&nbsp;Download&nbsp;</legend>' +
+                        '<select class="download-selector"></select> ' +
+                        'format: ' +
+                        '<span title="download the graph as a PNG formatted image" class="md-png rico export-chart">PNG</span>' +
                             //'<span title="download the graph as a JPG formatted image" class="md-jpg rico export-chart">JPG</span>' +
-                            '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
-                            '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
-                            '<button class="download-data" title="Download the graph data as an Excel workbook">download data</button>' +
-                            '</fieldset>' +
-                            '</div>' +
-                            '<div class="sharing">' +
-                            '<fieldset>' +
-                            '<legend>&nbsp;Sharing&nbsp;</legend>' +
-                            '<div class="share-links">' +
-                            '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
+                        '<span title="download the graph as a SVG formatted vector graphic"class="md-svg rico export-chart">SVG</span>' +
+                        '<span title="download the graph as a PDF document" class="md-pdf rico export-chart">PDF</span>' +
+                        '<button class="download-data" title="Download the graph data as an Excel workbook">download data</button>' +
+                        '</fieldset>' +
+                        '</div>' +
+                        '<div class="sharing">' +
+                        '<fieldset>' +
+                        '<legend>&nbsp;Sharing&nbsp;</legend>' +
+                        '<div class="share-links">' +
+                        '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
                             //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
-                            '<a class="graph-email">email </a> ' +
-                            '<button class="graph-link">link </button>' +
-                            '<button class="graph-embed">embed </button>' +
+                        '<a class="graph-email">email </a> ' +
+                        '<button class="graph-link">link </button>' +
+                        '<button class="graph-embed">embed </button>' +
                             //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
-                            '</div>'+
-                            '<div class="searchability">' +
-                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">Public Graphs searchable</label>' +
-                            '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'private') + '</label>' +
-                            '</div>' +
-                            '</fieldset>' +
-                            '</div>' +
-                            '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
-                            '</div>' +
-                            '<div class="chart-map-scroll-window">' +
-                            '<div class="mashabledata_chart-map" style="width:75%;display:inline;float:left;">' +
-                            '<div class="mashabledata_chart"></div>' +
-                            '<div class="mashabledata_map" style="display:none;">' +
-                            '<div class="mashabledata_maptabs"></div>' +
-                            '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
-                            '<div class="mashabledata_map-and-cub-viz">' +
-                            '<div class="mashabledata_cube-viz right" style="display:none;"></div>' +
-                            '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
-                            '</div>' +
-                            '<div class="container mashabledata_map-controls">' +
-                            '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
-                            '<button class="mashabledata_map-step-backward">step backwards</button>' +
-                            '<button class="mashabledata_map-play">play</button>' +
-                            '<button class="mashabledata_map-step-forward">step forwards</button>' +
-                            '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
-                            '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
-                            '<button class="merge group hidden" disabled="disabled">group</button>' +
-                            '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
-                            '</div>' +
-                            '</div>' +
-                            '</div>' +
-                            '<div height="30px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
-                            '</div>' +
-                            '</div>'
+                        '</div>'+
+                        '<div class="searchability">' +
+                        '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-searchable" value="Y" '+ (oGraph.published=='Y'?'checked':'') +' /><label for="'+ panelId +'-searchable">Public Graphs searchable</label>' +
+                        '<input type="radio" name="'+ panelId +'-searchability" id="'+ panelId +'-private" value="N" '+ (oGraph.published=='N'?'checked':'') +' /><label for="'+ panelId +'-private">' + (account.info.orgName?'restrict to '+ account.info.orgName:'private') + '</label>' +
+                        '</div>' +
+                        '</fieldset>' +
+                        '</div>' +
+                        '<br /><button class="graph-save">save</button> <button class="graph-saveas">save as</button> <button class="graph-close">close</button> <button class="graph-delete">delete</button><br />' +
+                        '</div>' +
+                        '<div class="chart-map-scroll-window">' +
+                        '<div class="mashabledata_chart-map" style="width:75%;display:inline;float:left;">' +
+                        '<div class="mashabledata_chart"></div>' +
+                        '<div class="mashabledata_map" style="display:none;">' +
+                        '<div class="mashabledata_maptabs"></div>' +
+                        '<h3 class="mashabledata_map-title" style="color:black;"></h3>'+  //block element = reduces map height when shown
+                        '<div class="mashabledata_map-and-cub-viz">' +
+                        '<div class="mashabledata_cube-viz right" style="display:none;"></div>' +
+                        '<div class="mashabledata_jvmap" style="display: inline-block;"></div>' +
+                        '</div>' +
+                        '<div class="container mashabledata_map-controls">' +
+                        '<div class="mashabledata_map-slider" style="display: inline-block;width: 280px;"></div>' +
+                        '<button class="mashabledata_map-step-backward">step backwards</button>' +
+                        '<button class="mashabledata_map-play">play</button>' +
+                        '<button class="mashabledata_map-step-forward">step forwards</button>' +
+                        '<button class="mashabledata_map-graph-selected" title="graph selected regions and markers"  disabled="disabled">graph</button>' +
+                        '<button class="mashabledata_make-map" disabled="disabled">reset</button>' +
+                        '<button class="merge group hidden" disabled="disabled">group</button>' +
+                        '<button class="merge ungroup hidden" disabled="disabled">ungroup</button>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div height="30px"><textarea style="width:98%;height:50px;margin-left:5px;" class="graph-analysis" maxlength="1000" /></div>' +
+                        '</div>' +
+                        '</div>'
                     //'</div>';
                 }
                 $thisPanel.html(panelHTML);
@@ -1162,11 +1163,11 @@ MashableData.grapher = function(){
                             //var offset = $(this).offset();  //button offset relative to document
                             var linkDivHTML =
                                 '<div id="embed-info">' +
-                                    '<button class="right" id="embed-info-close">close</button>' +
-                                    '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
-                                    '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/preview'+(globals.isDev?'dev':'')+'?graphcode='+oGraph.ghash+'" target="_blank">graph\'s preview page</a>. ' +
-                                    '<textarea id="link-html">&lt;div class=&quot;mashabledata_embed&quot; data=&quot;'+oGraph.ghash+'&quot;&gt;&lt;/div&gt;</textarea>' +
-                                    '</div>';
+                                '<button class="right" id="embed-info-close">close</button>' +
+                                '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
+                                '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/preview'+(globals.isDev?'dev':'')+'?graphcode='+oGraph.ghash+'" target="_blank">graph\'s preview page</a>. ' +
+                                '<textarea id="link-html">&lt;div class=&quot;mashabledata_embed&quot; data=&quot;'+oGraph.ghash+'&quot;&gt;&lt;/div&gt;</textarea>' +
+                                '</div>';
                             $.fancybox(linkDivHTML,
                                 {
                                     width: 600,
@@ -1188,12 +1189,12 @@ MashableData.grapher = function(){
                             var offset = $(this).offset();  //button offset relative to document
                             var linkDivHTML =
                                 '<div id="link-editor">' +
-                                    '<button class="right" id="link-editor-close">close</button>' +
-                                    '<button id="ghash-reset" class="ui-state-error right">reset link code</button>' +
-                                    '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
-                                    '<em>The code below will create a link to your graph</em>' +
-                                    '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableData graph')+'&lt;/a&gt;</textarea>' +
-                                    '</div>';
+                                '<button class="right" id="link-editor-close">close</button>' +
+                                '<button id="ghash-reset" class="ui-state-error right">reset link code</button>' +
+                                '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
+                                '<em>The code below will create a link to your graph</em>' +
+                                '<textarea id="link-html">&lt;a href=&quot;http://www.mashabledata.com/workbench/#/t=g2&graphcode='+oGraph.ghash+'&quot;&gt;'+(oGraph.title||'MashableData graph')+'&lt;/a&gt;</textarea>' +
+                                '</div>';
                             $.fancybox(linkDivHTML,
                                 {
                                     width: 600,
@@ -1326,11 +1327,11 @@ MashableData.grapher = function(){
                     //the annotations height must be set after the jQuery UI changes to buttons, spinners, ...
                     $thisPanel.find('div.annotations fieldset').height(
                         $thisPanel.innerHeight() //from graph subpanel
-                            - $thisPanel.find('div.configuration').outerHeight()
-                            - $thisPanel.find('div.downloads').outerHeight()
-                            - $thisPanel.find('div.sharing').outerHeight()
-                            - 50 //save close buttons
-                            - 30 //notes / analysis
+                        - $thisPanel.find('div.configuration').outerHeight()
+                        - $thisPanel.find('div.downloads').outerHeight()
+                        - $thisPanel.find('div.sharing').outerHeight()
+                        - 50 //save close buttons
+                        - 30 //notes / analysis
                     );
                     $thisPanel.find('input.graph-publish')
                         .change(function(){
@@ -1726,9 +1727,9 @@ MashableData.grapher = function(){
                                             }
                                             label.html(
                                                 '<div><b>'+$map.getRegionName(code)+'</b><br>'+calculatedMapData.title
-                                                    + ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
-                                                    + valueReport
-                                                    + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*sparkData.length)+'px;margin:0 5px;"></div>'
+                                                + ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
+                                                + valueReport
+                                                + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*sparkData.length)+'px;margin:0 5px;"></div>'
                                             ).css("z-Index",400);
                                             var sparkOptions = {
                                                 grid: {show: false}
@@ -1788,7 +1789,7 @@ MashableData.grapher = function(){
                                             if(containingDateData[code].f) html += common.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
                                         }
                                         html += '</div><div class="inlinesparkline" style="height: 30px;width: '
-                                            + Math.min(400, 10*sparkData.length).toString() + 'px;margin:0 5px;"></div>';
+                                        + Math.min(400, 10*sparkData.length).toString() + 'px;margin:0 5px;"></div>';
                                         label.html(html).css("z-Index",400);
                                         var sparkOptions = {
                                             grid: {show: false}
@@ -1895,10 +1896,12 @@ MashableData.grapher = function(){
                                     change: function( event, ui ) { //this event fires when the map is first loaded
                                         val = ui.value;
                                         _drawMap_setRegionsMarkersAttribute(val);
-                                        if(val==calculatedMapData.endDateIndex){
-                                            if(!$map.getSelectedRegions().length) $('.mashabledata_make-map.ui-button').button('disable');
-                                        } else {
-                                            $('.mashabledata_make-map.ui-button').button('enable');
+                                        if($map){
+                                            if(val==calculatedMapData.endDateIndex){
+                                                if(!$map.getSelectedRegions().length) $('.mashabledata_make-map.ui-button').button('disable');
+                                            } else {
+                                                $('.mashabledata_make-map.ui-button').button('enable');
+                                            }
                                         }
                                         $mapDateDiv.html(formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq));
                                     }
@@ -3791,12 +3794,12 @@ MashableData.grapher = function(){
     //STATELESS HELPER FUNCTIONS ONLY USED BY GRAPH OBJECT
     var graphTitle = {  //This object performs all of the task associated with editing and setting the chart title
         template: '<div id="dwrap2">'
-            + '<div id="titleEditor" style="width: 560px">'
-            + '<input type="text" width="300px" name="title" /> '
-            + '<button id="graph-title-change-ok">OK</button> '
-            + '<button id="graph-title-change-cancel">cancel</button>'
-            + '</div>'
-            + '</div>',
+        + '<div id="titleEditor" style="width: 560px">'
+        + '<input type="text" width="300px" name="title" /> '
+        + '<button id="graph-title-change-ok">OK</button> '
+        + '<button id="graph-title-change-cancel">cancel</button>'
+        + '</div>'
+        + '</div>',
         show: function(oTitle, callback){
             var self = this;
             $.fancybox(
@@ -3859,6 +3862,7 @@ MashableData.grapher = function(){
         }
     };
     return grapher;  //return the graph functions object which will be accessable as MashableData.graph
+
     //stateless graph object functions
     function calcGraphMinMaxZoomPeriod(oGraph){
         oGraph.smallestPeriod = "A";
@@ -4250,3 +4254,15 @@ MashableData.grapher = function(){
         function _xor(a, b){ return a&&!b || !a&&b}
     }
 }();
+
+//TODO:  remove these and update the workbench to NOT use these shortcuts
+if(window.grapher){ //replace the shortcut to
+    var grapher = MashableData.grapher,
+        createMyGraph = grapher.createMyGraph,
+        formatDateByPeriod = grapher.formatDateByPeriod,
+        visiblePanelId = grapher.visiblePanelId,
+        compSymbol = grapher.compSymbol;
+    //TODO:  eliminate grapher = MD.grapher and fillScalingCount = grapher.fillScalingCount in provenance.js
+    //TODO:  eliminate grapher = MD.grapher (and in annotator.js, set.js, and plot.js
+
+}
