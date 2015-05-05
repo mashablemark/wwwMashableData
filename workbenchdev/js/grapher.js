@@ -4262,7 +4262,5 @@ if(window.grapher){ //replace the shortcut to
         formatDateByPeriod = grapher.formatDateByPeriod,
         visiblePanelId = grapher.visiblePanelId,
         compSymbol = grapher.compSymbol;
-    //TODO:  eliminate grapher = MD.grapher and fillScalingCount = grapher.fillScalingCount in provenance.js
-    //TODO:  eliminate grapher = MD.grapher (and in annotator.js, set.js, and plot.js
 
 }

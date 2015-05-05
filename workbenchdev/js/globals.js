@@ -111,7 +111,7 @@ var MashableData = {
             "cssClass": {"+":"op-addition","-":"op-subtraction","*":"op-multiply","/":"op-divide"}
         },
         mapBackground: '#AAAAAA',
-        graphScriptFiles: ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/colour/Colour.js","/global/js/jvectormap/jquery-jvectormap-2.0.1.min.js"],
+        graphScriptFiles: ["/global/js/highcharts/js/modules/exporting.src.js","/global/js/colorpicker/jquery.colorPicker.min.js","/global/js/colour/Colour.js","/global/js/jvectormap/jquery-jvectormap-2.0.1.js"],
         rowPosition: {
             name: 0,
             units: 1,

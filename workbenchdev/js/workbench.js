@@ -14,7 +14,7 @@
 
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
-var buildGraphPanel = grapher.buildGraphPanel,
+var
     themeCubes = globals.themeCubes,
     iconsHMTL = globals.iconsHMTL,
     panelGraphs = globals.panelGraphs,
@@ -22,10 +22,7 @@ var buildGraphPanel = grapher.buildGraphPanel,
     oMyGraphs = globals.MyGraphs,
     hcColors = globals.hcColors,
     colorsPlotBands = globals.colorsPlotBands;
-var createMyGraph = grapher.createMyGraph,
-    formatDateByPeriod = grapher.formatDateByPeriod,
-    visiblePanelId = grapher.visiblePanelId,
-    compSymbol = grapher.compSymbol;
+
 var dateFromMdDate = common.dateFromMdDate,
     callApi = common.callApi;
 
@@ -293,7 +290,7 @@ $(document).ready(function(){
         Highcharts.setOptions({
             tooltip: {
                 formatter: function(){  //shorten the data accord to period; add commas to number; show units
-                    return'<b>' + this.series.name.trim() + '</b><br>' +formatDateByPeriod(this.point.x, this.series.options.freq) + ':'
+                    return'<b>' + this.series.name.trim() + '</b><br>' +MD.grapher.formatDateByPeriod(this.point.x, this.series.options.freq) + ':'
                     + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text
                     + (this.point.id&&this.point.options.text?'<br><br>'+this.point.options.text:'');
                 }
@@ -509,10 +506,10 @@ function setupMyDataTable(){
                     "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs.join(' '))}
                 },
                 { "mData":"firstsetdt", "sTitle": "from<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'],
-                    "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return formatDateByPeriod(value, obj.period);}
+                    "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return MD.grapher.formatDateByPeriod(value, obj.period);}
                 },
                 { "mData":"lastsetdt", "sTitle": "to<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'], "resize": false,
-                    "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return formatDateByPeriod(value, obj.period);}
+                    "mRender": function(value, type, obj){if(type=='sort') return parseInt(value); else return MD.grapher.formatDateByPeriod(value, obj.period);}
                 },
                 { "mData": "categories",  "sTitle": "Category<span></span>", "sClass": "cat", "bSortable": true, "sWidth": layoutDimensions.widths.mySeriesTable.columns.category + "px", "mRender": function(value, type, obj){return value}},
                 { "mData": null,  "sTitle": "Source<span></span>", "sClass": 'dt-source',  "bSortable": false, "sWidth": colWidths.src + "px", "resize": false,
@@ -624,10 +621,10 @@ function setupFindDataTable(){
             { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": false, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
             { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": false, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){
-                return (parseInt(obj.firstdt)&&parseInt(obj.lastdt))?spanWithTitle(formatDateByPeriod(value, obj.freqs[0])):'';
+                return (parseInt(obj.firstdt)&&parseInt(obj.lastdt))?spanWithTitle(MD.grapher.formatDateByPeriod(value, obj.freqs[0])):'';
             }},
             { "mData":"lastdt", "sTitle": "to<span></span>",  "sClass": "dte", "sWidth": colWidths.mmmyyyy+"px",  "bSortable": true, "asSorting":  [ 'desc','asc'], "resize": false,"mRender": function(value, type, obj){
-                return (parseInt(obj.firstdt)&&parseInt(obj.lastdt))?spanWithTitle(formatDateByPeriod(value, obj.freqs[0])):'';}},
+                return (parseInt(obj.firstdt)&&parseInt(obj.lastdt))?spanWithTitle(MD.grapher.formatDateByPeriod(value, obj.freqs[0])):'';}},
             { "mData":"titles", "sTitle": "Category (click to browse)<span></span>", "sClass": "cat", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.category+"px", "bSortable": true,
                 "mRender": function(value, type, obj){
                     if(obj.apiid!=null&&obj.title!=null){
@@ -913,7 +910,7 @@ function formatAsUrl(url, txt){
     return '<a href="' + url + '" target="_blank" title="' + url + '"><span class=" ui-icon ui-icon-extlink">' + url + '</span>'+txt+'</a>';
 }
 function viewGraph(ghash){
-    createMyGraph(ghash);
+    MD.grapher.createMyGraph(ghash);
     hideGraphEditor();
 }
 //DIALOG FUNCTIONS
@@ -1282,7 +1279,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         $('#quick-view-delete-series').hide();
     }
     //populate the graph selector
-    var currentGraphId = visiblePanelId(), graphOptions = '<option value="new">new graph</option>';
+    var currentGraphId = MD.grapher.visiblePanelId(), graphOptions = '<option value="new">new graph</option>';
     $('div.graph-panel').each(function(){
         var $tabLink = $("ul#graph-tabs li a[href='#"+this.id+"']");
         graphOptions+='<option value="'+this.id+'">'+$tabLink.html()+'</option>'; //initial selection set below
@@ -1633,7 +1630,7 @@ function quickViewToGraph(){
         oGraph.fetchMap(function(){ //blocking map fetch
             oGraph.title = oGraph.title || (oGraph.mapsets?oGraph.mapsets[0].name():oGraph.pointsets?oGraph.pointsets[0].name():oGraph.plots[0].name());
             if(panelId=="new"){
-                buildGraphPanel(oGraph);
+                MD.grapher.buildGraphPanel(oGraph);
             } else {
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
                 oGraph.controls.redraw();
@@ -1944,7 +1941,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                                 if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
                                     periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
                                     if(periodOfEdits){
-                                        $editor.handsontable('setDataAtCell', r, 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
+                                        $editor.handsontable('setDataAtCell', r, 0, MD.grapher.formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
                                     }
                                 }
                             }
@@ -1974,7 +1971,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                  if(precedingDate){  // UTCFromReadableDate returns false if it cannot decipher a date
                  if(!periodOfEdits) periodOfEdits = detectPeriodFromReadableDate(precedingDateEntry);
                  if(periodOfEdits){
-                 $editor.handsontable('setDataAtCell', changes[i][0], 0, formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
+                 $editor.handsontable('setDataAtCell', changes[i][0], 0, MD.grapher.formatDateByPeriod(nextDate(precedingDate,periodOfEdits),periodOfEdits));
                  }
                  }
                  }
@@ -2065,7 +2062,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                         data = oSerie.data.split('|').sort();
                         for(i=0;i<data.length;i++){
                             data[i] = data[i].split(':');
-                            data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(), oSerie.period);
+                            data[i][0]=MD.grapher.formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(), oSerie.period);
                         }
                         data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
                         $editor.attr("data",handle).handsontable("loadData", data);
@@ -2081,7 +2078,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                                 var data = jsoData.series[handle].data.split('|').sort();
                                 for(var i=0;i<data.length;i++){
                                     data[i] = data[i].split(':');
-                                    data[i][0]=formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
+                                    data[i][0]=MD.grapher.formatDateByPeriod(dateFromMdDate(data[i][0]).getTime(),oSerie.period);
                                 }
                                 data.unshift(["name", oSerie.name],["units",oSerie.units],["notes",oSerie.notes],["handle",oSerie.handle],["date","value"]);
                                 $editor.attr("data",handle).handsontable("loadData", data);
@@ -2102,7 +2099,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                  function(jsoData, textStatus, jqXHR){
                  var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
                  for(i=0;i<mapDates.length;i++){ //write the left date list
-                 data.push([formatDateByPeriod(mapDates[i].dt.getTime(), mapset.period)]);
+                 data.push([MD.grapher.formatDateByPeriod(mapDates[i].dt.getTime(), mapset.period)]);
                  }
                  for(var i=0;i<jsoData.geographies.length;i++){ //write the columns
                  data[rows.M.geoid].push(jsoData.geographies[i].geoid);
@@ -2738,7 +2735,7 @@ function panelHash(){
             $search =$('#public_graphs_search input');
             return encodeURI('t=cg'+($search.hasClass(gi)?'':'&s='+$search.val()));
         default:
-            var visiblePanel = visiblePanelId();
+            var visiblePanel = MD.grapher.visiblePanelId();
             if(visiblePanel && panelGraphs[visiblePanel]){
                 return encodeURI('t=g'+visiblePanel.substr(8)+(panelGraphs[visiblePanel].ghash?'&graphcode='+panelGraphs[visiblePanel].ghash:''));
             }
@@ -3025,7 +3022,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     for(d=0;d<compData.length;d++){
                         mdPoint = compData[d].split(':');
                         jsdt = dateFromMdDate( mdPoint[0], component.freq);
-                        mdDate = formatDateByPeriod(jsdt.getTime(), serie.options.freq);
+                        mdDate = MD.grapher.formatDateByPeriod(jsdt.getTime(), serie.options.freq);
                         if((!oGraph.start || oGraph.start<=jsdt) && (!oGraph.end || oGraph.end>=jsdt)){
                             //search to see if this date is in gridArray
                             for(row=rowPosition.dataStart;row<grid.length;row++){
@@ -3057,7 +3054,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                     grid[rowPosition.date].push((plot.formula()));
                     makeSquare();
                     for(d=0;d<serie.data.length;d++){
-                        mdDate = formatDateByPeriod(serie.data[d].x, serie.options.freq);
+                        mdDate = MD.grapher.formatDateByPeriod(serie.data[d].x, serie.options.freq);
                         //search to see if this date is in gridArray
                         if((!oGraph.start || oGraph.start<=serie.data[d].x) && (!oGraph.end || oGraph.end>=serie.data[d].x)){
                             for(row=rowPosition.dataStart;row<grid.length;row++){
@@ -3124,7 +3121,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
                         for(d=0;d<compData.length;d++){
                             mdPoint = compData[d].split(':');
                             jsdt = dateFromMdDate( mdPoint[0], freq);
-                            mdDate = formatDateByPeriod(jsdt.getTime(), freq);
+                            mdDate = MD.grapher.formatDateByPeriod(jsdt.getTime(), freq);
                             for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
                                 if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
                                 if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row
@@ -3265,7 +3262,7 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
         var jsdt, mdDate, row;
         mdPoint = point.split(':');
         jsdt = dateFromMdDate(mdPoint[0], freq);
-        mdDate = formatDateByPeriod(jsdt.getTime(), freq);
+        mdDate = MD.grapher.formatDateByPeriod(jsdt.getTime(), freq);
         for(row=rowPosition.dataStart;row<grid.length;row++){  //find the row on which the dates line up
             if(grid[row][0].dt.getTime() == jsdt.getTime()) break;
             if(grid[row][0].dt.getTime() > jsdt.getTime()){  //need to insert new row

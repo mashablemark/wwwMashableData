@@ -14,7 +14,6 @@ function ProvenanceController(panelId){
     var pointPlotLegend,
         MD = MashableData,
         globals = MD.globals,
-        grapher = MD.grapher,
         common = MD.common,
         mustache = common.mustache,
         dashStyles = globals.dashStyles,
@@ -24,8 +23,7 @@ function ProvenanceController(panelId){
         period = globals.period,
         op = globals.op,
         MAP_COLORS = globals.MAP_COLORS,
-        patVariable = globals.patVariable,
-        fillScalingCount = grapher.fillScalingCount;
+        patVariable = globals.patVariable;
     //closure variables (set in build and accessible throughout
     var panelGraph,
         $panel,
@@ -1502,7 +1500,7 @@ function ProvenanceController(panelId){
                         $legend.find('div.radius').slideUp();
                     }
                     //color scale if heatmap OR markerShading
-                    if((type=='M' && (options.mode||'fill'=='fill')) || (type=='X' && provMapconfig.markerScaling!='none' && fillScalingCount(provPointPlots)>0)){
+                    if((type=='M' && (options.mode||'fill'=='fill')) || (type=='X' && provMapconfig.markerScaling!='none' && MD.grapher.fillScalingCount(provPointPlots)>0)){
                         $legend.find('div.color-scale').slideDown();
                         if(options.scale=='discrete'){ //default is 'continuous'
                             $legend.find('div.legend-continuous').hide();

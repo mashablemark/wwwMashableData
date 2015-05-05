@@ -35,7 +35,7 @@ MashableData.Set = function(SetParams){
     return this;
 };
 (function(){
-    var MD = MashableData, globals = MD.globals, grapher = MD.grapher, Set = MD.Set, Graph = MD.Graph; 
+    var MD = MashableData, globals = MD.globals, Set = MD.Set, Graph = MD.Graph;
     MashableData.Set.prototype.parsedData = function(updatedData){
         if(updatedData) this.data = updatedData;
         if(this.data){
