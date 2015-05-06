@@ -2360,7 +2360,7 @@ MashableData.grapher = function(){
                             for(region in calculatedMapData.regionData[calculatedMapData.dates[0].s]){
                                 if(allMergedRegions.indexOf(region) == -1 && typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][region]!='undefined'){  //this region is not part of a amerge and also has data
                                     //markerTitle = calculatedMapData.title + ' ' + region;
-                                    calculatedMapData.markers[region] = {name: region, point: pnt, style: {fill: 'pink'}};
+                                    calculatedMapData.markers[region] = {name: region, point: pnt, style: {fill: globals.bubbleColor}};
                                     calculatedMapData.regionsColorsForBubbles[region] = globals.MAP_COLORS.MID; //don't color the unmerged regions! Was: regionColors[i++%regionColors.length];
                                     y0 = null;
                                     for(d=calculatedMapData.startDateIndex;d<=calculatedMapData.endDateIndex;d++){
@@ -2953,7 +2953,8 @@ MashableData.grapher = function(){
                                 //RADIUS SCALING
                                 y += spacer+(smallRadius||5);
                                 var MarkerSizeAttributes = {
-                                    'fill-opacity': 0,
+                                    fill: globals.bubbleColor,
+                                    'fill-opacity': 1,
                                     opacity: 1,
                                     stroke: 'black',
                                     'stroke-width': 1

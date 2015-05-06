@@ -19,6 +19,7 @@ var MashableData = {
         //ANNOTATOR
         BAND_TRANSPARENCY: 0.5,
         colorsPlotBands: ['aaaaaa', 'ffaaaa', 'aaffaa', 'aaaaff'],
+        bubbleColor: 'pink',
         standardAnnotations: [],  //filled by API call on first use
         //WORKBENCH
         iconsHMTL: {
