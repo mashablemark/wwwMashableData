@@ -160,7 +160,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         var graph = this;
         if(graph.map){
             if(!graph.mapFile) graph.mapFile = globals.maps[graph.map].redef?graph.map:globals.maps[graph.map].jvectormap;
-            var requiredFile = ['//www.mashabledata.com/global/js/maps/'+ graph.mapFile +'.js']; //http or https; this directory allows CORS
+            var requiredFile = ['//www.mashabledata.com/global/js/maps/'+ globals.maps[graph.map].jvectormap +'.js']; //http or https; this directory allows CORS
             //note: if jvm not yet loaded (non-blocking prefetches) it will be during final blocking fetchMap deep inside buildGraphPanel()
             if(window.jvm && !jvm.Map.maps[graph.mapFile]){  //allow embedded visualization to include mapFile directly.  require.js does not make this distinction
                 require(requiredFile, function(){
