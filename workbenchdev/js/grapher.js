@@ -2401,17 +2401,18 @@ MashableData.grapher = function(){
                         }
                     }
                     function _drawMap_geometricCenter(regions){
-                        var bBox, totalArea=0, xArm=0, yArm=0, center, regCenter, latLon;
+                        var bBox, totalArea=0, xArm=0, yArm=0, center, regCenter, latlon, compHandle;
                         for(var i=0;i<regions.length;i++){  //iterate through the list
-                            latLon=null;
+                            latlon=null;
                             $.each(oGraph.mapsets[activeMapTab].components, function(c, comp){
-                                if(oGraph.assets[comp.handle()].data[regions[i]]&&comp.handle[0]=='M'&&oGraph.assets[comp.handle()].data[regions[i]].latLon){
-                                    latLon = oGraph.assets[comp.handle()].data[regions[i]].latLon.split(',');
+                                compHandle = comp.handle();
+                                if(oGraph.assets[compHandle].data[regions[i]]&&comp.isMapSet()&&oGraph.assets[compHandle].data[regions[i]].latlon){
+                                    latlon = oGraph.assets[compHandle].data[regions[i]].latlon.split(',');
                                 }
                             });
                             bBox = $g.find('path[data-code='+regions[i]+']').get(0).getBBox();
-                            if(latLon){
-                                regCenter = $map.latLngToPoint(latLon[0],latLon[1]);
+                            if(latlon){
+                                regCenter = $map.latLngToPoint(latlon[0],latlon[1]);
                                 xArm += (regCenter.x - $map.transX) * bBox.width * bBox.height / $map.scale;
                                 yArm += (regCenter.y - $map.transY) * bBox.width * bBox.height / $map.scale;
                             } else {

@@ -1870,8 +1870,8 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     $mapCode = safeStringSQL($map);
     $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, s.maps, s.freqs, s.apiid, s.themeid,
       coalesce(s.metadata,t.meta) as setmetadata, coalesce(s.src, a.name) as src, coalesce(s.url, a.url) as url, s.units,
-      g.jvectormap as map_code, g.containingid, m.bunny, s.userid, s.orgid, sd.geoid, g.name as geoname,
-      sd.freq, sd.data, sd.metadata as seriesmetadata, sd.latlon, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
+      g.jvectormap as map_code, g.containingid, concat(g.lat, ',', g.lon) as latlon, m.bunny, s.userid, s.orgid, sd.geoid, g.name as geoname,
+      sd.freq, sd.data, sd.metadata as seriesmetadata, sd.lastdt100k, sd.firstdt100k, sd.url as seriesurl
     FROM sets s JOIN setdata sd on s.setid=sd.setid
       JOIN geographies g on sd.geoid=g.geoid
       JOIN mapgeographies mg on sd.geoid = mg.geoid and mg.geoid=g.geoid
@@ -1924,9 +1924,9 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
             "firstdt"=>$row["firstdt100k"]*100000,
             "lastdt"=>$row["lastdt100k"]*100000
         ];
-        if($row["seriesmetadata"]!=null) $assets[$handle][$row["map_code"]]["metadata"] = $row["seriesmetadata"];
-        if($row["seriesurl"]!=null) $assets[$handle][$row["map_code"]]["url"] = $row["seriesurl"];
-        if($row["latlon"]!=null) $assets[$handle][$row["map_code"]]["latlon"] = $row["latlon"];
+        if($row["seriesmetadata"]!=null) $assets[$handle]["data"][$row["map_code"]]["metadata"] = $row["seriesmetadata"];
+        if($row["seriesurl"]!=null) $assets[$handle]["data"][$row["map_code"]]["url"] = $row["seriesurl"];
+        if($row["latlon"]!=null) $assets[$handle]["data"][$row["map_code"]]["latlon"] = $row["latlon"];
         $assets[$handle]["firstdt"] = min($assets[$handle]["firstdt"], $row["firstdt100k"]*100000);
         $assets[$handle]["lastdt"] = max($assets[$handle]["lastdt"], $row["lastdt100k"]*100000);
         if($getBunnies && $row["containingid"] && !in_array($row["containingid"], $bunnies)) $bunnies[] = $row["containingid"];
