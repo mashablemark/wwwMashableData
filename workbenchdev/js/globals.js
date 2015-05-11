@@ -135,7 +135,9 @@ var MashableData = {
             "change-bubbles": 'overlay circles to show changes',
             "correlation": 'correlation (requires two maps)',
             "treemap": 'abstract values to rectangles',
-            "change-treemap": 'abstract change to rectangles'
+            "change-treemap": 'abstract change to rectangles',
+            "min": 'color by date of minimum value',
+            "max": 'color by date of maximum value'
         }
 
     }

@@ -72,7 +72,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                     id: null, //gets reordered and set in AnnotationController.build()
                     series: selectedPoint.series.options.id,
                     color: 	'#000000',
-                    from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.freq)
+                    from: 	MD.grapher.formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.freq)
                 });
                 // redraw the point annotations in order and entire annotations table
                 this.build('point');
@@ -92,7 +92,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 text: 	'',
                 id: 'xl' + this.lineNo,
                 color: 	colorsPlotBands[0],
-                from: 	formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.freq)
+                from: 	MD.grapher.formatDateByPeriod(selectedPoint.x,selectedPoint.series.options.freq)
             });
             this.lineNo++;
             this.build('table-only');
@@ -112,6 +112,8 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             pointSelected.select(true);
         },
         build: function buildAnnotations( redrawAnnoTypes){
+            //adds line, bands, and scatter series
+            //CAN POINTS ON EXISTING SERIES BE MODIFIED TO SHOW A MARKER??
             var y, yOffset, self = this, oGraph = panelGraphs[panelId], $thisPanel = oGraph.controls.$thisPanel,
                 $annotations = $thisPanel.find('div.annotations').show().find('table');
             if(!globals.isEmbedded && $annotations && $annotations.get(0).rows.length!=0) { //enable on all calls except initial build
@@ -119,14 +121,10 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 oGraph.isDirty = true;
             }
             if(!redrawAnnoTypes) redrawAnnoTypes='all';
-// builds and return a fresh annotations table HTML string from oGraph
+            // builds and return a fresh annotations table HTML string from oGraph
             var sTable = '';
             var annoLetter = 'A';
             var i, anno, point, annoSeries, annoScatter, fromJS, toJS;
-            var scatterData = {};
-            for(i=0;i<oGraph.controls.chart.yAxis.length;i++){
-                scatterData['labelsY-'+i] = [];
-            }
             //make a sorted list of annotations by start date
             oGraph.annotations.sort(function(a,b){
                 if(a.type.charAt(0)=='h' && a.type.charAt(0)=='h')return b.from - a.from;
@@ -141,18 +139,18 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 switch(anno.type){
                     case 'point':
                         if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-                            annoSeries = oGraph.controls.chart.get(anno.series);
-                            if(annoSeries==null){//cut anno out if we can't find it's reference series
+                            annoSeries = oGraph.controls.chart.get(anno.series);  //anno.series =  'P0', 'P1', 'P2'... = id given to each plot's series in Highcharts
+                            if(annoSeries==null){//cut anno out if we can't find it's series
                                 oGraph.annotations.splice(i,1);
                                 i--;
                                 break;
                             }
-                            annoScatter =  oGraph.controls.chart.get('labelsY-' + annoSeries.options.yAxis);
+                            _removeMarker(annoLetter);
                             for(var j=0;j<annoSeries.data.length;j++){
                                 if(annoSeries.data[j] ){  //prevent errors on cropped graphs
                                     if(annoSeries.data[j].x == this.parseDate(anno.from)){
-                                        point = annoSeries.data[j];
-                                        scatterData['labelsY-' + annoSeries.options.yAxis].push({
+                                        point = annoSeries.data[j];  //this is a HC point object
+                                        point.update({
                                             x: point.x,
                                             y: point.y,
                                             id: annoLetter,
@@ -175,7 +173,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                                                     }
                                                 }
                                             }
-                                        });
+                                        }, false);  //do not redraw graph for each annotation = slow; redraw at end
                                     }
                                 }
                             }
@@ -225,17 +223,17 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                         toJS = this.parseDate(anno.to);
                         if((fromJS>=parseInt(oGraph.start||oGraph.firstdt) && fromJS<=parseInt(oGraph.end||oGraph.lastdt)) || (toJS>=parseInt(oGraph.start||oGraph.firstdt) && toJS<=parseInt(oGraph.to||oGraph.lastdt))){
                             if(redrawAnnoTypes=='band'||redrawAnnoTypes=='all'||(redrawAnnoTypes=='new'&&!anno.id)){
-                            anno.id ='xb' + this.bandNo++;
-                            yOffset = this.labelOffset(oGraph.controls.chart, anno);
+                                anno.id ='xb' + this.bandNo++;
+                                yOffset = this.labelOffset(oGraph.controls.chart, anno);
                                 oGraph.controls.chart.xAxis[0].addPlotBand({
-                                color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
-                                from: fromJS,
-                                to: toJS,
-                                id: anno.id,
-                                label: {text: anno.text, y: yOffset, zIndex: 3}
-                            });
-                        }
-                        sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
+                                    color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
+                                    from: fromJS,
+                                    to: toJS,
+                                    id: anno.id,
+                                    label: {text: anno.text, y: yOffset, zIndex: 3}
+                                });
+                            }
+                            sTable+='<tr data="' + anno.id + '"><td><input class="annotation-color-picker" type="text" value="' + anno.color + '" /></td><td>'+anno.from+'-'+anno.to+'</td><td><input class="anno-text" type="text" value="'+anno.text+'"></td><td><a class="ui-icon ui-icon-trash">delete</a></td></tr>';
                         }
                         break;
                     case 'hband':
@@ -261,9 +259,6 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             }
             console.time('annotation redraw');
             if(redrawAnnoTypes=='point'||redrawAnnoTypes=='all'){
-                for(var key in scatterData){   //replace the scatter series makers all at once, but don't redraw
-                    oGraph.controls.chart.get(key).setData(scatterData[key], false);
-                }
                 console.info('annotations fired chart redraw');
                 oGraph.controls.chart.redraw(); //redraw after all have been updated
             }
@@ -342,6 +337,12 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                         width: 2,
                         label: {text: anno.text, y: yOffset, zIndex: 3}
                     });
+                    break;
+                default:
+                    var point =  oGraph.controls.chart.get(id);
+                    if(point){
+                        point.text = anno.text;
+                    }
             }
         },
         "delete": function deleteAnno(deleteAnchor){
@@ -354,13 +355,14 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 }
             }
             if(idToDelete[1]=='b' || idToDelete[1]=='l'){ //band or line:  simply try to delete for all axis until found
-                for(a=0;a<oGraph.controls.chart.axes.length;a++){
+                for(var a=0;a<oGraph.controls.chart.axes.length;a++){
                     oGraph.controls.chart.axes[a].removePlotLine(idToDelete);  //does not error if not found
                     oGraph.controls.chart.axes[a].removePlotBand(idToDelete);
                 }
                 this.build( "none");
             } else {
-                this.build( "point");
+                _removeMarker(idToDelete);
+                this.build("point");
             }
         },
         startAnalysisBanding: function(point, analysisType){
@@ -471,7 +473,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 try{
                     chart.xAxis[0].removePlotBand(analysisType+this.bandNo);
                 }catch(err){}
-                this.endingX = closestDate(point.x, this.bandStartPoint.series.data);
+                this.endingX = MD.grapher.closestDate(point.x, this.bandStartPoint.series.data);
                 chart.xAxis[0].addPlotBand({
                     from:  this.bandStartPoint.x,
                     to: this.endingX,
@@ -490,8 +492,8 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             if(this.banding=='x-Time'){
                 if(onPoint){
                     var x1, x2;
-                    x1 = formatDateByPeriod(this.bandStartPoint.x, this.bandStartPoint.series.options.freq);
-                    x2 = formatDateByPeriod(pointSelected.x, pointSelected.series.options.freq);
+                    x1 = MD.grapher.formatDateByPeriod(this.bandStartPoint.x, this.bandStartPoint.series.options.freq);
+                    x2 = MD.grapher.formatDateByPeriod(pointSelected.x, pointSelected.series.options.freq);
                     this.banding = false;  //band was already drawn in the mouseOver event
                     oGraph.annotations.push({
                         type:	'band',
@@ -742,7 +744,15 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             return(hChart.addSeries(newSeries, redraw));
         }
     };
+
+    function _removeMarker(idToDelete){
+        var oGraph = panelGraphs[panelId];
+        var point = oGraph.controls.chart.get(idToDelete);
+        if(point){
+            var series = point.series, x = point.x, y = point.y;
+            point.update({x: x, y: y, id: null, marker: {enabled: false}}, false);
+        }
+    }
     if(!globals.isEmbedded) controller.fetchStandards();
     return controller;
 };
-

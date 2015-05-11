@@ -81,6 +81,7 @@ MashableData.grapher = function(){
                         } //value only available during chart's click event:  need point click for full coverage
                     },
                     selection: function(event){
+                        var chart = oGraph.controls.chart; //if chart is redrawn, the closure var is null
                         var min;
                         var max;
                         if(event.resetSelection){
@@ -125,6 +126,7 @@ MashableData.grapher = function(){
             if(!globals.isEmbedded){
                 $chart
                     .mouseover(function(e){
+                        var chart = oGraph.controls.chart; //if chart is redrawn, the closure var is null
                         if(annotations.banding){
                             if(annotations.banding.substr(0,2)=='y-'){
                                 var top = $(chart.container).offset().top,
@@ -138,7 +140,7 @@ MashableData.grapher = function(){
                                             chart.yAxis[i].removePlotBand('hb'+annotations.bandNo);
                                             chart.yAxis[i].addPlotBand({
                                                 id: 'hb'+annotations.bandNo,
-                                                color: equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
+                                                color: common.equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
                                                 from: parseFloat(annotations.bandStartPoint),
                                                 to: axisValue,
                                                 label: {text: '', zIndex: 3}
@@ -150,6 +152,7 @@ MashableData.grapher = function(){
                         }
                     })
                     .keydown(function(e){
+                        var chart = oGraph.controls.chart; //if chart is redrawn, the closure var is null
                         if(annotations.banding && e){
                             for(var a=0;a<chart.axes.length;a++){
                                 chart.axes[a].removePlotLine(annotations.banding);  //does not error if not found
@@ -224,6 +227,7 @@ MashableData.grapher = function(){
                                 isAverage = true;
                                 delete mnu.items.regression;
                             }
+                            var chart = oGraph.controls.chart; //if chart is redrawn, the closure var is null
                             top = $(chart.container).offset().top;
                             left = $(chart.container).offset().left;
                             x = (isIE ? e.originalEvent.x : e.clientX - left) - chart.plotLeft;
@@ -264,7 +268,7 @@ MashableData.grapher = function(){
                                             annotations.banding = 'y-'+chart.yAxis[key.substr(5)].userOptions.title.text;
                                             chart.yAxis[parseInt(key.substr(5))].addPlotBand({
                                                 id: 'hb'+annotations.bandNo++,
-                                                color: equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
+                                                color: common.equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
                                                 from: annotations.bandStartPoint,
                                                 to: annotations.bandStartPoint
                                             });
@@ -331,7 +335,7 @@ MashableData.grapher = function(){
                     return dt.setUTCDate(dt.getUTCDate()-(graph.intervals-1));
             }
         },
-        setCropSlider: function setCropSlider(panelId){  //get closest point to recorded js dt
+        setCropSliderSpinner: function setCropSliderSpinner(panelId){  //get closest point to recorded js dt
             if(globals.isEmbedded) return;  //not available for embedded graphs
             var leftIndex, rightIndex, maxIndex, i, bestDelta, thisDelta, chartOptions, oGraph = panelGraphs[panelId];
             if(oGraph.controls.chart){
@@ -376,10 +380,11 @@ MashableData.grapher = function(){
                 rightIndex = oGraph.calculatedMapData.endDateIndex;
                 maxIndex = oGraph.calculatedMapData.dates.length - 1;
             }
-            $('#' + panelId + ' span.interval-crop-period').html(period.units[oGraph.largestPeriod]+'s');
             $('#' + panelId + ' div.crop-slider')
                 .slider("option", "max", maxIndex)
                 .slider("option", "values", [leftIndex, rightIndex]);
+            $('#' + panelId + ' span.interval-crop-period').html(period.units[oGraph.largestPeriod]+'s');
+            $('#' + panelId + ' input.interval-crop-count').spinner('option', 'max', maxIndex)
         },
         closestDate: function closestDate(nearbyDate, seriesData, closestYet){
             var x;
@@ -506,7 +511,14 @@ MashableData.grapher = function(){
                     max: (oGraph.end===null)?null:parseInt(oGraph.end)
                     //maxZoom: 10 * 365 * 24 * 3600 * 1000
                 },
-                yAxis: []
+                yAxis: [],
+                tooltip: {
+                    formatter: function(){  //shorten the data accord to period; add commas to number; show units
+                        return'<b>' + this.series.name.trim() + '</b><br>' +MD.grapher.formatDateByPeriod(this.point.x, this.series.options.freq) + ':'
+                            + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text
+                            + (this.point.id&&this.point.text?'<br><br>'+this.point.text:'');
+                    }
+                }
             };
             //TODO:  use title, graph controls, and analysis box heights instead of fixed pixel heights
             if(oGraph.controls) jschart.chart.height = (oGraph.controls.$thisPanel.height()-70 - (oGraph.map?70:0)) * ((oGraph.mapsets||oGraph.pointsets)?0.4:1); //leave space for analysis textarea
@@ -633,16 +645,8 @@ MashableData.grapher = function(){
                 jschart.chart.x.push(Number(key));
             }
             jschart.chart.x.sort(function(a,b){return parseInt(a)-parseInt(b)});
-            //these scatter plot series are used to show annotations
-            for(i=0;i<jschart.yAxis.length;i++){
-                jschart.series.push({
-                    type: 'scatter',
-                    id: ('labelsY-' + i),
-                    yAxis: i,
-                    data: [],
-                    doNotShow: true
-                });
-            }
+
+            //note: annotation markers (and lines and bands) added by annonator after chart is made by updating the points
             switch(oGraph.type){
                 case "pie":
                     var oPieSeries = [{type: 'pie', data: []}];
@@ -1062,6 +1066,12 @@ MashableData.grapher = function(){
                     }
                     $thisPanel.find('button.download-data').button({icons: {secondary: "ui-icon-calculator"}})
                         .click(function(){
+                            //if multiple tabbed maps, make sure the data has been calculated for each map tab
+                            for(var i=0;i<oGraph.mapsets.length;i++) {
+                                if(!oGraph.mapsets[i].calculatedMapData)  {
+                                    _calcMap(oGraph, i);
+                                }
+                            }
                             downloadGraphData(panelId);
                         });
                     function downloadList(){
@@ -1241,15 +1251,22 @@ MashableData.grapher = function(){
                     var hardCropFromSlider = function(){
                         var values = $thisPanel.find('.crop-slider').slider('values');
                         $thisPanel.find('.rad-hard-crop').attr('checked',true);
+                        var needRedraw = oGraph.intervals !== null, newStart, newEnd;
                         oGraph.intervals = null;
                         if(oGraph.controls.chart){
-                            oGraph.start = oGraph.controls.chart.options.chart.x[values[0]];
-                            oGraph.end = oGraph.controls.chart.options.chart.x[values[1]];
+                            newStart = oGraph.controls.chart.options.chart.x[values[0]];
+                            newEnd = oGraph.controls.chart.options.chart.x[values[1]];
+                            needRedraw = needRedraw || oGraph.start !== newStart || oGraph.end !== newEnd;
+                            oGraph.start = newStart;
+                            oGraph.end = newEnd;
                         } else {
-                            oGraph.start = oGraph.calculatedMapData.dates[values[0]].dt.getTime();
-                            oGraph.end = oGraph.calculatedMapData.dates[values[1]].dt.getTime()
+                            newStart = oGraph.calculatedMapData.dates[values[0]].dt.getTime();
+                            newEnd = oGraph.calculatedMapData.dates[values[1]].dt.getTime();
+                            needRedraw = needRedraw || oGraph.start !== newStart || oGraph.end !== newEnd;
+                            oGraph.start = newStart;
+                            oGraph.end = newEnd;
                         }
-                        _redraw();  //should be signals or a call to a local var  = function
+                        if(needRedraw) _redraw();  //should be signals or a call to a local var  = function
                     };
                     var cropDates = function(slider){
                         var values = $(slider).slider("values");
@@ -1262,7 +1279,7 @@ MashableData.grapher = function(){
                         _makeDirty();
                     };
                     $thisPanel.find('div.crop-slider').slider(
-                        { //max and value[] are set in setCropSlider() after Highchart is called below
+                        { //max and value[] are set in setCropSliderSpinner() after Highchart is called below
                             range: true,
                             stop: function(){
                                 hardCropFromSlider()
@@ -1276,10 +1293,9 @@ MashableData.grapher = function(){
                                 $thisPanel.find('.crop-dates').html(cropDates(this));
                             }
                         });
-                    /*$('#'+panelId+'-rad-hard-crop')  HANDLED ABOVE + DELETE
-                     .change(function(){
-                     hardCropFromSlider();
-                     });*/
+                    $('#'+panelId+'-rad-hard-crop').change(function(){ //might cause the rebuild to fire twice
+                        hardCropFromSlider();
+                    });
                     $('#'+panelId+'-rad-interval-crop').change(function(){
                         if($(this).val()=='on'){
                             //runs when interval radio button changes to on state
@@ -1320,7 +1336,7 @@ MashableData.grapher = function(){
                         graph.start = (graph.minZoom>graph.firstdt)?graph.minZoom:graph.firstdt;
                         graph.end = (graph.maxZoom<graph.lastdt)?graph.maxZoom:graph.lastdt;
                         $(this).attr("disabled","disabled");
-                        setCropSlider(panelId);
+                        setCropSliderSpinner(panelId);
                         $('#'+panelId+'-rad-hard-crop').click();
                     });
                     // *** crop routine end ***
@@ -1349,6 +1365,7 @@ MashableData.grapher = function(){
                                     }
                                 }
                             }
+                            if(oGraph.type!=$(this).val() && oGraph.hasPlotModes()) dialogShow("warning", "The type can be set globally or for each plot.  This visualization contains plots that override your global setting.  Use the <b>more configurations</b> button below to revert the individual plot type to this global setting.");
                             oGraph.type=$(this).val();
                             _makeDirty();
                             _redraw();
@@ -1388,6 +1405,7 @@ MashableData.grapher = function(){
                             } else {
                                 oGraph.mapconfig.mapMode = this.value;
                             }
+                            if(oGraph.hasMapModes()) dialogShow("warning", "The map type can be set globally or for each mapset.  This visualization  contains mapsets that override your global setting.  Use the <b>more configurations</b> button below to revert the individual mapset types to this global setting.");
                             _redraw();  //note: _redraw() calls _drawMap() which updates mapMode variable
                         });
                     $thisPanel.find('select.change-basemap').html(_fillChangeMapSelect()).change(function(){
@@ -1480,7 +1498,7 @@ MashableData.grapher = function(){
                 oGraph.fetchMap(function(){  //needs to be called after the map is calculated
                     _drawMap();
                     console.timeEnd('buildGraphPanel:_drawMap');
-                    setCropSlider(panelId);
+                    setCropSliderSpinner(panelId);
                     console.timeEnd('buildGraphPanel: '+panelId);
                     if(!isEmbedded){
                         unmask();
@@ -1698,36 +1716,54 @@ MashableData.grapher = function(){
                                     //}
                                 },
                                 onRegionTipShow: function(event, label, code){
-                                    var i, sparkData=[], currentIndex, containingDateData = _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
+                                    var i, sparkData=[], currentIndex, containingDateData, containingDateColor, mapMode = oGraph.mapsets[activeMapTab].mapMode();
                                     if(calculatedMapData.regionColors){
-                                        var containingDateColor = _getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
+                                        if(mapMode=='min' || mapMode=='max'){
+                                            containingDateColor = calculatedMapData.regionColors;
+                                        } else {
+                                            containingDateData = _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[val].s);
+                                            containingDateColor = _getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
+                                        }
                                         if(containingDateColor && typeof containingDateColor[code] != 'undefined'){
                                             for(i=0;i<calculatedMapData.dates.length;i++){
                                                 if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') {
                                                     sparkData.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.regionData[calculatedMapData.dates[i].s][code]]);
-                                                    if(i==val) currentIndex = sparkData.length-1;
+                                                    if(mapMode=='min' || mapMode=='max'){
+                                                        if(calculatedMapData.dates[i].dt.getTime() == containingDateColor[code]) currentIndex = sparkData.length-1;
+                                                    } else {
+                                                        if(i==val) currentIndex = sparkData.length-1;
+                                                    }
                                                 }
                                             }
-                                            var y = containingDateData[code];
-                                            var valueReport, startingDateDate, y0;
+                                            var valueReport, startingDateDate, y, y0, readableDate;
                                             switch(mapMode){
                                                 case 'heat':
-                                                    valueReport = typeof y== 'undefined'?'no data available': common.numberFormat(y, (parseInt(y)==y)?0:2) + ' ' + (calculatedMapData.mapUnits||'');
+                                                    y = containingDateData[code];
+                                                    valueReport = ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
+                                                    + (typeof y == 'undefined'?'no data available': common.numberFormat(y, (parseInt(y)==y)?0:2) + ' ' + (calculatedMapData.mapUnits||''));
                                                     break;
                                                 case 'abs-change':
+                                                    y = containingDateData[code];
                                                     startingDateDate  =  _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.startDateIndex].s);
                                                     y0 = startingDateDate[code];
-                                                    valueReport = typeof y== 'undefined' || typeof y0== 'undefined' ? 'no data available': (y-y0>0?'+':'') + common.numberFormat(y-y0, (parseInt(y-y0)==y-y0)?0:2) + ' ' + (calculatedMapData.mapUnits||'') + ' from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s;
+                                                    valueReport = ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
+                                                    + (typeof y == 'undefined' || typeof y0== 'undefined' ? 'no data available': (y-y0>0?'+':'') + common.numberFormat(y-y0, (parseInt(y-y0)==y-y0)?0:2) + ' ' + (calculatedMapData.mapUnits||'') + ' from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s);
                                                     break;
                                                 case 'percent-change':
+                                                    y = containingDateData[code];
                                                     startingDateDate  =  _getMapDataByContainingDate(calculatedMapData.regionData, calculatedMapData.dates[calculatedMapData.startDateIndex].s);
                                                     y0 = startingDateDate[code];
-                                                    valueReport = typeof y== 'undefined' || typeof y0== 'undefined' ? 'no data available': common.numberFormat(100*(y-y0)/y0, 1) + '% change from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s;
+                                                    valueReport = ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
+                                                    + (typeof y == 'undefined' || typeof y0== 'undefined' ? 'no data available': common.numberFormat(100*(y-y0)/y0, 1) + '% change from ' + calculatedMapData.dates[calculatedMapData.startDateIndex].s);
                                                     break;
+                                                case 'min':
+                                                case 'max':
+                                                    y = calculatedMapData.regionData[common.mashableDate(containingDateColor[code], calculatedMapData.freq)][code];
+                                                    valueReport = mapMode + 'imum value of ' + y + ' ' + (calculatedMapData.mapUnits||'') + ' reported for <b>' + formatDateByPeriod(containingDateColor[code], calculatedMapData.freq) + '</b>';
+
                                             }
                                             label.html(
                                                 '<div><b>'+$map.getRegionName(code)+'</b><br>'+calculatedMapData.title
-                                                + ' in ' + formatDateByPeriod(calculatedMapData.dates[val].dt.getTime(), calculatedMapData.freq)+ ':<br>'
                                                 + valueReport
                                                 + '</div><div class="inlinesparkline" style="height: 30px;width: '+Math.min(400, 10*sparkData.length)+'px;margin:0 5px;"></div>'
                                             ).css("z-Index",400);
@@ -2329,8 +2365,8 @@ MashableData.grapher = function(){
                             var mapsetOptions = oGraph.mapsets[activeMapTab].options;
                             var startDateKey = calculatedMapData.dates[calculatedMapData.startDateIndex].s;
                             if(mapsetOptions.merges){
-                                for(i=0;i<mapsetOptions.options.merges.length;i++){
-                                    merge = mapsetOptions.options.merges[i];
+                                for(i=0;i<mapsetOptions.merges.length;i++){
+                                    merge = mapsetOptions.merges[i];
                                     mergeCode = merge.join('+');
                                     markerTitle = calculatedMapData.title + ' for ' + mergeCode ;
                                     calculatedMapData.markers[mergeCode] = {name: mergeCode, point: pnt, style: {fill: 'pink'}};
@@ -2793,6 +2829,10 @@ MashableData.grapher = function(){
                                     //these are all region shadings.  Magic is in calcAttribute and in onRegionTipShow
                                     $map.series.regions[0].setAttributes(_getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s));
                                     break;
+                                case 'min':
+                                case 'max':
+                                    $map.series.regions[0].setValues(calculatedMapData.regionColors);
+                                    break;
                                 case 'bubbles':  //_drawMap_isBubble()?????
                                 case 'change-bubbles':
                                     //these are bubble maps.  Magic is in bubbleCalc and onMarkerTipShow
@@ -2837,7 +2877,7 @@ MashableData.grapher = function(){
                                 $map.series.markers[1].setAttributes(_getMapDataByContainingDate(calculatedMapData.markerAttr.fill, calculatedMapData.dates[val].s));
                             }
                         }
-                        if(oGraph.plots){
+                        if(oGraph.plots && oGraph.mapsets[activeMapTab].mapMode()!='min' && oGraph.mapsets[activeMapTab].mapMode()!='max'){
                             var timeAxis = chart.xAxis[0];
                             timeAxis.removePlotLine('timeLine');
                             timeAxis.addPlotLine({
@@ -3068,7 +3108,7 @@ MashableData.grapher = function(){
                             break;
                         case 'chart':
                             annotations.sync();
-                            chart._exportChart({type: type, width: 2000});
+                            oGraph.controls.chart._exportChart({type: type, width: 2000});
                             break;
                         case 'cube':
                             oGraph.controls.vizChart._exportChart({type: type, width: 2000});
@@ -3442,7 +3482,7 @@ MashableData.grapher = function(){
                     calcData.regionMin = Number.MAX_VALUE;
                     calcData.regionMax = Number.MIN_VALUE;
                     if(graph.intervals){
-                        calcData.startDateIndex = calcData.dates.length-parseInt(graph.intervals);
+                        calcData.startDateIndex = Math.max(0, calcData.dates.length-parseInt(graph.intervals));
                         calcData.endDateIndex = calcData.dates.length-1;
                         for(i=calcData.startDateIndex;i<calcData.endDateIndex+1;i++){
                             if(graph.mapsets){
@@ -3698,16 +3738,21 @@ MashableData.grapher = function(){
                 }
                 function _calcMinMax(mode){
                     //_caclMap should already have been run; mode must either be 'min' or 'max'
-                    var calcData = oGraph.calculatedMapData, extremes = {}, value;
-                    calcData['region'+mode] = {};
+                    var calcData = oGraph.calculatedMapData, extremes = {}, value, dateKey, geo, dateInt;
+                    calcData['regionColors'] = {};
+                    calcData['regionMin'] = Number.MAX_VALUE;
+                    calcData['regionMax'] = Number.MIN_VALUE;
                     for(dateKey in calcData.regionData){
+                        dateInt = dateFromMdDate(dateKey).getTime();
+                        calcData['regionMin'] = Math.min(calcData['regionMin'], dateInt);
+                        calcData['regionMax'] = Math.max(calcData['regionMax'], dateInt);
                         for(geo in calcData.regionData[dateKey]){
                             if(calcData.regionData[dateKey]){
                                 value = calcData.regionData[dateKey][geo];
                                 if(value!==null){
                                     if(typeof extremes[geo] == 'undefined' || (mode=='min'?value<extremes[geo]:value>extremes[geo])){
                                         extremes[geo] = value;
-                                        calcData['region'+mode][geo] = dateKey;
+                                        calcData['regionColors'][geo] = dateInt;
                                     }
                                 }
                             }
@@ -3784,7 +3829,7 @@ MashableData.grapher = function(){
     //define shortcuts
     var chartPanel = grapher.chartPanel,
         intervalStartDt = grapher.intervalStartDt,
-        setCropSlider = grapher.setCropSlider,
+        setCropSliderSpinner = grapher.setCropSliderSpinner,
         closestDate = grapher.closestDate,
         createMyGraph = grapher.createMyGraph,
         makeChartOptionsObject = grapher.makeChartOptionsObject,
@@ -4258,11 +4303,4 @@ MashableData.grapher = function(){
 }();
 
 //TODO:  remove these and update the workbench to NOT use these shortcuts
-if(window.grapher){ //replace the shortcut to
-    var grapher = MashableData.grapher,
-        createMyGraph = grapher.createMyGraph,
-        formatDateByPeriod = grapher.formatDateByPeriod,
-        visiblePanelId = grapher.visiblePanelId,
-        compSymbol = grapher.compSymbol;
-
-}
+if(window.grapher) grapher = MashableData.grapher;  //replace the workbench shortcut to allow in browser editting

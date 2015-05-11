@@ -415,4 +415,20 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         }
         return true;
     };
+    Graph.prototype.hasPlotModes = function hasPlotModes(){
+        if(this.plots) {
+            for(var i=0;i<this.plots.length;i++){
+                if(this.plots[i].options.type) return true;
+            }
+        }
+        return false;
+    };
+    Graph.prototype.hasMapModes = function hasMapModes(){
+        if(this.mapsets) {
+            for(var i=0;i<this.mapsets.length;i++){
+                if(this.mapsets[i].options.mapMode) return true;
+            }
+        }
+        return false;
+    };
 })();

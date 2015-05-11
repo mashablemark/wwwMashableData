@@ -6,11 +6,11 @@
  */
 
 /* UglifyJS workbench NODEJS seting in PhpStorm
-    Program: C:\wamp\www\node_modules\.bin\uglifyjs.cmd
-    Arguments: globals.js common.js set.js plot.js graph.js maps.js grapher.js jstat.js shims.js workbench.js cat_browser.js  account.js  annotator.js provenance.js treemap.js -o workbench.min.js -m toplevel,eval
-    Working Dir: $FileDir$
-    Output paths: workbench.min.js
-*/
+ Program: C:\wamp\www\node_modules\.bin\uglifyjs.cmd
+ Arguments: globals.js common.js set.js plot.js graph.js maps.js grapher.js jstat.js shims.js workbench.js cat_browser.js  account.js  annotator.js provenance.js treemap.js -o workbench.min.js -m toplevel,eval
+ Working Dir: $FileDir$
+ Output paths: workbench.min.js
+ */
 
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
@@ -29,14 +29,14 @@ var dateFromMdDate = common.dateFromMdDate,
 //WORKBENCH TEMPLATES
 var templates = {
     plot:  //functions needed: plot.color, component.opUI, plot.plotUnits, plot.plotPeriodicity, seriesname  EASIER???
-        '<li class="plot ui-state-highlight" data="{{order}}">'
-            +'<a class="edit-plot link" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></a>'
-            +'<div class="line-sample" style="padding:0;margin:0 10px 10px 0;display:inline-block;border-width:0;background-color:{{color}};height:{{#options.lineWidth}}{{.}}{{/options.lineWidth}}{{^options.lineWidth}}2{{/options.lineWidth}}px;width:38px;">'
-            +'<img src="images/{{options.lineStyle}}.png" height="{{#options.lineWidth}}{{.}}{{/options.lineWidth}}{{^options.lineWidth}}2{{/options.lineWidth}}px" width="{{imageWidth}}px"></div>'
-            +'<div class="plot-info" style="display:inline-block;"><span class="plot-title">{{name}}</span> in {{plotUnits}} {{plotPeriodicity}}</div>'
-            +'<ul class="series" style="list-style-type: none;" data="{{order}}">'
-            +'{{#component}}<li class="serie ui-state-default" data="{{handle}}" plot="{{order}}"><span class="plot-op ui-icon {{opUI}}">operation</span> '
-            + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
+    '<li class="plot ui-state-highlight" data="{{order}}">'
+    +'<a class="edit-plot link" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></a>'
+    +'<div class="line-sample" style="padding:0;margin:0 10px 10px 0;display:inline-block;border-width:0;background-color:{{color}};height:{{#options.lineWidth}}{{.}}{{/options.lineWidth}}{{^options.lineWidth}}2{{/options.lineWidth}}px;width:38px;">'
+    +'<img src="images/{{options.lineStyle}}.png" height="{{#options.lineWidth}}{{.}}{{/options.lineWidth}}{{^options.lineWidth}}2{{/options.lineWidth}}px" width="{{imageWidth}}px"></div>'
+    +'<div class="plot-info" style="display:inline-block;"><span class="plot-title">{{name}}</span> in {{plotUnits}} {{plotPeriodicity}}</div>'
+    +'<ul class="series" style="list-style-type: none;" data="{{order}}">'
+    +'{{#component}}<li class="serie ui-state-default" data="{{handle}}" plot="{{order}}"><span class="plot-op ui-icon {{opUI}}">operation</span> '
+    + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
 };
 var dialogues = {
     noMySeries: 'Your My Series folder is empty.  Please search for Public Series, which can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
@@ -192,25 +192,25 @@ $(document).ready(function(){
     $("#menu-help").button({icons: {secondary: "ui-icon-help"}})
         .click(function(){
             $helpMenu  = account.showPanel('<div style="width:400px;height:300px;">'
-                + '<ul>'
-                + '<li><a target="help" title="Features" href="http://www.mashabledata.com/features/">Features and tour</a></li>'
-                + '<li><a target="help" title="Searching and browsing for data" href="http://www.mashabledata.com/searching-and-browsing-for-data/">Searching and browsing for data</a></li>'
-                + '<li><a target="help" title="Using series math to answer complex questions" href="http://www.mashabledata.com/using-series-math-to-answer-complex-questions/">Using series math to answer complex questions</a> (corn v. wheat)</li>'
-                + '<li><a target="help" title="My Series &amp; Graphs" href="http://www.mashabledata.com/my-series-graphs/">My Series &amp; Graphs</a></li>'
-                + '<li><a target="help" title="What are map sets and point sets?" href="http://www.mashabledata.com/what-are-map-sets-and-point-sets/">What are map sets and point sets?</a></li>'
-                + '<li><a target="help" title="Creating maps" href="http://www.mashabledata.com/creating-maps/">Creating maps</a>'
-                + '<ul>'
-                + '<li><a target="help" title="Maps: Comparing against a regional average" href="http://www.mashabledata.com/creating-maps/maps-comparing-against-a-regional-average/">Comparing against a regional average</a> (Unemployment by state)</li>'
-                + '<li><a target="help" title="Changing base maps" href="http://www.mashabledata.com/creating-maps/changing-base-maps/">Changing base maps</a></li>'
-                + '<li><a target="help" title="Map colors (continuous, discrete and logarithmic)" href="http://www.mashabledata.com/workbench-help/creating-maps/map-colors-continuous-discrete-and-logarithmic/">Map colors (continuous, discrete and logarithmic)</a></li>'
-                + '<li><a target="help" title="Bubble maps and user defined regions" href="http://www.mashabledata.com/workbench-help/creating-maps/bubble-maps-and-user-defined-regions/">Bubble maps and user defined regions</a></li>'
-                + '</ul>'
-                + '</li>'
-                + '<li><a target="help" title="User series and the Highcharts plugin" href="http://www.mashabledata.com/workbench-help/user-series-and-the-highcharts-plugin/">User series and the Highcharts plugin</a></li>'
-                + '<li><a target="help" title="Accounts: free, individual and corporate" href="http://www.mashabledata.com/workbench-help/accounts-free-individual-and-corporate/">Accounts: free, individual and corporate</a></li>'
-                + '<li><a target="help" title="Publishing graphs and fair use" href="http://www.mashabledata.com/workbench-help/publishing-graphs-and-fair-use/">Publishing graphs and fair use</a></li>'
-                + '</ul>'
-                + '</div>', $('#menu-help'))
+            + '<ul>'
+            + '<li><a target="help" title="Features" href="http://www.mashabledata.com/features/">Features and tour</a></li>'
+            + '<li><a target="help" title="Searching and browsing for data" href="http://www.mashabledata.com/searching-and-browsing-for-data/">Searching and browsing for data</a></li>'
+            + '<li><a target="help" title="Using series math to answer complex questions" href="http://www.mashabledata.com/using-series-math-to-answer-complex-questions/">Using series math to answer complex questions</a> (corn v. wheat)</li>'
+            + '<li><a target="help" title="My Series &amp; Graphs" href="http://www.mashabledata.com/my-series-graphs/">My Series &amp; Graphs</a></li>'
+            + '<li><a target="help" title="What are map sets and point sets?" href="http://www.mashabledata.com/what-are-map-sets-and-point-sets/">What are map sets and point sets?</a></li>'
+            + '<li><a target="help" title="Creating maps" href="http://www.mashabledata.com/creating-maps/">Creating maps</a>'
+            + '<ul>'
+            + '<li><a target="help" title="Maps: Comparing against a regional average" href="http://www.mashabledata.com/creating-maps/maps-comparing-against-a-regional-average/">Comparing against a regional average</a> (Unemployment by state)</li>'
+            + '<li><a target="help" title="Changing base maps" href="http://www.mashabledata.com/creating-maps/changing-base-maps/">Changing base maps</a></li>'
+            + '<li><a target="help" title="Map colors (continuous, discrete and logarithmic)" href="http://www.mashabledata.com/workbench-help/creating-maps/map-colors-continuous-discrete-and-logarithmic/">Map colors (continuous, discrete and logarithmic)</a></li>'
+            + '<li><a target="help" title="Bubble maps and user defined regions" href="http://www.mashabledata.com/workbench-help/creating-maps/bubble-maps-and-user-defined-regions/">Bubble maps and user defined regions</a></li>'
+            + '</ul>'
+            + '</li>'
+            + '<li><a target="help" title="User series and the Highcharts plugin" href="http://www.mashabledata.com/workbench-help/user-series-and-the-highcharts-plugin/">User series and the Highcharts plugin</a></li>'
+            + '<li><a target="help" title="Accounts: free, individual and corporate" href="http://www.mashabledata.com/workbench-help/accounts-free-individual-and-corporate/">Accounts: free, individual and corporate</a></li>'
+            + '<li><a target="help" title="Publishing graphs and fair use" href="http://www.mashabledata.com/workbench-help/publishing-graphs-and-fair-use/">Publishing graphs and fair use</a></li>'
+            + '</ul>'
+            + '</div>', $('#menu-help'))
         });
     lastTabAnchorClicked = $("#series-tabs li a").click(function (){pickerPanel(this)}).filter("[data='#local-series']").get(0);
     layoutDimensions.heights.scrollHeads = $("div#local-series div.dataTables_scrollHead").height();
@@ -287,15 +287,6 @@ $(document).ready(function(){
 
     require(globals.graphScriptFiles, function(){
         $.fn.colorPicker.defaults.colors.splice(-1,0,hcColors, colorsPlotBands);
-        Highcharts.setOptions({
-            tooltip: {
-                formatter: function(){  //shorten the data accord to period; add commas to number; show units
-                    return'<b>' + this.series.name.trim() + '</b><br>' +MD.grapher.formatDateByPeriod(this.point.x, this.series.options.freq) + ':'
-                    + Highcharts.numberFormat(this.y,(parseInt(this.y)==this.y?0:3),'.',',') + ' ' + this.series.yAxis.options.title.text
-                    + (this.point.id&&this.point.options.text?'<br><br>'+this.point.options.text:'');
-                }
-            }
-        });
     });
     (function () {
         if(window.location.href.indexOf('workbenchdev')<0 && window.location.href.indexOf('nolog')<0 && !window.localStorage.getItem('nolog')){
@@ -638,21 +629,21 @@ function setupFindDataTable(){
                 "mRender": function(value, type, obj){return formatAsUrl(obj.url, obj.src)}}
         ]
     }).click(function(e){
-            var $td = $(e.target).closest('td');
-            if($td.hasClass('title') || $td.hasClass('units') || $td.hasClass('dt-freq') || $td.hasClass('dte')){
-                $dtFindDataTable.find('tr.ui-selected').removeClass('ui-selected');
-                $td.closest('tr').addClass('ui-selected');
-                previewPublicSeries();
-            }
-            if($td.hasClass('cat')){
-                var handle = $td.closest('tr').find('span.handle').html();
-                if(handle) browseFromSeries(handle.substr(1));
-            }
-            /*if($td.hasClass('url')){
-             $td.find('a').clone(false).click().remove();  //does not work...
-             //the following causes an infinite loop: if(!$(e.target).hasClass('ui-icon-extlink')) $td.find('a').click();
-             }*/
-        });
+        var $td = $(e.target).closest('td');
+        if($td.hasClass('title') || $td.hasClass('units') || $td.hasClass('dt-freq') || $td.hasClass('dte')){
+            $dtFindDataTable.find('tr.ui-selected').removeClass('ui-selected');
+            $td.closest('tr').addClass('ui-selected');
+            previewPublicSeries();
+        }
+        if($td.hasClass('cat')){
+            var handle = $td.closest('tr').find('span.handle').html();
+            if(handle) browseFromSeries(handle.substr(1));
+        }
+        /*if($td.hasClass('url')){
+         $td.find('a').clone(false).click().remove();  //does not work...
+         //the following causes an infinite loop: if(!$(e.target).hasClass('ui-icon-extlink')) $td.find('a').click();
+         }*/
+    });
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
 
@@ -691,7 +682,7 @@ function setupMyGraphsTable(){
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
-                    return (obj.plottypes.indexOf('M')!=-1?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap)
+                    return (obj.plottypes.indexOf('M')!=-1?(obj.mapconfig.indexOf('bubble')>0?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
                         + (obj.plottypes.indexOf('X')!=-1?iconsHMTL.hasMarkerMap:'')
                         + ((obj.cubeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(globals.maps[value].name)
@@ -713,11 +704,15 @@ function setupMyGraphsTable(){
             }
         ]
     }).click(function(e){
-            var $td = $(e.target).closest('td');
-            $dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
-            var rowObject = $dtMyGraphs.fnGetData($td.closest('tr').addClass('ui-selected').get(0));
+        var $td = $(e.target).closest('td');
+        $dtMyGraphs.find('tr.ui-selected').removeClass('ui-selected');
+        var $tr = $td.closest('tr');
+        var rowObject = $dtMyGraphs.fnGetData($tr.get(0));
+        if(rowObject) {
+            $tr.addClass('ui-selected');
             viewGraph(rowObject.ghash);
-        });
+        }
+    });
     $('#my_graphs_table_filter')
         .prependTo('#myGraphsHeader')
         .append('<span class="filterReset ui-icon ui-icon-circle-close-inactive" style="color:white;overflow:hidden;float:right;text-align:left;position:relative;top:3px;" onclick="$(\'#my_graphs_table_filter :input\').attr(\'value\',\'\').keyup();">clear filter</span>')
@@ -918,8 +913,8 @@ var $dialog;
 function showAuthorizeDialogue(){
     dialogShow('User Agreement',
         '<span id="dialog-top">MashableData is a free workbench to analyze and graph data series.  Data series viewed using our plugin have been securely cached in your browser\'s local storage.  To power the workbench, the data series must be shared with our servers.  Once sharing is enabled, you will be able to search and view series and public graphs on MashableData.com\'s servers.<br /><br />'
-            + '<span id="dialog-learn"><i>To learn more, please read <a href="/" target="help">how MashableData works</a> and our <a href="/" target="help">privacy policy</a>.</i></span>'
-            + '<br /><br />Ok to anonymously share the datasets you have browsed?</span>',
+        + '<span id="dialog-learn"><i>To learn more, please read <a href="/" target="help">how MashableData works</a> and our <a href="/" target="help">privacy policy</a>.</i></span>'
+        + '<br /><br />Ok to anonymously share the datasets you have browsed?</span>',
         [
             {
                 text: 'Enable',
@@ -1181,11 +1176,11 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         for(i=0;i<aoSeries.length;i++){
             qGraph.addPlot([new MD.Component(aoSeries[i])]);
             if(allFreq.indexOf(aoSeries[i].freq)===-1) allFreq.push(aoSeries[i].freq);
-            if(allFreqs.indexOf(aoSeries[i].freqs.toString())===-1) allFreqs.push(aoSeries[i].freqs.toString());
+            if(aoSeries[i].freqs && allFreqs.indexOf(aoSeries[i].freqs.toString())===-1) allFreqs.push(aoSeries[i].freqs.toString());
         }
         if(allFreqs.length==1 && allFreq.length==1){
             var options = '';
-            $.each(aoSeries[0].freqs, function(f, freq){ //previous test guarentee that all aoSeries have identical freq and freqs
+            $.each(aoSeries[0].freqs, function(f, freq){ //previous test guarantees that all aoSeries have identical freq and freqs
                 options += '<option value="'+freq+'" '+(freq==aoSeries[0].freq?'selected':'')+'>'+globals.period.name[freq]+'</option>';
             });
             $('#quick-view-change-freq').html(options).off().change(function(){
@@ -1378,7 +1373,7 @@ function quickViewFetchGeos(){
                         // var firstItem = widget.element.children( "li:first a");
                         //this.val(firstItem.html());
                     }
-            })
+                })
                 .addClass( "custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left" )
                 .autocomplete({
                     delay: 0,
@@ -1562,7 +1557,7 @@ function quickViewToGraph(){
             && panelGraphs[panelId].map // ... and it already has a map
             && ( //but its map and the map requested or the map/pointplot frequencies are different...
             panelGraphs[panelId].map!=map || panelGraphs[panelId].mapFreq() != oQuickViewSeries[0].freq)
-            ){
+        ){
             dialogShow("Map Error","This graph already has a "+panelGraphs[panelId].map+" map.  Additional maps and map data can be added, but must use the same base map and frequency.");
             return null;
         }
@@ -1673,7 +1668,7 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
 
     function _fillSelector(){
         var cubeOptions = '<option value="none">select a data cube or map interaction</option>' +
-        '<optgroup class="non-cube-vizes"  label="visualizations with mouseover interactions">' +
+            '<optgroup class="non-cube-vizes"  label="visualizations with mouseover interactions">' +
             '<option value="scatter">scatter plot of maps with linear regression and correlation coefficient</option>' +
             '<option value="line">line chart of highlighted geographies</option>' +
             '<option value="line-bunnies">line chart with national data of highlighted geographies</option>' +
@@ -1681,7 +1676,7 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
             '<option value="components-line">line chart of summed map components of highlighted geographies</option>' +
             '<option value="list-asc">ordered list (ascending)</option>' +
             '<option value="list-desc">ordered list (descending)</option>' +
-        '</optgroup>';
+            '</optgroup>';
         var i, currentCubeAccountedFor = false, cube, type = false;
         if(possibleCubes&&possibleCubes.cubes.length){
             for(i=0;i<possibleCubes.cubes.length;i++){
@@ -2759,8 +2754,8 @@ function setPanelHash(ghash, graphTabId){  //optionally, pass in known values ra
 function notLoggedInWarningDisplayed(){
     if(!account.loggedIn()){
         $('#dialog').html('<span><p>You must be signed in to use this function.  You can sign into MashableData.com with your Facebook account.  (Google+ account federation coming soon!)</p>'
-            + '<p>Logging in does <em>not</em> grant MashableData automatic access to your email or to post to your account.</p>' //  Using Facebook\'s secure <a href="http://developers.facebook.com/docs/authentication/" target="_blank">authorization service</a> means neither of us has to remember yet another username and password.</p>'
-            + '</span><br>');
+        + '<p>Logging in does <em>not</em> grant MashableData automatic access to your email or to post to your account.</p>' //  Using Facebook\'s secure <a href="http://developers.facebook.com/docs/authentication/" target="_blank">authorization service</a> means neither of us has to remember yet another username and password.</p>'
+        + '</span><br>');
 
         $dialog = $('#dialog').dialog({
             modal: true,
@@ -2950,7 +2945,11 @@ function downloadMadeFile(options){
 function downloadGraphData(panelId){
     var grids = [], oGraph = panelGraphs[panelId];
     if(oGraph.plots) grids.push({name: 'chart', grid: makeDataGrid(panelId, 'chart', oGraph.calculatedMapData)});
-    if(oGraph.mapsets) grids.push({name: 'regions', grid: makeDataGrid(panelId, 'regions', oGraph.calculatedMapData)});
+    if(oGraph.mapsets){ //calculatedMapData must already be made for each mapplot
+        for(var i=0; oGraph.mapsets.length;i++){
+            grids.push({name: 'regions '+i, grid: makeDataGrid(panelId, 'regions', oGraph.mapsets[i].calculatedMapData, oGraph.mapsets[i])});
+        }
+    }
     if(oGraph.pointsets) grids.push({name: 'markers', grid: makeDataGrid(panelId, 'markers', oGraph.calculatedMapData)});
     console.info(grids);
     //do the highcharts trick to download a file
@@ -2961,7 +2960,7 @@ function downloadGraphData(panelId){
     });
 }
 
-function makeDataGrid(panelId, type, mapData){  //create tables in data tab of data behind the chart, the map regions, and the map markers
+function makeDataGrid(panelId, type, mapData, mapPlot){  //create tables in data tab of data behind the chart, the map regions, and the map markers
     var hasMap, hasChart, m, r, i, p, c, plot, component, d, row, compData, serie, jsdt, mdPoint, mdDate;
     var oGraph = panelGraphs[panelId];
     var assets = oGraph.assets;
@@ -3079,14 +3078,27 @@ function makeDataGrid(panelId, type, mapData){  //create tables in data tab of d
 //REGIONS
         case 'regions':
             freq = mapData.freq;
-            var mapPlot = oGraph.mapsets[0];  //TODO:  pass in or loop through maps to accommodate tabbed maps
+            var regionName;
             for(dt in mapData.regionData){
                 for(regionCode in mapData.regionData[dt]){
-                    regions.push({"regionCode": regionCode, "name": $map.getRegionName(regionCode)});
+                    try{  //bunnies not in jVectmap and getRegionName function does not handle these gracefully!
+                        regionName = $map.getRegionName(regionCode)
+                        regions.push({"regionCode": regionCode, "name": regionName});
+                    } catch(ex){
+                        //try to get the geoname from the assets
+                        regionName = false;
+                        oGraph.eachComponent(function(){
+                            if(!regionName) return;
+                            if(this.isMapSet() && this.data && this.data[regionCode] && this.data[regionCode].geoname){
+                                regionName = this.data[regionCode].geoname;
+                                regions.push({"regionCode": regionCode, "name": regionName});
+                            }
+                        });
+                    }
                 }
-                regions.sort(function(a,b){
-                    return a.name > b.name?1:-1;
-                }); //alphabetize by region name
+                regions.sort(function(a,b){  //should the sort be by code or by region name?  Code would lump region under the country
+                    return a.name > b.name?1:-1;  //alphabetize by region name
+                });
                 break;  //only need first set to get all of the regions (note: all regions element present for each data object (i.e this is a square data set))
             }
             console.info(regions);
