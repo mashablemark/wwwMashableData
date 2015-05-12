@@ -335,10 +335,39 @@ MashableData.Plot = function(components, options){
             return this.options.mapMode || this.graph.mapconfig.mapMode || 'heat';
         }
     };
-    Plot.prototype.clone = function(callback){
-        var plot = this, components = [];
+    Plot.prototype.clone = function(mapCode){
+        //if mapReduceCode is given, mapset and pointset components will be converted from set to series by the regionCode or the latlon
+        var plot = this, components = [], compClone;
         plot.eachComponent(function(){
-            components.push(this.clone());
+            compClone = this.clone();
+            if(mapCode) {
+                if(compClone.isMapSet()){
+                    if(compClone.data[mapCode]) {
+                        compClone.geoid = compClone.data[mapCode].geoid;
+                        compClone.geoname = compClone.data[mapCode].geoname;
+                        compClone.seriesname = compClone.data[mapCode].seriesname;
+                        compClone.firstdt = compClone.data[mapCode].firstdt;
+                        compClone.lastdt = compClone.data[mapCode].lastdt;
+                        compClone.parsedData(compClone.data[mapCode].data);
+                    } else {
+                        return null;
+                    }
+                }
+                if(compClone.isPointSet()){
+                    if(compClone.data[mapCode]) {
+                        compClone.geoid = compClone.data[mapCode].geoid;
+                        compClone.geoname = compClone.data[mapCode].geoname;
+                        compClone.seriesname = compClone.data[mapCode].seriesname;
+                        compClone.firstdt = compClone.data[mapCode].firstdt;
+                        compClone.lastdt = compClone.data[mapCode].lastdt;
+                        compClone.parsedData(compClone.data[mapCode].data);
+                        compClone.latlon = mapCode;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+            components.push(compClone);
         });
         var clone = new Plot(components, $.extend({}, plot.options));
         return clone;

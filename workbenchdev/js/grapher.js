@@ -1716,8 +1716,9 @@ MashableData.grapher = function(){
                                     //}
                                 },
                                 onRegionTipShow: function(event, label, code){
-                                    var i, sparkData=[], currentIndex, containingDateData, containingDateColor, mapMode = oGraph.mapsets[activeMapTab].mapMode();
+                                    var i, sparkData=[], currentIndex, containingDateData, containingDateColor, mapMode;
                                     if(calculatedMapData.regionColors){
+                                        mapMode = oGraph.mapsets[activeMapTab].mapMode();
                                         if(mapMode=='min' || mapMode=='max'){
                                             containingDateColor = calculatedMapData.regionColors;
                                         } else {
@@ -1951,12 +1952,12 @@ MashableData.grapher = function(){
                         $graphSelected
                             .button($thisPanel.width()>650?{icons:{secondary: 'ui-icon-image'}}:null)
                             .off()
-                            .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work
-                                /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series firnedly format.
+                            .click(function(){ //graph selected regions and markers (selectRegions/selectMarkers must be true for this to work)
+                                /* calcData contains the values for markers and regions in a JVMap friendly (which is not a MD series friendly format.
                                  If only a single mapset or pointset has only one component, we can go back to that pointset/mapset's asset data.
                                  If more than one component, we need to assemble a graph obect with plots, plot.options.name, components, and assets.
-                                 OK.  That is a lot of work, but is correct.  quickGraph will need to detect a graph object as it currently expects a series object.
-                                 * */
+                                 OK.  That is a lot of work, but it is the correct way.  quickGraph will detect a graph object (instead of a series object) and act accordingly.
+                                */
                                 var selectedRegions = $map.getSelectedRegions();
                                 var selectedMarkers = $map.getSelectedMarkers();
                                 var popGraph = new MD.Graph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
@@ -1990,20 +1991,8 @@ MashableData.grapher = function(){
                                         popGraph.plots.push(plt);
                                     } else {
                                         for(X=0;X<oGraph.pointsets.length;X++){
-                                            pointset = $.extend(true, {}, oGraph.pointsets[X]);
-                                            found = false;
-                                            comps = pointset.components;
-                                            for(c=0;c<comps.length;c++){
-                                                if(comps[c].isPointSet() && oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]){
-                                                    found = true;
-                                                    var sHandle = oGraph.assets[comps[c].handle()].data[selectedMarkers[i]].handle;
-                                                    popGraph.assets[sHandle] = $.extend({units: oGraph.assets[comps[c].handle()].units, freq: oGraph.assets[comps[c].handle()].freq, freqs: oGraph.assets[comps[c].handle()].freqs}, oGraph.assets[comps[c].handle()].data[selectedMarkers[i]]); //data, first/lastdt, handle & name
-                                                    comps[c].handle = sHandle;
-                                                } else {
-                                                    popGraph.assets[comps[c].handle()] = oGraph.assets[comps[c].handle()];
-                                                }
-                                            }
-                                            if(found) popGraph.plots.push(pointset);
+                                            pointset = oGraph.pointsets[X].clone(selectedMarkers[i]);
+                                            if(pointset) popGraph.plots.push(pointset);
                                         }
                                     }
                                 }
@@ -3759,14 +3748,21 @@ MashableData.grapher = function(){
                         }
                     }
                     calcData['marker'+mode] = {};
+                    calcData['markerMin'] = Number.MAX_VALUE;
+                    calcData['markerMax'] = Number.MIN_VALUE;
+                    if(!calcData.markerAttr) calcData.markerAttr = {};
+                    if(!calcData.markerAttr.fill) calcData.markerAttr.fill = {};
                     for(dateKey in calcData.markerData){
+                        dateInt = dateFromMdDate(dateKey).getTime();
+                        calcData['markerMin'] = Math.min(calcData['markerMin'], dateInt);
+                        calcData['markerMax'] = Math.max(calcData['markerMax'], dateInt);
                         for(geo in calcData.markerData[dateKey]){
                             if(calcData.markerData[dateKey]){
                                 value = calcData.markerData[dateKey][geo];
                                 if(value!==null){
                                     if(typeof extremes[geo] == 'undefined' || (mode=='min'?value<extremes[geo]:value>extremes[geo])){
                                         extremes[geo] = value;
-                                        calcData['marker'+mode][geo] = dateKey;
+                                        calcData.markerAttr.fill[geo] = dateInt;
                                     }
                                 }
                             }

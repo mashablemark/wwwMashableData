@@ -319,7 +319,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                 }
 
                 oMyGraphs['G'+oGraph.gid]=objForDataTable;
-                panelGraphs[visiblePanelId()] = oGraph;
+                panelGraphs[MD.grapher.visiblePanelId()] = oGraph;
                 if(callback) callback();
             }
         );
