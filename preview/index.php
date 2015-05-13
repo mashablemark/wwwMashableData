@@ -41,9 +41,9 @@
             <script type="text/javascript" src="/workbenchdev/js/jstat.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/annotator.js?v=<?=$workbenchVersion?>"></script>
             <script type="text/javascript" src="/workbenchdev/js/treemap.js?v=<?=$workbenchVersion?>"></script>
-            <script type="text/javascript" src="/embedder/mashabledata_embedtools.js"></script>
+            <script type="text/javascript" src="/embedder/mashabledata_embedtools.js?v=<?=$workbenchVersion?>"></script>
 <?php } else { ?>
-    <script type="text/javascript" src="/embedder/mashabledata_embedtools.min.js"></script>
+    <script type="text/javascript" src="/embedder/mashabledata_embedtools.min.js?v=<?=$workbenchVersion?>"></script>
 <?php }  ?>
         </head>
 <body style="font-family: arial, sans-serif;padding: 10px;">
@@ -59,11 +59,11 @@
     &lt;script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"&gt;&lt;/script&gt;<br />
     <br />
     &lt;!-- the MashableDate Embed Tool libaray must be saved to your webserver --&gt;<br />
-    &lt;script type="text/javascript" src="<a href="/embedder/mashabledata_embedtools.min.js">/embedder/mashabledata_embedtools.min.js</a>&gt;&lt;/script&gt;<br />
+    &lt;script type="text/javascript" src="<a href="//www.mashabledata.com/embedder/mashabledata_embedtools.min.js">/embedder/mashabledata_embedtools.min.js</a>&gt;&lt;/script&gt;<br />
     <br />
     &lt;!--CSS files--&gt;<br />
-    &lt;link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.9.2.custom.css" /&gt;<br />
-    &lt;link rel="stylesheet" href="<a href="/embedder/mashabledata_embedtools.css">/embedder/mashabledata_embedtools.css</a> /&gt;<br />
+    &lt;link  rel="stylesheet" href="//www.mashabledata.com/global/css/smoothness/jquery-ui-1.9.2.custom.css" /&gt;<br />
+    &lt;link rel="stylesheet" href="<a href="//www.mashabledata.com/embedder/mashabledata_embedtools.css">/embedder/mashabledata_embedtools.css</a> /&gt;<br />
 </div>
 <div style="color:darkred;display: inline-block; background-color:lightpink;margin:20px;padding:20px;">Important <a href="#hv">additional instructions for high volume websites</a> (100,000 pages per hour or more) at bottom of the page</div>
 
@@ -75,7 +75,7 @@ In the body on your webpage, add the following HTML and MashableData_embedtool.j
 
 
 
-    <div class="mashabledata_embed"  data="<?=$graphcode ?>" style="margin: 0; height: 1000px;border: thin solid black;"></div>
+    <div class="mashabledata_embed"  data="<?=$graphcode ?>" style="height: 1000px;"></div>
 
 <br />
 <br />

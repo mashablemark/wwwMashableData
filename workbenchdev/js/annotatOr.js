@@ -518,7 +518,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 if(fromX<toX){
                     switch(analysisType){
                         case 'LR':
-                            this.plotLinearRegression(this.bandStartPoint.series, fromX, toX, true);
+                            this.plotLinearRegression(oGraph.controls.chart, this.bandStartPoint.series, true, fromX, toX);
                             var plotOptions = oGraph.plots[parseInt(this.bandStartPoint.series.options.id.substr(1))].options;
                             if(!plotOptions.linRegressions) plotOptions.linRegressions= [];
                             plotOptions.linRegressions.push([fromX, toX]);
@@ -620,7 +620,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                         for(i=0;i<oGraph.plots[p].options.linRegressions.length;i++){
                             LR = oGraph.plots[p].options.linRegressions[i];
                             if((LR[0]>=start && LR[0]<=parseInt(oGraph.end||oGraph.lastdt)) && (LR[1]>=start && LR[1]<=parseInt(oGraph.to||oGraph.lastdt))){
-                                this.plotLinearRegression(chart.get("P"+p), LR[0], LR[1]);
+                                this.plotLinearRegression(chart, chart.get("P"+p), false, LR[0], LR[1]);
                             }
                         }
                     }
@@ -636,9 +636,8 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             }
             chart.redraw()
         },
-        plotLinearRegression: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
+        plotLinearRegression: function(chart, series, redraw, start, end){ //start & end optional.  if present, start <= end
             if(!redraw) redraw = false;
-            var hChart = panelGraphs[panelId].controls.chart;
             var sumX = 0, minX = null, maxX = null;
             var sumY = 0, minY = null, maxY = null;
             var j, data=[], points = 0;
@@ -651,7 +650,6 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                     }
                 }
             }
-            //console.log(series);
             for(j=0;j<data.length;j++){
                 if(data[j].x != null && data[j].y != null){
                     sumX +=  data[j].x;
@@ -669,7 +667,6 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
             }
             var avgX = sumX / points;
             var avgY = sumY / points;
-            //console.log("avg y: " + avgY);
             var num = 0;
             var den = 0;
             for(j=0;j<data.length;j++){
@@ -679,32 +676,36 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                 }
             }
             var b1 = num / den;  //sum((x_i-x_avg)*(y_i-y_avg)) / sum((x_i-x_avg)^2)
-            //console.log(b1 + "=" + num + "/" + den);
             var b0 = avgY - b1 * avgX;
 
-            var m = b1*period.value[series.options.freq];
-            var firstDigit = m.toString().search(/[1-9]/);
-            var decimalLocation = m.toString().indexOf('.');
+            var m, firstDigit, decimalLocation, isTimeSeries = series.options && series.options.freq;
+            if(isTimeSeries){
+                m = b1*period.value[series.options.freq];
+                firstDigit = m.toString().search(/[1-9]/);
+                decimalLocation = m.toString().indexOf('.');
+            }
 
             var newSeries = {
-                name:  "Linear regression of " + series.name + "<BR> (m="+common.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.freq]+")",
+                name:  "Linear regression of " + series.name + (isTimeSeries?"<BR> (m="+common.numberFormat(m, (decimalLocation>5||decimalLocation==-1)?0:firstDigit+5-decimalLocation)+" per "+period.units[series.options.freq]+")":''),
                 dashStyle: 'LongDash',
-                freq: series.options.freq,
                 lineWidth: 1,
-                color: series.color,
                 data: [],
                 id: "LR"+this.bandNo++,
-                calculatedFrom: series.options.id,
                 shadow: false,
                 marker: {enabled: false}
             };
+            if(isTimeSeries){
+                newSeries.freq = series.options.freq;
+                newSeries.calculatedFrom = series.options.id;
+                newSeries.color = series.color;
+            }
             for(j=0;j<data.length;j++){
                 if(data[j].x != null && data[j].y != null){
                     newSeries.data.push([data[j].x , (b1*data[j].x  + b0)]);  //y = b1*x + b0
                 }
             }
             //newSeries.data.push([minX, (b1*minX + b0)]);  //y = b1*x + b0
-            return(hChart.addSeries(newSeries, redraw));
+            return(chart.addSeries(newSeries, redraw));
         },
         plotAverage: function(series, start, end, redraw){ //start & end optional.  if present, start <= end
             if(!redraw) redraw = false;

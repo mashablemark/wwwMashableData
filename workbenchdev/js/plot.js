@@ -335,7 +335,7 @@ MashableData.Plot = function(components, options){
             return this.options.mapMode || this.graph.mapconfig.mapMode || 'heat';
         }
     };
-    Plot.prototype.clone = function(mapCode){  
+    Plot.prototype.clone = function(mapCode){
         //if mapReduceCode is given, mapset and pointset components will be converted from set to series by the regionCode or the latlon
         var plot = this, components = [], compClone;
         plot.eachComponent(function(){

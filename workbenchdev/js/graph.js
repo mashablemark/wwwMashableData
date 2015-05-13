@@ -26,7 +26,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
 
     //have allplot to inflate?
     if(properties.allplots){
-        var p, c, comp, plot, handle, components, missingSets, hasPlots = false;
+        var p, c, comp, plot, handle, components, missingSets;
         for(p=0;p<properties.allplots.length;p++){
             plot = properties.allplots[p];
             components = [];
@@ -45,7 +45,6 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             }
             if(!missingSets){
                 this.addPlot(new MashableData.Plot(components, safeParse(plot.options, {})));
-                hasPlots = true;
             }
         }
         this.assets = properties.assets;
@@ -366,7 +365,11 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             callBack();
         });
     };
-
+    Graph.prototype.isEmpty = function(){
+        var isEmpty = true;
+        this.eachPlot(function(){isEmpty = false;});
+        return isEmpty;
+    };
     Graph.prototype.eachPlot = function eachPlot(callback){
         var graph = this;
         if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph, graph.mapsets)});

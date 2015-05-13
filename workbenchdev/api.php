@@ -57,20 +57,18 @@ ManageMySeries:  workbench.updateMySeries
  *
  * command: ManageMyGraphs > status=OK
  *   required:  title, analysis, published, type, intervallastdt, interval, intervalcount,
- *              series [(sid, cid, transform, transformstart, transformend)]
+ *              series [(sid, transform, transformstart, transformend)]
  *   optional: gid, start, end
  *
  * COMMENTED OUT: ManageMyComposites > status=OK
  *   uid: required
  *   sid: required
- *   cid: required
  *   jsts: javascript time stamp of when this happened
  *   to: 'H' | 'S' | anything else to delete (required)
  *
  * command: ManageMySeries > status=OK
  *   uid: required
  *   sid: required
- *   cid: required
  *   jsts: javascript time stamp of when this happened
  *   to: 'H' | 'S' | anything else to delete (required)
  * command: GetUserId
@@ -84,8 +82,7 @@ ManageMySeries:  workbench.updateMySeries
  * command: UploadMyMashableData
  *   the entire md metadata as object properties
  * command: GetSeries -> the entire mashabledata as object, with points as string property "data"
- *   sid:  either series id (sid) or capture id (cid) must be submitted
- *   cid:  cid takes precedence
+ *   setid:
  * command: GetAnnotations    (anonymous permitted for standard only)
  *   type: M|S (my or standard
  * command: GetAnnotation     (anonymous permitted)
@@ -1707,7 +1704,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         requiresLogin();
         $where = " WHERE g.userid=" . intval($userid);  //used by GetMyGraphs
     }
-    //mapsPrefix = $ft_join_char
+    //mapsPrefix = $ft_join_char; allow empty components for missing sets (setid will be null)
     $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis,
         g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type, g.annotations,
         g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt,
@@ -1715,7 +1712,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         s.name as setname, left(s.settype,1) as settype, s.units, s.metadata as setmetadata,
         s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.mastersetid,
         gp.plotorder, gp.plottype, gp.options as plotoptions,
-        pc.comporder, pc.setid, pc.freq, pc.geoid, pc.latlon, pc.options as componentoptions,
+        pc.comporder, s.setid, pc.freq, pc.geoid, pc.latlon, pc.options as componentoptions,
         sd.data, sd.firstdt100k, sd.lastdt100k,
         geo.name as geoname,
         coalesce(s.src, a.name) as src,
@@ -1861,7 +1858,7 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
 //    "GetFullGraph" command (api.getGraphs()) from grapher.createMyGraph() only
 //    "GetEmbeddedGraph" command (api.getGraphs()) from grapher.createMyGraph() only
 
-    global $db, $orgid;
+    global $db, $orgid, $command;
     $setFilters = [];
     //print_r($requestedSets);
     for($i=0;$i<count($requestedSets);$i++){
@@ -1912,14 +1909,16 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
                 "lastdt"=>$row["lastdt100k"]*100000,
                 "data"=>array()
             );
-            $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
-            $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
+            if($command != "GetEmbeddedGraph"){
+                $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
+                $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
+            }
             if($getBunnies && $row["bunny"] && !in_array($row["bunny"], $bunnies)) $bunnies[] = $row["bunny"];
         }
         $assets[$handle]["data"][$row["map_code"]] = [
             "handle"=>"S".$row["setid"].$row["freq"]."G".$row["geoid"],
             "geoid"=>$row["geoid"],
-            "cid"=>$row["containingid"],
+            "cg"=>$row["containingid"],
             "geoname"=>$row["geoname"],
             "data"=>$row["data"],
             "firstdt"=>$row["firstdt100k"]*100000,
@@ -1934,7 +1933,6 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
     }
 
     if($getBunnies && $currentMapSetId>0) getBunnies($assets[$handle]["data"], $currentMapSetId, $currentFreq, $bunnies);
-
 }
 
 function getBunnies(&$data, $setId, $freq, $bunnies){
@@ -1948,7 +1946,7 @@ function getBunnies(&$data, $setId, $freq, $bunnies){
                 "handle"=>"S".$row["setid"].$row["freq"]."G".$row["geoid"],
                 "geoid"=>$row["geoid"],
                 "geoname"=>$row["geoname"],
-                "cid"=>$row["containingid"],
+                "cg"=>$row["containingid"],
                 "data"=>$row["data"],
                 "firstdt"=>$row["firstdt100k"]*100000,
                 "lastdt"=>$row["lastdt100k"]*100000,
@@ -1959,7 +1957,7 @@ function getBunnies(&$data, $setId, $freq, $bunnies){
 }
 
 function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
-    global $db, $orgid;
+    global $db, $orgid, $command;
     $uid = intval($_POST["uid"]);
     $setFilters = [];
     for($i=0;$i<count($requestedSets);$i++){
@@ -2000,8 +1998,10 @@ function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = fal
                 "lastdt"=>$row["lastsetdt100k"]*100000,
                 "data"=>[]
             ];
-            $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
-            $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
+            if($command != "GetEmbeddedGraph") {
+                $assets[$handle]["freqs"] = freqsFieldToArray($row["freqs"]);
+                $assets[$handle]["maps"] = mapsFieldCleanup($row["maps"]);
+            }
         }
         $assets[$handle]["data"][$row["latlon"]] = [
             "handle"=>"S$row[setid]$row[freq]G$row[geoid]L$row[latlon]",

@@ -682,7 +682,7 @@ function setupMyGraphsTable(){
             },
             {"mData":"map", "sTitle": "Map<span></span>", "bSortable": true,  "sWidth": colWidths.map+"px",
                 "mRender": function(value, type, obj){
-                    return (obj.plottypes.indexOf('M')!=-1?(obj.mapconfig.indexOf('bubble')>0?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
+                    return (obj.plottypes.indexOf('M')!=-1?(obj.mapconfig.mapMode=='bubbles' || obj.mapconfig.mapMode=='change-bubbles' || (obj.mapconfig.indexOf && obj.mapconfig.indexOf('bubble')>0)?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
                         + (obj.plottypes.indexOf('X')!=-1?iconsHMTL.hasMarkerMap:'')
                         + ((obj.cubeid)?iconsHMTL.hasCubeViz:'')
                         + spanWithTitle(globals.maps[value].name)
