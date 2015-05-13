@@ -26,22 +26,30 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
 
     //have allplot to inflate?
     if(properties.allplots){
-        var p, c, comp, plot, handle, components;
+        var p, c, comp, plot, handle, components, missingSets, hasPlots = false;
         for(p=0;p<properties.allplots.length;p++){
             plot = properties.allplots[p];
             components = [];
+            missingSets = false;
             for(c=0;c<plot.components.length;c++){
                 comp = plot.components[c];
-                handle = comp.settype+comp.setid+comp.freq+(comp.geoid?'G'+comp.geoid:'')+(comp.latlon?'L'+comp.latlon:'');
-                if(properties.assets&&properties.assets[handle]){  //required
-                    components.push(new MashableData.Component(properties.assets[handle], safeParse(comp.options, {})));
-                } else return false;
+                if(comp.setid){
+                    handle = comp.settype+comp.setid+comp.freq+(comp.geoid?'G'+comp.geoid:'')+(comp.latlon?'L'+comp.latlon:'');
+                    if(properties.assets&&properties.assets[handle]){  //required
+                        components.push(new MashableData.Component(properties.assets[handle], safeParse(comp.options, {})));
+                    } else return false;
+                } else {
+                    missingSets = true;
+                    this.missingSets = true;
+                }
             }
-            this.addPlot(new MashableData.Plot(components, safeParse(plot.options, {})));
+            if(!missingSets){
+                this.addPlot(new MashableData.Plot(components, safeParse(plot.options, {})));
+                hasPlots = true;
+            }
         }
         this.assets = properties.assets;
     }
-
     return this;
 
     function safeParse(jsonString, emptyValue){

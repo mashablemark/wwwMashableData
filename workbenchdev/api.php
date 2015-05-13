@@ -1712,7 +1712,8 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type, g.annotations,
         g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt,
         m.jvectormap, m.bunny, m.legend,
-        s.name as setname, left(s.settype,1) as settype, s.units, s.metadata as setmetadata, s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.mastersetid,
+        s.name as setname, left(s.settype,1) as settype, s.units, s.metadata as setmetadata,
+        s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.mastersetid,
         gp.plotorder, gp.plottype, gp.options as plotoptions,
         pc.comporder, pc.setid, pc.freq, pc.geoid, pc.latlon, pc.options as componentoptions,
         sd.data, sd.firstdt100k, sd.lastdt100k,
@@ -1726,7 +1727,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
         FROM graphs g
           JOIN graphplots gp ON g.graphid=gp.graphid
           JOIN plotcomponents pc ON g.graphid=pc.graphid and gp.plotorder=pc.plotorder
-          JOIN sets s ON pc.setid=s.setid
+          LEFT OUTER JOIN sets s ON pc.setid=s.setid
           LEFT OUTER JOIN maps m ON g.map=m.map
           LEFT OUTER JOIN setdata sd ON s.setid=sd.setid and pc.freq=sd.freq and pc.geoid=sd.geoid and pc.latlon=sd.latlon
           LEFT OUTER JOIN geographies geo ON pc.geoid=geo.geoid

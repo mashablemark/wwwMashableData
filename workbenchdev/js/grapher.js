@@ -770,6 +770,7 @@ MashableData.grapher = function(){
                 window.setTimeout(function(){
                     buildGraphPanelCore(oGraph, panelId);
                 }, 20);
+                if(oGraph.missingSets) dialogShow("missing data", "This graph uses data that is no longer available.  This could be because of copyright changes requiring it removal or technical issues.  Your visualization will lack some or all plots or maps.");
             }
             function buildGraphPanelCore(oGraph, panelId){ //all highcharts, jvm, and colorpicker files need must already be loaded
                 var title, calculatedMapData, $thisPanel;
