@@ -1373,6 +1373,8 @@ MashableData.grapher = function(){
                     $vizSelect
                         .change(function(){
                             var val = $(this).val();
+                            if(val.indexOf('components-')===0 && !oGraph.isSummationMap()) dialogShow('showing components', 'A map can sum or subtract together several sets of data, such as &quot;production of rice&quot; + &quot;production of wheat&quot; + &quot;production of millet&quot;.  These components can be displayed as the user interact with the map.<br><br>This map current does not have components, so only the totals with be displayed.<br><br><i>Note that user formulas and complex component math will also cause the interaction to display totals.</i>')
+                            if(val=='scatter' && (!oGraph.mapsets||oGraph.mapsets!=2)) dialogShow('two maps requires', 'This requires two maps.  Find data and select to add the map set to this graph.');
                             if(!isNaN(val)){
                                 if(val!=oGraph.cubeid){
                                     //new cubeid
@@ -1418,7 +1420,6 @@ MashableData.grapher = function(){
                     });
                     _showChangeSelectors();
                 }
-                var summationMap;  //function level var allows isSummationMap() to be run only once per load/_redraw
                 if(!isEmbedded){
                     $thisPanel
                         .find('.graph-analysis')
@@ -1588,7 +1589,7 @@ MashableData.grapher = function(){
                                         break;
                                     case 'bubbles':  //_drawMap_isBubble()?????
                                     case 'change-bubbles':
-                                        _drawMap_bubbleCalc();
+                                        //_drawMap_bubbleCalc(); must be called after map creation to be able to detect bunnies ( = no markers!)
                                         break;
                                     case 'treemap':
                                     case 'change-treemap':
@@ -1791,16 +1792,11 @@ MashableData.grapher = function(){
                                         }
                                     },
                                     regionsSelectable: (typeof oGraph.mapsets != "undefined"),
+                                    regionsSelectableOne: !!(oGraph.cubeid),
                                     markers: calculatedMapData.markers,
                                     onMarkerTipShow: function(event, label, code){
                                         var i, sparkData=[], currentIndex, dateKey = calculatedMapData.dates[val].s, containingDateData = _getMapDataByContainingDate(calculatedMapData.markerData, dateKey);
-                                        for(i=0;i<calculatedMapData.dates.length;i++){
-                                            //show sparkline of radius data if exists; else fill data
-                                            if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') {
-                                                sparkData.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f]);
-                                                if(i==val) currentIndex = sparkData.length-1;
-                                            }
-                                        }
+                                        var markerSparkData = _drawMap_markerSparkData(code);
                                         if(containingDateData && containingDateData[code]){
                                             var html, y0, y = containingDateData[code].r;
                                             if(_drawMap_isBubble()){
@@ -1813,7 +1809,7 @@ MashableData.grapher = function(){
                                                 html = '<div><b>'+label.html()+':</b><br> ';
                                             }
                                             if(oGraph.mapsets && mapMode=='change-bubbbles'){
-                                                var startDateKey = calculatedMapData.dates[calculatedMapData.startDateIndex].s
+                                                var startDateKey = calculatedMapData.dates[calculatedMapData.startDateIndex].s;
                                                 var startDateData = _getMapDataByContainingDate(calculatedMapData.markerData,startDateKey);
                                                 y=containingDateData[code].r; //change bubble have to have an r attribute
                                                 y0=startDateData[code].r;  //and a valid start or no bubble to click on!
@@ -1825,28 +1821,28 @@ MashableData.grapher = function(){
                                                 if(containingDateData[code].f) html += common.numberFormat(containingDateData[code].f, (parseInt(containingDateData[code].f)==containingDateData[code].f)?0:2) + " " + (calculatedMapData.fillUnits||'')+'<br>';
                                             }
                                             html += '</div><div class="inlinesparkline" style="height: 30px;width: '
-                                            + Math.min(400, 10*sparkData.length).toString() + 'px;margin:0 5px;"></div>';
+                                            + Math.min(400, 10*markerSparkData.data.length).toString() + 'px;margin:0 5px;"></div>';
                                             label.html(html).css("z-Index",400);
                                             var sparkOptions = {
                                                 grid: {show: false}
                                             };
                                             // main series
                                             var series = [{
-                                                data: sparkData,
+                                                data: markerSparkData.data,
                                                 color: '#ddddff',
                                                 lines: {lineWidth: 0.8, fill: true},
                                                 shadowSize: 0
                                             }];
-                                            if(sparkData.length<10) series.bars = {show: true};
-                                            // colour the current point red
-                                            if(typeof currentIndex != 'undefined'){
+                                            if(markerSparkData.data.length<10) series.bars = {show: true};
+                                            // color the current point red
+                                            if(typeof markerSparkData.currentIndex != 'undefined'){
                                                 series.push({
-                                                    data: [ sparkData[currentIndex] ],
+                                                    data: [ markerSparkData.data[markerSparkData.currentIndex] ],
                                                     points: {show: true, radius: 1, fillColor: '#ff0000'},
                                                     color: '#ff0000'
                                                 });
                                             }
-                                            label.find('div.inlinesparkline').plot(series, sparkOptions);  // draw the sparkline
+                                            label.find('div.inlinesparkline').plot(series, sparkOptions);  // draw the sparkline using Flot
                                         }
                                     },
                                     onRegionClick: function(){
@@ -1866,16 +1862,17 @@ MashableData.grapher = function(){
                                             $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
                                             return;
                                         }
-                                        var selectedRegions = $map.getSelectedRegions();
+                                        var dateKey, selectedRegions = $map.getSelectedRegions();
                                         if($graphSelected.is(':visible')){
                                             for(var i=0;i<selectedRegions.length;i++){
-                                                if(calculatedMapData.regionColors){
-                                                    for(var dateKey in calculatedMapData.regionColors){ //only need a single valid region date key
-                                                        if(typeof calculatedMapData.regionColors[dateKey][selectedRegions[i]]!='undefined'){
+                                                 //bubble map do not have regionColors, but have (unsquared) regionData
+                                                if(calculatedMapData.regionData){
+                                                    for(dateKey in calculatedMapData.regionData){ //only need a single valid region date key
+                                                        if(typeof calculatedMapData.regionData[dateKey][selectedRegions[i]]!='undefined'){
                                                             $thisPanel.find('.mashabledata_map-graph-selected.ui-button, .mashabledata_make-map.ui-button').button('enable');
                                                             return;
                                                         }
-                                                        break;
+                                                        //don't break as regionData is not squared up:  check all dates for the selected region until data is found (return)
                                                     }
                                                 }
                                             }
@@ -1922,6 +1919,7 @@ MashableData.grapher = function(){
                         //BBBUUUUBBBBBLLEESS!!!!!
                         var $g = $thisPanel.find('div.mashabledata_jvmap svg g:first');  //goes in _createGraph closure
                         if(_drawMap_isBubble()){
+                            _drawMap_bubbleCalc();
                             _drawMap_positionBubbles();
                             $map.series.regions[0].setAttributes(calculatedMapData.regionsColorsForBubbles);
                             $thisPanel.find('button.merge').show();
@@ -1971,34 +1969,28 @@ MashableData.grapher = function(){
                                 for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
                                     if(_drawMap_isBubble()){
                                         //get array of regions codes
-                                        plt = $.extend(true, {}, oGraph.mapsets[activeMapTab]);
-                                        delete plt.formula;
-                                        delete plt.options.calculatedFormula;
-                                        mapComps = plt.components;
-                                        plt.components = [];
-                                        regionCodes = selectedMarkers[i].split('+');
-                                        regionNames = [];
-                                        for(j=0;j<regionCodes.length;j++){
-                                            regionNames.push($map.getRegionName(regionCodes[j]));
-                                            for(c=0;c<mapComps.length;c++){
-                                                if(mapComps[c].handle[0]=='M'){
-                                                    asset = $.extend({units: oGraph.assets[mapComps[c].handle()].units, period: oGraph.assets[mapComps[c].handle()].freq}, oGraph.assets[mapComps[c].handle()].data[regionCodes[j]]);
-                                                    newComp = $.extend(true, {}, mapComps[c]);
-                                                    newComp.handle = asset.handle;
-                                                    popGraph.assets[asset.handle()] = asset; //data, first/lastdt, handle & name
-                                                    plt.components.push(newComp);
-                                                } else {
-                                                    plt.components.push($.extend(true, {}, mapComps[c]));
-                                                    popGraph.assets[mapComps[c].handle()] = oGraph.assets[mapComps[c].handle()];
-                                                }
+                                        plt = oGraph.mapsets[activeMapTab].clone(selectedMarkers[i]);
+                                        if(plt) {
+                                            popGraph.addPlot(plt);
+                                        } else {
+                                            //create series
+                                            regionNames = [];
+                                            regionCodes = selectedMarkers[i].split('+');
+                                            for(i=0;i<regionCodes.length;i++){
+                                                regionNames.push($map.getRegionName(regionCodes[i]));
                                             }
+                                            var markerSparkData = _drawMap_markerSparkData(selectedMarkers[i]);
+                                            var nonEditableSeriesForDisplay = new MD.Component({
+                                                seriesname: calculatedMapData.title + ': ' + regionNames.join(' + '),
+                                                units: calculatedMapData.radiusUnits,
+                                                data: markerSparkData.data
+                                            });
+                                            popGraph.addPlot(new MD.Plot([nonEditableSeriesForDisplay]));  //do not pass on options such as userFormulas
                                         }
-                                        plt.options.name = oGraph.mapsets[activeMapTab].name() + " for " + regionNames.join('+');
-                                        popGraph.plots.push(plt);
                                     } else {
                                         for(X=0;X<oGraph.pointsets.length;X++){
                                             pointset = oGraph.pointsets[X].clone(selectedMarkers[i]);
-                                            if(pointset) popGraph.plots.push(pointset);
+                                            if(pointset) popGraph.addPlot(pointset);
                                         }
                                     }
                                 }
@@ -2006,7 +1998,11 @@ MashableData.grapher = function(){
                                 if(oGraph.mapsets){  //skip if not mapset
                                     var sourceMapPlot, sourceComponent, popComponent, popComponents, mapAsset, regionSeries;
                                     for(i=0;i<selectedRegions.length;i++){
-                                        if(typeof calculatedMapData.regionColors[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined'){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
+                                        if(
+                                            (calculatedMapData.regionData && typeof calculatedMapData.regionData[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined') //bubble map don't have regionColors
+                                            ||
+                                            (calculatedMapData.regionColors && typeof calculatedMapData.regionColors[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined') //but regionData is not "squared up", so check regionColors too if possible
+                                        ){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
                                             sourceMapPlot = oGraph.mapsets[activeMapTab];
                                             popComponents = [];
                                             sourceMapPlot.eachComponent(function(){
@@ -2222,6 +2218,18 @@ MashableData.grapher = function(){
                         console.timeEnd('buildGraphPanel:mapControls');
                     }
                     //PRIVATE FUNCTION FOR _drawMap
+                    function _drawMap_markerSparkData(code){
+                        var markerSparkData = {data: []}, i;
+                        for(i=0;i<calculatedMapData.dates.length;i++){
+                            //show sparkline of radius data if exists; else fill data
+                            if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') {
+                                markerSparkData.data.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f]);
+                                if(i==val) markerSparkData.currentIndex = markerSparkData.data.length-1;
+                            }
+                        }
+                        return markerSparkData;
+                    }
+
                     function _drawMap_setMergablity(){
                         var i, j, markerRegions;
                         mergablity = {
@@ -2394,9 +2402,11 @@ MashableData.grapher = function(){
                                 }
                             }
                             //1B: calculate the unmerged values (also within the graph date range as determined by calculatedMapData.startDateIndex and .endDateIndex)
+                            var regionName = true;
                             for(region in calculatedMapData.regionData[calculatedMapData.dates[0].s]){
-                                if(allMergedRegions.indexOf(region) == -1 && typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][region]!='undefined'){  //this region is not part of a amerge and also has data
-                                    //markerTitle = calculatedMapData.title + ' ' + region;
+                                //don't make bubbles for the bunnies!
+                                try{regionName = $map.getRegionName(region)} catch(ex){regionName = false} //jVectorMaps throws an error on
+                                if(regionName && allMergedRegions.indexOf(region) == -1 && typeof calculatedMapData.regionData[calculatedMapData.dates[0].s][region]!='undefined'){  //make sure this region is also not part of a merge and has data
                                     calculatedMapData.markers[region] = {name: region, point: pnt, style: {fill: globals.bubbleColor}};
                                     calculatedMapData.regionsColorsForBubbles[region] = globals.MAP_COLORS.MID; //don't color the unmerged regions! Was: regionColors[i++%regionColors.length];
                                     y0 = null;
@@ -2493,14 +2503,20 @@ MashableData.grapher = function(){
                     }
                     function _drawMap_updateSupplementaryVizFromMap(code, isSelected){
                         //just for the auto cubes
+                        var vizChart = oGraph.controls.vizChart, redrawNeeded = false;
                         if(oGraph.hasMapViz() && !oGraph.cubeid){
                             var mapPlot = oGraph.mapsets[activeMapTab],
                                 selectedRegions = $map.getSelectedRegions(),
-                                index,
+                                mapDate = calculatedMapData.dates[val].s,
                                 thisCode;
                             if(code && isSelected && selectedRegions.indexOf(code)===-1) selectedRegions.push(code);
                             var vizChartGeos = getVizChartGeos(selectedRegions, oGraph, mapPlot, oGraph.mapconfig.mapViz=='line-bunnies'||oGraph.mapconfig.mapViz=='bar-component-bunnies');
-                            switch(oGraph.mapconfig.mapViz){
+
+                            var effectiveVizMode = oGraph.mapconfig.mapViz;
+                            if(effectiveVizMode && effectiveVizMode.indexOf('components-')===0 && !oGraph.isSummationMap()) {
+                                if(effectiveVizMode=='components-bar-bunnies') effectiveVizMode = 'line-bunnies'; else effectiveVizMode = 'line';
+                            }  //components- modes drop back to line mode if not a summation amp
+                            switch(effectiveVizMode){
                                 case 'scatter':
                                     if(vizChartGeos.length){
                                         for(i=0;i<vizChartGeos.length;i++){
@@ -2517,9 +2533,9 @@ MashableData.grapher = function(){
                                 case 'line':
                                 case 'line-bunnies':
                                     //all other cube viz need a geokey, whether bunny or a selected code
-                                    var geoKey, mapDate = calculatedMapData.dates[val].s, mapCode;
+                                    var geoKey, mapCode;
                                     var sDate, regionData = oGraph.calculatedMapData.regionData;
-                                    var i, colorIndex = 0, serie, chartedCodes = [], vizChart = oGraph.controls.vizChart, redrawNeeded = false;
+                                    var i, colorIndex = 0, serie, chartedCodes = [];
                                     //add new series
                                     for(i=0;i<vizChartGeos.length;i++){
                                         thisCode = vizChartGeos[i].code;
@@ -2556,8 +2572,57 @@ MashableData.grapher = function(){
                                     if(redrawNeeded) vizChart.redraw();
                                     break;
                                 case 'components-bar':
+                                case 'components-bar-bunnies':
+                                    if(vizChartGeos.length){
+                                        var bars = mapPlot.summationComponentSeries(vizChartGeos, mapDate);
+                                        //remove any existing charted series
+                                        while(vizChart.series.length){
+                                            vizChart.series[0].remove(false);
+                                        }
+                                        for(i=0;i<bars.length;i++){
+                                            bars[i].marker = {enabled: false};
+                                            bars[i].color = globals.hcColors[i % globals.hcColors.length];
+                                            vizChart.addSeries(bars[i], redrawNeeded)
+                                        }
+                                        vizChart.redraw();
+                                    }
+
+                                    break;
+                                case 'components-area':
+                                    if(vizChartGeos.length){
+                                        var lastvizChartGeo = vizChartGeos[vizChartGeos.length-1];
+                                        var series = mapPlot.summationComponentSeries([lastvizChartGeo]);
+                                        vizChart.setTitle({}, {text: series.length?series[0].geoname:''}, redrawNeeded);
+                                        //remove any existing charted series
+                                        for(i=vizChart.series.length-1;i>=0;i--){ //loop backwards otherwise series.length will change and not all series will be removed
+                                            vizChart.series[i].remove(false);
+                                        }
+                                        //add the components as stacked series
+                                        for(i=0;i<series.length;i++){
+                                            series[i].marker = {enabled: false};
+                                            series[i].color = globals.hcColors[i % globals.hcColors.length];
+                                            vizChart.addSeries(series[i], redrawNeeded)
+                                        }
+                                        vizChart.redraw();
+                                    }
                                     break;
                                 case 'components-line':
+                                    if(vizChartGeos.length) {
+                                        var series = mapPlot.summationComponentSeries(vizChartGeos);
+                                        vizChart.setTitle({}, {text: vizChartGeos.length==1?series[0].geoname:''}, redrawNeeded);
+                                        //remove any existing charted series
+                                        while(vizChart.series.length){ //loop backwards otherwise series.length will change and not all series will be removed
+                                            vizChart.series[0].remove(false);
+                                        }
+                                        //add the components as stacked series
+                                        for(i=0;i<series.length;i++){
+                                            if(vizChartGeos.length>1) series[i].name = series[i].seriesname || (series[i].name + ': ' + series[i].geoname);
+                                            series[i].marker = {enabled: false};
+                                            series[i].color = globals.hcColors[i % globals.hcColors.length];
+                                            vizChart.addSeries(series[i], redrawNeeded)
+                                        }
+                                        vizChart.redraw();
+                                    }
                                     break;
                                 case 'list-asc':
                                 case 'list-desc':
@@ -2582,7 +2647,8 @@ MashableData.grapher = function(){
                             return;
                         }
                         //COMMON TO ALL OTHER CUBE VIZES
-                        var mapPlot = oGraph.mapsets[activeMapTab];
+                        var mapPlot = oGraph.mapsets? oGraph.mapsets[activeMapTab] : oGraph.pointset[0];
+
                         //all other cube viz need a geokey, whether bunny or a selected code
                         var geoKey, mapDate = calculatedMapData.dates[val].s, mapCode;
                         var selectedRegions = $map.getSelectedRegions();
@@ -2602,8 +2668,95 @@ MashableData.grapher = function(){
                                 }
                             }
                         }
+                        //COMPONENTS (bars, lines, and stacked area)  note:  if not a summation map, degrade to regular 'line' vizMode
+                        if(!oGraph.cubeid && oGraph.isSummationMap(activeMapTab) && (oGraph.mapconfig.mapViz=='components-bar' || oGraph.mapconfig.mapViz=='components-line' || oGraph.mapconfig.mapViz=='components-area')){
+                            if(!isNaN(geoKey)) geoKey = 'G'+geoKey; //don't show the map name for the bunny of a summation map:  only instructions
+                            var oFormula = mapPlot.calculatedFormula;
+                            var signedNumArray = oFormula.numFormula.replace('-','+-').split('+');
+                            var unsignedNumArray = oFormula.numFormula.replace('-','+').split('+');
+
+                            //get the categories and title
+                            var supVizGraphTitle = common.extactCategoryNamesTitle(mapPlot.components); //the category properties has been added to each component object
+
+                            var vizChart = {
+                                chart: {
+                                    type: 'line',
+                                    spacingRight: 50,
+                                    renderTo: oGraph.controls.$thisPanel.find('.mashabledata_cube-viz')[0]
+                                },
+                                title: {
+                                    text: supVizGraphTitle,
+                                    style: {fontSize: '12px'}
+                                },
+                                subtitle: {
+                                    text: 'click on map to compare locations',
+                                    style: {fontSize: '10px'}
+                                },
+                                xAxis: {
+                                    type: 'datetime'
+                                },
+                                yAxis: {
+                                    title: {
+                                        text: mapPlot.units()
+                                    }
+                                },
+                                credits: {
+                                    href: "http://www.mashabledata.com",
+                                    text: "created with MashableData.com"
+                                },
+                                exporting: {
+                                    enabled: false
+                                },
+                                legend: {
+                                    floating: false,
+                                    borderWidth: 0,
+                                    y: -5
+                                },
+                                series: [],
+                                tooltip: {
+                                    formatter: function(){
+                                        return '<b>'+ (this.series.userOptions.seriesname || this.series.name) + '</b><br>'
+                                            + formatDateByPeriod(this.point.x, this.series.userOptions.freq) + ':<br>'
+                                            + common.numberFormat(Math.abs(this.point.y), 0) + ' ' + mapPlot.units()
+                                            + (this.series.userOptions.src?'<br><i>source: '+this.series.userOptions.src+'</i>':'');
+                                    }
+                                }
+                            };
+
+                            switch(oGraph.mapconfig.mapViz){
+                                case 'components-bar':
+                                case 'components-bar-bunnies':
+                                    vizChart.chart.type = 'bar';
+                                    vizChart.xAxis = {categories: []};
+                                    mapPlot.eachComponent(function(){vizChart.xAxis.categories.push(this.category)});
+                                    break;
+                                case 'components-line':
+                                    break;
+                                case 'components-area':
+                                    vizChart.plotOptions = {area: {stacking: 'normal'}};
+                                    vizChart.chart.type = 'area';
+                                    break;
+                            }
+
+                            //loop though components and add data
+                            mapPlot.eachComponent(function(){
+                                var serie = {
+                                    name: this.category,
+                                    seriesname: this.name(),
+                                    data: this.geoScaledData(code)
+                                };
+                            });
+
+                            if(oGraph.controls.vizChart) oGraph.controls.vizChart.destroy();
+                            oGraph.controls.vizChart = new Highcharts.Chart(vizChart);
+                        }
                         //LINES
-                        if(!oGraph.cubeid && (oGraph.mapconfig.mapViz=='line' || oGraph.mapconfig.mapViz=='line-bunnies')){
+                        if(!oGraph.cubeid && (
+                               oGraph.mapconfig.mapViz=='line'
+                            || oGraph.mapconfig.mapViz=='line-bunnies'
+                            || (!oGraph.isSummationMap(activeMapTab) && (oGraph.mapconfig.mapViz=='components-line' || oGraph.mapconfig.mapViz=='components-area'))
+                            )
+                        ){
                             var flotChartOptions = {title: mapPlot.name(), xaxis: 'time'};
                             if(code && isSelected && selectedRegions.indexOf(code)===-1) selectedRegions.push(code);
                             //make HighCharts options object and add series from vizGeos array and calcData (while avoid repeated containing geos)
@@ -2620,7 +2773,7 @@ MashableData.grapher = function(){
                                 },
                                 subtitle: {
                                     text: 'click on map to compare locations',
-                                    style: {fontSize: '10px'},
+                                    style: {fontSize: '10px'}
                                     //y: (geoName?50:30)
                                 },
                                 xAxis: {
@@ -2756,69 +2909,10 @@ MashableData.grapher = function(){
                             oGraph.controls.vizChart = new Highcharts.Chart(highChartOptions);
                             oGraph.controls.annotations.plotLinearRegression(oGraph.controls.vizChart, highChartOptions.series[0], true);
                         }
-                        //CUBE FETCH or COMPONENTS (bars and lines)
-                        if(parseInt(oGraph.cubeid) ||  (oGraph.mapconfig.mapViz=='components-bar' || oGraph.mapconfig.mapViz=='components-line')) {
-                            if(oGraph.mapconfig.mapViz == 'sum'){  //the cube must be made from the mapsets in assets
-                                if(!isNaN(geoKey)) geoKey = 'G'+geoKey; //don't show the map name for the bunny of a summation map:  only instructions
-                                var oFormula = mapPlot.calculatedFormula;
-                                var signedNumArray = oFormula.numFormula.replace('-','+-').split('+');
-                                var unsignedNumArray = oFormula.numFormula.replace('-','+').split('+');
-                                //loop though components and build a values array
-                                var asset, seriesVal, symbolData = {}, i, numNamesAsWords = [], symbol, o = {}, nameTree = {};
-                                mapPlot.eachComponent(function(c){
-                                    asset = oGraph.assets[this.handle()];
-                                    if(this.isMapSet()){
-                                        symbol = mapPlot.compSymbol(c);
-                                        symbolData[symbol] = asset.data[geoKey]?asset.data[geoKey].data:null;
-                                        nameTree[symbol] = asset.name;
-                                    }
-                                });
-                                for(i=unsignedNumArray.length-1;i>=0;i--){
-                                    if(unsignedNumArray[i].trim()=="")
-                                        unsignedNumArray.splice(i,0,1);
-                                    else
-                                        numNamesAsWords.unshift(nameTree[unsignedNumArray[i].trim()].split(' '));
-                                }
-                                //core the names to create categories
-                                var peeledWords = [], peelingFront = true, peelingBack = true;
-                                while(peelingFront && peelingBack){
-                                    for(i=0;i<numNamesAsWords.length;i++){
-                                        //expell blank words
-                                        while(numNamesAsWords[i].length>0 && numNamesAsWords[i][0]=='') numNamesAsWords[i].shift();
-                                        while(numNamesAsWords[i].length>0 && numNamesAsWords[i][numNamesAsWords[i].length-1]=='') numNamesAsWords[i].pop();
-                                        if(numNamesAsWords[i].length>0){
-                                            if(numNamesAsWords[i][0]!=numNamesAsWords[0][0]) peelingFront = false;
-                                            if(numNamesAsWords[i].length>1){
-                                                if(numNamesAsWords[i][numNamesAsWords[i].length-1]!=numNamesAsWords[0][numNamesAsWords[0].length-1]) peelingBack = false;
-                                            }
-                                        } else {
-                                            peelingFront = peelingBack = false;
-                                            break;
-                                        }
-                                    }
-                                    if(peelingFront) peeledWords.unshift(numNamesAsWords[0][0]);
-                                    if(peelingBack) peeledWords.push(numNamesAsWords[0][numNamesAsWords[0].length-1]);
-                                    for(i=0;i<numNamesAsWords.length;i++){
-                                        if(peelingFront) numNamesAsWords[i].shift();
-                                        if(peelingBack) numNamesAsWords[i].pop();
-                                    }
-                                }
-                                var categories = [];
-                                //
-                                oGraph.assets.cube = {dimensions: [{list: []}]};
-                                var cube = oGraph.assets.cube;
-                                cube.theme =  peeledWords.join(' ');
-                                cube.name = '';
-                                cube.units = mapPlot.units();
-                                cube['G'+geoKey] = {facetedData: []};
-                                for(i=0;i<numNamesAsWords.length;i++){
-                                    cube.dimensions[0].list.push({name: numNamesAsWords[i].join(' ')});
-                                    //TODO: need to synthesize each numerator component as per createSerieFromPlot
-                                    cube['G'+geoKey].facetedData[i] = symbolData[unsignedNumArray[i].trim()];
-                                }
-                            }
+                        //CUBE FETCH
+                        if(parseInt(oGraph.cubeid)) {
                             var action = 'new';
-                            if(summationMap){
+                            if(oGraph.isSummationMap()){
                                 if(code){
                                     action = isSelected?'add':'remove';
                                 } else {
@@ -2896,14 +2990,30 @@ MashableData.grapher = function(){
                         if(oGraph.plots && oGraph.mapsets[activeMapTab].mapMode()!='min' && oGraph.mapsets[activeMapTab].mapMode()!='max'){
                             var timeAxis = chart.xAxis[0];
                             timeAxis.removePlotLine('timeLine');
-                            timeAxis.addPlotLine({
-                                value: calculatedMapData.dates[val].dt,
-                                color: 'red',
-                                width: 2,
-                                id: 'timeLine'
-                            })
+                            if(val<calculatedMapData.dates.length-1){
+                                timeAxis.addPlotLine({
+                                    value: calculatedMapData.dates[val].dt,
+                                    color: 'red',
+                                    width: 2,
+                                    id: 'timeLine'
+                                })
+                            }
                         }
-                        if(mapMode != 'correlation' && !tabChanged) _drawMap_makeSupplementaryViz();
+                        var vizChart = oGraph.controls.vizChart, isVizChartDataTime = false;
+                        if(vizChart && vizChart.xAxis && vizChart.xAxis.length && vizChart.xAxis[0].options.type=='datetime'){
+                            isVizChartDataTime = true;
+                            timeAxis = vizChart.xAxis[0];
+                            timeAxis.removePlotLine('timeLine');
+                            if(val<calculatedMapData.dates.length-1){
+                                timeAxis.addPlotLine({
+                                    value: calculatedMapData.dates[val].dt,
+                                    color: 'red',
+                                    width: 2,
+                                    id: 'timeLine'
+                                })
+                            }
+                        }
+                        if(!(mapMode == 'correlation' && tabChanged) && !isVizChartDataTime) _drawMap_makeSupplementaryViz();
                     }
                     function _drawMap_makeLegend(map){
                         var standardRadius=10, textCenterFudge=5, lineHeight=20, spacer=10, markerLegendWidth, regionLegendWidth, regionHeight= 0, markerHeight= 0, y=0, i, yOffset, xOffset, MAX_MARKER_LABEL_LENGTH = 20;

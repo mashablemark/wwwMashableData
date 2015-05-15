@@ -310,7 +310,7 @@ MashableData.common = {
         }
     },
 
-    addBreaks: function addBreaks(seriesData, freq){
+    addBreaks: function addBreaks(seriesData, freq){ //adds null to create line breaks to periodic statistical data which is missing periods
         var data = seriesData.slice(0); //make a copy
         data.sort(function(a,b){return a[0]-b[0]});
         var oData = [];
@@ -441,6 +441,53 @@ MashableData.common = {
             }
         }
         return placeName.trim();
+    },
+    extactCategoryNamesTitle: function (components){ //returns an array of the unique word cores from the series' names, stripping off common words from the beginning and ends of the string
+        var i, nonNullSeries, categories;
+        //create the local list
+        for(i in components){
+            if(components[i].setname) {
+                components[i].category = components[i].setname.split(' ');
+                nonNullSeries = components[i].setname.split(' ');
+            }
+        }
+        var titleStartWords = _removeCommonStartWords();
+        _reverse(); //reverse order so we can from common words from the end of the series name
+        var titleEndWords = _removeCommonStartWords();
+        _reverse(true);  //reverse again = normal order and rejoin array into a string
+        var title = titleStartWords.concat(titleEndWords.reverse()).join(' ');
+        return title;
+
+        function _removeCommonStartWords(){
+            var s, word, isCommon, titleWords = [];
+            while(nonNullSeries.length){
+                word = nonNullSeries[0];
+                isCommon = true;
+                for(i in components){
+                    if(components[i].category && components[i].category[0]!=word) {
+                        isCommon = false;
+                        break;
+                    }
+                }
+                if(isCommon){
+                    titleWords.push(word);
+                    for(i in components){
+                        if(components[i].category) components[i].category.shift();
+                    }
+                } else {
+                    break;
+                }
+            }
+            return titleWords;
+        }
+        function _reverse(rejoinToString){
+            for(i in components){
+                if(components[i].category){
+                    components[i].category.reverse();
+                    if(rejoinToString) components[i].category = components[i].category.join(' ');
+                }
+            }
+        }
     }
 };
 

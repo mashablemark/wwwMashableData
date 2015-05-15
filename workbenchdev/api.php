@@ -1748,6 +1748,7 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
             $output['graphs']['G' . $gid] = array(
                 "gid" =>  $aRow["gid"],
                 "userid" =>  $aRow["userid"],
+                "cubeid" =>  $aRow["cubeid"],
                 "title" =>  $aRow["title"],
                 "analysis" =>  $aRow["analysis"],
                 "serieslist" =>  $aRow["serieslist"],

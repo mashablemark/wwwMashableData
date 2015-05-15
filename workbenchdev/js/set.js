@@ -179,10 +179,40 @@ MashableData.Component = function(SetParams, componentOptions){
     this.options = $.extend({k:1, op:'+'}, componentOptions||{});
     return this;
 };
-
-MashableData.Component.prototype = Object.create(MashableData.Set.prototype);
-MashableData.Component.prototype.clone = function(){
+(function(){
+    MashableData.Component.prototype = Object.create(MashableData.Set.prototype); //inheritance in JavaScript
+    MashableData.Component.prototype.clone = function(mapCode){  //if mapCode if given, PointSets and Mapsets will be converted to series (provided set data is available)
     var thisComp = this;
     var clone = new MashableData.Component(thisComp, thisComp.options);  //new object, same parameters
+    if(mapCode){
+        if(clone.data && clone.data[mapCode]){
+            clone.geoid = this.data[mapCode].geoid;
+            clone.geoname = this.data[mapCode].geoname;
+            clone.seriesname = this.data[mapCode].seriesname;
+            clone.firstdt = this.data[mapCode].firstdt;
+            clone.lastdt = this.data[mapCode].lastdt;
+            clone.parsedData(this.data[mapCode].data);
+            if(thisComp.isPointSet()) {
+                clone.latlon = this.data[mapCode].latlon;
+                clone.seriesname = this.data[mapCode].seriesname;
+            }
+        } else {
+            return null;  //don't return a comp if a set to series conversion is requested that is not possible
+        }
+    }
     return clone;  //data may be relational, but options are copies
 };
+    MashableData.Component.prototype.geoScaledData = function(code, utcDateNumber){
+        if(!this.data || !this.data[code]) return null;
+        var seriesData = (typeof this.data[code].data == "string") ? this.data[code].data.split('|') : this.data[code].data,
+            point;
+        if(!Array.isArray(seriesData)) return null;
+        var singleValue = typeof utcDateNumber != 'undefined';
+        for(var i=0;i<seriesData.length;i++){
+            point = seriesData[i].split(':');
+            seriesData[i] = [Date.parse(common.dateFromMdDate(point[0] )), point[1]==="null"||point[1]===null ? null : parseFloat(point[1])*this.options.k*(this.options.op=='-'?-1:1)];
+            if(singleValue && seriesData[i][0]==utcDateNumber) return seriesData[i][1];
+        }
+        return singleValue?null:seriesData;
+    };
+})();

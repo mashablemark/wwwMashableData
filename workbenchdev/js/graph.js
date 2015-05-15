@@ -11,6 +11,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     this.map = properties.map || '';
     this.assets = properties.assets || {};
     this.gid = properties.gid || null;
+    this.cubeid = properties.cubeid || null;
     this.ghash = properties.ghash || null;
     this.intervals = properties.intervals || null;
     this.analysis = properties.analysis || null;
@@ -405,7 +406,8 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             case "line-bunnies":
                 return true; //will degrade to "line" if no bunny, but a mapViz will always be always possible
             case "components-bar": //will show a single bar for a single component mapset, but a mapViz will always be always possible
-            case "components-line":  //will show a single line for a single component mapset, but a mapViz will always be always possible
+            case "components-area": //will show a stack area for each component of a mapset if a summation map; else degrades to 'line' mode
+            case "components-line":  //will show a line for each component in a mapset if a summation map; else degrades to 'line' mode
                 return true;
             case "list-asc": //lists are always possible
             case "list-desc": //lists are always possible

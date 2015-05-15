@@ -335,42 +335,85 @@ MashableData.Plot = function(components, options){
             return this.options.mapMode || this.graph.mapconfig.mapMode || 'heat';
         }
     };
-    Plot.prototype.clone = function(mapCode){
-        //if mapReduceCode is given, mapset and pointset components will be converted from set to series by the regionCode or the latlon
-        var plot = this, components = [], compClone;
-        plot.eachComponent(function(){
-            compClone = this.clone();
-            if(mapCode) {
-                if(compClone.isMapSet()){
-                    if(compClone.data[mapCode]) {
-                        compClone.geoid = compClone.data[mapCode].geoid;
-                        compClone.geoname = compClone.data[mapCode].geoname;
-                        compClone.seriesname = compClone.data[mapCode].seriesname;
-                        compClone.firstdt = compClone.data[mapCode].firstdt;
-                        compClone.lastdt = compClone.data[mapCode].lastdt;
-                        compClone.parsedData(compClone.data[mapCode].data);
-                    } else {
-                        return null;
-                    }
+    Plot.prototype.clone = function(mapCodes){
+        //mapCodes is a '+' concatenated string of codes
+        //if mapCodes is given, mapset and pointset components will be converted from set to series by each mapCode =  regionCode or latlon
+        var mapCodesArray = false;
+        if(mapCodes) { //can only handle simple plot where components added TODO: handle scalar multiplication or division of a set
+            var allSets = true, summationMath = !this.options.userFormula;
+            this.eachComponent(function(c){
+                if(this.isSeries()) allSets = false;
+                if(this.options.op == '/' || this.options.op == '*') summationMath = false
+            });
+            mapCodesArray = mapCodes.split('+');
+            if(mapCodesArray.length>1 && (!allSets || !summationMath || this.options.userFormula)) return null;  //even with a complex formula, a single region or marker (non-additives bubbles) can be converted to plots
+        }
+        var plot = this, components = [], seriesComp, symbolMap;
+        plot.eachComponent(function(c){
+            if(mapCodesArray  && (this.isMapSet() || this.isPointSet())){
+                for(var i=0;i<mapCodesArray.length;i++){ //this loop can create extra components that may need to be addressed in formulas other than single or simple additions
+                    var seriesComp = this.clone(mapCodesArray[i]);
+                    if(seriesComp) components.push(seriesComp);  //some codes may not have data
                 }
-                if(compClone.isPointSet()){
-                    if(compClone.data[mapCode]) {
-                        compClone.geoid = compClone.data[mapCode].geoid;
-                        compClone.geoname = compClone.data[mapCode].geoname;
-                        compClone.seriesname = compClone.data[mapCode].seriesname;
-                        compClone.firstdt = compClone.data[mapCode].firstdt;
-                        compClone.lastdt = compClone.data[mapCode].lastdt;
-                        compClone.parsedData(compClone.data[mapCode].data);
-                        compClone.latlon = mapCode;
-                    } else {
-                        return null;
-                    }
-                }
+            } else {  //straight copy
+                components.push(this.clone());
             }
-            components.push(compClone);
         });
         var clone = new Plot(components, $.extend({}, plot.options));
         return clone;
+    };
+    Plot.prototype.summationComponentSeries = function(vizChartGeos, mapDate){ //used by supplementary map vizes to show components are lines, stacked area, or bars
+        var series = [], timeSerie, barSerie, y, point, comp, data, geoCode;
+        if(mapDate) mapDate = common.dateFromMdDate(mapDate).getTime();
+        for(var i=0;i<vizChartGeos.length;i++){
+            geoCode = vizChartGeos[i].code;
+            if(mapDate){
+                barSerie = {
+                    data: [],
+                    units: this.units(),
+                    geoname: vizChartGeos[i].geoname,
+                    name: vizChartGeos[i].geoname,
+                    geoid: vizChartGeos[i].geoid,
+                    latlon: vizChartGeos[i].latlon
+                };
+            }
+            for(var j=0;j<this.components.length;j++){
+                comp = this.components[j];
+                if(mapDate){ //bars grouped into one series per geo
+                    point = {
+                        y: comp.geoScaledData(geoCode, mapDate),
+                        setname: comp.setname,
+                        name: comp.category,
+                        freq: comp.freq,
+                        src: comp.src,
+                        setid: comp.setid
+                    };
+                    if(comp.data && comp.data[geoCode]){
+                        point.seriesname = comp.data[geoCode].seriesname || (comp.setname + ': ' + comp.data[geoCode].geoname);
+                    }
+                    barSerie.data.push(point);
+                } else { //times series
+                    if(comp.data && comp.data[geoCode]){
+                        timeSerie = {
+                            data: comp.geoScaledData(geoCode,  mapDate),
+                            geoname: comp.data[geoCode].geoname,
+                            seriesname: comp.data[geoCode].seriesname || (comp.setname + ': ' + comp.data[geoCode].geoname),
+                            setname: comp.setname,
+                            name: comp.category,
+                            units: this.units(),
+                            freq: comp.freq,
+                            src: comp.src,
+                            setid: comp.setid,
+                            geoid: vizChartGeos[i].geoid,
+                            latlon: vizChartGeos[i].latlon
+                        };
+                        series.push(timeSerie);
+                    }
+                }
+            }
+            if(mapDate) series.push(barSerie);
+        }
+        return series;
     };
     Plot.prototype.eachComponent = function(callback){
         var plot = this;
@@ -378,7 +421,7 @@ MashableData.Plot = function(components, options){
             plot.components, function(c){callback.call(this, c, plot)}
         );
     };
-    Plot.prototype.validateUserFormula = function(formalaString){  //returns true or false to validate user formulas
+    Plot.prototype.validateUserFormula = function(formulaString){  //returns true or false to validate user formulas
 
     };
 })();

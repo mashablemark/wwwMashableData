@@ -1667,13 +1667,14 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
     } else _fillSelector();
 
     function _fillSelector(){
-        var cubeOptions = '<option value="none">select a data cube or map interaction</option>' +
+        var cubeOptions = '<option value="none">none </option>' +
             '<optgroup class="non-cube-vizes"  label="visualizations with mouseover interactions">' +
             '<option value="scatter">scatter plot of maps with linear regression and correlation coefficient</option>' +
             '<option value="line">line chart of highlighted geographies</option>' +
             '<option value="line-bunnies">line chart with national data of highlighted geographies</option>' +
-            '<option value="components-bar">bar chart of map components of highlighted geographies</option>' +
-            '<option value="components-line">line chart of summed map components of highlighted geographies</option>' +
+            '<option value="components-bar">bar chart of map&rsquo;s components of selected geographies</option>' +
+            '<option value="components-line">line chart of map&rsquo;s components of selected geographies</option>' +
+            '<option value="components-area">stacked area chart of map&rsquo;s components for selected geography</option>' +
             '<option value="list-asc">ordered list (ascending)</option>' +
             '<option value="list-desc">ordered list (descending)</option>' +
             '</optgroup>';
@@ -1692,7 +1693,8 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
         }
         if(!currentCubeAccountedFor && graph && graph.cubeid) cubeOptions = '<select value="' + graph.cubeid + '" selected>' + graph.cubename || 'data cube' + '</select>' + cubeOptions;
         $cubeSelector.html(cubeOptions);
-        if(graph && graph.mapconfig) $cubeSelector.val(graph.mapconfig.mapViz);
+        if(graph && graph.mapconfig && !graph.cubeid) $cubeSelector.val(graph.mapconfig.mapViz);
+        $cubeSelector.show();
     }
     return possibleCubes;
 }

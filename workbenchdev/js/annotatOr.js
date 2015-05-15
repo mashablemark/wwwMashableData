@@ -100,7 +100,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
         startXBand: function annotateXBandStart(pointSelected){
             var oGraph = panelGraphs[panelId];
             this.bandStartPoint = pointSelected;
-            this.bandColor = equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY);
+            this.bandColor = equivalentRGBA(colorsPlotBands[0], globals.BAND_TRANSPARENCY);
             oGraph.controls.chart.xAxis[0].addPlotBand({
                 from:  this.bandStartPoint.x,
                 to: this.bandStartPoint.x,
@@ -226,7 +226,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                                 anno.id ='xb' + this.bandNo++;
                                 yOffset = this.labelOffset(oGraph.controls.chart, anno);
                                 oGraph.controls.chart.xAxis[0].addPlotBand({
-                                    color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
+                                    color: equivalentRGBA(anno.color, globals.BAND_TRANSPARENCY),
                                     from: fromJS,
                                     to: toJS,
                                     id: anno.id,
@@ -242,7 +242,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                             for(y=0;y<oGraph.controls.chart.yAxis.length;y++){
                                 if(oGraph.controls.chart.yAxis[y].userOptions.title.text==anno.yAxis){
                                     oGraph.controls.chart.yAxis[y].addPlotBand({
-                                        color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
+                                        color: equivalentRGBA(anno.color, globals.BAND_TRANSPARENCY),
                                         from: anno.from,
                                         to: anno.to,
                                         id: anno.id,
@@ -292,7 +292,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                     yOffset = this.labelOffset(oGraph.controls.chart, anno);
                     oGraph.controls.chart.xAxis[0].removePlotBand(id);
                     oGraph.controls.chart.xAxis[0].addPlotBand({
-                        color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
+                        color: equivalentRGBA(anno.color, globals.BAND_TRANSPARENCY),
                         from: this.parseDate(anno.from),
                         to: this.parseDate(anno.to),
                         id: anno.id,
@@ -304,7 +304,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                         if(oGraph.controls.chart.yAxis[i].userOptions.title.text = anno.yAxis){
                             oGraph.controls.chart.yAxis[i].removePlotBand(id);
                             oGraph.controls.chart.yAxis[i].addPlotBand({
-                                color: equivalentRGBA(anno.color, BAND_TRANSPARENCY),
+                                color: equivalentRGBA(anno.color, globals.BAND_TRANSPARENCY),
                                 from: parseFloat(anno.from),
                                 to: parseFloat(anno.to),
                                 id: anno.id,
@@ -569,7 +569,7 @@ MashableData.Annotator = function Annotator(panelId, makeDirty){
                                                     chart.yAxis[i].removePlotBand('hb'+self.bandNo);
                                                     chart.yAxis[i].addPlotBand({
                                                         id: 'hb'+self.bandNo,
-                                                        color: equivalentRGBA(colorsPlotBands[0], BAND_TRANSPARENCY),
+                                                        color: equivalentRGBA(colorsPlotBands[0], globals.BAND_TRANSPARENCY),
                                                         from: Math.min(y1,y2),
                                                         to: Math.max(y1,y2),
                                                         label: {text: '', zIndex: 3}
