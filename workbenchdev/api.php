@@ -91,7 +91,7 @@ ManageMySeries:  workbench.updateMySeries
 $time_start = microtime(true);
 $command =  isset($_REQUEST['command'])?$_REQUEST['command']:'';
 $con = getConnection();
-switch($command){
+switch($command) {
     case "LogError":
         logEvent("javascript error", safeStringSQL(json_encode($_POST)));
         /*                        browser: browser,
@@ -102,26 +102,26 @@ switch($command){
                                 lang: navigator.language,
                                 platform: navigator.platform,
                                 version: mashableVersion*/
-        $output = array("status"=>"logged");
+        $output = array("status" => "logged");
         break;
     case "NewSearchSeries":
-        if(isset($_POST["uid"])  && intval($_POST["uid"])>0 && $_POST["uid"]!=null){
+        if (isset($_POST["uid"]) && intval($_POST["uid"]) > 0 && $_POST["uid"] != null) {
             $usageTracking = trackUsage("count_seriessearch");
         }
-        $search =  rawurldecode($_POST['search']);
-        $freq =  str_replace("'", "''", $_POST['freq']);
-        $mapFilter =  str_replace("'", "''", $_POST['mapfilter']);
-        $apiid =  $_POST['apiid'];
-        $catid =  intVal($_POST['catid']);
-        $setType =  $_POST['settype'];
-        if(count($search) == 0 || count($freq)== 0) die("invalid call.  Err 101");
+        $search = rawurldecode($_POST['search']);
+        $freq = str_replace("'", "''", $_POST['freq']);
+        $mapFilter = str_replace("'", "''", $_POST['mapfilter']);
+        $apiid = $_POST['apiid'];
+        $catid = intVal($_POST['catid']);
+        $setType = $_POST['settype'];
+        if (count($search) == 0 || count($freq) == 0) die("invalid call.  Err 101");
         $sLimit = " ";
         $foundGeos = [];
-        if ( isset( $_POST['iDisplayStart'] ) && $_POST['iDisplayLength'] != '-1' ) {
-            $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
-                . $db->real_escape_string( $_POST['iDisplayLength'] );
+        if (isset($_POST['iDisplayStart']) && $_POST['iDisplayLength'] != '-1') {
+            $sLimit = " LIMIT " . $db->real_escape_string($_POST['iDisplayStart']) . ", "
+                . $db->real_escape_string($_POST['iDisplayLength']);
         }
-        $aColumns=array("name", "units", "elements", "firstdt", "lastdt");
+        $aColumns = array("name", "units", "elements", "firstdt", "lastdt");
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         left(s.settype,1) as settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units,
@@ -131,12 +131,12 @@ switch($command){
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
         //handle may be modified in read loop depending on detected geographies and
-        if($catid>0){
+        if ($catid > 0) {
             //1. if category search, this is simple
             $sql .= " INNER JOIN categorysets cs on s.setid = cs.setid WHERE catid=$catid";
         } else {
             //2. look for geo matching and search sets if
-            if($search!='+ +') {
+            if ($search != '+ +') {
                 $geoSearch = str_replace("+", "", $search);
                 $geoSQL = "select geoid, name, keywords, confirmwords, exceptex,
                     match(keywords) against ('$geoSearch' IN BOOLEAN MODE) as keyrel,
@@ -148,50 +148,50 @@ switch($command){
                 $keyRel = null;
                 $confirmRel = null;
                 //$searchWords = explode(" ", preg_replace("#\s{2,}#"," ", preg_replace("#[^\D\d-]#"," ",$geoSearch)));
-                while ($aRow = $result->fetch_assoc()){
-                    if($keyRel===null){
+                while ($aRow = $result->fetch_assoc()) {
+                    if ($keyRel === null) {
                         $keyRel = $aRow["keyrel"];
                         $confirmRel = $aRow["confirmrel"];
-                    } elseif($keyRel != $aRow["keyrel"] || $confirmRel != $aRow["confirmrel"]){
+                    } elseif ($keyRel != $aRow["keyrel"] || $confirmRel != $aRow["confirmrel"]) {
                         break;
                     }
                     //2. top matching geo(s)
-                    $geoWords =  explode(" ", preg_replace("#[;,:-]#"," ",strtolower($aRow["name"]." ".$aRow["keywords"]." ".$aRow["confirmwords"])));
-                    $searchWords = $search." ";
-                    foreach($geoWords as $geoWord){
-                        $searchWords = str_replace("+".$geoWord." ", " ", $searchWords);
+                    $geoWords = explode(" ", preg_replace("#[;,:-]#", " ", strtolower($aRow["name"] . " " . $aRow["keywords"] . " " . $aRow["confirmwords"])));
+                    $searchWords = $search . " ";
+                    foreach ($geoWords as $geoWord) {
+                        $searchWords = str_replace("+" . $geoWord . " ", " ", $searchWords);
                     }
-                    $foundGeos["G_".$aRow["geoid"]] = [
-                        "seachWords"=>$searchWords,
-                        "name"=>$aRow["name"]
+                    $foundGeos["G_" . $aRow["geoid"]] = [
+                        "seachWords" => $searchWords,
+                        "name" => $aRow["name"]
                     ];
                 }
             }
             //SEARCH AND FILTER SECTION
             $sql = $sql . " WHERE 1 ";
             //2. search for sets with matching geo or all
-            if(strpos($search,'title:"')===0){ //ideally, use a regex like s.match(/(title|name|skey):"[^"]+"/i)
-                $title = substr($search, strlen("title")+2,strlen($search)-strlen("title")-3);
+            if (strpos($search, 'title:"') === 0) { //ideally, use a regex like s.match(/(title|name|skey):"[^"]+"/i)
+                $title = substr($search, strlen("title") + 2, strlen($search) - strlen("title") - 3);
                 $sql .= " AND title = " . safeStringSQL($title);
-            } elseif($search!='+ +' || $mapFilter<>"none" || $freq != "all" || $setType!="all") {
-                $periodTerm = $freq == "all"?"":" +F_".$freq;
-                $mapTerm = $mapFilter == "none"?"":" +M_".$mapFilter;
-                $setTypeTerm = $setType == "all"?"":" +".$setType."S_";
+            } elseif ($search != '+ +' || $mapFilter <> "none" || $freq != "all" || $setType != "all") {
+                $periodTerm = $freq == "all" ? "" : " +F_" . $freq;
+                $mapTerm = $mapFilter == "none" ? "" : " +M_" . $mapFilter;
+                $setTypeTerm = $setType == "all" ? "" : " +" . $setType . "S_";
                 $mainBooleanSearch = "($search $periodTerm $mapTerm $setTypeTerm)";
-                foreach($foundGeos as $ghandle => $geoSearchDetails){
-                    $geoSearchWords  = $geoSearchDetails["seachWords"];
+                foreach ($foundGeos as $ghandle => $geoSearchDetails) {
+                    $geoSearchWords = $geoSearchDetails["seachWords"];
                     $mainBooleanSearch .= " ($geoSearchWords $periodTerm $setTypeTerm $mapTerm +$ghandle)"; //OR implied
                 }
                 $sql .= " AND match(s.name, s.units, s.titles, s.ghandles, s.maps, s.settype, s.freqs) against ('-not_searchable $mainBooleanSearch' IN BOOLEAN MODE) ";  //straight search with all keywords
                 //freqs field default to 'not_searchable' on insert and gets set after ingestion when setCounts and
             }
-            if(is_numeric($apiid)) {
+            if (is_numeric($apiid)) {
                 $sql .= " AND s.apiid = " . intval($apiid);
             } elseif ($apiid == "org") { //for security, the orgid is not passed in.  rather, if it is fetched from the users account
                 requiresLogin(); //sets $orgid.  Dies if not logged in
                 $sql .= " AND orgid = " . $orgid;
             } else {  //open search = must filter out orgs series that are not my org
-                if(isset($_POST["uid"]) && intval($_POST["uid"])>0){
+                if (isset($_POST["uid"]) && intval($_POST["uid"]) > 0) {
                     requiresLogin(); //sets $orgid.  Dies if not logged in, but we should be because a uid was passed in
                     $sql .= " AND (s.orgid is null or s.orgid = " . $orgid . ") ";
                 } else {
@@ -203,23 +203,20 @@ switch($command){
          * Ordering
          */
         $sOrder = '';
-        if ( isset( $_POST['iSortCol_0'] ) )
-        {
+        if (isset($_POST['iSortCol_0'])) {
             $sOrder = " ORDER BY  ";
-            for ( $i=0 ; $i<intval( $_POST['iSortingCols'] ) ; $i++ )
-            {
-                if ( $_POST[ 'bSortable_'.intval($_POST['iSortCol_'.$i]) ] == "true")
-                {
-                    $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." ".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
+            for ($i = 0; $i < intval($_POST['iSortingCols']); $i++) {
+                if ($_POST['bSortable_' . intval($_POST['iSortCol_' . $i])] == "true") {
+                    $sOrder .= $aColumns[intval($_POST['iSortCol_' . $i])] . " " . $db->real_escape_string($_POST['sSortDir_' . $i]) . ", ";
                 }
             }
-            $sOrder = substr_replace($sOrder, "", -2 );
-            if(strlen($search)>0 && $sOrder == " ORDER BY") {  // show shortest results first, but only if the user actually entered keywords
+            $sOrder = substr_replace($sOrder, "", -2);
+            if (strlen($search) > 0 && $sOrder == " ORDER BY") {  // show shortest results first, but only if the user actually entered keywords
                 $sOrder = " ORDER BY s.namelen asc ";
             }
         }
-        if($search!='+ +' && $sOrder == "") {  // show shortest results first, but only if the user actually entered keywords
-            if($catid==0){
+        if ($search != '+ +' && $sOrder == "") {  // show shortest results first, but only if the user actually entered keywords
+            if ($catid == 0) {
                 $sOrder = " ORDER BY s.namelen asc ";
             } else {
                 $sOrder = " ORDER BY s.name asc ";
@@ -231,7 +228,7 @@ switch($command){
         $sQuery = "
             SELECT FOUND_ROWS()
         ";
-        $rResultFilterTotal = runQuery( $sQuery) or die($db->error());
+        $rResultFilterTotal = runQuery($sQuery) or die($db->error());
         $aResultFilterTotal = $rResultFilterTotal->fetch_array();
         $iFilteredTotal = $aResultFilterTotal[0];
         /* Total data set length */
@@ -240,32 +237,32 @@ switch($command){
          $aResultTotal = $rResultTotal->fetch_array();
          $iTotal = $aResultTotal[0];*/
         $iTotal = 10000000;  // no need to run the count everytime as the workbench does not display it
-        $output = array("status"=>"ok",
+        $output = array("status" => "ok",
             "sEcho" => intval($_POST['sEcho']),
             "iTotalRecords" => $iTotal,
             "iTotalDisplayRecords" => $iFilteredTotal,
-            "search"=>$search,
+            "search" => $search,
             "aaData" => array()
         );
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
+        if (isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         $aRows = [];
         $searchWords = trim(str_replace("+", "", $search));
-        $searchWords = count($searchWords)==0 ? false: explode(" ", $searchWords);
-        $geoSearched = count($foundGeos)>0;
+        $searchWords = count($searchWords) == 0 ? false : explode(" ", $searchWords);
+        $geoSearched = count($foundGeos) > 0;
         while ($aRow = $result->fetch_assoc()) { //handle, setid, mastersetid, userid, name, units, freq, title, src, url, firstdt, lastdt, apiid, maps, ghandles
             $found = false;
-            if($geoSearched) {
+            if ($geoSearched) {
                 //two pass output if geosearched = check for straight set match followed by check for ghandle match
                 $aRows[] = $aRow;
                 $straightMatch = true;
-                $textFields = $aRow["name"]." ".$aRow["units"]." ".$aRow["titles"];
-                foreach($searchWords as $searchWord){
-                    if(stripos($textFields, $searchWord)===false){
+                $textFields = $aRow["name"] . " " . $aRow["units"] . " " . $aRow["titles"];
+                foreach ($searchWords as $searchWord) {
+                    if (stripos($textFields, $searchWord) === false) {
                         $straightMatch = false;
                         break;
                     }
                 }
-                if($straightMatch == true){
+                if ($straightMatch == true) {
                     unset($aRow["ghandles"]);
                     $output['aaData'][] = $aRow;
                 }
@@ -274,14 +271,14 @@ switch($command){
                 $output['aaData'][] = $aRow;
             }
         }
-        if($geoSearched){
-            foreach($aRows as $aRow){
-                foreach($foundGeos as $ghandle => $geoSearchDetails){
-                    if(strpos($aRow["ghandles"].",", "$ghandle,")!==false){
+        if ($geoSearched) {
+            foreach ($aRows as $aRow) {
+                foreach ($foundGeos as $ghandle => $geoSearchDetails) {
+                    if (strpos($aRow["ghandles"] . ",", "$ghandle,") !== false) {
                         $thisRow = $aRow; //copy
                         unset($thisRow["ghandles"]);
-                        $thisRow["name"] .= ": ".$geoSearchDetails["name"];
-                        $thisRow["geoid"] =  intval(str_replace("G_", "", $ghandle));
+                        $thisRow["name"] .= ": " . $geoSearchDetails["name"];
+                        $thisRow["geoid"] = intval(str_replace("G_", "", $ghandle));
                         //series object creates its own handle   $thisRow["handle"] = "S" . $thisRow["setid"] . str_replace("_","", $ghandle);
                         $output['aaData'][] = $thisRow;
                         $found = true;
@@ -292,20 +289,20 @@ switch($command){
         break;
     case "SearchGraphs":
         $usageTracking = trackUsage("count_graphssearch");
-        if(!$usageTracking["approved"]){
-            $output = array("status"=>$usageTracking["msg"]);
+        if (!$usageTracking["approved"]) {
+            $output = array("status" => $usageTracking["msg"]);
             break;
         }
-        $search =  $_POST['search'];
+        $search = $_POST['search'];
         //$freq =  $_POST['freq'];
         //$user_id =  intval($_POST['uid']);
-        if(count($search) == 0) die("invalid call.  Err 106");
+        if (count($search) == 0) die("invalid call.  Err 106");
         $sLimit = " ";
-        if ( isset( $_POST['iDisplayStart'] ) && $_POST['iDisplayLength'] != '-1' ) {
-            $sLimit = " LIMIT ".$db->real_escape_string( $_POST['iDisplayStart'] ).", "
-                . $db->real_escape_string( $_POST['iDisplayLength'] );
+        if (isset($_POST['iDisplayStart']) && $_POST['iDisplayLength'] != '-1') {
+            $sLimit = " LIMIT " . $db->real_escape_string($_POST['iDisplayStart']) . ", "
+                . $db->real_escape_string($_POST['iDisplayLength']);
         }
-        $aColumns=array("g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
+        $aColumns = array("g.title", "g.map", "g.text", "g.serieslist", "views", "ifnull(g.updatedt , g.createdt)");
         $sql = "SELECT g.graphid, g.title, map, text as analysis, g.cubeid, serieslist, ghash, views, "
             //not used and cause problems for empty results = row of nulls returned. "  ifnull(g.fromdt, min(s.firstdt)) as fromdt, ifnull(g.todt ,max(s.lastdt)) as todt, "
             . " ifnull(updatedt, createdt) as modified "
@@ -314,7 +311,7 @@ switch($command){
             . " left outer join (select graphid, count(type) as mapsets from graphplots where  type='M' group by graphid) gpm on g.graphid=gpm.graphid "
             . " left outer join (select graphid, count(type) as pointsets from graphplots where type='X' group by graphid) gpx on g.graphid=gpx.graphid "
             . " WHERE published='Y' ";
-        if($search!='+ +'){
+        if ($search != '+ +') {
             $sql .= "   and  match(g.title, g.text, g.serieslist, g.map) against ('" . $search . "' IN BOOLEAN MODE) ";
         }
         $sql .= " group by graphid, g.title, g.map, g.text, g.serieslist, ghash, views, ifnull(g.updatedt , g.createdt) ";
@@ -325,27 +322,25 @@ switch($command){
         /*
          * Ordering
          */
-        if ( isset( $_POST['iSortCol_0'] ) )
-        {
+        if (isset($_POST['iSortCol_0'])) {
             $sOrder = "ORDER BY  ";
-            for ( $i=0 ; $i<intval( $_POST['iSortingCols'] ) ; $i++ )
-            {
-                if ( $_POST[ 'bSortable_'.intval($_POST['iSortCol_'.$i]) ] == "true" )
-                {
-                    $sOrder .= $aColumns[ intval( $_POST['iSortCol_'.$i] ) ]." ".$db->real_escape_string( $_POST['sSortDir_'.$i] ) .", ";
+            for ($i = 0; $i < intval($_POST['iSortingCols']); $i++) {
+                if ($_POST['bSortable_' . intval($_POST['iSortCol_' . $i])] == "true") {
+                    $sOrder .= $aColumns[intval($_POST['iSortCol_' . $i])] . " " . $db->real_escape_string($_POST['sSortDir_' . $i]) . ", ";
                 }
             }
-            $sOrder = substr_replace( $sOrder, "", -2 );
-            if ( $sOrder == "ORDER BY" )
-            {
+            $sOrder = substr_replace($sOrder, "", -2);
+            if ($sOrder == "ORDER BY") {
                 $sOrder = " ORDER BY createdt desc ";
             }
         } else {
             $sOrder = " ORDER BY createdt desc ";
         }
         $sql = $sql . $sOrder . $sLimit;
-        $log="";
-        foreach($_POST as $key => $value){$log = $log . $key.": ".$value.';'; };
+        $log = "";
+        foreach ($_POST as $key => $value) {
+            $log = $log . $key . ": " . $value . ';';
+        };
         logEvent("SearchGraphs POST", $log);
         $result = runQuery($sql, "SearchGraphs");
         /* Data set length after filtering */
@@ -353,7 +348,7 @@ switch($command){
            SELECT FOUND_ROWS()
        ";
         //echo($sQuery . "<br>");
-        $rResultFilterTotal = runQuery( $sQuery) or die($db->error());
+        $rResultFilterTotal = runQuery($sQuery) or die($db->error());
         $aResultFilterTotal = $rResultFilterTotal->fetch_array();
         $iFilteredTotal = $aResultFilterTotal[0];
         /* Total data set length */
@@ -362,20 +357,20 @@ switch($command){
               $aResultTotal = $rResultTotal->fetch_array();
               $iTotal = $aResultTotal[0];*/
         $iTotal = 0;  //don't bother fetching this value as it is not displayed or otherwise used
-        $output = array("status"=>"ok",
+        $output = array("status" => "ok",
             "sEcho" => intval($_POST['sEcho']),
             "iTotalRecords" => $iTotal,
             "iTotalDisplayRecords" => $iFilteredTotal,
             "aaData" => array()
         );
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
+        if (isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
         while ($aRow = $result->fetch_assoc()) {
             $output['aaData'][] = $aRow;
         }
         break;
     case "GetMySets":
         requiresLogin();
-        $user_id =  intval($_POST['uid']);
+        $user_id = intval($_POST['uid']);
         $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
             maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
             savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
@@ -384,9 +379,9 @@ switch($command){
             left outer join users u on s.userid=u.userid
             WHERE ms.userid=" . $user_id;
         $result = runQuery($sql);
-        $output = array("status"=>"ok","series" => array());
-        while ($aRow = $result->fetch_assoc()){
-            $aRow["rawmaps"] = $aRow["maps"] ;
+        $output = array("status" => "ok", "series" => array());
+        while ($aRow = $result->fetch_assoc()) {
+            $aRow["rawmaps"] = $aRow["maps"];
             $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
             $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
             $output["sets"][handle($aRow)] = $aRow;
@@ -394,7 +389,7 @@ switch($command){
         break;
     case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetGraph
         requiresLogin();
-        $user_id =  intval($_POST['uid']);
+        $user_id = intval($_POST['uid']);
         $sql = "SELECT g.graphid as gid, g.userid, g.title, g.text as analysis,
           g.map, g.mapconfig,  g.cubeid,  g.serieslist, g.intervalcount, g.type,
           g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt) as updatedt,
@@ -406,42 +401,42 @@ switch($command){
           g.ghash,  g.fromdt, g.todt,  g.published, g.views, ifnull(g.updatedt, g.createdt)
         ORDER BY updatedt desc, title";
         $result = runQuery($sql, "GetMyGraphs select");
-        $output = ["status"=>"ok","graphs" => []];
-        while ($aRow = $result->fetch_assoc()) $output["graphs"]["G".$aRow["gid"]] = $aRow;
+        $output = ["status" => "ok", "graphs" => []];
+        while ($aRow = $result->fetch_assoc()) $output["graphs"]["G" . $aRow["gid"]] = $aRow;
         break;
     case "GetFullGraph":  //data and all: the complete protein!
-        $ghash =  $_REQUEST['ghash'];
-        if(strlen($ghash)>0){
+        $ghash = $_REQUEST['ghash'];
+        if (strlen($ghash) > 0) {
             //1. fetch
             $output = getGraphs(0, $ghash);
             //2. check credential
-            if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
+            if (isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))) {
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
             } else {
                 $output['userid'] = null;  //cannot save graph; only save as a copy
             }
         } else {
-            $output = array("status"=>"The graph requested not available.  The author may have unpublished or deleted it.");
+            $output = array("status" => "The graph requested not available.  The author may have unpublished or deleted it.");
         }
         break;
     case "GetEmbeddedGraph":  //data and all: the complete protein!
         //embedded graphs make requests to /graph_data which checks the cache first
         //so if here, the cache is old or missing!
 
-        $ghash =  $_REQUEST['ghash'];
-        if(strlen($ghash)>0){
+        $ghash = $_REQUEST['ghash'];
+        if (strlen($ghash) > 0) {
             $ghash_var = safeStringSQL($ghash);
             //2. fetch if not in cache or needs refreshing
             $output = getGraphs(0, $ghash);
             //trim data based on graph end, start and interval dates using dataSliver()
-            foreach($output["graphs"] as $ghandle => $graph){
-                foreach($graph["assets"] as $ahandle => $asset){
+            foreach ($output["graphs"] as $ghandle => $graph) {
+                foreach ($graph["assets"] as $ahandle => $asset) {
                     unset($output["graphs"][$ghandle]["assets"][$ahandle]["maps"]);
-                    if($graph["start"] || $graph["end"] || $graph["intervals"]){
+                    if ($graph["start"] || $graph["end"] || $graph["intervals"]) {
                         $atype = (substr($ahandle, 0, 1));
-                        switch($atype){
+                        switch ($atype) {
                             case "M":
-                                foreach($asset["data"] as $geo => $series){
+                                foreach ($asset["data"] as $geo => $series) {
                                     $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                     /*                                        $output["freq"]= $asset["freq"];
                                                                             $output["firstdt"]=$series["firstdt"];
@@ -457,7 +452,7 @@ switch($command){
                                 $asset["data"] = dataSliver($asset["data"], $asset["freq"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                 break;
                             case "X":
-                                foreach($asset["data"] as $latlon => $series){
+                                foreach ($asset["data"] as $latlon => $series) {
                                     $series["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                                 }
                                 break;
@@ -467,23 +462,22 @@ switch($command){
 
             }
             //2. check uid...
-            if(isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))){
+            if (isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))) {
                 requiresLogin();  //login not required, but if claiming to be the author then verify the token
             } else {
                 $output['userid'] = null;  //cannot save graph; only save as a copy
             }
             //3. create / update cache file
-            if (!is_dir($cacheRoot . $cacheSubPath ))
-            {
+            if (!is_dir($cacheRoot . $cacheSubPath)) {
                 mkdir($cacheRoot . $cacheSubPath, 0755, true);
             }
             $cfp = fopen($cacheFile, 'w');
-            if(flock($cfp, LOCK_EX)){
+            if (flock($cfp, LOCK_EX)) {
                 fwrite($cfp, json_encode($output, JSON_HEX_QUOT));
             }
             fclose($cfp);
         } else {
-            $output = array("status"=>"The graph requested not available.  The author may have unpublished or deleted it.");
+            $output = array("status" => "The graph requested not available.  The author may have unpublished or deleted it.");
         }
         break;
     /*    case "GetGraphMapSet":
@@ -501,65 +495,40 @@ switch($command){
             }
             break;*/
     case "GetSets": //used by Graph.fetchAssets() only get all types of asset in a single call (no ambiguous sets; for that use GetSeries)
-        $output = ["status"=>"ok", "assets"=>[]];
-        if($series = (isset($_POST["series"]) && count($_POST["series"])>0) ? $_POST["series"] : false){
+        $output = ["status" => "ok", "assets" => []];
+        if ($series = (isset($_POST["series"]) && count($_POST["series"]) > 0) ? $_POST["series"] : false) {
             $sql = "select s.metadata as setmetadata, s.name, sd.setid, sd.geoid, sd.freq, s.freqs, sd.latlon, s.maps, g.name as geoname
             from sets s join setdata on s.setid=sd.setid left outer join geographies on sd.geoid=g.geoid where ";
             $filters = [];
-            foreach($series as $serie){
+            foreach ($series as $serie) {
                 $filter = "(s.setid= $serie[setid] and sd.freq=$serie[freq]";
-                if(isset($serie["geoid"])) $filter .= " and sd.geoid=$serie[geoid]";
-                if(isset($serie["latlon"])) $filter .= " and sd.latlon=$serie[latlon]";
-                elseif(!isset($serie["geoid"])) $filter .= " and sd.geoid=0"; //cannot havea  series without a defining geo or latlon
+                if (isset($serie["geoid"])) $filter .= " and sd.geoid=$serie[geoid]";
+                if (isset($serie["latlon"])) $filter .= " and sd.latlon=$serie[latlon]";
+                elseif (!isset($serie["geoid"])) $filter .= " and sd.geoid=0"; //cannot havea  series without a defining geo or latlon
                 $filter .= ")";
                 $filters[] = $filter;
             }
             $sql .= implode(" OR ", $filters);
-            $result  = runQuery($sql, "GetSets: series");
-            while($row=$result->fetch_assoc()){
-                $handle = $row["type"].$row["setid"].$row["freq"]."G".$row["setid"].($row["latlon"]?"L".$row["latlon"]:"");
+            $result = runQuery($sql, "GetSets: series");
+            while ($row = $result->fetch_assoc()) {
+                $handle = $row["type"] . $row["setid"] . $row["freq"] . "G" . $row["setid"] . ($row["latlon"] ? "L" . $row["latlon"] : "");
                 $output["assets"][$handle] = $row;
             }
         }
-        if($map = isset($_POST["map"]) ? $_POST["map"] : false){
+        if ($map = isset($_POST["map"]) ? $_POST["map"] : false) {
             $output["map"] = $map;
-            if($mapSets = (isset($_POST["mapSets"]) && count($_POST["mapSets"])>0) ? $_POST["mapSets"] : false){
+            if ($mapSets = (isset($_POST["mapSets"]) && count($_POST["mapSets"]) > 0) ? $_POST["mapSets"] : false) {
                 getMapSets($output["assets"], $map, $mapSets, true, true);
             }
-            if($pointSets = (isset($_POST["pointSets"]) && count($_POST["pointSets"])>0) ? $_POST["pointSets"] : false){
+            if ($pointSets = (isset($_POST["pointSets"]) && count($_POST["pointSets"]) > 0) ? $_POST["pointSets"] : false) {
                 getPointSets($output["assets"], $map, $pointSets, true);
             }
         }
         break;
-    /*   case "GetPointSets": //workbench.showSeriesEditor() only
-           $usageTracking = trackUsage("count_graphsave");
-           $map = $_POST["map"];
-           $output = array("status"=>"ok", "map"=>$map, "pointsets"=>getMarkerSets($map, cleanIdArray($_POST["pointsetids"]), true));
-           break;
-       case "GetSet":  //called only in workbench.showSeriesEditor()
-           $mapsetid = intval($_POST["mapsetid"]);
-           $sqlHeader = "select * from mapsets where mapsetid = ".$mapsetid;
-           $sqlSetSeries = "select g.geoid, g.name as geoname, g.iso3166, concat(if(isnull(s.userid),'S','U'), setid) as handle, setid, s.name, s.units, s.userid, s.units_abbrev, title, data, notes"
-               . " from mapgeographies mg join geographies g on mg.geoid=g.geoid "
-               . " left outer join (select * from series s where mapsetid=".$mapsetid." and pointsetid is null) s on g.geoid=s.geoid "
-               . " where mg.map = ".safeSQLFromPost("map")." order by s.mapsetid desc";
-           $headerResult = runQuery($sqlHeader,"GetSet: header");
-           $setResult = runQuery($sqlSetSeries,"GetSet: series");
-           $output = array("status"=>"ok");
-           try{
-               $output["setData"] = $headerResult->fetch_assoc();
-               $output["setData"]["geographies"] = array();
-               while($row=$setResult->fetch_assoc()){
-                   array_push($output["setData"]["geographies"], $row);
-               }
-           } catch(Exception $e){
-               $output["status"] = "failed to get set for editing";
-           }
-           break;*/
     case "GetAvailableMaps":
         $mapsetid = intval($_POST["mapsetid"]);
         $pointsetid = intval($_POST["pointsetid"]);
-        if(isset($_POST["geoid"])){
+        if (isset($_POST["geoid"])) {
             $geoid = intval($_POST["geoid"]);
         } else {
             $geoid = 0;
@@ -567,19 +536,19 @@ switch($command){
         $sql = "select m.name, jvectormap, geographycount, count(s.geoid) as setcount "
             . " from series s, maps m, mapgeographies mg "
             . " where m.map=mg.map and mg.geoid=s.geoid";
-        if($mapsetid>0) $sql .= " and s.mapsetid=".$mapsetid." and s.pointsetid is null";
-        if($pointsetid>0) $sql .= " and s.pointsetid=".$pointsetid." and s.mapsetid is null";
-        if($geoid>0) $sql .= " and m.map in (select map from mapgeographies where geoid = " . $geoid . ")";
+        if ($mapsetid > 0) $sql .= " and s.mapsetid=" . $mapsetid . " and s.pointsetid is null";
+        if ($pointsetid > 0) $sql .= " and s.pointsetid=" . $pointsetid . " and s.mapsetid is null";
+        if ($geoid > 0) $sql .= " and m.map in (select map from mapgeographies where geoid = " . $geoid . ")";
         $sql .= " group by m.name, geographycount ";
-        if($pointsetid>0&&$geoid>0) {
-            $sql .= " union select m.name, jvectormap, geographycount, count(s.geoid) as setcount  from series s, maps m where bunny=s.geoid and s.pointsetid=".$pointsetid." and s.geoid = ".$geoid;
+        if ($pointsetid > 0 && $geoid > 0) {
+            $sql .= " union select m.name, jvectormap, geographycount, count(s.geoid) as setcount  from series s, maps m where bunny=s.geoid and s.pointsetid=" . $pointsetid . " and s.geoid = " . $geoid;
         } else {
             $sql .= " order by count(s.geoid)/geographycount desc";
         }
-        $output = array("status"=>"ok", "maps"=>array());
-        $result = runQuery($sql,"GetAvailableMaps");
-        while($row = $result->fetch_assoc()){
-            array_push($output["maps"], array("name"=>$row["name"], "file"=>$row["jvectormap"], "count"=>($mapsetid!=0)?$row["setcount"]." of ".$row["geographycount"]:$row["setcount"]." locations"));
+        $output = array("status" => "ok", "maps" => array());
+        $result = runQuery($sql, "GetAvailableMaps");
+        while ($row = $result->fetch_assoc()) {
+            array_push($output["maps"], array("name" => $row["name"], "file" => $row["jvectormap"], "count" => ($mapsetid != 0) ? $row["setcount"] . " of " . $row["geographycount"] : $row["setcount"] . " locations"));
         }
         break;
     case 'GetMapsList':
@@ -593,30 +562,30 @@ switch($command){
             3. insert into mapgeographies (SELECT  geoid, map from geographies g, maps m where g.jvectormap like '__-%' and g.jvectormap not like 'US-%' and m.jvectormap like concat(left(g.jvectormap,2),'__%')  )
         */
         $sql = "select * from maps order by map";
-        $result = runQuery($sql,"GetMapsList");
-        $output = array("status"=>"ok", "maps"=>array());
-        while($row = $result->fetch_assoc()){
+        $result = runQuery($sql, "GetMapsList");
+        $output = array("status" => "ok", "maps" => array());
+        while ($row = $result->fetch_assoc()) {
             $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying bandaid, not a global solution
-            $output["maps"][$row['map']]= $row;
+            $output["maps"][$row['map']] = $row;
         }
         break;
     case "GetMapGeographies":
-        $sql = "select g.geoid, g.name, g.iso3166 from mapgeographies mg, geographies g where g.geoid=mg.geoid and map=".safeSQLFromPost('map')." order by g.name";
-        $result = runQuery($sql,"GetMapGeographies");
-        $output = array("status"=>"ok", "geographies"=>array());
-        while($row = $result->fetch_assoc()){
+        $sql = "select g.geoid, g.name, g.iso3166 from mapgeographies mg, geographies g where g.geoid=mg.geoid and map=" . safeSQLFromPost('map') . " order by g.name";
+        $result = runQuery($sql, "GetMapGeographies");
+        $output = array("status" => "ok", "geographies" => array());
+        while ($row = $result->fetch_assoc()) {
             $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying bandaid, not a global solution
             array_push($output["geographies"], $row);
         }
         break;
     case "GetCubeList":
-        if(!isset($_POST["themeids"]) || !isset($_POST["setids"])){
-            $output = ["status"=>"must provide  valid set and theme id"];
+        if (!isset($_POST["themeids"]) || !isset($_POST["setids"])) {
+            $output = ["status" => "must provide  valid set and theme id"];
             break;
         }
         $setids = implode(",", cleanIdArray($_POST["setids"]));
         $themeids = implode(",", cleanIdArray($_POST["themeids"]));
-        $output = ["status"=>"ok", "cubes"=>[]];
+        $output = ["status" => "ok", "cubes" => []];
         //totset cubes UNION sibling cubes
         $sql = "(select totsetid as setid, 'series breakdown' as relation, t.themeid, t.name as themename, c.cubeid, c.name, c.units
         from cubes c inner join themes t on t.themeid=c.themeid
@@ -633,47 +602,47 @@ switch($command){
         where t.themeid in ($themeids)
         order by themename, c.name, c.units)
         ";
-        $result = runQuery($sql,"GetCubeList root totals");
-        while($row = $result->fetch_assoc()){
-            $output["cubes"][] = ["name"=>$row["name"], "units"=>$row["units"],  "cubeid"=>$row["cubeid"], "type"=>$row["relation"]];  //organize by setid because they will be attached to components and available for graph level op
+        $result = runQuery($sql, "GetCubeList root totals");
+        while ($row = $result->fetch_assoc()) {
+            $output["cubes"][] = ["name" => $row["name"], "units" => $row["units"], "cubeid" => $row["cubeid"], "type" => $row["relation"]];  //organize by setid because they will be attached to components and available for graph level op
         }
         break;
     case "GetCubeSeries":
-        if(!isset($_REQUEST["geokey"]) || !isset($_REQUEST["cubeid"])){
-            $output = ["status"=>"invalid cube id or geography"];
+        if (!isset($_REQUEST["geokey"]) || !isset($_REQUEST["cubeid"])) {
+            $output = ["status" => "invalid cube id or geography"];
         } else {
             $cubeid = intval($_REQUEST["cubeid"]);
             $geokey = $_REQUEST["geokey"];
             $freq = safeSQLFromPost("freq");
             //1. check cache
             $currentmt = microtime(true);
-            $ghash_var = safeStringSQL($cubeid.":".$geokey);
+            $ghash_var = safeStringSQL($cubeid . ":" . $geokey);
             $sql = "select createmtime, coalesce(refreshmtime, createmtime) as lastrefreshtime, graphjson from graphcache where ghash=$ghash_var";
             $result = runQuery($sql);
-            if($result->num_rows==1){
+            if ($result->num_rows == 1) {
                 $row = $result->fetch_assoc();
-                $age = $currentmt-$row['createmtime'];
-                if($age<$cache_TTL*60*1000 && ($row['lastrefreshtime']==null || $currentmt-$row['lastrefreshtime']<60*1000)){ //TTL = 15 minutes, with a 60 second refresh lock
+                $age = $currentmt - $row['createmtime'];
+                if ($age < $cache_TTL * 60 * 1000 && ($row['lastrefreshtime'] == null || $currentmt - $row['lastrefreshtime'] < 60 * 1000)) { //TTL = 15 minutes, with a 60 second refresh lock
                     //cache good! (or another refresh in progress...)
-                    $cube_json = (string) $row["graphjson"];
+                    $cube_json = (string)$row["graphjson"];
                     $output = json_decode($cube_json, true, 512, JSON_HEX_QUOT);
-                    $output["cache_age"] =  $age / 1000 . "s";
+                    $output["cache_age"] = $age / 1000 . "s";
                 } else {
                     //cache needs refreshing (give this thread 10 seconds to create new object and update db below
                     runQuery("update graphcache set refreshmtime = coalesce(refreshmtime, createmtime)+10000 where ghash=$ghash_var");
                 }
             }
-            if(!isset($output)){
+            if (!isset($output)) {
                 //2. fetch if not in cache or needs refreshing
-                $output = ["status"=>"ok", "cubeid"=>$cubeid, "geokey"=>$geokey];
+                $output = ["status" => "ok", "cubeid" => $cubeid, "geokey" => $geokey];
                 //todo:  check for latlon geokey and geoid geokey. For now, aussume jvectormap code
-                if(is_numeric($geokey)){
+                if (is_numeric($geokey)) {
                     $geoid = $geokey;
                 } else {
-                    $sql = "select geoid from geographies where jvectormap=".safeStringSQL($geokey)
-                        ." order by geoid";  //HACK!!! France (76) ahead of metropolitan France (6255)
+                    $sql = "select geoid from geographies where jvectormap=" . safeStringSQL($geokey)
+                        . " order by geoid";  //HACK!!! France (76) ahead of metropolitan France (6255)
                     $result = runQuery($sql);
-                    if($result->num_rows>0){  //FR has two:  return FRA (76) not metropolitan France (6255)
+                    if ($result->num_rows > 0) {  //FR has two:  return FRA (76) not metropolitan France (6255)
                         $row = $result->fetch_assoc();
                         $geoid = $row["geoid"];
                     } else {
@@ -692,7 +661,7 @@ switch($command){
                 $sql_logging = $global_sql_logging;
             }
             //4. log embedded usage
-            if(isset($_REQUEST["host"]) && strpos($_REQUEST["host"],"mashabledata.com")===false){
+            if (isset($_REQUEST["host"]) && strpos($_REQUEST["host"], "mashabledata.com") === false) {
                 $host = safeStringSQL(trim(strtolower($_REQUEST["host"])));
                 $ghash_var = safeSQLFromPost("ghash");
                 $sql = "
@@ -721,51 +690,51 @@ switch($command){
         $fromGeoId = intval($_POST["fromgeoid"]);
         $toGeoId = intval($_POST["togeoid"]);
         $sql = "select g1.regexes as regex, g2.name as replacement from geographies g1, geographies g2 "
-            ." where g1.geoid=$fromGeoId and g2.geoid=$toGeoId";
+            . " where g1.geoid=$fromGeoId and g2.geoid=$toGeoId";
         $result = runQuery($sql, "ChangeMaps: get bunny regex");
         $output = $result->fetch_assoc();
         $output["status"] = "ok";
-        if(isset($_POST["sets"]["series"])){
+        if (isset($_POST["sets"]["series"])) {
             $output["bunnies"] = [];
-            foreach($bunnies as $oldBunnyHandle=>$set){
+            foreach ($bunnies as $oldBunnyHandle => $set) {
                 $setid = intval($set["setid"]);
                 $freq = intval($set["freq"]);
                 $sql = "SELECT sd.*  FROM setdata sd WHERE setid=$setid and freq='$freq' and geoid=$toGeoId and latlon=''";  //todo: add security here and to GetSeries to either be the owner or org or be part of a graph whose owner/org
                 $result = runQuery($sql, "ChangeMaps: get series data");
-                if($result->num_rows==1){
+                if ($result->num_rows == 1) {
                     $output["bunnies"][$oldBunnyHandle] = $result->fetch_assoc();
                 }
             }
         }
         $output["assets"] = [];
-        if(isset($_POST["sets"]["mapSets"])){
-            foreach($_POST["sets"]["mapSets"] as $handle=>$set){
-                getMapSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]], false, true);
+        if (isset($_POST["sets"]["mapSets"])) {
+            foreach ($_POST["sets"]["mapSets"] as $handle => $set) {
+                getMapSets($output["assets"], $_POST["map"], [["setid" => $set["setid"], "freq" => $set["freq"]]], false, true);
             }
         }
-        if(isset($_POST["sets"]["pointSets"])){
-            foreach($_POST["sets"]["pointSets"] as $handle=>$set){
-                getPointSets($output["assets"], $_POST["map"], [["setid"=>$set["setid"], "freq"=>$set["freq"]]]);
+        if (isset($_POST["sets"]["pointSets"])) {
+            foreach ($_POST["sets"]["pointSets"] as $handle => $set) {
+                getPointSets($output["assets"], $_POST["map"], [["setid" => $set["setid"], "freq" => $set["freq"]]]);
             }
         }
         break;
     case 'GetBunnySeries':
         $setids = $_POST["setids"];
         $freq = safeSQLFromPost("freq");
-        if(!isset($_POST["geoid"]) || intval($_POST["geoid"])==0){
+        if (!isset($_POST["geoid"]) || intval($_POST["geoid"]) == 0) {
             $sql = "select bunny from maps where map = " . safeSQLFromPost("map");
-            $result = runQuery($sql,"GetBunnySeries map");
-            if($result->num_rows==1){
+            $result = runQuery($sql, "GetBunnySeries map");
+            if ($result->num_rows == 1) {
                 $row = $result->fetch_assoc();
                 $geoid = $row["bunny"];
             } else {
-                return (array("status"=>"unable to find map"));
+                return (array("status" => "unable to find map"));
             }
         } else {
             $geoid = intval($_POST["geoid"]);
         }
-        $output = array("status"=>"ok", "allfound"=>true, "assets"=>array());
-        for($i=0;$i<count($setids);$i++){
+        $output = array("status" => "ok", "allfound" => true, "assets" => array());
+        for ($i = 0; $i < count($setids); $i++) {
             $sql = "SELECT s.setid, left(s.settype,1) as settype, s.name as setname, g.name as geoname,
                 s.metadata as setmetadata, s.themeid, sd.latlon, sd.geoid,  s.userid,
                 s.titles as categories, s.src, s.url, s.units, sd.data, freq, firstdt100k*100*1000 as firstdt,
@@ -774,24 +743,24 @@ switch($command){
                 s.maps as maps, s.freqs as freqs
                 FROM sets s join setdata sd on s.setid=sd.setid join geographies g on sd.geoid=g.geoid left outer join apis a on s.apiid=a.apiid
                 where sd.geoid = $geoid and sd.latlon ='' and sd.freq = $freq and s.setid = " . intval($setids[$i]);
-            $result = runQuery($sql,"GetBunnySeries");
-            if($result->num_rows==1){
+            $result = runQuery($sql, "GetBunnySeries");
+            if ($result->num_rows == 1) {
                 $row = $result->fetch_assoc();
-                if(intval($row["userid"])>0){
+                if (intval($row["userid"]) > 0) {
                     requiresLogin();
-                    if(intval($_POST["uid"])==$row["userid"] || ($orgId==$row["ordig"] &&  $orgId!=0)){
-                        $output["assets"]["M".$setids[$i]] = $row;
+                    if (intval($_POST["uid"]) == $row["userid"] || ($orgId == $row["ordig"] && $orgId != 0)) {
+                        $output["assets"]["M" . $setids[$i]] = $row;
                     } else {
-                        $output["allfound"]=false;
-                        $output["assets"]=false; //no need to transmit series as it will not be used
+                        $output["allfound"] = false;
+                        $output["assets"] = false; //no need to transmit series as it will not be used
                         break;
                     }
                 } else {
-                    $output["assets"]["M".$setids[$i]] = $row;
+                    $output["assets"]["M" . $setids[$i]] = $row;
                 }
             } else {
-                $output["allfound"]=false;
-                $output["assets"]=false; //no need to transmit series as it will not be used
+                $output["allfound"] = false;
+                $output["assets"] = false; //no need to transmit series as it will not be used
                 break;
             }
         }
@@ -800,50 +769,50 @@ switch($command){
         $sql = "select apiid, name from apis";
         $result = runQuery($sql);
         $apis = array();
-        while($api = $result->fetch_assoc()) array_push($apis, $api);
-        $output =  array("status"=>"ok","sources" => $apis);
+        while ($api = $result->fetch_assoc()) array_push($apis, $api);
+        $output = array("status" => "ok", "sources" => $apis);
         break;
     case "CheckEmailForOrgInv":
         //1. check for existing invitation
         $sql = "select invid from invitations i, organizations o where i.orgid=o.orgid and i.email = " . safeSQLFromPost("email");
         $result = runQuery($sql, "CheckEmailForOrgInv");
-        if($result->num_rows==1){
+        if ($result->num_rows == 1) {
             //1A.  matched to a valid emailed root!
             $row = $result->fetch_assoc();
-            $output =  array("status"=>"ok", "invited"=>true, "orgname"=>$row["orgname"], "date"=>$row["invdate"]);
-            $userid = isset($_POST["uid"])?intval($_POST["uid"]):0;
+            $output = array("status" => "ok", "invited" => true, "orgname" => $row["orgname"], "date" => $row["invdate"]);
+            $userid = isset($_POST["uid"]) ? intval($_POST["uid"]) : 0;
             emailAdminInvite($_POST["email"]);  //invitation record exist.  NOte: first time call to emailAdminInvite needs additional params
             break;
         }
         //2. check for emailroot match to org with autosignup enabled
         $mailParts = explode("@", $_POST["email"]);
-        if(count($mailParts)==2){
+        if (count($mailParts) == 2) {
             $sql = "select o.orgid, orgname, name from organizations o, users u where o.userid=u.userid and joinbyemail='T' and emailroot = " . safeStringSQL($mailParts[1]);
             $result = runQuery($sql, "CheckEmailForOrgInv");
-            if($result->num_rows==1){
+            if ($result->num_rows == 1) {
                 $row = $result->fetch_assoc();
-                $userid = isset($_POST["uid"])?intval($_POST["uid"]):0;
+                $userid = isset($_POST["uid"]) ? intval($_POST["uid"]) : 0;
                 //no longer needed:  emailRootInvite($_POST["email"], $row["orgid"], $row["orgname"], $row["name"], $userid);
                 //note: validationCode was sent as soon as an unknown email address was enter in the subscription form
-                $output =  array("status"=>"ok", "eligible"=>true, "orgname"=>$row["orgname"]);
+                $output = array("status" => "ok", "eligible" => true, "orgname" => $row["orgname"]);
                 break;
             }
         }
         //3. nothing found
-        $output =  array("status"=>"ok", "invited"=>false, "eligible"=>false);
+        $output = array("status" => "ok", "invited" => false, "eligible" => false);
         break;
     case "EmailVerify":
         $validEmailCode = validationCode($_POST["email"]);
-        if($validEmailCode == $_POST["verification"]){
-            $output =  array("status"=>"ok","verfied" => true);
+        if ($validEmailCode == $_POST["verification"]) {
+            $output = array("status" => "ok", "verfied" => true);
         } else {
-            $output =  array("status"=>"ok",
+            $output = array("status" => "ok",
                 "verfied" => false,
-                "sent"=>(mail($_POST["email"],
-                        "email verification code from MashableData",
-                        "To validate this email address, please enter the following code into the MashableData email verification box when requested:\n\n".$validEmailCode,
-                        $MAIL_HEADER
-                    ))
+                "sent" => (mail($_POST["email"],
+                    "email verification code from MashableData",
+                    "To validate this email address, please enter the following code into the MashableData email verification box when requested:\n\n" . $validEmailCode,
+                    $MAIL_HEADER
+                ))
             );
         }
         break;
@@ -851,43 +820,43 @@ switch($command){
         $sql = "SELECT iso3166 AS code, name FROM mapgeographies mg, geographies g WHERE g.geoid = mg.geoid AND mg.map =  'world' ORDER BY name";
         $result = runQuery($sql);
         $countries = array();
-        while($country = $result->fetch_assoc()) array_push($countries, $country);
-        $output =  array("status"=>"ok","countries" => $countries, "years" => array());
+        while ($country = $result->fetch_assoc()) array_push($countries, $country);
+        $output = array("status" => "ok", "countries" => $countries, "years" => array());
         $assoc_date = getdate();
-        for($i=$assoc_date["year"];$i<$assoc_date["year"]+10;$i++){
+        for ($i = $assoc_date["year"]; $i < $assoc_date["year"] + 10; $i++) {
             array_push($output["years"], $i);
         }
         break;
     case "Subscribe":
         $validRegCode = false;
-        $uid=0;
+        $uid = 0;
         $orgId = null;
-        if(isset($_POST["uid"]) && $_POST["uid"]!=null) { //new accounts do not have to be logged in, but if user claims a userid, verify accesstoken
+        if (isset($_POST["uid"]) && $_POST["uid"] != null) { //new accounts do not have to be logged in, but if user claims a userid, verify accesstoken
             requiresLogin();
             $uid = intval($_POST["uid"]);
         }
-        if(isset($_POST["regCode"]) && count($_POST["regCode"])>0){
-            $sql = "select * from invitations where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode");
+        if (isset($_POST["regCode"]) && count($_POST["regCode"]) > 0) {
+            $sql = "select * from invitations where email=" . safeSQLFromPost("email") . " and regcode=" . safeSQLFromPost("regCode");
             $result = runQuery($sql);
-            if($_POST["regCode"] == validationCode($_POST["email"])){
+            if ($_POST["regCode"] == validationCode($_POST["email"])) {
                 $user = $result->fetch_assoc();
-                if($uid>0 && $uid!=$user["userid"]){ //logged account different from invitation account
-                    if($user[""]){
+                if ($uid > 0 && $uid != $user["userid"]) { //logged account different from invitation account
+                    if ($user[""]) {
                     }
                     //delete invitation user and transfer
                 }
                 $validRegCode = true;
                 $orgId = $user["orgid"];
-                $sql = "update users set emailverify = now() where email=".safeSQLFromPost("email")." and regcode=".safeSQLFromPost("regCode") . " and emailverify is null";
+                $sql = "update users set emailverify = now() where email=" . safeSQLFromPost("email") . " and regcode=" . safeSQLFromPost("regCode") . " and emailverify is null";
                 runQuery($sql); //only stamp it verified the first time
             } else {
                 die('{"status":"The registration code is invalid for the primary email address provided."}');
             }
-        } elseif(isset($_POST["uid"]) && intval($_POST["uid"])>0){
-            $sql = "select * from users where email=".safeSQLFromPost("email")." and userid<>".intval($_POST["uid"]);
+        } elseif (isset($_POST["uid"]) && intval($_POST["uid"]) > 0) {
+            $sql = "select * from users where email=" . safeSQLFromPost("email") . " and userid<>" . intval($_POST["uid"]);
             $result = runQuery($sql);
-            if($result->num_rows==1){
-                die('{"status":"An account already exists for '. $_POST["email"] .'.  If this is your account, please sign in to manage it."}');
+            if ($result->num_rows == 1) {
+                die('{"status":"An account already exists for ' . $_POST["email"] . '.  If this is your account, please sign in to manage it."}');
             }
         }
         break;
@@ -915,19 +884,19 @@ switch($command){
 
     case "GetCatChain":  //gets a single chain (even if set is multihomed) with all siblings at each level
         $setid = intval($_POST["setid"]);
-        $geoid = isset($_POST["geoid"])?intval($_POST["geoid"]):0;
+        $geoid = isset($_POST["geoid"]) ? intval($_POST["geoid"]) : 0;
 
         $parentId = false;
-        if($setid>0){ //try to get the starting cat
+        if ($setid > 0) { //try to get the starting cat
             $result = runQuery("select catid, parentid from categorysets cs join catcat cc on cs.catid=cc.childid where setid=$setid and geoid=$geoid");
-            if($result->num_rows>0){
+            if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
                 $catid = $row["catid"];
                 $parentId = $row["parentid"];
             }
         }
 
-        if(!$parentId) {
+        if (!$parentId) {
             $setid = 0;
             $catid = 0;
             $parentId = 1;  //root cat
@@ -935,10 +904,10 @@ switch($command){
 
         $chain = [];
         $maxLevels = 20; //safety counter to avoid infinite loops
-        while($parentId && count($chain)<$maxLevels){
+        while ($parentId && count($chain) < $maxLevels) {
             $children = getCatChildren($parentId);
-            foreach($children as $i =>&$category){
-                if($category["catid"]==$catid){
+            foreach ($children as $i => &$category) {
+                if ($category["catid"] == $catid) {
                     $category["in-path"] = true;
                     break;
                 }
@@ -949,7 +918,7 @@ switch($command){
             ];
             array_unshift($chain, $level);
             $result = runQuery("select parentid from catcat where childid=$parentId");
-            if($result->num_rows>0){
+            if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
                 $catid = $parentId;
                 $parentId = $row["parentid"];
@@ -966,29 +935,29 @@ switch($command){
         break;
     case "GetCatChildren":
         $catid = intval($_POST["catid"]);
-        $output  = [
-            "children"=>  getCatChildren($catid),
+        $output = [
+            "children" => getCatChildren($catid),
             "catid" => $catid,
             "status" => "ok"
         ];
         break;
     case "DeleteMyGraphs":
         requiresLogin();
-        $gids =  $_POST['gids'];
+        $gids = $_POST['gids'];
         $clean_gids = array();
-        foreach($gids as $gid){
+        foreach ($gids as $gid) {
             array_push($clean_gids, intval($gid));
         }
-        if(count($clean_gids)>0){
-            $user_id =  intval($_POST['uid']);
-            $gid_list = implode($clean_gids,",");
+        if (count($clean_gids) > 0) {
+            $user_id = intval($_POST['uid']);
+            $gid_list = implode($clean_gids, ",");
             //multi-table delete
             $sql = "delete g, gp, pc from graphs g, graphplots gp, plotcomponents pc
                 where g.graphid=gp.graphid and g.graphid=pc.graphid
                 and g.userid = $user_id and g.graphid in ( $gid_list )";
             logEvent("DeleteMyGraphs: delete graph and dependencies", $sql);
             runQuery($sql);
-            $output = array("status" => "ok", "gids" => implode($clean_gids,","));
+            $output = array("status" => "ok", "gids" => implode($clean_gids, ","));
         } else {
             $output = array("status" => "fail: no gids to delete");
         }
@@ -998,23 +967,27 @@ switch($command){
         $gid = intval($_POST["gid"]);
         $uid = intval($_POST["uid"]);
         $ghash = setGhash($gid, $uid);
-        $output = array("status" => "ok", "gid" => $gid, "ghash"=> $ghash);
+        $output = array("status" => "ok", "gid" => $gid, "ghash" => $ghash);
         break;
     case "ManageMyGraphs":
         requiresLogin();
         $usageTracking = trackUsage("count_graphsave");
-        if(!$usageTracking["approved"]){
-            $output = array("status"=>$usageTracking["msg"]);
+        if (!$usageTracking["approved"]) {
+            $output = array("status" => $usageTracking["msg"]);
             break;
         }
-        $gid =  (isset($_POST['gid']))?intval($_POST['gid']):0;
-        $user_id =  isset($_POST['uid']) ? intval($_POST['uid']) : 0;
-        if($_POST['published']=='Y'){$published = "Y";} else  {$published = "N";}
-        $intervals = isset($_POST['intervals'])?intval($_POST['intervals']):'null';
-        $from = (isset($_POST['start']) && is_numeric($_POST['start']))?intval($_POST['start']/1000)*1000:'null';
-        $to = (isset($_POST['end']) && is_numeric($_POST['end']))?intval($_POST['end']/1000)*1000:'null';
-        $cubeid = (isset($_POST['cubeid']) && is_numeric($_POST['cubeid']))?intval($_POST['cubeid']):'null';
-        switch($_POST['type']){
+        $gid = (isset($_POST['gid'])) ? intval($_POST['gid']) : 0;
+        $user_id = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
+        if ($_POST['published'] == 'Y') {
+            $published = "Y";
+        } else {
+            $published = "N";
+        }
+        $intervals = isset($_POST['intervals']) ? intval($_POST['intervals']) : 'null';
+        $from = (isset($_POST['start']) && is_numeric($_POST['start'])) ? intval($_POST['start'] / 1000) * 1000 : 'null';
+        $to = (isset($_POST['end']) && is_numeric($_POST['end'])) ? intval($_POST['end'] / 1000) * 1000 : 'null';
+        $cubeid = (isset($_POST['cubeid']) && is_numeric($_POST['cubeid'])) ? intval($_POST['cubeid']) : 'null';
+        switch ($_POST['type']) {
             case "auto":
             case "area":
             case "area-percent":
@@ -1038,7 +1011,7 @@ switch($command){
         $analysis = safeSQLFromPost("analysis");
         $modifieddt = intval($_POST["modifieddt"]);
         //table structure = graphs <-> graphplots <-> plotcomponents
-        if($gid==0){
+        if ($gid == 0) {
             $ghash = makeGhash($user_id);  //ok to use uid instead of gid as ghash is really just a random number
             $sql = "INSERT INTO graphs
               (userid, published, title, text, type, intervalcount, fromdt, todt, annotations, serieslist, map,
@@ -1046,126 +1019,132 @@ switch($command){
             values (
               $user_id, '$published',$title, $analysis, '$type', $intervals, $from, $to, $annotations, $serieslist, $map,
               $mapconfig, $cubeid, 0, $modifieddt, $modifieddt,'$ghash')";
-            if(!runQuery($sql, "ManageMyGraphs: insert graphs record")){$output = array("status" => "fail on graph record insert", "post" => $_POST);break;}
+            if (!runQuery($sql, "ManageMyGraphs: insert graphs record")) {
+                $output = array("status" => "fail on graph record insert", "post" => $_POST);
+                break;
+            }
             $gid = $db->insert_id;
         } else {
             $sql = "UPDATE graphs
             SET userid=$user_id, published='$published ', title=$title, text=$analysis, type='$type', intervalcount=$intervals,
             fromdt=$from, todt=$to, annotations=$annotations, updatedt=$modifieddt, serieslist=$serieslist, map=$map, mapconfig=$mapconfig
             WHERE graphid = " . $gid . " and userid=" . $user_id;
-            if(!runQuery($sql,"ManageMyGraphs: update graphs record")){$output = array("status" => "fail on graph record update");break;}
-            $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id,"ManageMyGraphs: read the ghash when updating");
+            if (!runQuery($sql, "ManageMyGraphs: update graphs record")) {
+                $output = array("status" => "fail on graph record update");
+                break;
+            }
+            $result = runQuery("select ghash from graphs where graphid = " . $gid . " and userid=" . $user_id, "ManageMyGraphs: read the ghash when updating");
             $row = $result->fetch_assoc();
             $ghash = $row["ghash"];
             //clear plots and components for fresh insert (note:  wastful of plotids
             $sql = "delete gp, pc from graphplots gp, plotcomponents pc where gp.graphid=pc.graphid and gp.graphid = " . $gid;
             runQuery($sql);
         }
-        $output = array("status" => "ok", "gid" => $gid, "ghash"=> $ghash);
+        $output = array("status" => "ok", "gid" => $gid, "ghash" => $ghash);
         //insert plot and plot components records
-        if(isset($_POST['allplots'])){  //allplots contains the seriesplots, mapplots and pointplots
+        if (isset($_POST['allplots'])) {  //allplots contains the seriesplots, mapplots and pointplots
             $allPlots = $_POST['allplots'];
-            foreach($allPlots as $plotOrder => $plot){  //plot order is global; does not restart at 0 for each plot type (mapplots/pointplots/seriesplots)
+            foreach ($allPlots as $plotOrder => $plot) {  //plot order is global; does not restart at 0 for each plot type (mapplots/pointplots/seriesplots)
                 $plotType = safeStringSQL($plot["type"]);
                 $plotOptions = safeStringSQL($plot["options"]);
                 $sql = "insert into graphplots (graphid, plotorder, plottype, options)
                     values ($gid, $plotOrder, $plotType, $plotOptions)";
                 runQuery($sql, "ManageMyGraphs: insert graphplots record");
-                foreach($plot["components"] as $compOrder=>$component){
+                foreach ($plot["components"] as $compOrder => $component) {
                     $setid = intval($component["setid"]);
                     $freq = safeStringSQL($component["freq"]);
-                    $geoid = isset($component["geoid"]) && is_numeric($component["geoid"])?intval($component["geoid"]):"NULL";  //must be null if empty
-                    $latlon = isset($component["latlon"])? safeStringSQL($component["latlon"],false): "''";
+                    $geoid = isset($component["geoid"]) && is_numeric($component["geoid"]) ? intval($component["geoid"]) : "NULL";  //must be null if empty
+                    $latlon = isset($component["latlon"]) ? safeStringSQL($component["latlon"], false) : "''";
                     $options = safeStringSQL($component["options"]);
-                    $sql="insert into plotcomponents (graphid, plotorder, comporder, setid, freq, geoid, latlon, options) values "
+                    $sql = "insert into plotcomponents (graphid, plotorder, comporder, setid, freq, geoid, latlon, options) values "
                         . "($gid, $plotOrder, $compOrder, $setid, $freq, $geoid, $latlon, $options)";
-                    runQuery($sql,"ManageMyGraphs: insert plotcomponents record");
+                    runQuery($sql, "ManageMyGraphs: insert plotcomponents record");
                 }
             }
         }
         //clear the cache when a graph is saved (if new or not previously cached, nothing gets deleted)
         $cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
-        $cacheSubPath = substr($ghash,0,2) . "/" . substr($ghash, 2, 2) . "/";
-        shell_exec("rm -f ".$cacheRoot.$cacheSubPath.$ghash."*");
+        $cacheSubPath = substr($ghash, 0, 2) . "/" . substr($ghash, 2, 2) . "/";
+        shell_exec("rm -f " . $cacheRoot . $cacheSubPath . $ghash . "*");
         runQuery("delete from graphcache where ghash='$ghash'");
         break;
     case "ManageMySeries":
         requiresLogin();
-        $user_id =  intval($_POST['uid']);
-        $type=  substr($_POST['handle'],0,1);
-        $id = intval(substr($_POST['handle'],1));
-        $addDt = intval($_POST['jsts']/1000)*1000;
-        $to =  $_POST['to'];
-        if(count($user_id) == 0 || count($id) == 0){
+        $user_id = intval($_POST['uid']);
+        $type = substr($_POST['handle'], 0, 1);
+        $id = intval(substr($_POST['handle'], 1));
+        $addDt = intval($_POST['jsts'] / 1000) * 1000;
+        $to = $_POST['to'];
+        if (count($user_id) == 0 || count($id) == 0) {
             $output = array("status" => "invalid call.  Err 103");
             break;
         }
-        if($type=="S"){    //series
+        if ($type == "S") {    //series
             $sql = "select * from mysets where setid = " . $id . " and userid = " . $user_id;
             $result = runQuery($sql);
             $from = "";
-            if($result->num_rows==1){
+            if ($result->num_rows == 1) {
                 $row = $result->fetch_assoc();
                 $from = $row["saved"];
-                if($from == $to){
+                if ($from == $to) {
                     $output = array("status" => "error: from and to save status are identical");
                     break;
                 }
-                $sql = "update mysets set savedt=". $addDt ." where setid = " . $id . " and userid = " . $user_id;
+                $sql = "update mysets set savedt=" . $addDt . " where setid = " . $id . " and userid = " . $user_id;
                 logEvent("ManageMySeries: add", $sql);
                 runQuery($sql);
             } else {
-                if($to=="H" || $to=="S"){ //if not assigned to "saved" or "history" then command is to delete
+                if ($to == "H" || $to == "S") { //if not assigned to "saved" or "history" then command is to delete
                     $sql = "insert into mysets (userid, setid, savedt) VALUES ($user_id, $id, $addDt)";
                     logEvent("ManageMySeries: add", $sql);
                     runQuery($sql);
                     //TODO:  delete history in excess of 100 series
                 }
             }
-            if($to == 'S'){
+            if ($to == 'S') {
                 $sql = "update series set myseriescount= myseriescount+1 where setid = " . $id;
                 runQuery($sql);
-            }elseif($from == 'S' && $to == 'H'){
+            } elseif ($from == 'S' && $to == 'H') {
                 $sql = "update series set myseriescount= myseriescount-1 where setid = " . $id;
                 runQuery($sql);
             }
-            if($to!="H" && $to!="S"){
+            if ($to != "H" && $to != "S") {
                 $sql = "delete from mysets where setid = " . $id . " and userid = " . $user_id;
                 logEvent("ManageMySeries: delete", $sql);
                 runQuery($sql);
             }
-        } elseif($type=="U"){
-            if($to!="S"){   //can only delete here.  nothing else to manage.
+        } elseif ($type == "U") {
+            if ($to != "S") {   //can only delete here.  nothing else to manage.
                 //TODO: check for graph dependencies and organizational usage
-                $sql = "delete from series where setid=". $id . " and userid=". $user_id;
+                $sql = "delete from series where setid=" . $id . " and userid=" . $user_id;
                 runQuery($sql);
             }
         }
         $output = array("status" => "ok");
         break;
     case "GetUserId":
-        $username =  safePostVar('username');
-        $accesstoken =  safePostVar('accesstoken');
+        $username = safePostVar('username');
+        $accesstoken = safePostVar('accesstoken');
         //$email =  $_REQUEST['email'];
         //$expires =  $_REQUEST['expires'];
         $authmode = safePostVar('authmode');   //currently, FB (Facebook) and MD (MashableData) are supported
         //get account type
-        if(strlen($username)==0){
+        if (strlen($username) == 0) {
             $output = array("status" => "invalid user name");
             break;
         }
-        if($authmode=='FB'){
-            $fb_command = "https://graph.facebook.com/".$username."/permissions?access_token=".(($accesstoken==null)?'null':$accesstoken);
+        if ($authmode == 'FB') {
+            $fb_command = "https://graph.facebook.com/" . $username . "/permissions?access_token=" . (($accesstoken == null) ? 'null' : $accesstoken);
             logEvent("GetUserId: fb call", $fb_command);
             $fbstatus = json_decode(httpGet($fb_command));
-            if(array_key_exists ("data", $fbstatus)){
+            if (array_key_exists("data", $fbstatus)) {
                 $sqlGetUser = "select u.*, o.orgid, orgname from users u left outer join organizations o on u.orgid=o.orgid "
                     . " where u.authmode = " . safeSQLFromPost('authmode')
                     . " and u.username = '" . $db->real_escape_string($username) . "'";
                 $result = runQuery($sqlGetUser, "GetUserId: lookup user");
-                if($result->num_rows==1){
+                if ($result->num_rows == 1) {
                     $row = $result->fetch_assoc();
-                    $sql = "update users set accesstoken = '" . $db->real_escape_string($accesstoken) . "' where userid=" .  $row["userid"];
+                    $sql = "update users set accesstoken = '" . $db->real_escape_string($accesstoken) . "' where userid=" . $row["userid"];
                     runQuery($sql, "GetUserId: update accesstoken");
                 } else {
                     $sql = "INSERT INTO users(username, accesstoken, name, email, authmode, company) VALUES ("
@@ -1180,57 +1159,57 @@ switch($command){
                     $row = $result->fetch_assoc();
                 }
                 $output = array("status" => "ok", "userId" => $row["userid"], "orgId" => $row["orgid"], "orgName" => $row["orgname"],
-                    "subscription"=> $row["subscription"], "subexpires"=> $row["expires"], "company"=> $row["company"],
-                    "ccaddresss"=> $row["ccaddresss"], "cccity"=> $row["cccity"], "ccstateprov"=> $row["ccstateprov"],
-                    "ccpostal"=> $row["ccpostal"], "cccountry"=> $row["cccountry"], "ccnumber"=> substr($row["ccnumber"],-4),
-                    "ccexpiration"=> $row["ccexpiration"],"ccv"=>$row["ccv"],"ccname"=> $row["ccname"],"permission"=> $row["permission"]);
-                setcookie("md_auth",myEncrypt($row["userid"].":".$row["orgid"].":".$row["orgname"].":".$row["permission"].":".$row["subscription"]));
+                    "subscription" => $row["subscription"], "subexpires" => $row["expires"], "company" => $row["company"],
+                    "ccaddresss" => $row["ccaddresss"], "cccity" => $row["cccity"], "ccstateprov" => $row["ccstateprov"],
+                    "ccpostal" => $row["ccpostal"], "cccountry" => $row["cccountry"], "ccnumber" => substr($row["ccnumber"], -4),
+                    "ccexpiration" => $row["ccexpiration"], "ccv" => $row["ccv"], "ccname" => $row["ccname"], "permission" => $row["permission"]);
+                setcookie("md_auth", myEncrypt($row["userid"] . ":" . $row["orgid"] . ":" . $row["orgname"] . ":" . $row["permission"] . ":" . $row["subscription"]));
             } else {
-                $output = array("status" => "error:  Facebook validation failed", "facebook"=> $fbstatus["error"]["message"]);
+                $output = array("status" => "error:  Facebook validation failed", "facebook" => $fbstatus["error"]["message"]);
             }
         }
-        if($authmode=='MD'){
+        if ($authmode == 'MD') {
             //todo: add MD authentication
         }
         break;
     case "UploadMyMashableData":
         global $orgid;
         requiresLogin();
-        $user_id =  intval($_POST['uid']);
+        $user_id = intval($_POST['uid']);
         $series = $_POST['series'];
         $output = array(
             "status" => "ok",
             "handles" => array()
         );
-        for($i=0;$i<count($series);$i++){
+        for ($i = 0; $i < count($series); $i++) {
             //get parameters for this user series
             $local_handle = $series[$i]['handle'];
             $series_name = $series[$i]['name'];
-            $graph_title =  $series[$i]['graph'];
-            $units = isset($series[$i]['units'])?$series[$i]['units']:'';
-            $skey = isset($series[$i]['skey'])?$series[$i]['skey']:'';
+            $graph_title = $series[$i]['graph'];
+            $units = isset($series[$i]['units']) ? $series[$i]['units'] : '';
+            $skey = isset($series[$i]['skey']) ? $series[$i]['skey'] : '';
             $url = $series[$i]['url'];
             $freq = $series[$i]['freq'];
             $capture_dt = $series[$i]['savedt'];
             $data = $series[$i]['data'];
-            $firstdt = intval( $series[$i]['firstdt']);
+            $firstdt = intval($series[$i]['firstdt']);
             $lastdt = intval($series[$i]['lastdt']);
-            if(isset($series[$i]["geoid"])){
+            if (isset($series[$i]["geoid"])) {
                 $geoid = intval($series[$i]["geoid"]);
             } else {
                 $geoid = null;
             }
-            if(isset($series[$i]["mapsetid"])){
+            if (isset($series[$i]["mapsetid"])) {
                 $mapsetid = intval($series[$i]["mapsetid"]);
             } else {
                 $mapsetid = null;
             }
-            if(isset($series[$i]["pointsetid"])){
+            if (isset($series[$i]["pointsetid"])) {
                 $pointsetid = intval($series[$i]["pointsetid"]);
             } else {
                 $pointsetid = null;
             }
-            if(isset($series[$i]["lat"])){
+            if (isset($series[$i]["lat"])) {
                 $lat = intval($series[$i]["lat"]);
                 $lon = intval($series[$i]["lin"]);
             } else {
@@ -1238,167 +1217,111 @@ switch($command){
                 $lon = null;
             }
             //strip out certain acts of the URL
-            $working_url = preg_replace('/http[s]*:\/\//','',$url);
-            $first_slash = strpos($working_url,'/');
+            $working_url = preg_replace('/http[s]*:\/\//', '', $url);
+            $first_slash = strpos($working_url, '/');
             $full_domain = substr($working_url, 0, $first_slash);
             $period = strrpos($full_domain, ".");
-            $l1domain = substr($full_domain, $period+1);
+            $l1domain = substr($full_domain, $period + 1);
             $l2domain = substr($full_domain, 0, $period);
-            $period = strrpos($l2domain,".");
-            if($period){$l2domain = substr($l2domain, $period+1);}
-            $src = isset($series[$i]['src'])?$series[$i]['src']:$l2domain.".".$l1domain;
+            $period = strrpos($l2domain, ".");
+            if ($period) {
+                $l2domain = substr($l2domain, $period + 1);
+            }
+            $src = isset($series[$i]['src']) ? $series[$i]['src'] : $l2domain . "." . $l1domain;
             //see if user has already uploaded this one:
-            $sql = "SELECT setid, data FROM series WHERE name='" . $db->real_escape_string ($series_name) . "' and title = '" . $db->real_escape_string ($graph_title)
-                . "' and url = '" . $db->real_escape_string ($url) . "' and freq = '" . $db->real_escape_string ($freq)
-                . "' and units = '" . $db->real_escape_string ($units) . "' and userid=".$user_id;
+            $sql = "SELECT setid, data FROM series WHERE name='" . $db->real_escape_string($series_name) . "' and title = '" . $db->real_escape_string($graph_title)
+                . "' and url = '" . $db->real_escape_string($url) . "' and freq = '" . $db->real_escape_string($freq)
+                . "' and units = '" . $db->real_escape_string($units) . "' and userid=" . $user_id;
             $result = runQuery($sql, "uploadMashableData: search whether this user series exists");
-            if($result->num_rows!=0){
+            if ($result->num_rows != 0) {
                 $row = $result->fetch_assoc();
                 $setid = $row["setid"];
-                if($data!=$row["data"]){
-                    $sql = "update series set data='".$db->real_escape_string ($data)."', firstdt=".$firstdt.", lastdt=".$lastdt." where setid=".$setid;
+                if ($data != $row["data"]) {
+                    $sql = "update series set data='" . $db->real_escape_string($data) . "', firstdt=" . $firstdt . ", lastdt=" . $lastdt . " where setid=" . $setid;
                     runQuery($sql, $command);
                 }
-                $sql = "update mysets set savedt = ".intval($_POST["savedt"])." where setid=".$setid." and userid=".$user_id;
+                $sql = "update mysets set savedt = " . intval($_POST["savedt"]) . " where setid=" . $setid . " and userid=" . $user_id;
                 runQuery($sql, $command);
             } else {
                 $sql = "insert into series (userid, skey, name, namelen, src, units, units_abbrev, freq, title, url, notes, data, hash, apiid, firstdt, lastdt, geoid, mapsetid, pointsetid, lat, lon) "
-                    . " values (".$user_id.",".safeStringSQL($skey).",".safeStringSQL($series_name).",".strlen($series_name).",".safeStringSQL($src).",".safeStringSQL($units).",".safeStringSQL($units).",".safeStringSQL($freq).",".safeStringSQL($graph_title).",".safeStringSQL($url).",'private user series acquired through via a chart using the MashableData chart plugin',".safeStringSQL($data).",".safeStringSQL(sha1($data)).",null,".$firstdt.",".$lastdt.",".($geoid===null?"null":$geoid).",". ($mapsetid===null?"null":$mapsetid) .",". ($pointsetid===null?"null":$pointsetid).",".($lat===null?"null":safeStringSQL($lat)).",". ($lon===null?"null":safeStringSQL($lon)).")";
+                    . " values (" . $user_id . "," . safeStringSQL($skey) . "," . safeStringSQL($series_name) . "," . strlen($series_name) . "," . safeStringSQL($src) . "," . safeStringSQL($units) . "," . safeStringSQL($units) . "," . safeStringSQL($freq) . "," . safeStringSQL($graph_title) . "," . safeStringSQL($url) . ",'private user series acquired through via a chart using the MashableData chart plugin'," . safeStringSQL($data) . "," . safeStringSQL(sha1($data)) . ",null," . $firstdt . "," . $lastdt . "," . ($geoid === null ? "null" : $geoid) . "," . ($mapsetid === null ? "null" : $mapsetid) . "," . ($pointsetid === null ? "null" : $pointsetid) . "," . ($lat === null ? "null" : safeStringSQL($lat)) . "," . ($lon === null ? "null" : safeStringSQL($lon)) . ")";
                 $queryStatus = runQuery($sql, $command);
-                if($queryStatus!==false){
+                if ($queryStatus !== false) {
                     $setid = $db->insert_id;
-                    $output["handles"][$local_handle] = 'U'.$setid;
-                    runQuery("insert into mysets (setid, userid, savedt) values (".$setid.",".$user_id.",".intval($capture_dt).")", $command);
-                }
-                else {
+                    $output["handles"][$local_handle] = 'U' . $setid;
+                    runQuery("insert into mysets (setid, userid, savedt) values (" . $setid . "," . $user_id . "," . intval($capture_dt) . ")", $command);
+                } else {
                     $output["status"] = "error adding local series";
                     break;
                 }
             }
-            $output['handles'][$local_handle] = 'U'.$setid;
+            $output['handles'][$local_handle] = 'U' . $setid;
         }
         break;
-    case "SaveUserSeries":
-        requiresLogin();  //sets global $orgid
+    case "SaveUserSets":
+        requiresLogin();  //sets global $orgid & $username
         $usageTracking = trackUsage("count_userseries");
-        if(!$usageTracking["approved"]){
-            $output = array("status"=>$usageTracking["msg"]);
+        if (!$usageTracking["approved"]) {
+            $output = array("status" => $usageTracking["msg"]);
             break;
         }
-        $set = $_POST['set'];  //either "U" or a mapset or pointset handle
-        $setid = (strlen($set)>1) ? intval(substr($set,1)) : 0;
-        $user_id =  intval($_POST['uid']);
+        $set = $_REQUEST['set'];  //either "U" or a mapset or pointset handle
+        $setid = (strlen($set) > 1) ? intval(substr($set, 1)) : 0;
+        $user_id = intval($_REQUEST['uid']);
         $setType = substr($set, 0, 1);
-        $arySeries = $_POST['series'];
+        $arySeries =& $_REQUEST['setdata'];
         $output = array(
             "status" => "ok",
-            "series" => array()
         );
-        if($setType=="X"){
-            $pointSet = false;
-            $sql = "select * from pointsets where pointsetid=$setid and userid=$user_id and apiid is null";
-            $result = runQuery($sql);
-            if($result->num_rows==1) {
-                $pointSet = $result->fetch_assoc();
-                if($pointSet["name"]!=$_POST['setname'] || $pointSet["units"]!=$arySeries[0]['units'] || $pointSet["freq"]!=$arySeries[0]['freq']){
-                    $pointSet = false;
-                }
-            }
-            if(!$pointSet){
-                $sql = "insert into pointsets (name, units, freq, userid) "
-                    ." values(".safeSQLFromPost("setname").",".safeSQLFromPost("units").",".safeSQLFromPost("freq").",$user_id)";
+        $sqlName = safeSQLFromPost("setname");
+        $sqlUnits = safeSQLFromPost("units");
+        $sqlFreq = safeSQLFromPost("freq");
+        if(strpos("''A'S'Q'M'W'D'H'T'", $sqlFreq) === false) die('"status":"Invalid set parameters.  Please contact MashableData tech support if you feel this is an error."');
+        if(strpos("SMX", $setType) === false) die('"status":"Invalid set parameters.  Please contact MashableData tech support if you feel this is an error."');
+
+        $sql = "select * from sets where setid=$setid and userid=$user_id and apiid is null";
+        $result = runQuery($sql);
+        if ($result->num_rows == 1) {
+            //update
+            $set = $result->fetch_assoc();
+            if ($set["name"] != $_POST['setname'] || $set["units"] != $set['units'] || $set["freq"] != $set['freq']) {
+                $sql = "update sets set name=$sqlName, units=$sqlUnits, freq=$sqlFreq where setid=$setid";
                 runQuery($sql);
-                $setid = $db->insert_id;
             }
+
+        } else {
+            //insert new
+            $nameLen = strlen($sqlName) - 2;
+            $setTypeField = ($setype=="S" ? "S" : $setype . "S_"); //"S", "MS_" or "XS_"
+            $sql = "insert into sets (name, namelen, settype, freq, units, userid, orgid, src, apidt) values ($sqlName, $nameLen, '$setTypeField', $sqlFreq,  $sqlUnits, $user_id, $orgid, '$saveTs'" . safeStringSQL($username) . ")";
+            runQuery($sql);
+            $setid = $db->insert_id;
         }
-        if($setType=="M"){
-            $mapSet = false;
-            $sql = "select * from mapsets where mapsetid=$setid and userid=$user_id and apiid is null";
-            $result = runQuery($sql);
-            if($result->num_rows==1) {
-                $mapSet = $result->fetch_assoc();
-                if($mapSet["name"]!=$_POST['setname'] || $mapSet["units"]!=$arySeries[0]['units'] || $mapSet["freq"]!=$arySeries[0]['freq']){
-                    $mapSet = false;
-                }
-            }
-            if(!$mapSet){
-                $sql = "insert into mapsets (name, units, freq, userid) "
-                    ." values(".safeSQLFromPost("setname").",".safeSQLFromPost("units").",".safeSQLFromPost("freq").",$user_id)";
-                runQuery($sql);
-                $setid = $db->insert_id;
-            }
+        //delete set data and resave
+        $status = ["updated" => 0, "failed" => 0, "skipped" => 0, "added" => 0];
+        $saveTs = intval($_REQUEST["savedt"] / 1000) * 1000;
+        for ($i = 0; $i < count($arySeries); $i++) {
+            saveSetData($status, $setid, null, null, $freq, $arySeries[$i]["geoid"], $arySeries[$i]["latlon"], $arySeries[$i]["data"], '$saveTs', $arySeries[$i]["notes"]);
+            $usid = $db->insert_id;
         }
-        for($i=0;$i<count($arySeries);$i++){
-            $series_name = $arySeries[$i]['name'];
-            $graph_title =  '';
-            $units = $arySeries[$i]['units'];
-            $skey = '';
-            $url = '';
-            $description = $arySeries[$i]['notes'];
-            $freq = $arySeries[$i]['freq'];
-            $data = isset($arySeries[$i]["data"])?$arySeries[$i]["data"]:"";
-            //$orgid = intval($_POST['orgid']);
-            $usid = isset($arySeries[$i]['handle'])&&substr($arySeries[$i]['handle'],0,1)=="U"?intval(substr($arySeries[$i]['handle'],1)):0;
-            $src =  isset($arySeries[$i]['src'])?$arySeries[$i]['src']:null;
-            if(count($data)==0){ //need to insert records, but we do not have the data > issue data request
-                $output = array("status" => "Error:  no data provided");
-                break;
-            }
-            if($usid>0){
-                $sql = "update series set name=".safeStringSQL(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"")
-                    . ", namelen=". strlen(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"")
-                    . ", units=".safeStringSQL(isset($arySeries[$i]["units"])?$arySeries[$i]["units"]:"")
-                    . ", notes=".safeStringSQL(isset($arySeries[$i]["notes"])?$arySeries[$i]["notes"]:"")
-                    . ", freq=".safeStringSQL(isset($arySeries[$i]["freq"])?$arySeries[$i]["freq"]:"")
-                    . ", data='" . $db->real_escape_string($data) . "'"
-                    . ", hash='" . sha1($data)  . "'"
-                    . ", firstdt=" . intval($arySeries[$i]['firstdt']/1000)*1000
-                    . ", lastdt=" . intval($arySeries[$i]['lastdt']/1000)*1000
-                    . " WHERE userid=".$user_id." and setid=".$usid;
-                runQuery($sql);
-                $sql = "UPDATE mysets SET savedt=".intval($arySeries[$i]["savedt"]/1000)*1000 . " WHERE userid=".$user_id." and setid=".$usid;
-            } else {
-                $sql = "select COALESCE(u.name, u.email, o.orgname) as owner "
-                    . " FROM users u left outer join organizations o on u.orgid=o.orgid "
-                    . " WHERE u.userid=".$user_id;
-                $result = runQuery($sql);
-                $aUser = $result->fetch_assoc();
-                $src = $aUser["owner"];
-                $sql = "insert into series (name, namelen, units, notes, freq, geoid, mapsetid, pointsetid, data, hash, firstdt, lastdt, userid, orgid, src) values ("
-                    . safeStringSQL(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"") . ","
-                    . strlen(isset($arySeries[$i]["name"])?$arySeries[$i]["name"]:"") . ","
-                    . safeSQLFromPost(isset($arySeries[$i]["units"])?$arySeries[$i]["units"]:"") . ","
-                    . safeSQLFromPost(isset($arySeries[$i]["notes"])?$arySeries[$i]["notes"]:"") . ","
-                    . safeSQLFromPost(isset($arySeries[$i]["freq"])?$arySeries[$i]["freq"]:"") . ","
-                    . (isset($arySeries[$i]["geoid"])?$arySeries[$i]["geoid"]:"null") . ","
-                    . ($setType=="M"?$setid:"null") . ","
-                    . ($setType=="P"?$setid:"null") . ","
-                    . "'" . $db->real_escape_string($data) . "',"
-                    . safeStringSQL(sha1($data)) . ","
-                    . intval( $arySeries[$i]['firstdt']/1000)*1000 . ","  //because WAMP's intval is only 32 bit, even on a Windows 8 64bit machine!
-                    . intval($arySeries[$i]['lastdt']/1000)*1000 . ","
-                    . $user_id . ","
-                    . (($orgid==0)?"null":$orgid). ","
-                    . safeStringSQL($src) .")";
-                runQuery($sql, "userseries insert");
-                $usid = $db->insert_id;
-                $sql="insert into mysets (userid, setid, savedt) values (".$user_id.",".$usid.",".intval($arySeries[$i]["savedt"]/1000)*1000 .")";
-                runQuery($sql, "mysets insert for new user series");
-            }
-            array_push($output["series"],
-                array(
-                    "usid" => $usid,
-                    "src"=> $src,
-                    "mapsetid"=>($setType=="M") ? $setid : null,
-                    "pointsetid"=>($setType=="X") ? $setid : null
-                )
-            );
-        }
+        //remove any old setdata that wasn't udated (+ deleted on user's end)
+        $sql = "delete from setdata where setid=$setid and apidt<>'$saveTs'";
+        runQuery($sql);
+
+        $preferredMap = safeSQLFromPost("map");
+        $sql = "insert into mysets (userid, setid, preferredmap, savedt) values ($userid, $setid, $preferredMap, $saveTs) on duplicate key update preferredmap=$preferredMap, savedt=$saveTs";
+        runQuery($sql, "mysets insert/update for user series");
         if($setid>0) {
+            setGhandlesFreqsFirstLast("all", "all", $setid);
+
             if($setType=="M") setMapsetCounts($setid);
             if($setType=="X") setPointsetCounts($setid);
         }
         if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
+        $output["updated"] = $status["updated"];
+        $output["added"] = $status["added"];
+        $output["deleted"] = $deleted;
+        $output["setid"] = $setid;
         break;
     case "GetSeries":  //formerly GetMashableData
         //takes sets and get a series in that set, guessing at geo and latlon as needed (note: workbench should already have guessed at freq

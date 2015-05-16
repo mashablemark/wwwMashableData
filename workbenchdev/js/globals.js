@@ -126,7 +126,6 @@ var MashableData = {
         patVariable: /(\b[A-Z]{1,2}\b)/g,  //used to search and replace formula to use a passed in values object
         //SVGNS: "http://www.w3.org/2000/svg",
         isIE: /msie/i.test(navigator.userAgent) && !window.opera,
-        months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
         mapModes: {
             "heat":  'colored heat map of values',
             "abs-change": 'colored heat map of changes',
@@ -138,6 +137,33 @@ var MashableData = {
             "change-treemap": 'abstract change to rectangles',
             "min": 'color by date of minimum value',
             "max": 'color by date of maximum value'
+        },
+        translations: { //on graph load, a language is assigned to graph.literals from graph.mapConfig.lang (default is 'english')
+            English: {
+                vizMsg: 'click locations to compare',
+                cubeMsg: 'click on map to view',
+                in: ' in ',
+                months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+                src: 'powered by MashableData',
+                data: 'source data',
+                countries: {
+                    //for other languages, hash object of English country name keys (matching JVM names) with local country name values
+                },
+                cor: 'correlation coefficient ',
+                rank: 'Rank',
+                by: ' by '
+            },
+            German: {
+
+            },
+            French: {
+
+            },
+            Spanish: {
+
+            }
+
+
         }
 
     }

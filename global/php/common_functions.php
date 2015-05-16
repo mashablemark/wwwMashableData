@@ -146,14 +146,15 @@ function httpGet($target, $timeout = 15){
 }
 
 $orgid = 0;  //global var
+$username = null;
 function requiresLogin(){
-    global $orgid, $laptop;
+    global $orgid, $username, $laptop;
     $uid = intval($_POST["uid"]);
     if($uid==0){
         closeConnection();
         die('{"status": "This function requires you to be logged in.  Create a free account or user your FaceBook account."}');
     }
-    $sql = "select count(*), orgid from users where userid = " . $uid . ($laptop?'':" and accesstoken=" . safeSQLFromPost("accessToken"))." group by orgid";
+    $sql = "select name, orgid from users where userid = " . $uid . ($laptop?'':" and accesstoken=" . safeSQLFromPost("accessToken"));
     $result = runQuery($sql);
     if($result->num_rows==0){
         closeConnection();
@@ -161,6 +162,7 @@ function requiresLogin(){
     } else {
         $aRow = $result->fetch_assoc();
         $orgid = intval($aRow["orgid"]);  //global var for use elsewhere as needed
+        $username = $aRow["name"];
     }
     //eventually will check for valid userID/accesstoken combo.  If not present, return status with error
 }
@@ -347,7 +349,8 @@ function decryptAcctInfo($encyptedString){
 }
 
 function mdDateFromUnix($iDateUnix, $period){
-    $uDate = new DateTime($iDateUnix);
+    $uDate = new DateTime();
+    $uDate->setTimestamp($iDateUnix);
     $jsMonth = intval($uDate->format("n"))-1;
     switch($period){
         case "A":
@@ -419,14 +422,15 @@ function setCatSet($catid, $setid, $geoid = 0){
     return true;
 }
 
-function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all"){
+function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all", $setid = "all"){
     //will enable searching on newly inserted series by updating sets.freq from its default value on note_searchable
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
     runQuery("truncate temp;","setGhandles");
     $sql = "insert into temp (id1, text1, text2, `int1`, `int2`)
     select sd.setid, group_concat(distinct concat('G_',geoid)), group_concat(distinct concat('F_', sd.freq)), min(sd.firstdt100k), max(sd.lastdt100k)
     from setdata sd ";
-    if($apiid == "all" && $themeid == "all"){
+    if(($apiid == "all" && $themeid == "all") || $setid != "all"){
+        if($setid != "all") $sql .= " where setid = $setid ";
         $sql .=" group by sd.setid;";
     } else {
         $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid ".($themeid == "all"?"":" and s.themeid=$themeid ")." group by s.setid;";

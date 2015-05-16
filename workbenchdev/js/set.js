@@ -202,17 +202,22 @@ MashableData.Component = function(SetParams, componentOptions){
     }
     return clone;  //data may be relational, but options are copies
 };
-    MashableData.Component.prototype.geoScaledData = function(code, utcDateNumber){
+    MashableData.Component.prototype.geoScaledData = function(code, utcStartDateNumber, utcEndDateNumber){
         if(!this.data || !this.data[code]) return null;
         var seriesData = (typeof this.data[code].data == "string") ? this.data[code].data.split('|') : this.data[code].data,
-            point;
+            point,
+            scaledData = [],
+            pointDateNumber;
         if(!Array.isArray(seriesData)) return null;
-        var singleValue = typeof utcDateNumber != 'undefined';
+        var singleValue = typeof utcStartDateNumber != 'undefined' && utcStartDateNumber == utcEndDateNumber;
         for(var i=0;i<seriesData.length;i++){
             point = seriesData[i].split(':');
-            seriesData[i] = [Date.parse(common.dateFromMdDate(point[0] )), point[1]==="null"||point[1]===null ? null : parseFloat(point[1])*this.options.k*(this.options.op=='-'?-1:1)];
-            if(singleValue && seriesData[i][0]==utcDateNumber) return seriesData[i][1];
+            pointDateNumber = Date.parse(common.dateFromMdDate(point[0] ));
+            if(singleValue && pointDateNumber==utcStartDateNumber) return point[1]==="null"||point[1]===null ? null : parseFloat(point[1])*this.options.k*(this.options.op=='-'?-1:1);
+            if((!utcStartDateNumber || utcStartDateNumber<=pointDateNumber) && (!utcEndDateNumber || pointDateNumber<=utcEndDateNumber)){
+                scaledData.push([pointDateNumber, point[1]==="null"||point[1]===null ? null : parseFloat(point[1])*this.options.k*(this.options.op=='-'?-1:1)]);
+            }
         }
-        return singleValue?null:seriesData;
+        return singleValue?null:scaledData;
     };
 })();

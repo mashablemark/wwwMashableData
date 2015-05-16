@@ -381,7 +381,7 @@ MashableData.Plot = function(components, options){
                 comp = this.components[j];
                 if(mapDate){ //bars grouped into one series per geo
                     point = {
-                        y: comp.geoScaledData(geoCode, mapDate),
+                        y: comp.geoScaledData(geoCode, mapDate, mapDate),
                         setname: comp.setname,
                         name: comp.category,
                         freq: comp.freq,
@@ -394,8 +394,13 @@ MashableData.Plot = function(components, options){
                     barSerie.data.push(point);
                 } else { //times series
                     if(comp.data && comp.data[geoCode]){
+                        if(this.calculatedMapData){
+                            data = comp.geoScaledData(geoCode,  this.calculatedMapData.dates[this.calculatedMapData.startDateIndex].dt.getTime(), this.calculatedMapData.dates[this.calculatedMapData.endDateIndex].dt.getTime());
+                        } else {
+                            data = comp.geoScaledData(geoCode);
+                        }
                         timeSerie = {
-                            data: comp.geoScaledData(geoCode,  mapDate),
+                            data: data,
                             geoname: comp.data[geoCode].geoname,
                             seriesname: comp.data[geoCode].seriesname || (comp.setname + ': ' + comp.data[geoCode].geoname),
                             setname: comp.setname,

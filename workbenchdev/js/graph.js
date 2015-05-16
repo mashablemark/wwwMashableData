@@ -20,7 +20,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
     this.end = properties.end || null;
     this.published = properties.published || 'N';
     this.userid = parseInt(properties.userid)||null;
-
+    this.literals = MashableData.globals.translations[this.mapconfig.lang||'English'];
     //inflaters
     if(typeof this.annotations =="string") this.annotations = safeParse(this.annotations, []);
     if(typeof this.mapconfig =="string") this.mapconfig = safeParse(this.mapconfig, {});
@@ -415,6 +415,15 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             default:
                 return false
         }
+    };
+    Graph.prototype.effectiveVizMode = function(){
+        if(this.cubeid) return this.cubeid;
+        if(!this.mapconfig.mapViz) return null;
+        if(this.mapconfig.mapViz.indexOf('components-')===0 && !this.isSummationMap()) {  //components- modes drop back to line mode if not a summation amp
+            if(this.mapconfig.mapViz=='components-bar-bunnies') return 'line-bunnies'; else return 'line';
+        }
+        if(this.mapconfig.mapViz=='scatter' && (!this.mapsets || this.mapsets.length!=2)) return null;
+        return this.mapconfig.mapViz;
     };
     Graph.prototype.isSummationMap = function isSummationMap(){
         if(!this.mapsets) return false;  //todo:  pointsets (only mapsets for now)

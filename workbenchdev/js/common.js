@@ -225,14 +225,14 @@ MashableData.common = {
         var period = MashableData.globals.period;
         //algorithm = [sum|wavg] *required
         //not programmed for require all points|missing/null as zero|impute null/missing
-        if(period.value[fdown]==period.value[asset.period]) return asset.data;
-        if(period.value[fdown]<period.value[asset.period] || (fdown!='A'&&fdown!='Q') || period.value[asset.period]<period.value['M']) throw('unable to change data frequency from '+period.name[asset.period]+' to '+period.name[fdown]);
+        if(period.value[fdown]==period.value[asset.freq]) return asset.data;
+        if(period.value[fdown]<period.value[asset.freq] || (fdown!='A'&&fdown!='Q') || period.value[asset.freq]<period.value['M']) throw('unable to change data frequency from '+period.name[asset.freq]+' to '+period.name[fdown]);
         //real down-shift work begins...
 
         //1.  chunk input into output period sized arrays
         var aData = asset.data.split('|'), newData=[], bin=[],
             lengthInMonths = (fdown=='Q'?3:12),  //can downshift to only annual or quarterly
-            lengthAssetPeriod = asset.period=='M'?1:3, //can downshift from only monthly or quarterly
+            lengthAssetPeriod = asset.freq=='M'?1:3, //can downshift from only monthly or quarterly
             periodsStartDate=false,
             mdDate, point, pointDate;
 

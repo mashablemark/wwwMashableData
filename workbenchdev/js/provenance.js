@@ -1568,11 +1568,11 @@ function ProvenanceController(panelId){
                     $legend.find('.cutoff').change(function(){
                         changing = parseInt($(this).attr('data'));
                         val = $(this).val();
-                        if(isNaN(val)){
+                        if(!isNaN(val)){
                             for(i=0;i<options.discreteColors.length;i++){
-                                if(i<changing) options.discreteColors[i].cutoff = Math.min(options.discreteColors[i].cutoff , val);
-                                if(i==changing) options.discreteColors[i].cutoff = val;
-                                if(i>changing) options.discreteColors[i].cutoff = Math.max(options.discreteColors[i].cutoff , val);
+                                if(i<changing) options.discreteColors[i].cutoff = Math.min(options.discreteColors[i].cutoff , parseFloat(val));
+                                if(i==changing) options.discreteColors[i].cutoff = parseFloat(val);
+                                if(i>changing) options.discreteColors[i].cutoff = Math.max(options.discreteColors[i].cutoff , parseFloat(val));
                             }
                         }
                         makeDirty();

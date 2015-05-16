@@ -1146,14 +1146,14 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
 function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
     var qGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
-    var $mapSelect =  $('#quick-view-maps');
+    var $mapSelect =  $('#quick-view-maps'), $qvChangeFreq = $('#quick-view-change-freq');
     $('#quick-view-geo-select').hide().html('').off().change(function(){
         console.log($(this).val());
     });
     if(obj.plots){ // a graphs object was passed in
         qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
-        var $qvChangeFreq = $('#quick-view-change-freq').hide();
+        $qvChangeFreq.hide();
         if($qvChangeFreq.selectmenu) $qvChangeFreq.selectmenu('destroy');
         $quickViewChangeGeo.hide();
     } else { //obj is either an array of series or a single series
@@ -1167,7 +1167,8 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
             $quickViewChangeGeo.show(); //show the autocomplete fill button
             $('#outer-show-graph-div .ui-autocomplete').remove();
         } else {
-            $('#quick-view-change-freq').hide().selectmenu('destroy');
+            $qvChangeFreq.hide();
+            if($qvChangeFreq.selectmenu) $qvChangeFreq.selectmenu('destroy');
             $quickViewChangeGeo.hide();
         }
 
@@ -1711,7 +1712,8 @@ function editSeries(series){//array of series to edit
     if(series.length==1){  //only can edit a series' set if we are editing a single series
         var serie = series[0];
         //see if user wants to edit the entire set or just this series
-        if(serie.mapsetid||serie.pointsetid){ var html = '<div id="seriesOrSet" style="width:330px;">'
+        if((serie.settype=='M' || serie.settype=='X') && serie.maps){
+            var html = '<div id="seriesOrSet" style="width:330px;">'
             + '<h4>This series is part of a set</h4>'
             + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
             + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
@@ -1727,26 +1729,17 @@ function editSeries(series){//array of series to edit
                 });
             var $panel = $('#seriesOrSet');
             var key, mapOptions='', $select = $panel.find('select').html('').show().click(function(){$panel.find('input:radio').removeAttr('checked').filter('[value="set"]').attr('checked','checked')});
-            if(serie.geocounts){
-                for(key in serie.geocounts){
-                    mapOptions+='<option value="'+key+':'+mapsList[key].jvectormap+'">'+key+' ('+serie.geocounts[key].set+')</option>';
-                }
-                $select.html(mapOptions);
-            } else {
-                callApi({command: "GetAvailableMaps", mapsetid: serie.mapsetid, pointsetid: serie.pointsetid, geoid: serie.geoid}, function(jsoData, textStatus, jqXH){
-                    for(var i=0;i<jsoData.maps.length;i++){
-                        mapOptions+='<option value="'+jsoData.maps[i].name+':'+jsoData.maps[i].file+'">'+jsoData.maps[i].name+' ('+jsoData.maps[i].count+')</option>';
-                    }
-                    $select.html(mapOptions);
-                });
+            for(var mapKey in serie.maps){
+                mapOptions+='<option value="'+mapKey+'">'+ globals.maps[mapKey].name +' ('+serie.maps[mapKey]+' series)</option>';
             }
+            $select.html(mapOptions);
 
             $('#seriesOrSetOk').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
                 if($('input:radio[name=\'editSeriesOrSet\']:checked').val()=='series'){
                     showSeriesEditor(series);
                 } else {
-                    if(serie.pointsetid) showSeriesEditor('X'+serie.pointsetid, $select.val());
-                    if(serie.mapsetid) showSeriesEditor('M'+serie.mapsetid, $select.val());
+                    if(serie.setype=='X') showSeriesEditor(series, $select.val());
+                    if(serie.setype=='M') showSeriesEditor(series, $select.val());
                 }
                 $.fancybox.close();
             });
@@ -1767,10 +1760,13 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
-    var set = 'U';
+    var settype = 'U';
+    var setid = null;
+    map = null;
+    var geoid = null;
     $('#series-tabs').find('li.local-series a').click();
     var requireModules = ["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"];
-    var setid=null, rows = {
+    var rows = {
         U: {name: 0, units: 1, notes: 2, handle:3, header: 4},
         M: {name: 0, units: 1, notes: 2, geoid: 3, handle:4, header: 5},
         X: {name: 0, units: 1, notes: 2, geoid: 3, handle: 4, lat: 5, lon:6, header: 7}
