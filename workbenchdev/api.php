@@ -429,43 +429,29 @@ switch($command) {
             //2. fetch if not in cache or needs refreshing
             $output = getGraphs(0, $ghash);
             //trim data based on graph end, start and interval dates using dataSliver()
-            foreach ($output["graphs"] as $ghandle => $graph) {
-                foreach ($graph["assets"] as $ahandle => $asset) {
-                    unset($output["graphs"][$ghandle]["assets"][$ahandle]["maps"]);
-                    if ($graph["start"] || $graph["end"] || $graph["intervals"]) {
-                        $atype = (substr($ahandle, 0, 1));
-                        switch ($atype) {
-                            case "M":
-                                foreach ($asset["data"] as $geo => $series) {
-                                    $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$geo]["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                    /*                                        $output["freq"]= $asset["freq"];
-                                                                            $output["firstdt"]=$series["firstdt"];
-                                                                            $output["lastdt"]=$series["lastdt"];
-                                                                            $output["start"]=$graph["start"];
-                                                                            $output["end"]=$graph["end"];
-                                                                            $output["intervals"]=$graph["intervals"];
-                                                                            $output["sliver"] = $series["data"];*/
-                                }
-                                break;
-                            case "U":
-                            case "S":
-                                $asset["data"] = dataSliver($asset["data"], $asset["freq"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                break;
-                            case "X":
-                                foreach ($asset["data"] as $latlon => $series) {
-                                    $series["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
-                                }
-                                break;
+            foreach ($output["graphs"] as $ghandle => &$graph) {
+                foreach ($graph["assets"] as $ahandle => &$asset) {
+                    unset($asset["maps"]);
+                    unset($asset["freqs"]);
+                    if($graph["start"] || $graph["end"] || $graph["intervals"]) {
+                        $parts = explode("G", $ahandle);
+                        if(count($parts)==1) {
+                            foreach ($asset["data"] as $key => &$series) {
+                                $output["graphs"][$ghandle]["assets"][$ahandle]["data"][$key]["data"] = dataSliver($series["data"], $asset["freq"], $series["firstdt"], $series["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
+                            }
+                        } else {
+                            $asset["data"] = dataSliver($asset["data"], $asset["freq"], $asset["firstdt"], $asset["lastdt"], $graph["start"], $graph["end"], $graph["intervals"]);
                         }
                     }
                 }
 
-            }
-            //2. check uid...
-            if (isset($_POST["uid"]) && isset($output['userid']) && $output['userid'] == intval(safePostVar("uid"))) {
-                requiresLogin();  //login not required, but if claiming to be the author then verify the token
-            } else {
-                $output['userid'] = null;  //cannot save graph; only save as a copy
+                //2. check uid...
+                if(isset($_POST["uid"]) && isset($graph['userid']) && $graph['userid'] == intval(safePostVar("uid"))) {
+                    requiresLogin();  //login not required, but if claiming to be the author then verify the token
+                } else {
+                    $graph['userid'] = null;  //cannot save graph; only save as a copy
+                    $graph['gid'] = null;
+                }
             }
             //3. create / update cache file
             if (!is_dir($cacheRoot . $cacheSubPath)) {
@@ -504,7 +490,7 @@ switch($command) {
                 $filter = "(s.setid= $serie[setid] and sd.freq=$serie[freq]";
                 if (isset($serie["geoid"])) $filter .= " and sd.geoid=$serie[geoid]";
                 if (isset($serie["latlon"])) $filter .= " and sd.latlon=$serie[latlon]";
-                elseif (!isset($serie["geoid"])) $filter .= " and sd.geoid=0"; //cannot havea  series without a defining geo or latlon
+                elseif (!isset($serie["geoid"])) $filter .= " and sd.geoid=0";  //cannot have a series without a defining geo or latlon
                 $filter .= ")";
                 $filters[] = $filter;
             }
@@ -2016,7 +2002,7 @@ function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=
             //trim left
             $startFound = strpos($data, "|".mdDateFromUnix($start/1000, $period).":");
             if($startFound){
-                $data = substr($data, $startFound+2);
+                $data = substr($data, $startFound+1);
             } else {
                 //TODO: crawl data in cases where start point is missing from sequence
                 $points = explode('|', $data);

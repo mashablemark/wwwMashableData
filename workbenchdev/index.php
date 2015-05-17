@@ -35,7 +35,7 @@
     <script type="text/javascript" src="/global/js/flot/excanvas.min.js"></script>
     <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
     <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script>
-    <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.8.js"></script>
+    <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.10.min.js"></script>
     <script type="text/javascript" src="/global/js/signals/signals.min.js"></script>
     <script type="text/javascript" src="/global/js/hasher/hasher.min.js"></script>
     <?php if(strrpos ($_SERVER["REQUEST_URI"], 'workbenchdev')!==FALSE){ ?>

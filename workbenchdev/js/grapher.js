@@ -1741,8 +1741,8 @@ MashableData.grapher = function(){
                                                 containingDateColor = _getMapDataByContainingDate(calculatedMapData.regionColors, calculatedMapData.dates[val].s);
                                             }
                                             if(containingDateColor && typeof containingDateColor[code] != 'undefined'){
-                                                var effectiveVizMode = oGraph.effectiveVizMode()
-                                                if(!effectiveVizMode && effectiveVizMode.indexOf('line')==-1){  //don't do the sparkline if the mouse over effect is already displaying the time series to the right
+                                                var effectiveVizMode = oGraph.effectiveVizMode();
+                                                if(!effectiveVizMode || effectiveVizMode.indexOf('line')==-1){  //don't do the sparkline if the mouse over effect is already displaying the time series to the right
                                                     for(i=calculatedMapData.startDateIndex;i<=calculatedMapData.endDateIndex;i++){
                                                         if(calculatedMapData.regionData[calculatedMapData.dates[i].s] && typeof calculatedMapData.regionData[calculatedMapData.dates[i].s][code]!='undefined') {
                                                             sparkData.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.regionData[calculatedMapData.dates[i].s][code]]);
@@ -2761,7 +2761,7 @@ MashableData.grapher = function(){
                                 var serie = {
                                     name: this.category,
                                     seriesname: this.name(),
-                                    data: this.geoScaledData(code)
+                                    data: this.geoScaledData(code, oGraph.calculatedMapData.dates[oGraph.calculatedMapData.startDateIndex], oGraph.calculatedMapData.dates[oGraph.calculatedMapData.endDateIndex])
                                 };
                             });
 
@@ -2833,7 +2833,7 @@ MashableData.grapher = function(){
                             };
                             var sDate, regionData = oGraph.calculatedMapData.regionData;
                             var vizChartGeos = getVizChartGeos(selectedRegions, oGraph, mapPlot, oGraph.mapconfig.mapViz=='line-bunnies');
-                            var serie, chartedCodes = [], thisCode;
+                            var serie, chartedCodes = [], thisCode, i, j;
                             for(i=0;i<vizChartGeos.length;i++){
                                 thisCode = vizChartGeos[i].code;
                                 if(chartedCodes.indexOf(thisCode)===-1){
@@ -2844,7 +2844,8 @@ MashableData.grapher = function(){
                                         data: []
                                     };
                                     if(vizChartGeos[i].bunny) serie.dashStyle = 'ShortDash';
-                                    for(sDate in regionData){
+                                    for(j=oGraph.calculatedMapData.startDateIndex;j<=oGraph.calculatedMapData.endDateIndex;j++){
+                                        sDate = oGraph.calculatedMapData.dates[j].s;
                                         if(typeof regionData[sDate][thisCode] != 'undefined')  serie.data.push([dateFromMdDate(sDate).getTime(), regionData[sDate][thisCode]]);
                                     }
                                     serie.data.sort(function(a,b) {return a[0]-b[0]});

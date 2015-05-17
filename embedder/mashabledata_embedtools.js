@@ -119,7 +119,7 @@ window.MashableData.plugin = function(){ //mashableData namespace
     var plugin_obj = {
         version: "0.5", //0.5 is a major upgrade, adding easily embeddable fully function MD visualizations on load
         //0.6
-        isMashableDefault: true, //default site setting.  May my overridden on a per page, per chart or per charted series basis as follows:
+        isMashableDefault: false, //default site setting.  May my overridden on a per page, per chart or per charted series basis as follows:
         //Setting chart.isMashable = false; overrides the defaultMashableDataSharing setting
         //Setting chart.series[x].isMashable = true;  overrides both the chart level and the global MashableDataSharing setting
         iframeLoaded: false,

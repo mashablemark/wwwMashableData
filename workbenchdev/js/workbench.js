@@ -1751,47 +1751,43 @@ function editSeries(series){//array of series to edit
     } else
         showSeriesEditor(series);
 }
-function showSeriesEditor(toEdit, map){ //toEdit is either an array of series object or a Map/Pointset handle
+function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of series object or a Map/Pointset handle
     if(!account.loggedIn()) {
         dialogShow("account required", dialogues.signInRequired);
         return;
     }
-    var $editor;  //set in intialize and used throughout
+    var $editor;  //variable set in intialize() and used throughout
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
     var settype = 'U';
     var setid = null;
-    map = null;
     var geoid = null;
     $('#series-tabs').find('li.local-series a').click();
     var requireModules = ["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"];
     var rows = {
-        U: {name: 0, units: 1, notes: 2, handle:3, header: 4},
-        M: {name: 0, units: 1, notes: 2, geoid: 3, handle:4, header: 5},
-        X: {name: 0, units: 1, notes: 2, geoid: 3, handle: 4, lat: 5, lon:6, header: 7}
+        U: {name: 0, units: 1, notes: 2, setid: 3, header: 4},
+        M: {name: 0, units: 1, notes: 2, geoid: 3, header: 4},
+        X: {name: 0, units: 1, notes: 2, geoid: 3, latlon: 4, header: 5}
     };
-    if(toEdit && !Array.isArray(toEdit)){
-        require(requireModules); //loading the require JS modules during the API call;
-        if(toEdit[0]=='M'){ //MAPSET EDIT
-            set = toEdit;
-            callApi({command: 'GetSet', mapsetid: parseInt(set.substr(1)), map: map.split(':')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
-                require(requireModules,function(){userMapSet(jsoData.setData)});
-            });
-            function userMapSet(setData){
-                //if(!seriesEditorInitialised)
+    if(setsToEdit.length==1 && map){
+        if(setsToEdit[0]=='M'){ //MAPSET EDIT
+            var set = setsToEdit[0];
+            callApi(
+                {command: 'GetSets', map: map, mapSets: [{setid: set.setid, freq: set.freq}], modal: 'persist'},
+                function(jsoData, textStatus, jqXH){
+                    require(requireModules,function(){_userMapSet(jsoData.assets['M'+set.setid+set.freq])});
+                }
+            );
+            require(requireModules); //non-blocking load of the required JS modules during the API call;
+            function _userMapSet(mapSet){
                 initializeSeriesEditor();
-                var seriesData, point, i, j, row, grid = [["map set",setData.name],["units",setData.units],["notes",""],["geoid"],[set],["date"]];  //handle col will hold the set id
-                for(i=0;i<setData.geographies.length;i++){
-                    grid[rows.M.geoid].push(setData.geographies[i].geoid);
+                var seriesData, point, i, j, row, grid = [["set name",mapSet.name],["units",mapSet.units],["notes", mapSet.setmetadata],["geoid"],[setid], ["date"]];  //handle col will hold the set id
+                for(i=0;i<mapSet.data.length;i++){
+                    grid[rows.M.geoid].push(mapSet.data[i].geoid);
                     console.info("trying to set mapset's series handles");
-                    grid[rows.M.handle].push(setData.geographies[i].handle);
-                    grid[rows.M.header].push(setData.geographies[i].geoname);
-                    /*if(i>1){
-                     grid[rows.M.name].push("");
-                     grid[rows.M.units].push("");
-                     grid[rows.M.notes].push("");
-                     }*/
+                    grid[rows.M.handle].push(mapSet.data[i].handle);
+                    grid[rows.M.header].push(mapSet.data[i].geoname);
                     row = rows.M.header+1;  //first data row
                     if(setData.geographies[i].data){
                         seriesData = setData.geographies[i].data.split('|');
@@ -1827,8 +1823,8 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
                 unmask();
             }
         }
-        if(toEdit[0]=='X'){ //MARKER SET EDIT
-            set = toEdit;
+        if(setsToEdit[0]=='X'){ //MARKER SET EDIT
+            set = setsToEdit;
             callApi({command: 'GetPointSets', pointsetids: [parseInt(set.substr(1))], map: map.split(':')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
                 require(requireModules,function(){userMarkerSet(jsoData.pointsets[set])});
             });
@@ -1878,7 +1874,7 @@ function showSeriesEditor(toEdit, map){ //toEdit is either an array of series ob
             }
         }
     } else {
-        require(requireModules, function(){seriesEditor(toEdit)});
+        require(requireModules, function(){seriesEditor(setsToEdit)});
     }
     function initializeSeriesEditor(){
         editorCols = 2;
