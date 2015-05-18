@@ -12,8 +12,9 @@
     <link  rel="stylesheet" href="/global/css/datatables/datatable.css?v=<?=$workbenchVersion?>" />
     <!--link  rel="stylesheet" href="css/ColVis.css" /-->
     <link  rel="stylesheet" href="/global/css/colorPicker.css?v=<?=$workbenchVersion?>" />
-    <link  rel="stylesheet" href="/global/js/handsontable/jquery.handsontable.0.7.5.css" />
-    <link rel="stylesheet" media="screen" href="/global/css/jquery.contextMenu.css?v=<?=$workbenchVersion?>">
+
+    <link  rel="stylesheet" href="/global/js/handsontable/handsontable.0.14.1.full.min.css" />
+    <link rel="stylesheet" media="screen" href="/global/js/contextMenu/jquery.contextMenu.1.6.6.css?v=<?=$workbenchVersion?>">
     <link rel="stylesheet" media="screen" href="/global/css/jquery-jvectormap-2.0.1.css">
     <link rel="stylesheet" href="/global/js/fancybox/jquery.fancybox-1.3.4.css" type="text/css">
     <link  rel="stylesheet" href="workbench.css?v=<?=$workbenchVersion?>" />
@@ -65,8 +66,8 @@
     <script type="text/javascript" src="js/jquery.colorPicker.js"></script>
     <script type="text/javascript" src="/global/js/colour/Colour.js"></script>
     //Group for user series edit
-    <script type="text/javascript" src="js/jquery.handsontable.js"></script>
-    <script  type="text/javascript" src="js/jquery.contextMenu.js"></script>
+    <script type="text/javascript" src="js/jquery.handsontable.0.14.1.full.min.js"></script>
+    >> no longer needed (=included in handsontable) <script  type="text/javascript" src="js/jquery.contextMenu.js"></script>
     <script  type="text/javascript" src="js/jquery-jvectormap-2.0.1.min.js"></script>
     -->
 
@@ -104,7 +105,7 @@
         <!--BEGIN LOCAL SERIES-->
         <div id="local-series" class="picker">
             <div id="edit-user-series">
-                <div id="data-editor" class="hands-on-table dataTable" style="overflow:scroll;"></div>
+                <div id="data-editor" class="hands-on-table dataTable" style="overflow:hidden;"></div>
                 <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel right">cancel</button> <!--button class="series-edit-save-as right" onclick="saveSeriesEditor(true)">save as copy</button--> <button class="series-edit-save right">save</button> <button class="series-edit-preview right">preview</button>
             </div>
             <div id="local-series-header" class="md-DS_title">

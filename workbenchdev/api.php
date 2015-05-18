@@ -551,17 +551,47 @@ switch($command) {
         $result = runQuery($sql, "GetMapsList");
         $output = array("status" => "ok", "maps" => array());
         while ($row = $result->fetch_assoc()) {
-            $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying bandaid, not a global solution
+            $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying band-aid, not a global solution
             $output["maps"][$row['map']] = $row;
         }
         break;
-    case "GetMapGeographies":
-        $sql = "select g.geoid, g.name, g.iso3166 from mapgeographies mg, geographies g where g.geoid=mg.geoid and map=" . safeSQLFromPost('map') . " order by g.name";
+    case "GetMapGeographies":  //used by user sets to get a list of geographies
+        //get map bunny and the map's geographies' containers to allow user to show tracking data in supplementary map vizes
+        //for pointsets, do not return counties or NUTS.  Just states / countries
+        $type = $_REQUEST["settype"];
+        $sqlMap = safeSQLFromPost('map');
+        //bunny
+        // + intermediate containing geos
+
+        // + detailed geogeos (if map or not contained or container not map bunny)
+        //1. map bunny (always get)
+        $sql1 = "select 'bunny' as type, g.geoid, g.name, 'A' as jvorder
+          from geographies g join maps m on g.geoid=m.bunny
+          where map=$sqlMap";
+
+        //2. intermediates (avoid member that have not containing id (e.g. latvia) for mapset as that will be capture by $sql3
+        $sql2 = "select distinct 'region' as type, coalesce(cg.geoid, g.geoid) as geoid, coalesce(cg.name, g.name) as name, coalesce(cg.jvectormap, g.jvectormap) as jvorder
+          from maps m join mapgeographies mg on m.map=mg.map join geographies g on mg.geoid=g.geoid left outer join geographies cg on g.containingid = cg.geoid
+          where m.map=$sqlMap ";
+        if($type == "X")
+            $sql2 .= " order by name ";
+        else
+            $sql2 .= " and g.containingid is not null";
+        $sql = $sql1 . " UNION DISTINCT " . $sql2;
+
+        //3. for mapsets, grab all the mapgeographies
+        if($type == "M") $sql .=
+            " UNION DISTINCT
+                select distinct 'sub' as type, g.geoid, g.name, g.jvectormap as jvorder
+                from mapgeographies mg join geographies g on mg.geoid=g.geoid
+                where mg.map=$sqlMap
+            order by jvorder ";  //used as a ordering code to group countries/states with their sub-admiistrative districts
+
         $result = runQuery($sql, "GetMapGeographies");
-        $output = array("status" => "ok", "geographies" => array());
+        $output = ["status" => "ok", "geographies" => []];
         while ($row = $result->fetch_assoc()) {
-            $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying bandaid, not a global solution
-            array_push($output["geographies"], $row);
+            $row["name"] = utf8_encode($row["name"]);  //this is an unsatisfying band-aid, not a global solution
+            $output["geographies"][] = $row;
         }
         break;
     case "GetCubeList":
@@ -1867,6 +1897,7 @@ function getBunnies(&$data, $setId, $freq, $bunnies){
 }
 
 function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
+    //note: works for us state map, but not us county map.  But that's fine because such a map (of a NUTS map of Europe) with markers would be too crowded and slow
     global $db, $orgid, $command;
     $uid = intval($_POST["uid"]);
     $setFilters = [];
@@ -1882,7 +1913,7 @@ function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = fal
         FROM sets s, setdata sd, sets alias, mapgeographies mg, maps m
         WHERE s.setid=sd.setid and alias.mastersetid =s.setid and alias.latlon=sd.latlon and  ($setFilter)
         and m.map  = $safeMap
-        and mg.geoid=sd.geoid and ((mg.map=$safeMap and mg.map=m.map) or bunny=sd.geoid)";
+        and mg.geoid=sd.geoid and ((mg.map=$safeMap and mg.map=m.map) or m.bunny=sd.geoid)";
     if($mustBeOwnerOrPublic){
         $sql .= " and (s.userid is null or s.userid= $uid or s.orgid=$orgid)"; //assumes requiresLogin already run
     }

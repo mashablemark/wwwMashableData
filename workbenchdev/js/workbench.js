@@ -155,7 +155,7 @@ $(document).ready(function(){
     $(document).mouse({distance: 10});  //prevent jQuery from turning accidental mouse movement during a click into a dray event
     //load all the necessary files that were not loaded at startup for fast initial load speed (not charts and maps loaded from grapher.js)
     requirejs.config({waitSeconds: 15});
-    require(["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"]);
+    require(["/global/js/handsontable/handsontable.0.14.1.full.js","/global/js/contextMenu/jquery.contextMenu.1.6.6.js"]);
 
     addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
 
@@ -685,7 +685,7 @@ function setupMyGraphsTable(){
                     return (obj.plottypes.indexOf('M')!=-1?(obj.mapconfig.mapMode=='bubbles' || obj.mapconfig.mapMode=='change-bubbles' || (obj.mapconfig.indexOf && obj.mapconfig.indexOf('bubble')>0)?iconsHMTL.hasBubbleMap:iconsHMTL.hasHeatMap):'')
                         + (obj.plottypes.indexOf('X')!=-1?iconsHMTL.hasMarkerMap:'')
                         + ((obj.cubeid)?iconsHMTL.hasCubeViz:'')
-                        + spanWithTitle(globals.maps[value].name)
+                        + (globals.maps[value]?spanWithTitle(globals.maps[value].name):'');
                 }
             },
             {"mData":"analysis", "sTitle": "Analysis<span></span>", "bSortable": true, "sClass":"analysis", "sWidth": layoutDimensions.widths.myGraphsTable.columns.analysis+"px", "mRender": function(value, type, obj){return spanWithTitle((value||'').trim())}},
@@ -1763,14 +1763,14 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
     var settype = 'U';
     var setid = null;
     var geoid = null;
+    var bunnyColumns = [];
     $('#series-tabs').find('li.local-series a').click();
-    var requireModules = ["/global/js/handsontable/jquery.handsontable.0.7.5.src.js","/global/js/contextMenu/jquery.contextMenu.1.5.14.src.js"];
     var rows = {
         U: {name: 0, units: 1, notes: 2, setid: 3, header: 4},
         M: {name: 0, units: 1, notes: 2, geoid: 3, header: 4},
         X: {name: 0, units: 1, notes: 2, geoid: 3, latlon: 4, header: 5}
     };
-    if(setsToEdit.length==1 && map){
+    if(setsToEdit && setsToEdit.length==1 && map){
         if(setsToEdit[0]=='M'){ //MAPSET EDIT
             var set = setsToEdit[0];
             callApi(
@@ -1827,6 +1827,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             set = setsToEdit;
             callApi({command: 'GetPointSets', pointsetids: [parseInt(set.substr(1))], map: map.split(':')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
                 require(requireModules,function(){userMarkerSet(jsoData.pointsets[set])});
+                settype = 'X';
             });
             function userMarkerSet(setData){
                 initializeSeriesEditor();
@@ -1874,7 +1875,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             }
         }
     } else {
-        require(requireModules, function(){seriesEditor(setsToEdit)});
+       seriesEditor();
     }
     function initializeSeriesEditor(){
         editorCols = 2;
@@ -1897,6 +1898,9 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
         $panel.find('button.series-edit-save-as').button({icons:{secondary:'ui-icon-copy'}});
         $editor.handsontable({
             minCols: 2,
+            colWidths: function(c){
+                return c==0?85:150;
+            },
             /*        rowHeaders: ["name","units","notes",1,2],
              colHeaders: ["date", "series 1", "series 2"],*/
             minSpareCols: -1,  //this allows the pasted changes to come through
@@ -1906,7 +1910,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             fillHandle: false,
             cells: function (row, col, prop) {
                 var cellProperties = {};
-                if ((row < rows[set[0]].header && col == 0)  || row == rows[set[0]].header) {
+                if ((row < rows[settype].header && col == 0)  || row == rows[settype].header) {
                     cellProperties.readOnly = true; //make cell read-only if it is first row or the text reads 'readOnly'
                 }
                 cellProperties.type = {renderer: handsOnCellRenderer};
@@ -2002,7 +2006,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
     }
 
     function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
-        switch(set[0]){
+        switch(settype){
             case 'U':
                 Handsontable.TextCell.renderer.apply(this, arguments);
                 if(row < rows.U.header && col == 0){
@@ -2010,8 +2014,9 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                     td.style.fontWeight = 'bold';
                 }
                 if(row == rows.U.header){
-                    td.style.background = '#808080';
+                    td.style.background = '#707070';
                     td.style.fontWeight = 'bold';
+                    td.style.color = '#000000';
                 }
                 break;
             case 'M':
@@ -2029,8 +2034,12 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                     }
                 }
                 if(row == rows.M.header){
-                    td.style.background = '#808080';
+                    td.style.background = '#707070';
                     td.style.fontWeight = 'bold';
+                    td.style.color = '#000000';
+                }
+                if(row >= rows.M.header && bunnyColumns.indexOf(col) !== -1){
+                    td.style.background = 'DarkTurquoise';
                 }
         }
     }
@@ -2153,8 +2162,9 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             }
             var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
                 +   '<h4>Create a set of series that can be mapped:</h4>'
-                +   '<label><input name="setsWizardType" type="radio" value="M" checked /> as regions</label><br />'
-                +   '<label><input name="setsWizardType" type="radio" value="X" /> as points (requires latitudes and longitudes)</label><br /><br />'
+                +   '<label><input name="setsWizardType" type="radio" value="X" /> as points (requires latitudes and longitudes)</label><br />'
+                +   '<label><input name="setsWizardType" type="radio" value="M" checked /> as countries or administrative areas</label><br /><br />'
+                +   '<i>For areas, optional regional series allow vizualizations that use regional tracking series.  In the editor, these are shaded turquoise: <span style="background-color:DarkTurquoise;">  </span></i><br /><br />'
                 +   '<select id="setsWizardMap" style="width: 300px;">'
                 +     '<option value="nomap" class="nomap">select map</option>'
                 +     mapsAsOptions
@@ -2183,36 +2193,24 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             });
         }
         function configureUserSet(map, mapName, type){  //type = [X|M] for pointset or mapset
-            set = type;
+            settype = type;
             //1. if mapset: get maps's components from db
             // on callback:  separator (default ':') on top too + columns of: noneditable geoname headers
             // else pointset
             //2. clear and reconfigure grid with map name and editable set name and units name on top
             //2B. for pointsets:  columns of: noneditable geoname headers + editable green shaded cells for lat & lon
             //3. cell A1 = [name|map set| point set] will be
-            if(type=='M') callApi({command: 'GetMapGeographies', map: map}, newUserMapSet);  //mapsets shown on callback
-            else {
-                var data = [["point set"],["units"],["notes"],["geoid"],["handle"],["date"]];
-                for(var i=0;i<jsoData.geographies.length;i++){
-                    data[rows.M.geoid].push(jsoData.geographies[i].geoid);
-                    data[rows.M.name].push(jsoData.geographies[i].name);
-                }
-                $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
-                editorCols = jsoData.geographies.length + 1;
-                $("#data-editor").removeAttr("data").handsontable({
-                    data: data,
-                    minCols: editorCols
-                });
-            }
-
+            callApi({command: 'GetMapGeographies', settype: type, map: map}, _newUserMapSet);  //mapsets shown on callback
         }
-        function newUserMapSet(jsoData, textStatus, jqXH){
+        function _newUserMapSet(jsoData, textStatus, jqXH){
+            bunnyColumns = [];
             var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
             for(var i=0;i<jsoData.geographies.length;i++){
                 data[rows.M.geoid].push(jsoData.geographies[i].geoid);
-                data[rows.M.header].push(jsoData.geographies[i].name);
+                data[rows.M.header].push(decodeURIComponent(escape(jsoData.geographies[i].name)));
+                if(jsoData.geographies[i].type=='bunny' || jsoData.geographies[i].type=='region') bunnyColumns.push(i+1);  //used by renderer to shade columns
             }
-            $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+            //HIDE GEO ROW - TRY TO DO IT THE RIGHT WAY  $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
             editorCols = jsoData.geographies.length + 1;
             $("#data-editor").removeAttr("data").handsontable({
                 data: data,
@@ -2230,7 +2228,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
         var c, r, x, y, udt, hasData;
         for(c=1;c<gridData[0].length;c++){
             hasData = false;
-            for(r=rows[set[0]].header+1;r<gridData.length;r++){ //does this column have any date?
+            for(r=rows[settype].header+1;r<gridData.length;r++){ //does this column have any date?
                 if(gridData[r][c]!==null && nonWhitePattern.test(gridData[r][c])){
                     if(set=='U' && (!nonWhitePattern.test(gridData[rows.U.name][c]) || (gridData[rows.U.name][c]===null) || !nonWhitePattern.test(gridData[rows.U.units][c]) || (gridData[rows.U.units][c]===null))){
                         dialogShow("Invalid Series","Name and units are required fields.");
@@ -2242,7 +2240,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             }
             var headerRow;
             if(hasData) {   //don't try to save empty column
-                switch(set[0]){
+                switch(settype){
                     case 'M':
                         uSerie = {
                             handle: gridData[rows.M.handle][c],  //handles always blank unless editing existing user series

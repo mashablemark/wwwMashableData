@@ -172,17 +172,18 @@ MashableData.grapher = function(){
                             return annotations.endBanding(e);
                         } else {
                             var mnu = {
+                                className: 'annotations-context-menu-title',
                                 items: {
                                     point: {name: "annotate point",
                                         disabled: !onPoint,
                                         callback: function(key, opt){ annotations.addPoint(pointSelected) }
                                     },
                                     "sep0": "---------",
-                                    vline: {name: "add vertical line",
+                                    vline: {name: "add date line",
                                         disabled: !onPoint,
                                         callback: function(key, opt){ annotations.addXLine(pointSelected) }
                                     },
-                                    vband: {name: "start vertical band",
+                                    vband: {name: "start date band",
                                         disabled: !onPoint,
                                         callback: function(key, opt){ annotations.startXBand(pointSelected); }
                                     },
@@ -211,7 +212,7 @@ MashableData.grapher = function(){
                                         }
                                     },
                                     //rolling: {name: "add rolling average", disabled: !onPoint, items: {}},  //add choices depending on freq
-                                    standard: {name: "add standard annotations", items: {}}
+                                    standard: {name: "add standard annotations", className: 'standard-anno-context-menu', items: {}}
                                 }
                             };
                             if(onPoint && pointSelected.series.options.calculatedFrom && pointSelected.series.options.id.substr(0,2)=='LR') {
@@ -233,11 +234,18 @@ MashableData.grapher = function(){
                             y = (isIE ? e.originalEvent.y : e.pageY - top) - chart.plotTop;
                             if(y >= 0 && y <= chart.plotSizeY ) {
                                 for(i=0;i<chart.yAxis.length;i++){
-                                    axisName = chart.yAxis[i].userOptions.title.text;
+                                    axisName = chart.yAxis[i].userOptions.title.text.trim();
                                     axisValue =  parseFloat(parseFloat(chart.yAxis[i].translate(chart.plotHeight-y, true).toPrecision(2))) ;
-                                    mnu.items.hline.items['hltext'+i] = {name: '<b>'+ axisName + ':</b>', type: 'text', value: axisValue};
+                                    if(i!=0) {
+                                        mnu.items.hline.items['yadd'+i+"sep"] = "---------";
+                                        mnu.items.hband.items['yadd'+i+"sep"] = "---------";
+                                    }
+                                    mnu.items.hline.items['hltext'+i] = {
+                                        name: (axisName||'y axis value') + ':',
+                                        type: 'text',
+                                        value: axisValue};
                                     mnu.items.hline.items['hladd'+i] = {
-                                        name: '<button>add</button>',
+                                        name: 'ADD',
                                         callback: function(key, opt){
                                             var value = parseFloat($.contextMenu.getInputValues(opt)['hltext'+key.substr(5)]);
                                             var id = 'hl' + annotations.lineNo++;
@@ -258,9 +266,9 @@ MashableData.grapher = function(){
                                             annotations.build('table-only');
                                         }
                                     };
-                                    mnu.items.hband.items['hbtext'+i] = {name: '<b>'+ axisName + ':</b>', type: 'text', value: axisValue};
+                                    mnu.items.hband.items['hbtext'+i] = {name: (axisName || 'y axis') + ':', type: 'text', value: axisValue};
                                     mnu.items.hband.items['hbadd'+i] = {
-                                        name: '<button>start</button>',
+                                        name: 'START',
                                         callback: function(key, opt){
                                             //START AN HBAND
                                             annotations.bandStartPoint = parseFloat($.contextMenu.getInputValues(opt)['hbtext'+key.substr(5)]);
@@ -273,10 +281,6 @@ MashableData.grapher = function(){
                                             });
                                         }
                                     };
-                                    if(i!=0) {
-                                        mnu.items.hline.items['yadd'+i+"sep"] = "---------";
-                                        mnu.items.hband.items['yadd'+i+"sep"] = "---------";
-                                    }
                                 }
                             } else {
                                 if(!onPoint)
