@@ -99,12 +99,11 @@ account = {
                 '<button class="ok">ok</button> <button class="cancel">cancel</button>' +
                 '</div>',
         signIn:
-            '<div id="signin-md">Email:<br><input id="signin-email"><br>Password:<br><input id="signin-pwd"><br><button id="signin-signin">Sign in</button> <input id="signin-stay" type="checkbox" /> stay signed in<br><br>New to MashableData? Create an <a id="create-account" href="javascript:void(0)">account</a></div> ' +
-                '<div id="signin-or">~ OR ~</div>' +
-                '<div id="signin-fb"> <fb:login-button></fb:login-button><br /><br />Use your FaceBook account to log in.<br /><br />(No spam or posting without your consent.  We promise and Facebook enforces our promise.)</div>' +
-                '<div style="text-align: center;"><a id="license-link" href="license.html">MashableData Workbench Term of Service</a></div>',
+                '<div id="signin-fb"><p>You don&apos;t want to give out your email and password and we don&apos;t want the reponsibility of protecting them.</p><p>Great!  Let&apos;s have FaceBook take care of that:</p>' +
+                ' <fb:login-button></fb:login-button><br /><br />' +
+                '<div style="text-align: center;"><a id="license-link" href="license.html">MashableData Workbench Term of Service</a></div></div>',
         signedIn:
-            '<div id="signedin-md"><button id="signedin-signout">Sign out</button><br><br><a id="signedin-subscribe" href="javascript:void(0);">Account &amp; Subscription</a><span id="signedin-admin" style="display:none;"><br><br><a href="admin_users.php" target="_blank">User Management & Billing</a> (Administrator only)</span></div>',
+            '<div id="signedin-md"><button id="signedin-signout">Sign out</button><br>', //<br><a id="signedin-subscribe" href="javascript:void(0);">Account &amp; Subscription</a><span id="signedin-admin" style="display:none;"><br><br><a href="admin_users.php" target="_blank">User Management & Billing</a> (Administrator only)</span></div>',
         verify: '<div id="verify-email">The following email needs verification.  Please enter the verification code emailed to the following email account:  <span class="email"></span><br />' +
             '<br /><input class="email" type="test" /> <br /><button class="verify">Verify</button> <button class="cancel">Cancel</button> <button class="cancel">Send New Verifcation Code</button></div>'
     },

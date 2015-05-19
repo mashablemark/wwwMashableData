@@ -104,7 +104,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     //2. loop through codes
     foreach($themeConfig["codes"] as $code){
         //2a. get the code leaf in TOC
-        $leaves = $xmlTOC->xpath("//leaf[code='$code']"); //$leaves (not just $firstLeaf will be used to set categories 
+        $leaves = $xmlTOC->xpath("//leaf[code='$code']"); //$leaves (not just $firstLeaf will be used to set categories
         if(count($leaves)===0){
             logEvent("EuroStat ingest error", "TOC leaf for $code not found");
             return false;
@@ -241,16 +241,17 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                     if($geoIndex!==false) array_splice($setCodes, $geoIndex<$timeIndex?$geoIndex:$geoIndex-1, 1);
                     //facets are the english language equivalents, and exclude units (since units has its own special field and display)
                     $setFacets = [];
-                    $unit = $fixedUnits; //default.  Chenaged in loop if using a units code list
+                    $unit = $fixedUnits; //default.  Changed in loop if using a units code list
                     $geoId = 0;
+                    $subCatDims = []; //used to decide if the set should be in the root of in a subcat (eg. "by age, sex")
                     foreach($tsvDims as $index=>$tsvDim){
                         if($index!==$timeIndex){ //skip TIME dim
                             if($index===$geoIndex){
-                                $iso2 = trim($pointCodes[$index]);  //Eurostats uses 2 letter iso codes for countries
+                                $iso2 = trim($pointCodes[$index]);  //Eurostats uses 2 letter iso codes for countries (beware of englishmen and greeks!)
                                 $geo = iso2Lookup($iso2);
                                 if($geo){
                                     $geoName = $geo["name"];
-                                    $geoId = $geo["geoid"]; //either int or "null" (string)
+                                    $geoId = $geo["geoid"]; //either integer or "null" (string)
                                 } else {
                                     $geoName = $dsdCodeLists["GEO"]["allCodes"][$iso2];
                                     $geoId = 0;
@@ -264,8 +265,9 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                                 $unit = $dsdCodeLists[$tsvDims[$index]]["allCodes"][$pointCodes[$index]];
                             } else {
                                 //set's name excludes GEO and units (series name = set name with geoname appended)
+                                if($dsdCodeLists[$tsvDim]["rootcode"]!==null && $dsdCodeLists[$tsvDim]["rootcode"]!=[$pointCodes[$index]]) $subCatDims[] = $dsdCodeLists[$tsvDim]["name"];
                                 $facet = $dsdCodeLists[$tsvDim]["allCodes"][$pointCodes[$index]];
-                                if($facet!="") array_push($setFacets, $facet);
+                                if($facet!="") $setFacets[] = $facet;
                             }
                             //note:  set name excludes units and geo
                             //if($geoIndex!==false) array_push($seriesFacets, geoLookup($pointCodes[$geoIndex]));
@@ -278,6 +280,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                             "name" =>  $themeName.": ".implode("; ", $setFacets). ($geoId!=0 ? "" : " - ".$geoName),
                             "units" => $unit,
                             "freqs" => [],
+                            "subCatDims" => $subCatDims,
                             "masterkey" => ($geoId==0 && $geoIndex!==false)? $themeConfig["tKey"] . ":" . implode(",", $setCodes) : null
                         ];
                     }
@@ -414,8 +417,18 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
     //6.save category tree and categorysets
     $catIds = getCatidsFromEsCodes($themeConfig["codes"], $api_row);
     foreach($themeConfig["sets"] as $setKey => &$set){
-        foreach($catIds as $catId){
-            if(isset($set["setid"])) setCatSet($catId, $set["setid"]); //don't try to add excluded slavesets
+        if(count($set["subCatDims"])==0){
+            foreach($catIds as $catId){
+                if(isset($set["setid"])) setCatSet($catId, $set["setid"]); //don't try to add excluded slavesets
+            }
+        } else {
+            $subCats = [];
+            foreach($catIds as $catId){
+                $subCats[] = fetchCat($api_row, null, "by ".implode(", ", $set["subCatDims"]), $catId);
+            }
+            foreach($subCats as $subCatId){
+                if(isset($set["setid"])) setCatSet($subCatId, $set["setid"]); //don't try to add excluded slavesets
+            }
         }
     }
     setMapsetCounts("all", $apiid, $themeConfig["theme"]["themeid"]);
@@ -424,7 +437,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
 }
 
 function ApiRunFinished($api_run){
-    setMapsetCounts("all", $api_run["apiid"]);
+    //setMapsetCounts and setGhandlesFreqsFirstLast are run after each theme is ingested
+    //setMapsetCounts("all", $api_run["apiid"]);
     //freqSets($api_run["apiid"]);
 }
 
@@ -496,11 +510,11 @@ function mergeConfig(&$themeConfig, &$dimensions){ // merges configuration in DS
             $dimensions[$cl_name] = array_merge($dimensions[$cl_name], $cl_config["CL_".$cl_name]);
         }
         if(isset($dimensions[$cl_name]["renames"])) $dimensions[$cl_name]["allCodes"] = array_merge($dimensions[$cl_name]["allCodes"], $dimensions[$cl_name]["renames"]);
-/* "rootCode" vs. "hierarchy"?  Either are valid ways to describe codeList structure in the config file
-    >> "rootCode" is simpler, required a single code value.  May be used in combination with a ex(clude) array for excluding
-    >> "hierarchy" allow more complex description and is definitive (excludes are ignored)
+        /* "rootCode" vs. "hierarchy"?  Either are valid ways to describe codeList structure in the config file
+            >> "rootCode" is simpler, required a single code value.  May be used in combination with a ex(clude) array for excluding
+            >> "hierarchy" allow more complex description and is definitive (excludes are ignored)
 
-*/
+        */
         //check for rootCode if not already defined in (1) hierarchy or (2) as TOTAL code
         if(!isset($dimensions[$cl_name]["rootCode"])){
             if(isset($dimensions[$cl_name]["hierarchy"]) && count($dimensions[$cl_name]["hierarchy"])==1){
@@ -687,7 +701,7 @@ function addCubesOverLeftOuts(&$themeConfig, &$dimensions, $qualifiers, $cubedBy
         }
     }
 
-    //all left out dimensions are filled in (through the magic of recursion!) if executing this code (i.e. did not execute a return above) 
+    //all left out dimensions are filled in (through the magic of recursion!) if executing this code (i.e. did not execute a return above)
 
     //finally:  add a single cube! (note:  dimensions already added in addCubeSet)
     $units = false;
@@ -857,11 +871,11 @@ function getEsCatId($node, $api_row){ //recursivly drills down to an existing an
     $parentNodes =  $node->xpath("../..");
     if(count($parentNodes)!==1) throw new Exception("XML node does not have one and only one parent node");
     $parentNode = $parentNodes[0];
-/*
-    $parentCodeNodes = $parentNode->xpath("code");
-    if(count($parentCodeNodes)!==1) throw new Exception("unable to find code of parent node");
-    $parentCode = (string) $parentCodeNodes[0];
-*/
+    /*
+        $parentCodeNodes = $parentNode->xpath("code");
+        if(count($parentCodeNodes)!==1) throw new Exception("unable to find code of parent node");
+        $parentCode = (string) $parentCodeNodes[0];
+    */
 
     $parentCatid = getEsCatId($parentNode, $api_row);
     if($parentCatid){

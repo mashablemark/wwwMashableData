@@ -570,7 +570,7 @@ switch($command) {
           where map=$sqlMap";
 
         //2. intermediates (avoid member that have not containing id (e.g. latvia) for mapset as that will be capture by $sql3
-        $sql2 = "select distinct 'region' as type, coalesce(cg.geoid, g.geoid) as geoid, coalesce(cg.name, g.name) as name, coalesce(cg.jvectormap, g.jvectormap) as jvorder
+        $sql2 = "select distinct 'region' as type, coalesce(cg.geoid, g.geoid) as geoid, coalesce(cg.name, g.name) as name, coalesce(cg.jvsort, cg.jvectormap, g.jvsort, g.jvectormap) as jvorder
           from maps m join mapgeographies mg on m.map=mg.map join geographies g on mg.geoid=g.geoid left outer join geographies cg on g.containingid = cg.geoid
           where m.map=$sqlMap ";
         if($type == "X")
@@ -582,7 +582,7 @@ switch($command) {
         //3. for mapsets, grab all the mapgeographies
         if($type == "M") $sql .=
             " UNION DISTINCT
-                select distinct 'sub' as type, g.geoid, g.name, g.jvectormap as jvorder
+                select distinct 'sub' as type, g.geoid, g.name, coalesce(g.jvsort, g.jvectormap) as jvorder
                 from mapgeographies mg join geographies g on mg.geoid=g.geoid
                 where mg.map=$sqlMap
             order by jvorder ";  //used as a ordering code to group countries/states with their sub-admiistrative districts
