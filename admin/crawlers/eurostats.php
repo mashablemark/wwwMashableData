@@ -1,5 +1,6 @@
 <?php
-
+// EUROSTATS (apiid=9) INGESTOR
+//example URL for 1 code : http://www.mashabledata.com/admin/crawlers/?apiid=9&uid=1&command=Update&code=cens_01rapop&name=EuroStats
 $fetchNew = false; //TODO: true for production : if local file exists, do not fetch latest from Eurostat again
 $dataFolder = "bulkfiles/eurostat/";
 $dsdFolder = "bulkfiles/eurostat/dsd/";
@@ -173,7 +174,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         //set tsv dimensions and index variables
         $topDim = $sideAndTop[1]; //mostly "TIME" and "GEO", but could be any list
         $sideDims = explode(",", $sideAndTop[0]);
-        $tsvDims = $sideDims; array_push($tsvDims, $topDim);
+        $tsvDims = $sideDims;
+        $tsvDims[] = $topDim;
         $themeConfig["tsvDims"] = $tsvDims;
         if(!in_array("TIME", $tsvDims)){
             printNow("$code does not have a time dimension");
@@ -265,7 +267,8 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                                 $unit = $dsdCodeLists[$tsvDims[$index]]["allCodes"][$pointCodes[$index]];
                             } else {
                                 //set's name excludes GEO and units (series name = set name with geoname appended)
-                                if($dsdCodeLists[$tsvDim]["rootcode"]!==null && $dsdCodeLists[$tsvDim]["rootcode"]!=[$pointCodes[$index]]) $subCatDims[] = $dsdCodeLists[$tsvDim]["name"];
+                                if($dsdCodeLists[$tsvDim]["rootCode"]!==null && $dsdCodeLists[$tsvDim]["rootCode"]!=$pointCodes[$index]) $subCatDims[] = $dsdCodeLists[$tsvDim]["name"];
+                                //print($tsvDim.": ".$dsdCodeLists[$tsvDim]["rootCode"]." ? " .$pointCodes[$index]."<BR>");
                                 $facet = $dsdCodeLists[$tsvDim]["allCodes"][$pointCodes[$index]];
                                 if($facet!="") $setFacets[] = $facet;
                             }
@@ -347,22 +350,6 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         }
     }
 
-    //finished saving sets and setdata
-    //preprint($themeConfig);
-    //4.  make the cubes and cube-components
-    /* $themeConfig structure:
-            unitIndex
-            timeIndex
-            geoIndex
-            cubes: ckey => {cubeid, name, components: {}}
-            cubable: T/F
-            candidates: {barOnly:[], barStack:[]}
-            mapping
-            unitIndex int
-            sexTotal: T/F
-            sexMF: T/F
-            tsvDims: []
-    */
     //ADD CUBES (im memory)
     if($themeConfig["cubable"]){  //set in master $config or calculated in mergeConfig()
 
@@ -395,17 +382,6 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
                 }
             }
         }
-
-        /*foreach(){ //no bar; stack only
-            for($b=0;$b<count($themeConfig["candidates"]["barStack"]);$b++){
-                addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$b]);  //1D cube
-                for($s=$b+1;$s<count($themeConfig["candidates"]["barStack"]);$s++){
-                    $switch = widest($themeConfig["candidates"]["barStack"][$s])>widest($themeConfig["candidates"]["barStack"][$b]);
-                    addCubes($themeConfig, $dsdCodeLists, $themeConfig["candidates"]["barStack"][$switch?$s:$b], $themeConfig["candidates"]["barStack"][$switch?$s:$b]); //2D cube
-                }
-            }
-        }*/
-
     }
     //note: when a theme has multiple codes, each of the TSVs must have the same dimensions
     //combining codes is used when Eurostats splits the NUTS levels or male, female, and totals across several codes
@@ -424,7 +400,7 @@ function ApiBatchUpdate($since, $periodicity, $api_row, $themeCodes = false){
         } else {
             $subCats = [];
             foreach($catIds as $catId){
-                $subCats[] = fetchCat($api_row, null, "by ".implode(", ", $set["subCatDims"]), $catId);
+                $subCats[] = fetchCat($api_row, $catId.implode(",", $set["subCatDims"]), "by ".implode(", ", $set["subCatDims"]), $catId);
             }
             foreach($subCats as $subCatId){
                 if(isset($set["setid"])) setCatSet($subCatId, $set["setid"]); //don't try to add excluded slavesets
