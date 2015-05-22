@@ -1585,7 +1585,7 @@ function ProvenanceController(panelId){
 
                     for(key1 in data){
                         for(key2 in data[key1]){
-                            if(data[key1][key2]!=null) nums.push(data[key1][key2]);
+                            if(data[key1][key2]!=null) nums.push(type=='X'?data[key1][key2].f||data[key1][key2].r:data[key1][key2]);
                         }
                     }
                     nums.sort(function(a,b){return(a-b)});

@@ -451,6 +451,7 @@ MashableData.grapher = function(){
         },
         makeChartOptionsObject: function makeChartOptionsObject(oGraph){
             console.time('makeChartOptionsObject');
+            calcGraphMinMaxZoomPeriod(oGraph);
             var i, j, dt, allX = {}, xVals = {};
             var	jschart = {
                 chart:
@@ -509,6 +510,7 @@ MashableData.grapher = function(){
                     type: 'datetime',
                     min: (oGraph.start===null)?(oGraph.intervals?intervalStartDt(oGraph):null):parseInt(oGraph.start),
                     max: (oGraph.end===null)?null:parseInt(oGraph.end)
+
                     //maxZoom: 10 * 365 * 24 * 3600 * 1000
                 },
                 yAxis: [],
@@ -1492,7 +1494,7 @@ MashableData.grapher = function(){
                         });
                 }
                 console.timeEnd('buildGraphPanel:thisPanel events');
-                calcGraphMinMaxZoomPeriod(oGraph);
+                //calcGraphMinMaxZoomPeriod(oGraph); << inside of makeChartOptionsObject
                 panelGraphs[panelId] = oGraph;  //panelGraphs will be synced to oMyGraphs on save
                 if(!isEmbedded){
                     console.time('buildGraphPanel:provController');
@@ -2116,6 +2118,7 @@ MashableData.grapher = function(){
                             $thisPanel.find('h3.mashabledata_map-title')
                                 .show()
                                 .html(oGraph.title)
+                                .off()
                                 .click(function(){
                                     if(!isEmbedded) graphTitle.show(this);
                             });  //initialize here rather than set slider value which would trigger a map _redraw
@@ -2247,7 +2250,7 @@ MashableData.grapher = function(){
                         for(i=0;i<calculatedMapData.dates.length;i++){
                             //show sparkline of radius data if exists; else fill data
                             if(typeof calculatedMapData.markerData[calculatedMapData.dates[i].s]!='undefined') {
-                                markerSparkData.data.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f]);
+                                markerSparkData.data.push([calculatedMapData.dates[i].dt.getTime(), calculatedMapData.markerData[calculatedMapData.dates[i].s][code].f||calculatedMapData.markerData[calculatedMapData.dates[i].s][code].r]);  //when markers have been fill and radius scale, fill usually has more variance (e.g r=population and f=unemployment)
                                 if(i==val) markerSparkData.currentIndex = markerSparkData.data.length-1;
                             }
                         }
@@ -3223,7 +3226,6 @@ MashableData.grapher = function(){
                         destroyChartMap(panelId); //destroy the Highchart, the map and the context Menu if they exist.
                         sizeShowPanels(oGraph);
                         if(oGraph.plots){
-                            calcGraphMinMaxZoomPeriod(oGraph);
                             chart = chartPanel(panelId); //creates and return an instantiated Highchart chart
                             annotations.build();  //build and shows the annotations table
                         }
@@ -3846,7 +3848,7 @@ MashableData.grapher = function(){
                                                 markerAttr.fill[dateKey][markerId] = _calcAttributes_colorInRange(fillData, fillData<0?markerFillMin:(spans?0:markerFillMin), fillData>0?markerFillMax:(spans?0:markerFillMax), fillData<0?rgb.neg:rgb.mid, fillData<0?rgb.mid :rgb.pos);
                                             }
                                         } else {//DISCRETE = cutoffs are hard coded (not relative to min or max data)
-                                            for(j=0;j<graph.mapconfig.discreteColors;j++){
+                                            for(j=0;j<graph.mapconfig.discreteColors.length;j++){
                                                 if((j==0 && parseFloat(graph.mapconfig.discreteColors[j].cutoff)<=fillData) || (j!=0 && parseFloat(graph.mapconfig.discreteColors[j].cutoff)<fillData)){
                                                     markerAttr.fill[dateKey][markerId] = graph.mapconfig.discreteColors[j].color;
                                                 } else break;
