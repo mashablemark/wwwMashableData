@@ -8,7 +8,7 @@
     <title>MashableData Workbench</title>
 
     <!--CSS files-->
-    <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.9.2.custom.css?v=<?=$workbenchVersion?>" />
+    <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.11.css?v=<?=$workbenchVersion?>" />
     <link  rel="stylesheet" href="/global/css/datatables/datatable.css?v=<?=$workbenchVersion?>" />
     <!--link  rel="stylesheet" href="css/ColVis.css" /-->
     <link  rel="stylesheet" href="/global/css/colorPicker.css?v=<?=$workbenchVersion?>" />
@@ -26,7 +26,7 @@
     <?php } else { ?>
         <!--Google API JavaScript files-->
         <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
     <?php }  ?>
     <!-- testing IE compatibility-->
     <!--script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery-ajaxtransport-xdomainrequest/1.0.1/jquery.xdomainrequest.min.js"></script--->
@@ -206,7 +206,7 @@
         <div id="highcharts-div" style="width:92%;height:60%;position:static;"></div>
         <br />
         <span class="right">
-            <select id="quick-view-change-freq" class="ui-widget ui-state-default" style="margin-bottom: 5px;width: 233px;padding: 3px;"></select><br>
+            <select id="quick-view-change-freq" class="ui-widget ui-state-default" style="font-size: 10px; margin-bottom: 5px;margin-right: 100px; width: 133px;padding: 3px;"></select><br>
             <button id="quick-view-change-geo">change geography</button>
             <div class="widget" style="margin-right: 33px">
                 <select id="quick-view-geo-select"></select>

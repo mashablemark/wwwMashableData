@@ -1146,10 +1146,8 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
 function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
     var qGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
-    var $mapSelect =  $('#quick-view-maps'), $qvChangeFreq = $('#quick-view-change-freq');
-    $('#quick-view-geo-select').hide().html('').off().change(function(){
-        console.log($(this).val());
-    });
+    var $mapSelect =  $('#quick-view-maps'), $qvChangeFreq = $('#quick-view-change-freq'), $qvSelectGeo = $('#quick-view-geo-select').hide();
+    if($qvSelectGeo.get(0).options.length) $qvSelectGeo.combobox('destroy'); //   off().closest('div.widget').find('.custom-combobox').remove();
     if(obj.plots){ // a graphs object was passed in
         qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
@@ -1196,7 +1194,6 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
             $('#quick-view-change-freq').hide().selectmenu('destroy');
         }
     }
-
     var quickChartOptions = grapher.makeChartOptionsObject(qGraph);
 
     qGraph.eachComponent(function(){
@@ -1367,12 +1364,14 @@ function quickViewFetchGeos(){
                 .val( value )
                 .attr( "title", "" )
                 .focus(function(){$(this).select(); })
-                .keyup(function(event){
+                .keydown(function(event){
                     var keyCode = ('which' in event) ? event.which : event.keyCode;
-                    if(keyCode == 13 || keyCode == 9) {  //return or tab keys
-                        //TRYING TO GRAB FIRST ITEM FROM UL, BUT SOMEWHAT CHALLENGING
-                        // var firstItem = widget.element.children( "li:first a");
-                        //this.val(firstItem.html());
+                    //if(keyCode == 13 || keyCode == 9) {  //return or tab keys
+                    if(keyCode == 9) {  //return or tab keys
+                        var acInstance = widget.input.autocomplete('instance');
+                        if(acInstance && acInstance.menu && acInstance.menu.element){
+                            acInstance.menu.element.find('li:first').click();
+                        }
                     }
                 })
                 .addClass( "custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left" )
@@ -1398,6 +1397,7 @@ function quickViewFetchGeos(){
                     this._trigger( "select", event, {
                         item: ui.item.option
                     });
+                    this._fetchSerieForNewGeo($(ui.item.option).val());
                 },
 
                 autocompletechange: "_removeIfInvalid"
@@ -1454,7 +1454,7 @@ function quickViewFetchGeos(){
 
             // Selected an item, nothing to do
             if ( ui.item ) {
-                _fetchSerieForNewGeo($(ui.item.option).val());
+                this._fetchSerieForNewGeo($(ui.item.option).val());
                 return;
             }
 
@@ -1462,12 +1462,13 @@ function quickViewFetchGeos(){
             var value = this.input.val(),
                 valueLowerCase = value.toLowerCase(),
                 valid = false,
-                geoid;
+                geoid,
+                widget = this;
             this.element.children( "option" ).each(function() {
                 if ( $( this ).text().toLowerCase() === valueLowerCase ) {
                     this.selected = valid = true;
                     geoid = $(this).val();
-                    _fetchSerieForNewGeo(geoid);
+                    widget._fetchSerieForNewGeo(geoid);
                     return false;
                 }
             });
@@ -1486,46 +1487,45 @@ function quickViewFetchGeos(){
             this._delay(function() {
                 this.input.tooltip( "close" ).attr( "title", "" );
             }, 2500 );
-            this.input.autocomplete( "instance" ).term = "";
+            this.input.autocomplete("instance").term = "";
 
-
-            //private function to fetch and show new serie
-            function _fetchSerieForNewGeo(newGeoid){
-                //fire a change of geo here if geoid != oQuickViewSeries[0].geoid
-                if(oQuickViewSeries.length==1 && oQuickViewSeries[0].geoid != geoid){
-                    var serie = oQuickViewSeries[0];
-                    callApi(
-                        {
-                            command:  'GetSeries',
-                            series: {
-                                "newgeo": {
-                                    setid: serie.mastersetid || serie.setid,
-                                    freq: serie.freq,
-                                    geoid: newGeoid, //from autocomplete!!
-                                    latlon: serie.latlon
-                                }
-                            }
-                        },
-                        function(jsoData, textStatus, jqXH){
-                            var newSerie = new MD.Set(jsoData.series['newgeo']);
-                            if(oQuickViewSeries[0].preferredMap) newSerie.preferredMap = oQuickViewSeries[0].preferredMap;
-                            oQuickViewSeries[0] = newSerie;
-                            quickChart.get('P0').remove();
-                            quickChart.addSeries({
-                                color: globals.hcColors[0],
-                                dashStyle: 'solid',
-                                data: newSerie.chartData(),
-                                name: newSerie.name(),
-                                freq: newSerie.freq,
-                                id: 'P0'
-                            });
-                            quickChart.setTitle({text: newSerie.name()});
-                        }
-                    );
-                }
-            }
         },
 
+        //private function to fetch and show new serie
+        _fetchSerieForNewGeo: function(newGeoid){
+            //fire a change of geo here if a truly new geoid is requested
+            if(oQuickViewSeries.length==1 && oQuickViewSeries[0].geoid != newGeoid){
+                var serie = oQuickViewSeries[0];
+                callApi(
+                    {
+                        command:  'GetSeries',
+                        series: {
+                            "newgeo": {
+                                setid: serie.mastersetid || serie.setid,
+                                freq: serie.freq,
+                                geoid: newGeoid, //from autocomplete!!
+                                latlon: serie.latlon
+                            }
+                        }
+                    },
+                    function(jsoData, textStatus, jqXH){
+                        var newSerie = new MD.Set(jsoData.series['newgeo']);
+                        if(oQuickViewSeries[0].preferredMap) newSerie.preferredMap = oQuickViewSeries[0].preferredMap;
+                        oQuickViewSeries[0] = newSerie;
+                        quickChart.get('P0').remove();
+                        quickChart.addSeries({
+                            color: globals.hcColors[0],
+                            dashStyle: 'solid',
+                            data: newSerie.chartData(),
+                            name: newSerie.name(),
+                            freq: newSerie.freq,
+                            id: 'P0'
+                        });
+                        quickChart.setTitle({text: newSerie.name()});
+                    }
+                );
+            }
+        },
         _destroy: function() {
             this.wrapper.remove();
             this.element.show();
@@ -1701,6 +1701,7 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
 }
 
 function quickViewClose(){
+    //$quickViewChangeGeo.closest('div.widget').find('.custom-combobox').remove();
     quickChart.destroy();
     delete $quickViewRows;
     $('#fancybox-close').click();
