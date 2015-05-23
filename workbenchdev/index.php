@@ -8,7 +8,7 @@
     <title>MashableData Workbench</title>
 
     <!--CSS files-->
-    <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.11.css?v=<?=$workbenchVersion?>" />
+    <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.9.2.custom.css?v=<?=$workbenchVersion?>" />
     <link  rel="stylesheet" href="/global/css/datatables/datatable.css?v=<?=$workbenchVersion?>" />
     <!--link  rel="stylesheet" href="css/ColVis.css" /-->
     <link  rel="stylesheet" href="/global/css/colorPicker.css?v=<?=$workbenchVersion?>" />

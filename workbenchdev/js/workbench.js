@@ -28,15 +28,8 @@ var dateFromMdDate = common.dateFromMdDate,
 
 //WORKBENCH TEMPLATES
 var templates = {
-    plot:  //functions needed: plot.color, component.opUI, plot.plotUnits, plot.plotPeriodicity, seriesname  EASIER???
-    '<li class="plot ui-state-highlight" data="{{order}}">'
-    +'<a class="edit-plot link" style="float:right;">edit <span class="ui-icon ui-icon-arrowthickstop-1-s" style="display: inline-block;"> edit</span></a>'
-    +'<div class="line-sample" style="padding:0;margin:0 10px 10px 0;display:inline-block;border-width:0;background-color:{{color}};height:{{#options.lineWidth}}{{.}}{{/options.lineWidth}}{{^options.lineWidth}}2{{/options.lineWidth}}px;width:38px;">'
-    +'<img src="images/{{options.lineStyle}}.png" height="{{#options.lineWidth}}{{.}}{{/options.lineWidth}}{{^options.lineWidth}}2{{/options.lineWidth}}px" width="{{imageWidth}}px"></div>'
-    +'<div class="plot-info" style="display:inline-block;"><span class="plot-title">{{name}}</span> in {{plotUnits}} {{plotPeriodicity}}</div>'
-    +'<ul class="series" style="list-style-type: none;" data="{{order}}">'
-    +'{{#component}}<li class="serie ui-state-default" data="{{handle}}" plot="{{order}}"><span class="plot-op ui-icon {{opUI}}">operation</span> '
-    + '{{seriesname}}<button class="edit-comp">edit</button></li>{{/component}}'
+    graphTab: '<li class="graph-tab"><a href="#{{href}}">{{title}}</a> <span class="ui-icon ui-icon-close">Remove Tab</span></li>',
+    graphDiv: '<div id="{{panelId}}" class="graph-panel">loading...</div>'
 };
 var dialogues = {
     noMySeries: 'Your My Series folder is empty.  Please search for Public Series, which can be graphed and added to your My Series folder for future quick reference.<br><br>You can also use the <button id="new-series" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ui-state-hover" role="button" aria-disabled="false"><span class="ui-button-text">new series</span></button> feature to enter or upload your own data.',
@@ -225,12 +218,6 @@ $(document).ready(function(){
 
     // tabs init with a custom tab template and an "add" callback filling in the content
     $graphTabs = $('#canvas').tabs({
-        tabTemplate: '<li class="graph-tab"><a href="#{href}">#{label}</a> <span class="ui-icon ui-icon-close">Remove Tab</span></li>',
-        add: function(event, ui) {
-            var tab_content = 'Loading graph.  Please wait.';
-            $('#canvas li.graph-tab span.ui-icon-close').off().click(removeTab);
-            return($(ui.panel).append('<p>'+tab_content + '</p>'));
-        },
         activate: function(event, ui){
             setPanelHash();
         }
@@ -2616,17 +2603,26 @@ function deleteMySeries(){  //remove all series in quickView from users MySeries
 function addTab(title) {
     var tab_title =  (title.length==0)?'Graph '+tab_counter:title;
     var panelId = 'graphTab'+tab_counter++;
-    var newTab = $graphTabs.tabs('add', '#'+panelId, tab_title);
-    $('#'+panelId).addClass('graph-panel');
+
+    var tabsLength = $(common.mustache(templates.graphTab, {
+        title: tab_title,
+        href: panelId
+    }))
+        .appendTo($graphTabs.find('.ui-tabs-nav'))
+        .find('li').length;
+    $graphTabs.append(common.mustache(templates.graphDiv, {
+        panelId: panelId
+    }));
+    $graphTabs
+        .tabs("refresh")
+        .tabs( "option", "active", tabsLength-1)
+        .find('li.graph-tab span.ui-icon-close').off().click(removeTab);
+
     //this causes problem when deleting tabs
-    $( "#canvas" ).tabs().find( ".ui-tabs-nav" ).sortable({ axis: "x", distance: 10  });
-    $graphTabs.tabs('select', $graphTabs.tabs('length') - 1);
+    $graphTabs.find( ".ui-tabs-nav" ).sortable({ axis: "x", distance: 10  });
     $(".ui-tabs-selected a").each(function(){$(this).attr("title", $(this).html())});
     resizeCanvas();
-    $("#btnEditGraphTop").removeAttr("disabled");
-    if($("#delete-my-series").attr("disabled")!="disabled"){
-        $("button.add-to-graph").removeAttr("disabled");
-    }
+
     //in revised layout, show only if graph tabs and search tables are shown  $("#show-hide-pickers").show();
     $('#graph-tabs a:last').click(function(){
         hideGraphEditor()
