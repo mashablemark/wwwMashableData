@@ -381,12 +381,12 @@ MashableData.common = {
         if(embed){
             data = $.extend({uid: false, host: window.location.host}, params)
         } else {
-            data = $.extend({uid: getUserId(), version: workbenchVersion, accessToken: account.info.accessToken}, params)
+            data = $.extend({uid: getUserId(), v: MashableData.globals.version, accessToken: account.info.accessToken}, params)
         }
         if(!embed && params.modal!='none') mask();
         $.ajax({
             type: embed?'GET':'POST', //IE only allows GET vars for CORS
-            url: embed?"//www.mashabledata.com/graph_data":"api.php",
+            url: embed?"//www.mashabledata.com/graph_data/":"api.php",
             encoding:"UTF-8",
             cache: false,
             data: data,

@@ -26,7 +26,7 @@
             <script type="text/javascript" src="/global/js/jvectormap/jquery-jvectormap-2.0.1.min.js"></script>
             <script type="text/javascript" src="/global/js/flot/jquery.flot.min.js"></script><!-- 52 kb; version 0.8.3-->
             <script type="text/javascript" src="/global/js/flot/jquery.flot.time.min.js"></script><!--5kb-->
-            <script type="text/javascript" src="/global/js/require/require.2.1.1.min.js"></script><!--15kb-->
+            <script type="text/javascript" src="/global/js/require/require.2.1.1.js"></script><!--15kb-->
             <script type="text/javascript" src="/global/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script><!--16kb+images-->
             <script type="text/javascript" src="/global/js/loadmask/jquery.loadmask.min.js"></script><!--2kb+images-->
             <script type="text/javascript" src="/global/js/colour/Colour.js"></script>

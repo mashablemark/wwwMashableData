@@ -24,24 +24,24 @@ var browserTemplates = {
 
 function browseFromSeries(setid){ //initial chain-table build only
     callApi({command:'GetCatChain', setid: setid||0},function(jsoData){
-        var olList = '', level;
+        var olList = '', level, $mySets = $('#cloud-series');
         for(var levelCount=0;levelCount<jsoData.chain.length;levelCount++){
             level = jsoData.chain[levelCount];
             olList += makeChainLevel(level, levelCount==jsoData.chain.length-1);
-            
-            if($('#cloud-series:visible').length==1){
-                $('div#browse-api').height($('#cloud-series').height()).width($('#cloud-series').width());
-            }
-            var $browseDiv = $('div#browse-api')
-                .empty()
-                .prepend('<div><span style="padding:5px;">Click below to expand sibling and child categories.  Categories containing series are shown as links.  Note that a series can be in more than one category.</span></div>'
-                    + '<button id="browse-close" class="right">close</button>'
-                    + '<ol id="cat-browser"><div></div></ol>');
+            //if($('#cloud-series:visible').length==1){  //this must be visible!
+            var $browseDiv = $('#browse-api').height($mySets.height()).width($mySets.width());
+
+            var $browseCats = $('#api-cats')
+                .html('<ol id="cat-browser"><div></div></ol>')
+                .width($mySets.width())
+                .height($mySets.height()-$('#browse-api-header').height()-10);
             $('#cat-browser')
                 .html(olList)
                 .click(catBrowserClicked);
-            $('#browse-close').button({icons: {secondary: 'ui-icon-close'}}).click(function(){browseClose();});
-            $browseDiv.fadeIn();
+            $('#browse-close').button({icons: {secondary: 'ui-icon-close'}}).off().click(function(){browseClose();});
+            $browseCats.scrollLeft(10000);
+            $browseDiv.fadeIn(function(){
+            });
         }
     });
 }
@@ -114,6 +114,7 @@ function catBrowserClicked(evt){
             $li.addClass('in-path').append(browserTemplates.pathIcon);
             $olChain.append(makeChainLevel(dataFetched, true));
             dataFetched = false; //prevent multiple triggers when multiple level are removed
+            $('#api-cats').scrollLeft(10000);
         }
     }
     if($target.hasClass('cat-has-sets')){
@@ -140,7 +141,6 @@ function publicCat(catId){
 }
 
 function browseClose(){
-    $('div#browse-api').fadeOut(function(){$(this).empty()});
-    //$('div#cloudSeriesTableDiv').fadeIn();
+    $('div#browse-api').fadeOut(function(){$('#cat-browser').empty()});
 }
 

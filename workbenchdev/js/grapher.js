@@ -410,10 +410,17 @@ MashableData.grapher = function(){
             console.time('createMyGraph');
             var graphModel;
             //1. check to see if the blueprint of an embedded graph is preloaded as a script
-            if(globals.isEmbedded && MashableData.globals.graphBluePrints[ghash]){
-                graphModel = new MD.Graph(MashableData.globals.graphBluePrints[ghash]);
-                graphModel.fetchMap();  //if the bluePrint is loaded, so should the map def.  This call is (a) for insurance and (b) creates derivative maps as needed
-                _createGraph();  //new obj for API = no need to create working copy
+            if(globals.isEmbedded){
+                if(MashableData.globals.graphBluePrints[ghash]){
+                    graphModel = new MD.Graph(MashableData.globals.graphBluePrints[ghash]);
+                    graphModel.fetchMap();  //if the bluePrint is loaded, so should the map def.  This call is (a) for insurance and (b) creates derivative maps as needed
+                    _createGraph();  //new obj for API = no need to create working copy
+                } else {
+                    require(['//www.mashabledata.com/graph_data/'+ghash+'.js'], function(){
+                        graphModel = new MD.Graph(MashableData.globals.graphBluePrints[ghash]);
+                        _createGraph();
+                    });
+                }
                 callApi({command: 'GetEmbeddedGraph', ghash: ghash, logonly: true}); //still log the embedded usage (non-blocking and no data is fetched)
             } else {
                 callApi(
@@ -1530,7 +1537,7 @@ MashableData.grapher = function(){
                     if(!oGraph.map) return "";
                     var handle, i, map, html='<option value="'+oGraph.map+'">'+globals.maps[oGraph.map].name+'</option>', maps=[];
                     for(handle in oGraph.assets){
-                        if(handle[0]=='M' && oGraph.assets[handle].maps){
+                        if((handle[0]=='M' || handle[0]=='X') && oGraph.assets[handle].maps){
                             if( Object.prototype.toString.call(oGraph.assets[handle].maps) == '[object String]') oGraph.assets[handle].maps = JSON.parse('{'+oGraph.assets[handle].maps+'}');
                             for(map in oGraph.assets[handle].maps){
                                 if(map != oGraph.map){

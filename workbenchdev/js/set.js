@@ -212,7 +212,7 @@ MashableData.Component = function(SetParams, componentOptions){
         var singleValue = typeof utcStartDateNumber != 'undefined' && utcStartDateNumber == utcEndDateNumber;
         for(var i=0;i<seriesData.length;i++){
             point = seriesData[i].split(':');
-            pointDateNumber = Date.parse(common.dateFromMdDate(point[0] ));
+            pointDateNumber = Date.parse(MashableData.common.dateFromMdDate(point[0] ));
             if(singleValue && pointDateNumber==utcStartDateNumber) return point[1]==="null"||point[1]===null ? null : parseFloat(point[1])*this.options.k*(this.options.op=='-'?-1:1);
             if((!utcStartDateNumber || utcStartDateNumber<=pointDateNumber) && (!utcEndDateNumber || pointDateNumber<=utcEndDateNumber)){
                 scaledData.push([pointDateNumber, point[1]==="null"||point[1]===null ? null : parseFloat(point[1])*this.options.k*(this.options.op=='-'?-1:1)]);

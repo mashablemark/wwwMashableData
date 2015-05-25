@@ -3,6 +3,7 @@ $event_logging = true;
 $sql_logging = true;
 $ft_join_char = "_";
 $web_root = "/var/www/vhosts/mashabledata.com/httpdocs";
+$cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
 $cache_TTL = 60; //public_graph and cube cache TTL in minutes
 include_once($web_root . "/global/php/common_functions.php");
 date_default_timezone_set('UTC');
@@ -89,7 +90,8 @@ ManageMySeries:  workbench.updateMySeries
  *   annoid:
 */
 $time_start = microtime(true);
-$command =  isset($_REQUEST['command'])?$_REQUEST['command']:'';
+if(isset($_REQUEST['command']))
+$command =  isset($_REQUEST['command'])?$_REQUEST['command']:(isset($command)?$command:"");
 $con = getConnection();
 switch($command) {
     case "LogError":
@@ -422,8 +424,7 @@ switch($command) {
     case "GetEmbeddedGraph":  //data and all: the complete protein!
         //embedded graphs make requests to /graph_data which checks the cache first
         //so if here, the cache is old or missing!
-
-        $ghash = $_REQUEST['ghash'];
+        if(!isset($ghash)) $ghash = $_REQUEST['ghash'];
         if (strlen($ghash) > 0) {
             $ghash_var = safeStringSQL($ghash);
             //2. fetch if not in cache or needs refreshing
@@ -452,18 +453,22 @@ switch($command) {
                     $graph['userid'] = null;  //cannot save graph; only save as a copy
                     $graph['gid'] = null;
                 }
+                //3. create / update cache file
+
+                $cacheSubPath = substr($ghash, 0, 2) . "/" . substr($ghash, 2, 2) . "/";
+                if (!is_dir($cacheRoot . $cacheSubPath)) {
+                    mkdir($cacheRoot . $cacheSubPath, 0755, true);
+                }
+                $cacheFile = "MashableData.globals.graphBluePrints['".$ghash."'] = ".json_encode($output["graphs"][$ghandle], JSON_HEX_QUOT);
+                $cfp = fopen($cacheRoot . $cacheSubPath . $ghash.".js", 'w');
+                if (flock($cfp, LOCK_EX)) {
+                    fwrite($cfp, $cacheFile);
+                }
+                fclose($cfp);
+                flushCloudFlare($ghash);
             }
-            //3. create / update cache file
-            if (!is_dir($cacheRoot . $cacheSubPath)) {
-                mkdir($cacheRoot . $cacheSubPath, 0755, true);
-            }
-            $cfp = fopen($cacheFile, 'w');
-            if (flock($cfp, LOCK_EX)) {
-                fwrite($cfp, json_encode($output, JSON_HEX_QUOT));
-            }
-            fclose($cfp);
         } else {
-            $output = array("status" => "The graph requested not available.  The author may have unpublished or deleted it.");
+            $output = ["status" => "The graph requested not available.  The author may have unpublished or deleted it."];
         }
         break;
     /*    case "GetGraphMapSet":
@@ -1079,9 +1084,9 @@ switch($command) {
             }
         }
         //clear the cache when a graph is saved (if new or not previously cached, nothing gets deleted)
-        $cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
         $cacheSubPath = substr($ghash, 0, 2) . "/" . substr($ghash, 2, 2) . "/";
         shell_exec("rm -f " . $cacheRoot . $cacheSubPath . $ghash . "*");
+        flushCloudFlare($ghash);
         runQuery("delete from graphcache where ghash='$ghash'");
         break;
     case "ManageMySeries":
@@ -2264,4 +2269,33 @@ function bill($payerid, $userid=0, $invid=0){  //adds a payments record if none 
 function payBill($paymentid){
     //TODO: merchant credit card processing here
     return true;
+}
+
+function flushCloudFlare($ghash){
+    $cloudFlareApiUrl = "https://www.cloudflare.com/api_json.html";
+    $cloudFlareVars = [
+        "a"=> "zone_file_purge",
+        "tkn" => "2f92b26e13db9ce6943264cdf9be1d1e75b42",
+        "email" => "mark_c_elbert@yahoo.com",
+        "z" => "mashabledata.com",
+        "url" => "http://www.mashabledata.com/graph_data/".$ghash.".js"
+    ];
+    //url-ify the data for the POST
+    $fieldVars = [];
+    foreach($cloudFlareVars as $key=>$value) { $fieldVars[] = $key . '=' . urlencode($value); }
+
+    //open connection
+    $ch = curl_init();
+
+//set the url, number of POST vars, POST data
+    curl_setopt($ch, CURLOPT_URL, $cloudFlareApiUrl);
+    curl_setopt($ch, CURLOPT_POST, count($fieldVars));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, implode("&", $fieldVars));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+
+//execute post
+    $result = curl_exec($ch);
+
+//close connection
+    curl_close($ch);
 }

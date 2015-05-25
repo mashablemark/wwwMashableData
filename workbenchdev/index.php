@@ -8,7 +8,7 @@
     <title>MashableData Workbench</title>
 
     <!--CSS files-->
-    <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.9.2.custom.css?v=<?=$workbenchVersion?>" />
+    <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.11.css?v=<?=$workbenchVersion?>" />
     <link  rel="stylesheet" href="/global/css/datatables/datatable.css?v=<?=$workbenchVersion?>" />
     <!--link  rel="stylesheet" href="css/ColVis.css" /-->
     <link  rel="stylesheet" href="/global/css/colorPicker.css?v=<?=$workbenchVersion?>" />
@@ -120,7 +120,15 @@
         </div>
         <!--BEGIN PUBLIC SERIES DATATABLE-->
         <div id="cloud-series" class="picker">
-            <div id="browse-api"></div>
+            <div id="browse-api">
+                <div  id="browse-api-header">
+                    <span style="padding:5px;">Click below to expand sibling and child categories.  Categories containing series are shown as links.  Note that a series can be in more than one category.</span>
+                    <button id="browse-close" class="right">close</button>
+                </div>
+                <div id="api-cats">
+                    <ol id="cat-browser"><div></div></ol>
+                </div>
+            </div>
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />

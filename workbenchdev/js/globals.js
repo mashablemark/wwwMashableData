@@ -8,6 +8,7 @@
 
 var MashableData = {
     globals: {
+        version: '0.9',
         graphBluePrints: {}, //used to preload embedded graphs for high volume websites
         totalServerTime: 0,
         isEmbedded: (window.location.hostname.indexOf('www.mashabledata.com')===-1 || window.location.pathname.indexOf('workbench')===-1),

@@ -15,9 +15,29 @@
  * 6. only include api.php (with overhead and connection) when creating or updating a graph or cube object
  *
  */
-if(!isset($_REQUEST["command"])||!isset($_REQUEST["host"])) die("no fishing");
-$command = $_REQUEST["command"];
+http_response_code(200);
+header("Content-Type: text/javascript");
+
+//FIRST:  detect if this is from a redirected .js request intended to fool CloudFlare into caching our dynamic content
+$url = $_SERVER["SCRIPT_URL"];
+$uri = $_SERVER["SCRIPT_URI"];
+$fromRedirect = false;
+if(preg_match("/\/graph_data\/([A-F]|[a-f]|[0-9]){32}\.js/", $url)) {
+    $command = "GetEmbeddedGraph";
+    $ghash = substr($url,  12, 32);
+    $fromRedirect = true;
+} elseif(!isset($_REQUEST["command"])||!isset($_REQUEST["host"])) {
+    die("no fishing");
+} else {
+    $command = $_REQUEST["command"];
+}
+
 $web_root = "/var/www/vhosts/mashabledata.com/httpdocs";
+$cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
+$logFile = "embed.log";
+$maxAge = 24 * 60 * 60;  //1 day (in seconds)
+
+//these headers should be set by .htaccess, but for good measure
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: PUT, GET, POST, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: *");
@@ -29,17 +49,16 @@ if(isset($_SERVER['HTTP_ORIGIN']) && strpos($_SERVER['HTTP_ORIGIN'], $_REQUEST["
     print("host: ".$_REQUEST["host"]."<br>");
     die("host mismatch");
 }
-//for  see if graph data exists is the cache file tree
-if(isset($_REQUEST["ghash"]) && strlen($_REQUEST["ghash"])==32){
-    $ghash = $_REQUEST["ghash"];
-} else {
-    die("valid ghash required");
+//for see if graph data exists is the cache file tree
+if(!$fromRedirect){
+    if(isset($_REQUEST["ghash"]) && strlen($_REQUEST["ghash"])==32){
+        $ghash = $_REQUEST["ghash"];
+    } else {
+        die("valid ghash required");
+    }
 }
-$cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
-$cacheSubPath = substr($ghash,0,2) . "/" . substr($ghash, 2, 2) . "/";
-$logFile = "embed.log";
-$maxAge = 24 * 60 * 60;  //1 day (counted in seconds)
 
+$cacheSubPath = substr($ghash, 0, 2) . "/" . substr($ghash, 2, 2) . "/";
 if($command=='GetEmbeddedGraph' || $command=='GetCubeSets'){
     //1. log request
     $now = time();
@@ -48,7 +67,7 @@ if($command=='GetEmbeddedGraph' || $command=='GetCubeSets'){
         mkdir($cacheRoot, 0755, true);
     }
     $lp = fopen($cacheRoot.$logFile, "a");
-    fwrite($lp, $command . "," . $ghash . "," . (isset($_REQUEST["logonly"])?'log':'fetch') . "," . $now . "," . $_REQUEST["host"]);
+    fwrite($lp, $command . "," . $ghash . "," . (isset($_REQUEST["logonly"])?'log':'fetch') . "," . $now . "," . (isset($_REQUEST["host"])?$_REQUEST["host"]:""));
     fclose($lp);
 
     //2. data requested???? or just logging if data embedded
@@ -59,7 +78,7 @@ if($command=='GetEmbeddedGraph' || $command=='GetCubeSets'){
     }
 
     //3. is graph cached?
-    $cacheFile = $cacheRoot . $cacheSubPath . $ghash . ($command=='GetCubeSets'? "_cube". $_REQUEST["cubeid"] . "_" . $_REQUEST["geokey"] . "_" . $_REQUEST["freq"] : "") . ".json";
+    $cacheFile = $cacheRoot . $cacheSubPath . $ghash . ($command=='GetCubeSets'? "_cube". $_REQUEST["cubeid"] . "_" . $_REQUEST["geokey"] . "_" . $_REQUEST["freq"] : "") . ".js";
     if(file_exists($cacheFile)){
         $modifiedTime = filemtime($cacheFile);
         //4. is the cache fresh?
@@ -73,10 +92,10 @@ if($command=='GetEmbeddedGraph' || $command=='GetCubeSets'){
         }
     }
 }
-
-
-if($_REQUEST["host"]=="www.mashabledata.com"){
+//embedded file created below
+if(strpos($_SERVER["REQUEST_URI"], "dev")){
     include_once($web_root."/workbenchdev/api.php");
 } else {
     include_once($web_root."/workbench/api.php");
 }
+

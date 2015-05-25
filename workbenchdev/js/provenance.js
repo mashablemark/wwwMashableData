@@ -185,7 +185,7 @@ function ProvenanceController(panelId){
                 + '<button class="edit right">edit</button>'
                 + '<button class="close cube-edit right hidden">close</button>'
                 + '<button class="reset cube-edit right hidden">reset</button>'
-                + '<h5>Data cube visualization labels</h5>'
+                + '<h4>Data cube visualization labels</h4>'
                 + '<div class="name">title: <span class="cube value-label">{{editedName}}</span>'
                 + '<input class="cube-edit" value="{{escapedName}}">'
                 + '<span class="reset-label {{nameResetClass}}">reset value: <span class="cube reset-value">{{resetName}}</span></span></div>'
