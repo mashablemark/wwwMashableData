@@ -1,3 +1,4 @@
+"use strict";
 /* mashabledata_embedtools.js
 
  MashableData Plugin for Highcharts  Copyright 2012.  All rights reserved.  Visit MashableData.com for usage guidelines.
@@ -763,7 +764,7 @@ jQuery(document).ready(function(){
                 var offset=13;
                 var teeth=7;
                 var i=0;
-                var angle;
+                var angle,
                 gearCommands = ['M',offset,offset-outterR];
                 for(i=0;i<teeth;i++){
                     angle = (2*Math.PI / teeth * i) + (2*Math.PI / (teeth*4));

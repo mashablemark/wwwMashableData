@@ -1,4 +1,4 @@
-
+"use strict";
 function makeTreeMap($div, calculatedMapData, mapFile, dateKey, fromDateKey){
     console.time('makeTreeMap');
     $div.html(''); //clear anything there

@@ -1,3 +1,4 @@
+"use strict";
 /*
  drag and drop rules:
  1. plot lis can only be dragged within type ol (ie. li.plot within ol.plots; li.mapplot within ol.mapplots; and li.pointplot within ol.pointplots)
@@ -211,7 +212,7 @@ function ProvenanceController(panelId){
             build:  function build(plotIndex){  //redo entire panel if plotIndex omitted
                 var i, allSeriesPlots='', allMapPointPlots, plot;
                 if(typeof plotIndex != 'undefined'){  //update single plot
-                    if($prov.find('.chart-plots').length==0) $prov.find('.config-ok').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div');
+                    if($prov.find('.chart-plots').length==0) $prov.find('.config-ok').after('<div class="chart-plots"><H4>Chart</H4><ol class="plots"></ol></div>');
                     $prov.find('ol.plots').append(controller.seriesPlotHTML(plotIndex) );
                 } else {  //initialize!!!
                     $panel = $('#'+panelId);
@@ -239,7 +240,7 @@ function ProvenanceController(panelId){
                     allMapPointPlots = controller.provenanceOfMap();  //
                     $prov.html(templates.okcancel + allSeriesPlots + templates.landing + allMapPointPlots);
                     //each mapPlot has its own legend
-                    mapPlotLegends = [];
+                    var mapPlotLegends = [];
                     $prov.find('.mapplot-colors').each(function(ms){
                         mapPlotLegends.push(controller.legendEditor($(this), provMapPlots[ms], 'M'));
                     });
@@ -735,12 +736,12 @@ function ProvenanceController(panelId){
                 }
             },
             provClose:  function provClose(){ //called directly from cancel btn = close without saving
-                delete provPlots;
+                /*delete provPlots;
                 delete provAnnotations;
                 delete provMapPlots;
                 delete provPointPlots;
                 delete provMapconfig;
-                delete provGraph;  //don't graph.destroy() as that would destroy the transferred plots
+                delete provGraph;  //don't graph.destroy() as that would destroy the transferred plots*/
                 $prov.html('').hide();  //remove of HTML elements and their events
                 controller.isDirty = false;
                 $panel.find('.graph-chart').show();

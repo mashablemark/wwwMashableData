@@ -299,7 +299,7 @@ $(document).ready(function(){
                         },
                         dataType: 'json'
                     });
-                    dialogShow('error','A error has occurred.  MashableData servers have logged the error and our technician have been alerted.');
+                    dialogShow('An error has occurred','Sorry about that!  The MashableData servers have logged the error and our programmers have been alerted.');
                 }
             }
         }
@@ -1139,7 +1139,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
         $qvChangeFreq.hide();
-        if($qvChangeFreq.selectmenu) $qvChangeFreq.selectmenu('destroy');
+        if($qvChangeFreq.selectmenu('instance')) $qvChangeFreq.selectmenu('destroy');
         $quickViewChangeGeo.hide();
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];

@@ -1,3 +1,4 @@
+"use strict";
 //JSTAT library reduced by commenting to only guarantee jStat.corrcoeff(ary1, ary2) = Pearson correlation coefficient
 this.jStat = (function(Math, undefined) {
 

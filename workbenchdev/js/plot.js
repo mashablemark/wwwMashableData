@@ -1,3 +1,4 @@
+"use strict";
 /** Plot object
  * Created by Mark Elbert on 11/11/14.
  */

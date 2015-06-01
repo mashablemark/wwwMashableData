@@ -1,3 +1,4 @@
+"use strict";
 /* copyright MashableData.com 2013 */
 
 //prevent IE from breaking
