@@ -8,7 +8,7 @@
             <title>MashableData Embedder Samples</title>
 
             <!--CSS files-->
-            <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.9.2.custom.css" />
+            <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.11.css" />
             <link rel="stylesheet" href="/embedder/mashabledata_embedtools.css" />
 
             <!--JQUERY LIBRARIES-->
@@ -16,8 +16,8 @@
             <script type="text/javascript" src="/global/js/jquery/jquery-1.8.3.js"></script>
             <script type="text/javascript" src="/global/js/jqueryui/jquery-ui-1.9.2.custom.min.js"></script>
 <?php } else { ?>
-            <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-            <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 <?php }  ?>
             <!--[if lte IE 8]><script language="javascript" type="text/javascript" src="/global/js/flot/excanvas.min.js"></script><![endif]-->
             <script type="text/javascript" src="/global/js/highcharts/js/highcharts.3.0.10.min.js"></script>

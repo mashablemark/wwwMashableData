@@ -29,10 +29,10 @@
     text-align: center;
 }
 
-.jvectormap-zoomin, .jvectormap-zoomout {
+/*.jvectormap-zoomin, .jvectormap-zoomout {
     width: 10px;
     height: 10px;
-}
+}*/
 
 .jvectormap-zoomin {
     top: 10px;
