@@ -123,7 +123,7 @@ switch($command) {
             $sLimit = " LIMIT " . $db->real_escape_string($_POST['iDisplayStart']) . ", "
                 . $db->real_escape_string($_POST['iDisplayLength']);
         }
-        $aColumns = array("name", "units", "elements", "firstdt", "lastdt");
+        $aColumns = ["name", "units", "elements", "maps", "freq", "firstdt", "lastdt", "titles"];
         //$sql = "SELECT SQL_CALC_FOUND_ROWS ifnull(concat('U',s.userid), concat('S',s.setid)) as handle , s.setid, s.userid, mapsetid, pointsetid, name, units, freq as freq, title, src, url, ";
         $sql = "SELECT SQL_CALC_FOUND_ROWS
         left(s.settype,1) as settype, s.setid, s.latlon, s.mastersetid, s.userid, s.name, s.units,
@@ -133,9 +133,15 @@ switch($command) {
         FROM sets s left outer join apis a on s.apiid=a.apiid left outer join sets s2 on s.mastersetid=s2.setid ";
         //problem: the url may be stored at the setdata level = too costly to join on every search THEREFORE  move URL link to quick view
         //handle may be modified in read loop depending on detected geographies and
+        $periodTerm = $freq == "all" ? "" : " +F_" . $freq;
+        $mapTerm = $mapFilter == "none" ? "" : " +M_" . $mapFilter;
+        $setTypeTerm = $setType == "all" ? "" : " +" . $setType . "S_";
         if ($catid > 0) {
             //1. if category search, this is simple
             $sql .= " INNER JOIN categorysets cs on s.setid = cs.setid WHERE catid=$catid";
+            if ($mapFilter <> "none" || $freq != "all" || $setType != "all") {
+                $sql .= " AND match(s.name, s.units, s.titles, s.ghandles, s.maps, s.settype, s.freqs) against ('-not_searchable $periodTerm $setTypeTerm $mapTerm' IN BOOLEAN MODE) ";  //straight search with all keywords
+            }
         } else {
             //2. look for geo matching and search sets if
             if ($search != '+ +') {
@@ -176,9 +182,6 @@ switch($command) {
                 $title = substr($search, strlen("title") + 2, strlen($search) - strlen("title") - 3);
                 $sql .= " AND title = " . safeStringSQL($title);
             } elseif ($search != '+ +' || $mapFilter <> "none" || $freq != "all" || $setType != "all") {
-                $periodTerm = $freq == "all" ? "" : " +F_" . $freq;
-                $mapTerm = $mapFilter == "none" ? "" : " +M_" . $mapFilter;
-                $setTypeTerm = $setType == "all" ? "" : " +" . $setType . "S_";
                 $mainBooleanSearch = "($search $periodTerm $mapTerm $setTypeTerm)";
                 foreach ($foundGeos as $ghandle => $geoSearchDetails) {
                     $geoSearchWords = $geoSearchDetails["seachWords"];
@@ -466,6 +469,7 @@ switch($command) {
                 }
                 fclose($cfp);
                 flushCloudFlare($ghash);
+                die($cacheFile);  //don't continue with normal execution, which returns a JSON object.  Return the JavaScript executable $cacheFile instead
             }
         } else {
             $output = ["status" => "The graph requested not available.  The author may have unpublished or deleted it."];
