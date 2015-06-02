@@ -1,3 +1,4 @@
+//too much trouble:  "use strict";
 /** workbench.js
  * Created with JetBrains PhpStorm.
  * User: mark
@@ -461,7 +462,7 @@ function setupMyDataTable(){
             "bPaginate": false,
             "bFilter": true,
             "bAutoWidth": false,
-            "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return 'showing ' + ((iMax==iTotal)?'':(iTotal + ' of ')) + iMax + ' series';},
+            "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {return 'showing ' + ((iMax==iTotal)?'':(iTotal + ' of ')) + iMax + ' sets';},
             "oLanguage": {
                 "sSearch": ""
             },
@@ -572,7 +573,7 @@ function setupFindDataTable(){
             });
         },
         "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
-            return iTotal + " series";
+            return common.numberFormat(iTotal, 0)  + ' sets';
         },
         "bAutoWidth": false,
         "bProcessing": true,
@@ -595,7 +596,7 @@ function setupFindDataTable(){
                         + '<span class="handle">' + obj.handle() + '</span>';
                 }},
             { "mData":"units", "sTitle": "Units<span></span>", "sClass": "units", "sWidth": layoutDimensions.widths.publicSeriesTable.columns.units+"px", "bSortable": true, "mRender": function(value, type, obj){return spanWithTitle(value)}},
-            { "mData":"elements", "sTitle": "Set size<span></span>", "sClass": "set-size", "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "mRender": function(value, type, obj){return value==0?'':value}},
+            { "mData":"elements", "sTitle": "Set size<span></span>", "sClass": "set-size", "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "mRender": function(value, type, obj){return value==0?'':common.numberFormat(value, 0)}},
             { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": false, "sWidth": layoutDimensions.widths.mySeriesTable.columns.maps + "px",  "mRender": function(maps, type, obj){return spanWithTitle(obj.mapList())}},
             { "mData":null, "sTitle": "f<span></span>", "sWidth": colWidths.freq+"px", "bSortable": false, "sClass": "dt-freq", "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs)} },
             { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte",  "sWidth": colWidths.mmmyyyy+"px", "bSortable": true, "asSorting":  [ 'desc','asc'], "mRender": function(value, type, obj){
@@ -634,10 +635,11 @@ function setupFindDataTable(){
     $('#tblPublicSeries_info').html('').appendTo('#cloud-series-search');
     $('#tblPublicSeries_filter').hide();
 
-    $('#public-settype-radio').buttonset().find("input").change(seriesCloudSearch);
+    $('#public-settype-radio').buttonset().find("input").change(function(){ seriesCloudSearch() });
     $('#find-data-map').click(common.selectMap);
-    $('#series_search_freq').change(seriesCloudSearch);
-    $('#series_search_source').change(seriesCloudSearch);
+    $('#series_search_freq').change(function(){ seriesCloudSearch() });
+    $('#series_search_source').change(function(){ seriesCloudSearch() });
+    //$('#series_search_source').change(function(){ seriesCloudSearch() });
 
     $('#series_search_text')
         .val('enter search keywords (-keyword to exclude)')
@@ -1153,7 +1155,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
             $('#outer-show-graph-div .ui-autocomplete').remove();
         } else {
             $qvChangeFreq.hide();
-            if($qvChangeFreq.selectmenu) $qvChangeFreq.selectmenu('destroy');
+            if($qvChangeFreq.selectmenu('instance')) $qvChangeFreq.selectmenu('destroy');
             $quickViewChangeGeo.hide();
         }
 
@@ -1690,7 +1692,7 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
 function quickViewClose(){
     //$quickViewChangeGeo.closest('div.widget').find('.custom-combobox').remove();
     quickChart.destroy();
-    delete $quickViewRows;
+    delete window.$quickViewRows;
     $('#fancybox-close').click();
 }
 
@@ -1706,12 +1708,14 @@ function editSeries(series){//array of series to edit
             + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
             + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
             + '<select class="hidden" style="margin-top: 8px;margin-left: 25px"></select></label><br><br>'
-            + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button>'
+            + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button><br><br><br>'
+            + '<i>Note:  Edits of public data will make a copy and <br>add your edited copy to your <b>My Data</b></i>'
             + '</div>';
             $.fancybox(html,
                 {
                     showCloseButton: false,
                     autoScale: true,
+                    scrolling: false,
                     overlayOpacity: 0.5,
                     hideOnOverlayClick: false
                 });
@@ -1755,8 +1759,8 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
     $('#series-tabs').find('li.local-series a').click();
     var rows = {
         U: {name: 0, units: 1, notes: 2, setid: 3, header: 4},
-        M: {name: 0, units: 1, notes: 2, geoid: 3, header: 4},
-        X: {name: 0, units: 1, notes: 2, geoid: 3, latlon: 4, header: 5}
+        M: {geoid: 0, header: 1},
+        X: {name: 0, geoid: 1, geoname: 2, latlon: 3, header: 4}
     };
     if(setsToEdit && setsToEdit.length==1 && map){
         if(setsToEdit[0]=='M'){ //MAPSET EDIT
@@ -1868,8 +1872,8 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
     function initializeSeriesEditor(){
         editorCols = 2;
         var lastRow= 0,lastCol=0;
-        var $panel = $('div#edit-user-series').height($('div#local-series').height()).fadeIn();
-        $editor = $("#data-editor").height($('div#local-series').height()-50).html('');
+        var $panel = $('div#edit-user-series').height($('#local-series').height()).fadeIn();
+        $editor = $("#data-editor").height($('#local-series').height()-$('#set-edit-header').height()-100).html('');
         $panel.find('button.series-edit-save').button({icons:{secondary:'ui-icon-disk'}}).off().click(function(){
             saveSeriesEditor();
         });
@@ -1901,7 +1905,11 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                 if ((row < rows[settype].header && col == 0)  || row == rows[settype].header) {
                     cellProperties.readOnly = true; //make cell read-only if it is first row or the text reads 'readOnly'
                 }
-                cellProperties.type = {renderer: handsOnCellRenderer};
+                if(row>=fixedRowsTop && col>=fixedColumnsLeft){
+                    cellProperties.type = 'numeric';
+                } else {
+                    cellProperties.renderer = handsOnCellRenderer;
+                }
                 return cellProperties;
             },
             onSelection: function(r,c,r1,c1){
@@ -1992,7 +2000,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
         });
         seriesEditorInitialised=true;
     }
-
+    var fixedRowsTop = 5, fixedColumnsLeft = 1;  //gets modified for set mapset and pointset edits
     function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
         switch(settype){
             case 'U':
@@ -2006,20 +2014,18 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                     td.style.fontWeight = 'bold';
                     td.style.color = '#000000';
                 }
+                if(row > rows.U.header && col == 0){
+                    td.style.background = '#FFFFE0';
+                }
                 break;
             case 'M':
                 Handsontable.TextCell.renderer.apply(this, arguments);
                 if(row < rows.M.header){
-                    if(col == 0){
-                        td.style.background = '#E0FFFF';
-                        td.style.fontWeight = 'bold';
-                    } else {
-                        if(col==1) {
-                            td.colSpan = Math.min(5, editorCols -1);
-                        } else {
-                            $(td).addClass('hidden');
-                        }
-                    }
+                    $(td).addClass('hidden');
+                }
+
+                if(row > rows.M.header && col == 0){
+                    td.style.background = '#FFFFE0';
                 }
                 if(row == rows.M.header){
                     td.style.background = '#707070';
@@ -2037,12 +2043,13 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
         $('button#series-edit-save').attr("disabled","disabled");
         if(series){
             //todo:  expand to edit all series passed in, not just the first
-            var oSerie = series[0], handle = oSerie.handle;
+            var oSerie = series[0], handle = oSerie.handle();
             var type = handle[0];
             switch(type){
                 case 'U':
                     $('button#series-edit-save').removeAttr("disabled");
                 case 'S':
+                    $('#set-edit-header').hide();
                     periodOfEdits = oSerie.period;
                     if(oSerie.data){
                         data = oSerie.data.split('|').sort();
@@ -2074,6 +2081,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                     }
                     break;
                 /* case 'M':
+                 $('#set-edit-header').show();
                  callApi(
                  {command:"GetMapSets", mapsetids: [handle.substr(1)], map: map, modal: 'persist'},
                  function(jsoData, textStatus, jqXHR){
@@ -2134,6 +2142,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             }
         }else {
             //no handle = new serie(s)
+            $('#set-edit-header').hide();
             $editor.handsontable("loadData", [["name", ""],["units",""],["notes",""],["handle","new"],["date","value"]]);
             $editor.find('table.htCore tr').show().filter(':eq('+rows.U.handle+')').hide();
             periodOfEdits = false;
@@ -2188,22 +2197,34 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             //2. clear and reconfigure grid with map name and editable set name and units name on top
             //2B. for pointsets:  columns of: noneditable geoname headers + editable green shaded cells for lat & lon
             //3. cell A1 = [name|map set| point set] will be
-            callApi({command: 'GetMapGeographies', settype: type, map: map}, _newUserMapSet);  //mapsets shown on callback
+            callApi({command: 'GetMapGeographies', settype: type, map: map}, function(jsoData, textStatus, jqXH){_newUserMapSet(jsoData, type)});  //mapsets shown on callback
         }
-        function _newUserMapSet(jsoData, textStatus, jqXH){
+        function _newUserMapSet(jsoData, type){
             bunnyColumns = [];
-            var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
-            for(var i=0;i<jsoData.geographies.length;i++){
-                data[rows.M.geoid].push(jsoData.geographies[i].geoid);
-                data[rows.M.header].push(decodeURIComponent(escape(jsoData.geographies[i].name)));
-                if(jsoData.geographies[i].type=='bunny' || jsoData.geographies[i].type=='region') bunnyColumns.push(i+1);  //used by renderer to shade columns
+            var data;
+            if(type=='M'){
+                data = [["geoid"],["date"]]; //["map set"],["units"] & ["notes"] are now in the header (#set_name, #set_units, #set_notes)
+                    for(var i=0;i<jsoData.geographies.length;i++){
+                        data[rows.M.geoid].push(jsoData.geographies[i].geoid);
+                        data[rows.M.header].push(decodeURIComponent(escape(jsoData.geographies[i].name)));
+                        if(jsoData.geographies[i].type=='bunny' || jsoData.geographies[i].type=='region') bunnyColumns.push(i+1);  //used by renderer to shade columns
+                    }
+                fixedRowsTop = 2;
+            } else { //markerset
+                data = [["geoid"],["geography"],["lat,lon"],["date"]]; //["map set"],["units"] & ["notes"] are now in the header (#set_name, #set_units, #set_notes)
+                //TODO: create the array that will field the autocomplete field for point containers
             }
+
             //HIDE GEO ROW - TRY TO DO IT THE RIGHT WAY  $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
             editorCols = jsoData.geographies.length + 1;
+            $('#set-edit-header').show();
             $("#data-editor").removeAttr("data").handsontable({
                 data: data,
-                minCols: editorCols
+                minCols: editorCols,
+                fixedColumnsLeft: fixedColumnsLeft,
+                fixedRowsTop: fixedRowsTop
             });
+
         }
     }
     function userSeriesFromEditor(){
@@ -2710,7 +2731,11 @@ function panelHash(){
                 return encodeURI('t=cs&cat='+searchCatId);
             } else {
                 $search = $('#series_search_text');
-                return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val()+'&f='+$('#series_search_freq').val())+'&api='+$('#series_search_source').val()+'&sets='+$('#public-settype-radio').find('input:checked').val()+'&map='+$('#find-data-map').val());
+                var f = $('#series_search_freq').val(),
+                    api = $('#series_search_source').val(),
+                    sets = $('#public-settype-radio').find('input:checked').val(),
+                    map = $('#find-data-map').val();
+                return encodeURI('t=cs'+($search.hasClass(gi)?'':'&s='+$search.val())+(f=='all'?'':'&f='+f)+(api=='all'?'':'&api='+api)+(sets=='all'?'':'&sets='+sets)+(map=='all'?'':'&map='+map));
             }
         case '#myGraphs':
             $search = $('#my_graphs_table_filter input');
@@ -2725,7 +2750,7 @@ function panelHash(){
             }
     }
 }
-function setPanelHash(ghash, graphTabId){  //optionally, pass in known values rather than detecting = fix for delays in visability
+function setPanelHash(ghash, graphTabId){  //optionally, pass in known values rather than detecting = fix for delays in visibility
     if(ghash){
         hash = 't=g'+graphTabId.replace('graphTab','')+'&graphcode='+ghash;
     } else {

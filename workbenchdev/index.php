@@ -101,13 +101,20 @@
             <button id="menu-account">Sign in</button>
         </span>
     </div>
-    <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER DATATABLES -->
-        <!--BEGIN LOCAL SERIES-->
+    <div id="picker-divs" class="show-hide"><!-- BEGIN PICKER PANEL AND DATATABLES -->
+        <!--BEGIN "MY DATA" PANEL-->
         <div id="local-series" class="picker">
+            <!--BEGIN "MY DATA" EDITOR SUBPANEL-->
             <div id="edit-user-series">
-                <div id="data-editor" class="hands-on-table dataTable" style="overflow:hidden;"></div>
                 <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel right">cancel</button> <!--button class="series-edit-save-as right" onclick="saveSeriesEditor(true)">save as copy</button--> <button class="series-edit-save right">save</button> <button class="series-edit-preview right">preview</button>
+                <div id="set-edit-header">
+                    <span class="set-header-label">set name:</span><input id="set_name" maxlength="500" /><br />
+                    <span class="set-header-label">set units:</span><input id="set_units" maxlength="100" /><br />
+                    <span class="set-header-label">set notes:</span><textarea id="set_notes" maxlength="1000"></textarea><br />
+                </div>
+                <div id="data-editor" class="hands-on-table dataTable" style="overflow:hidden;"></div>
             </div>
+            <!--BEGIN "MY DATA" TABLE SUBPANEL-->
             <div id="local-series-header" class="md-DS_title">
                 <span id="series-bar-controls" style="margin:5px, 2px, 0px, 5px; padding:0px"></span>
                     <span id="main-graph-buttons-top" class="right">
@@ -118,8 +125,9 @@
                 <table id="series-table" class="md-table"></table>
             </div>
         </div>
-        <!--BEGIN PUBLIC SERIES DATATABLE-->
+        <!--BEGIN "FIND DATA" PANEL-->
         <div id="cloud-series" class="picker">
+            <!--BEGIN "API BROWSER" SUBPANEL-->
             <div id="browse-api">
                 <div  id="browse-api-header">
                     <span style="padding:5px;">Click below to expand sibling and child categories.  Categories containing series are shown as links.  Note that a series can be in more than one category.</span>
@@ -129,6 +137,7 @@
                     <ol id="cat-browser"><div></div></ol>
                 </div>
             </div>
+            <!--BEGIN DEFAULT "PUBLIC DATA SEARCH" SUBPANEL-->
             <div id="cloud-series-header" class="md-DS_title">
                 <div id="cloud-series-search">
                     <input maxlength="100" style="width:300px;" id="series_search_text" class="series-search grey-italics" />
