@@ -1,4 +1,4 @@
-"use strict";
+// commented out so workbench can compile as this file is the first in the list to uglify "use strict";
 /**
  * Created on 4/9/14.
  *
