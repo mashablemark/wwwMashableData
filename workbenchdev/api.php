@@ -376,20 +376,21 @@ switch($command) {
     case "GetMySets":
         requiresLogin();
         $user_id = intval($_POST['uid']);
-        $sql = "SELECT  s.userid, u.name as username, s.name, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
-            maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units,
-            savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstsetdt, lastsetdt100k*100000 as lastsetdt
+        $sql = "SELECT  s.userid, u.name as username, s.name as setname, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
+            maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units, themeid,
+            savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstdt, lastsetdt100k*100000 as lastdt
             FROM sets s
             inner join  mysets ms on s.setid=ms.setid
             left outer join users u on s.userid=u.userid
-            WHERE ms.userid=" . $user_id;
+            WHERE ms.userid=$user_id
+            order by ms.savedt desc";
         $result = runQuery($sql);
         $output = array("status" => "ok", "series" => array());
         while ($aRow = $result->fetch_assoc()) {
             $aRow["rawmaps"] = $aRow["maps"];
             $aRow["maps"] = mapsFieldCleanup($aRow["maps"]);
             $aRow["freqs"] = freqsFieldToArray($aRow["freqs"]);
-            $output["sets"][handle($aRow)] = $aRow;
+            $output["sets"][] = $aRow;
         }
         break;
     case "GetMyGraphs":   //get only skeleton.  To view graph, will require call to GetGraph
@@ -1093,59 +1094,32 @@ switch($command) {
         flushCloudFlare($ghash);
         runQuery("delete from graphcache where ghash='$ghash'");
         break;
-    case "ManageMySeries":
+    case "ManageMyData":
         requiresLogin();
         $user_id = intval($_POST['uid']);
         $type = substr($_POST['handle'], 0, 1);
         $id = intval(substr($_POST['handle'], 1));
+        $setid = intval($_POST['setid']);
         $addDt = intval($_POST['jsts'] / 1000) * 1000;
-        $to = $_POST['to'];
+        $action = $_POST['action'];
         if (count($user_id) == 0 || count($id) == 0) {
             $output = array("status" => "invalid call.  Err 103");
             break;
         }
-        if ($type == "S") {    //series
-            $sql = "select * from mysets where setid = " . $id . " and userid = " . $user_id;
-            $result = runQuery($sql);
-            $from = "";
-            if ($result->num_rows == 1) {
-                $row = $result->fetch_assoc();
-                $from = $row["saved"];
-                if ($from == $to) {
-                    $output = array("status" => "error: from and to save status are identical");
-                    break;
-                }
-                $sql = "update mysets set savedt=" . $addDt . " where setid = " . $id . " and userid = " . $user_id;
-                logEvent("ManageMySeries: add", $sql);
-                runQuery($sql);
-            } else {
-                if ($to == "H" || $to == "S") { //if not assigned to "saved" or "history" then command is to delete
-                    $sql = "insert into mysets (userid, setid, savedt) VALUES ($user_id, $id, $addDt)";
-                    logEvent("ManageMySeries: add", $sql);
-                    runQuery($sql);
-                    //TODO:  delete history in excess of 100 series
-                }
-            }
-            if ($to == 'S') {
-                $sql = "update series set myseriescount= myseriescount+1 where setid = " . $id;
-                runQuery($sql);
-            } elseif ($from == 'S' && $to == 'H') {
-                $sql = "update series set myseriescount= myseriescount-1 where setid = " . $id;
-                runQuery($sql);
-            }
-            if ($to != "H" && $to != "S") {
-                $sql = "delete from mysets where setid = " . $id . " and userid = " . $user_id;
-                logEvent("ManageMySeries: delete", $sql);
-                runQuery($sql);
-            }
-        } elseif ($type == "U") {
-            if ($to != "S") {   //can only delete here.  nothing else to manage.
-                //TODO: check for graph dependencies and organizational usage
-                $sql = "delete from series where setid=" . $id . " and userid=" . $user_id;
-                runQuery($sql);
-            }
+        switch($action){
+            case "S": //SAVE
+                $sql = "insert into mysets (userid, setid, savedt) VALUES ($user_id, $setid, $addDt) on duplicate key update savedt = $addDt";
+                runQuery($sql, "ManageMyData");
+                $output = array("status" => "ok");
+                break;
+            case "D": //DELETE
+                $sql = "delete from mysets where userid=$user_id and setid=$setid";
+                runQuery($sql, "ManageMyData");
+                $output = array("status" => "ok");
+                break;
+            default:
+                $output = ["status" => "unrecognized command action"];
         }
-        $output = array("status" => "ok");
         break;
     case "GetUserId":
         $username = safePostVar('username');

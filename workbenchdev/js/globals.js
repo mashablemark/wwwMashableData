@@ -25,12 +25,12 @@ var MashableData = {
         standardAnnotations: [],  //filled by API call on first use
         //WORKBENCH
         iconsHMTL: {
-            mapset: '<span class="ui-icon ui-icon-mapset" title="series is part of a map set"></span>',
-            pointset: '<span class="ui-icon ui-icon-pointset" title="series is part of a set of markers (defined longitude and latitude)"></span>',
-            hasCubeViz: '<span class="ui-icon ui-icon-cube" title="map has supplemental visualizations"></span>',
-            hasHeatMap: '<span class="ui-icon ui-icon-mapset" title="contains a heat-map"></span>',
-            hasMarkerMap: '<span class="ui-icon ui-icon-pointset" title="contains sets of mapped markers (defined longitude and latitude)."></span>',
-            hasBubbleMap: '<span class="ui-icon ui-icon-bubble" title="bubble map of data aggregated into user-defined regions"></span>'
+            mapset: '<span class="ui-icon ui-icon-mapset" title="series is part of a map set" alt="series is part of a map set"></span>',
+            pointset: '<span class="ui-icon ui-icon-pointset" title="series is part of a set of markers (defined longitude and latitude)" alt="series is part of a set of markers (defined longitude and latitude)"></span>',
+            hasCubeViz: '<span class="ui-icon ui-icon-cube" title="Themes may support supplemental visualizations" alt="Themes may support supplemental visualizations"></span>',
+            hasHeatMap: '<span class="ui-icon ui-icon-mapset" title="contains a heat-map" alt="contains a heat-map"></span>',
+            hasMarkerMap: '<span class="ui-icon ui-icon-pointset" title="contains sets of mapped markers (defined longitude and latitude)." alt="contains sets of mapped markers (defined longitude and latitude)."></span>',
+            hasBubbleMap: '<span class="ui-icon ui-icon-bubble" title="bubble map of data aggregated into user-defined regions" alt="bubble map of data aggregated into user-defined regions"></span>'
         },
         themeCubes: {}, //stores {cubes: [{cubeid, name}...] under T+themeid key to eliminate repretative calls
         panelGraphs: {}, //oMyGraphs objects are copied and referenced by the tab's panelID (i.e. panelGraphs['graphTab1']).  Kept in sync by UI events.  Used by save/publish operations.

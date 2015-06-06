@@ -142,8 +142,11 @@ MashableData.Set = function(SetParams){
         }
         return name;
     };
+    MashableData.Set.prototype.setHandle = function(){
+        return this.settype + this.setid + this.preferedFreq();  //the bar minimum to be a set obj
+    };
     MashableData.Set.prototype.handle = function(){
-        var handle = this.settype + this.setid + this.preferedFreq();  //the bar minimum to be a set obj
+        var handle = this.setHandle();  //the bar minimum to be a set obj
         if(this.geoid) handle += 'G'+this.geoid;
         if(this.latlon) handle += 'L'+this.latlon;
         return handle;
