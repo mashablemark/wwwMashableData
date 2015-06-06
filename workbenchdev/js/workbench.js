@@ -1719,7 +1719,6 @@ function editSeries(setToEdit){//setToEdit is a MashableData.Set object to edit
             var worksheetSets = getWorkSheet(setToEdit);
             if(worksheetSets) showSeriesEditor(worksheetSets);
         }
-
     } else { //not mine!
         if((setToEdit.settype=='M' || setToEdit.settype=='X') && setToEdit.maps){
             //2. Is setToEdit part of a public set (i.e. is settype 'M' or 'X')? If so, ask if the use wants to edit the series or the entire set
@@ -1767,6 +1766,7 @@ function editSeries(setToEdit){//setToEdit is a MashableData.Set object to edit
 }
 function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of series object, a Map/Pointset handle, or not defined (when invoked by new series button)
     //called from editSeries() and from new series button.  When from new series button, setsToEdit and map parameters will not be defined
+    //also called from the grpah's quickview 
     if(!account.loggedIn()) {
         dialogShow("account required", dialogues.signInRequired);
         return;
@@ -2410,7 +2410,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
     }
 }
 function getWorkSheet(setToEdit){
-    callApi({command: 'GetWorkSheet', setid: setToEdit.setid, worksheet: setToEdit.createdt}, function(results){
+    callApi({command: 'GetWorkSheet', worksheet: setToEdit.workseet}, function(results){
         var setsToEdit = [];
         for(var i=0;i<results.series.length;i++){
             setsToEdit.push(new MashableData.Set(results.series))

@@ -378,7 +378,8 @@ switch($command) {
         $user_id = intval($_POST['uid']);
         $sql = "SELECT  s.userid, u.name as username, s.name as setname, setkey as sourcekey, s.setid, left(s.settype,1) as settype,
             maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units, themeid,
-            savedt, ms.preferredmap, freqs, firstsetdt100k*100000 as firstdt, lastsetdt100k*100000 as lastdt
+            maps, titles as categories, s.metadata as setmetadata, null as 'decimal', src, s.url, s.units, themeid,
+            savedt, ms.preferredmap, ms.worksheet, freqs, firstsetdt100k*100000 as firstdt, lastsetdt100k*100000 as lastdt
             FROM sets s
             inner join  mysets ms on s.setid=ms.setid
             left outer join users u on s.userid=u.userid
@@ -409,6 +410,31 @@ switch($command) {
         $result = runQuery($sql, "GetMyGraphs select");
         $output = ["status" => "ok", "graphs" => []];
         while ($aRow = $result->fetch_assoc()) $output["graphs"]["G" . $aRow["gid"]] = $aRow;
+        break;
+    case "GetWorkSheet": //worksheets have no geo or latlon.  series only.
+        requiresLogin();
+        $user_id = intval($_POST['uid']);
+        $worksheet = isset($_POST['worksheet']) ? intval($_POST['worksheet']) : false;
+        $output = ["status" => "ok", "series" => []];
+        if($worksheet) {
+            $sql = "select
+                s.name as setname, left(s.settype,1) as settype, s.units, s.metadata as setmetadata,
+                s.latlon, s.firstsetdt100k*1000000 as firstsetdt, s.lastsetdt100k*100000 as lastsetdt, s.setid,
+                sd.data, sd.firstdt100k, sd.lastdt100k, s.userid, s.src as src
+                replace('M$ft_join_char', '', coalesce(s.maps, xs.maps)) as maps,
+                replace('F$ft_join_char', '', coalesce(s.freqs, xs.freqs)) as freqs,
+                s.metadata as setmetadata
+                FROM mysets ms
+                  JOIN sets s on ms.setid = s.ssetid
+                  JOIN setdata sd ON s.setid=sd.setid
+                where ms.userid=$userid and s.userid=$userid and sd.geoi=0 and sd.latlon='' and worksheet=$worksheet";
+            $result = runQuery($sql);
+            while($row = $result->fetch_assoc()){
+                $output["series"][] = $row;
+            }
+        } else {
+            $output = ["status" => "Missing worksheet ID."];
+        }
         break;
     case "GetFullGraph":  //data and all: the complete protein!
         $ghash = $_REQUEST['ghash'];
