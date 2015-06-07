@@ -55,6 +55,14 @@ MashableData.common = {
         }
     },
 
+    isoDateFromMdDate: function(mdDate){
+        var isoDate = mdDate;
+        if(mdDate.length>4){
+            isoDate = isoDate.substr(0,4)+'-'+isoDate.substr(4);
+            if(mdDate.length>6) isoDate = isoDate.substr(0,7)+'-'+isoDate.substr(7);
+        }
+        return isoDate;
+    },
     mashableDate: function mashableDate(jsDate, period){
         var dt = new Date(parseInt(jsDate));
         var mdDate = dt.getUTCFullYear();

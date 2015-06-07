@@ -1707,13 +1707,21 @@ function quickViewClose(){
     $('#fancybox-close').click();
 }
 
-//series editor
-function editSeries(setToEdit){//setToEdit is a MashableData.Set object to edit
+//series editor pre-processing.
+function editSeries(setToEdit){//either a single set or an array containing a one set
     if($('#outer-show-graph-div:visible').length==1) quickViewClose();
+    if(Array.isArray(setToEdit)&&setToEdit.length==1) setToEdit = setToEdit[0];
     //1. Is setToEdit my edits?  If so edit the worksheet ( = all the series with the same update stamp).  This mean fetching these other single-series sets and passing them to showSeriesEditor as an array of MashableData.set objects
     if(setToEdit.userid == account.info.userId){  //this set is something the user has already edited!
         if((setToEdit.settype=='M' || setToEdit.settype=='X') && setToEdit.maps){
-            //this is a map or marker set I created.  Edit the whole thing (no choice)
+            //this is a map or marker set the user created.  Edit the whole thing (no choice)
+            var params = {command: 'GetSets', map: setToEdit.preferredMap};
+            params[setToEdit.settype=='M'?'mapSets':'pointSets'] = [{setid: setToEdit.setid, freq: setToEdit.freq}];
+            callApi(params, function(result){
+                for(var handle in result.assets){
+                    showSeriesEditor(result.assets[handle], setToEdit.preferredMap);
+                }
+            });
         } else {
             //this is a single-series set.  Edit its workbook (a workbook = all the series created at to same time, including later additions)
             var worksheetSets = getWorkSheet(setToEdit);
@@ -1751,7 +1759,13 @@ function editSeries(setToEdit){//setToEdit is a MashableData.Set object to edit
                 if($('input:radio[name=\'editSeriesOrSet\']:checked').val()=='series'){
                     showSeriesEditor([setToEdit]);
                 } else {
-                    showSeriesEditor(setToEdit, $select.val());
+                    var params = {command: 'GetSets', map: $select.val()};
+                    params[setToEdit.settype=='M'?'mapSets':'pointSets'] = [{setid: setToEdit.setid, freq: setToEdit.freq}];
+                    callApi(params, function(result){
+                        for(var handle in result.assets){
+                            showSeriesEditor(result.assets[handle], $select.val());
+                        }
+                    });
                 }
                 $.fancybox.close();
             });
@@ -1759,125 +1773,126 @@ function editSeries(setToEdit){//setToEdit is a MashableData.Set object to edit
                 $.fancybox.close();
             });
         } else {
-            //3. If setToEdit a public series (not part of a map or marker set), just go straight to showSeriesEditor
+            //3. If setToEdit a public single-series set (not part of a map or marker set), just go straight to showSeriesEditor
             showSeriesEditor([setToEdit]);
         }
     }
 }
-function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of series object, a Map/Pointset handle, or not defined (when invoked by new series button)
-    //called from editSeries() and from new series button.  When from new series button, setsToEdit and map parameters will not be defined
-    //also called from the grpah's quickview 
+function showSeriesEditor(setsToEdit, map){
+//setsToEdit is either an array of single-series set objects or Mapset/Pointset object, or not defined (when invoked by new series button)
+//called from:
+//   1. editSeries()
+//   2. new series button (setsToEdit and map parameters will not be defined)
+//   3. graph's quickview when user asks to edit the data (quickview will query the user and either provide an array of single set series or a map/marker set)
     if(!account.loggedIn()) {
         dialogShow("account required", dialogues.signInRequired);
         return;
     }
-    var $editor;  //variable set in intialize() and used throughout
+    //frequency editor
+    var freqOptions = '';
+    for(var freq in globals.period.name){
+        if(freq!='N') freqOptions += '<option value="'+freq+'">'+globals.period.name[freq]+'</option>';
+    }
+    $('#set_freq_format').html('');
+    $('#set_freq').off().html(freqOptions).click(function(){
+        $('#set_freq_format').html('(Please format as ' + globals.period.format[$('#set_freq').val()]+')');
+    });
+
+    var $editor;  //variable set in initialize() and used throughout
     var seriesEditorInitialised=false;
     var periodOfEdits=false;
     var editorCols = 2;
-    var settype = 'U';
     var setid = null;
     var geoid = null;
-    var bunnyColumns = [];
+    var bunnyColumns = [];   
+    
+    var settype, worksheetid, mapableSourceSet, now = new Date();
     $('#series-tabs').find('li.local-series a').click();
     var rows = {
-        U: {name: 0, units: 1, notes: 2, setid: 3, header: 4},
+        U: {setid: 0, name: 1, units: 2, notes: 3, header: 4},
         M: {geoid: 0, header: 1},
-        X: {name: 0, geoid: 1, geoname: 2, latlon: 3, header: 4}
+        X: {geoid: 0, geoname: 1, lat: 2, lon: 3, header: 4}
     };
-    if(setsToEdit && setsToEdit.length==1 && map){
-        if(setsToEdit[0]=='M'){ //MAPSET EDIT
-            var set = setsToEdit[0];
-            callApi(
-                {command: 'GetSets', map: map, mapSets: [{setid: set.setid, freq: set.freq}], modal: 'persist'},
-                function(jsoData, textStatus, jqXH){
-                    require(requireModules,function(){_userMapSet(jsoData.assets['M'+set.setid+set.freq])});
-                }
-            );
-            require(requireModules); //non-blocking load of the required JS modules during the API call;
-            function _userMapSet(mapSet){
-                initializeSeriesEditor();
-                var seriesData, point, i, j, row, grid = [["set name",mapSet.name],["units",mapSet.units],["notes", mapSet.setmetadata],["geoid"],[setid], ["date"]];  //handle col will hold the set id
-                for(i=0;i<mapSet.data.length;i++){
-                    grid[rows.M.geoid].push(mapSet.data[i].geoid);
-                    console.info("trying to set mapset's series handles");
-                    grid[rows.M.handle].push(mapSet.data[i].handle);
-                    grid[rows.M.header].push(mapSet.data[i].geoname);
+    if(setsToEdit){
+        var isWorkSheet = Array.isArray(setsToEdit);
+        if(isWorkSheet){
+            settype = 'U';
+            worksheetid = setsToEdit[0].worksheetid  || now.getTime();
+        } else {
+            mapableSourceSet = setsToEdit;
+            settype = mapableSourceSet.settype;
+            $('#series-edit-preview, .series-edit-geoset').hide();
+        }
+
+        var seriesData, point, i, j, row, grid;
+        switch(settype){
+            case 'M':
+                var mapSet = mapableSourceSet;
+                _initializeSeriesEditor();
+
+                $('#set-edit-header').show();
+                $('#set_name').val(mapSet.setname);
+                $('#set_units').val(mapSet.units);
+                $('#set_notes').val(mapSet.setmetadata);
+                $('#set_freq').val(mapSet.freq);
+                grid = [["geoid"], ["date"]];
+                for(var geokey in mapSet.data){
+                    grid[rows.M.geoid].push(mapSet.data[geokey].geoid);
+                    grid[rows.M.header].push(mapSet.data[geokey].geoname);
                     row = rows.M.header+1;  //first data row
-                    if(setData.geographies[i].data){
-                        seriesData = setData.geographies[i].data.split('|');
-                        seriesData.sort(); //this should not be necessary is series were properly ordered
+                    if(mapSet.data[geokey].data){
+                        seriesData = mapSet.data[geokey].data.split('|');
+                        seriesData.sort(); //this should not be necessary if series were properly ordered
                         for(j=0;j<seriesData.length;j++){
                             point = seriesData[j].split(':');
                             while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
                             if(row==grid.length){
-                                grid.push(makeRow());
+                                grid.push(_makeRow(point, grid[0].length));
                             } else {
                                 if(grid[row][0]==point[0]) grid[row].push(point[1]);
-                                if(grid[row][0]<point[0]) grid.splice(row,0,makeRow());
+                                if(grid[row][0]<point[0]) grid.splice(row, 0, _makeRow(point, grid[0].length));
                             }
                             row++;
                         }
                     }
                     while(row<grid.length) grid[row++].push('');
-                    function makeRow(){
-                        var i, newRow = [point[0]];
-                        for(i=1;i<grid[4].length-1;i++) newRow.push('');
-                        newRow.push(point[1]);
-                        return newRow;
-                    }
-
                 }
-                editorCols = setData.geographies.length + 1;
+                editorCols = grid[0].length;  //users cannot add columns to mapset:  they are complete for a given map
                 $("#data-editor").removeAttr("data")
                     .handsontable({
-                        data: grid,
-                        minCols: editorCols
+                        data: grid
                     }).
-                    find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+                    //hiding handled in renderer:  find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
                 unmask();
-            }
-        }
-        if(setsToEdit[0]=='X'){ //MARKER SET EDIT
-            set = setsToEdit;
-            callApi({command: 'GetPointSets', pointsetids: [parseInt(set.substr(1))], map: map.split(':')[0], modal: 'persist'}, function(jsoData, textStatus, jqXH){
-                require(requireModules,function(){userMarkerSet(jsoData.pointsets[set])});
-                settype = 'X';
-            });
-            function userMarkerSet(setData){
-                initializeSeriesEditor();
-                var seriesData, point, i, j, row, grid = [["marker set",setData.name],["units",setData.units],["notes",""],["geoid"],["lat"],["lon"],[set],["date"]]; //handle col will hold the set id
-                for(var latlon in setData.data){
-                    grid[rows.X.geoid].push(setData.data[latlon].geoid);
-                    grid[rows.X.handle].push(setData.data[latlon].handle);
-                    grid[rows.X.lat].push(setData.data[latlon].lat);
-                    grid[rows.X.lon].push(setData.data[latlon].lon);
-                    grid[rows.X.handle].push(setData.data[latlon].handle);
-                    grid[rows.X.header].push(setData.data[latlon].name.replace(setData.name,'').trim());
+                break;
+            case 'X'://MARKER SET EDIT
+                _initializeSeriesEditor();
+                $('#set_freq').val(mapableSourceSet.freq);
+                var aryLatLon, setData = mapableSourceSet.data;
+                grid = [["marker set",setData.name],["units",setData.units],["notes",""],["geoid"],["lat"],["lon"],[set],["date"]]; //handle col will hold the set id
+                for(var latlon in setData){
+                    aryLatLon = latlon.split(',');
+                    grid[rows.X.geoid].push(setData[latlon].geoid);
+                    grid[rows.X.lat].push(aryLatLon[0]);
+                    grid[rows.X.lon].push(aryLatLon[1]);
+                    grid[rows.X.header].push(setData[latlon].name.replace(setData.name,'').trim());
                     row = rows.X.header+1;  //first data row
-                    if(setData.data[latlon].data){
-                        seriesData = setData.data[latlon].data.split('|');
+                    if(setData[latlon].data){
+                        seriesData = setData[latlon].data.split('|');
                         seriesData.sort(); //this should not be necessary is series were properly ordered
                         for(j=0;j<seriesData.length;j++){
                             point = seriesData[j].split(':');
                             while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
                             if(row==grid.length){
-                                grid.push(makeRow());
+                                grid.push(_makeRow(point, grid[0].length));
                             } else {
                                 if(grid[row][0]==point[0]) grid[row].push(point[1]);
-                                if(grid[row][0]<point[0]) grid.splice(row,0,makeRow());
+                                if(grid[row][0]<point[0]) grid.splice(row, 0, _makeRow(point, grid[0].length));
                             }
                             row++;
                         }
                     }
                     while(row<grid.length) grid[row++].push('');
-                    function makeRow(){
-                        var i, newRow = [point[0]];
-                        for(i=1;i<grid[rows.X.header].length-1;i++) newRow.push('');
-                        newRow.push(point[1]);
-                        return newRow;
-                    }
-
                 }
                 editorCols = setData.geographies.length + 1;
                 $("#data-editor").removeAttr("data")
@@ -1887,12 +1902,54 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                     }).
                     find('table.htCore tr').show().filter(':eq('+rows.X.handle+')').hide().end().filter(':eq('+rows.X.geoid+')').hide();
                 unmask();
-            }
+                break;
+            case 'U':
+                _initializeSeriesEditor();
+                grid = [["setid"],["name"],["units"],["notes"],["date"]]; //handle col will hold the set id
+                $('#set_freq').val(setsToEdit[0].freq);  //a worksheet can only have a singel freq
+                for(i=0;i<setsToEdit.length;i++){
+                    var serie = setsToEdit[i];
+                    grid[rows.U.setid].push(serie.userid == account.info.userId?serie.setid||-i:-i);
+                    grid[rows.U.units].push(serie.units||'units required');
+                    grid[rows.U.notes].push(serie.setMetdata||'');
+                    grid[rows.U.name].push(serie.name());
+                    seriesData = Array.isArray(serie.data)?serie.data:serie.data.split('|');
+                    seriesData.sort(); //this should not be necessary is series were properly ordered
+                    row = rows.U.header+1;  //first data row
+                    for(j=0;j<seriesData.length;j++){
+                        point = seriesData[j].split(':');
+                        while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
+                        if(row==grid.length){
+                            grid.push(_makeRow(point, grid[0].length));
+                        } else {
+                            if(grid[row][0]==point[0]) grid[row].push(point[1]);
+                            if(grid[row][0]<point[0]) grid.splice(row, 0, _makeRow(point, grid[0].length));
+                        }
+                        row++;
+                    }
+                    while(row<grid.length) grid[row++].push('');
+                }
+                $("#data-editor").removeAttr("data")
+                    .handsontable({
+                        data: grid,
+                        minCols: editorCols
+                    });
+                $('#edit-user-series').slideDown();
+                $('#set-edit-header').hide();
         }
     } else {
-       seriesEditor();
+        settype = 'U';
+        worksheetid = now.getTime();
+        seriesEditor();
     }
-    function initializeSeriesEditor(){
+    
+    function _makeRow(point, length){
+        var i, newRow = [common.isoDateFromMdDate(point[0])];
+        for(i=1;i<length-1;i++) newRow.push('');
+        newRow.push(point[1]);
+        return newRow;
+    }
+    function _initializeSeriesEditor(){
         editorCols = 2;
         var lastRow= 0,lastCol=0;
         var $panel = $('div#edit-user-series').height($('#local-series').height()).fadeIn();
@@ -1931,7 +1988,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                 if(row>=fixedRowsTop && col>=fixedColumnsLeft){
                     cellProperties.type = 'numeric';
                 } else {
-                    cellProperties.renderer = handsOnCellRenderer;
+                    cellProperties.renderer = _handsOnCellRenderer;
                 }
                 return cellProperties;
             },
@@ -2024,7 +2081,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
         seriesEditorInitialised=true;
     }
     var fixedRowsTop = 5, fixedColumnsLeft = 1;  //gets modified for set mapset and pointset edits
-    function handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
+    function _handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
         switch(settype){
             case 'U':
                 Handsontable.TextCell.renderer.apply(this, arguments);
@@ -2061,14 +2118,13 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
         }
     }
     function seriesEditor(series){ //this is called if array of series object is to be edited
-        if(!seriesEditorInitialised) initializeSeriesEditor();
+        if(!seriesEditorInitialised) _initializeSeriesEditor();
         var data, i, $editor = $("#data-editor");
         $('button#series-edit-save').attr("disabled","disabled");
         if(series){
             //todo:  expand to edit all series passed in, not just the first
             var oSerie = series[0], handle = oSerie.handle();
-            var type = handle[0];
-            switch(type){
+            switch(settype){
                 case 'U':
                     $('button#series-edit-save').removeAttr("disabled");
                 case 'S':
@@ -2169,6 +2225,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             $editor.handsontable("loadData", [["name", ""],["units",""],["notes",""],["handle","new"],["date","value"]]);
             $editor.find('table.htCore tr').show().filter(':eq('+rows.U.handle+')').hide();
             periodOfEdits = false;
+            $('#series-edit-preview, .series-edit-geoset').show();
         }
         $('div#edit-user-series').slideDown();
     }
@@ -2221,7 +2278,12 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
             //2B. for pointsets:  columns of: noneditable geoname headers + editable green shaded cells for lat & lon
             //3. cell A1 = [name|map set| point set] will be
             callApi({command: 'GetMapGeographies', settype: type, map: map}, function(jsoData, textStatus, jqXH){_newUserMapSet(jsoData, type)});  //mapsets shown on callback
+            $('#set_name').val('');
+            $('#set_units').val('');
+            $('#set_notes').val('');
+
         }
+
         function _newUserMapSet(jsoData, type){
             bunnyColumns = [];
             var data;
@@ -2247,6 +2309,7 @@ function showSeriesEditor(setsToEdit, map){ //setsToEdit is either an array of s
                 fixedColumnsLeft: fixedColumnsLeft,
                 fixedRowsTop: fixedRowsTop
             });
+            $('#series-edit-preview, .series-edit-geoset').hide();
 
         }
     }

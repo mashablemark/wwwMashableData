@@ -107,6 +107,14 @@ var MashableData = {
                 'Q': "quarter",
                 'SA': "half-year",
                 'A': "year"
+            },
+            format:{
+                'D': "yyyy-mm-dd",
+                'W': "yyyy-mm-dd",
+                'M': "yyyy-mm",
+                'Q': "yyyy-Qq",
+                'SA': "yyyy-Ss",
+                'A': "yyyy"
             }
         },
         op: {

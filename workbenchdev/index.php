@@ -107,6 +107,7 @@
             <!--BEGIN "MY DATA" EDITOR SUBPANEL-->
             <div id="edit-user-series">
                 <button class="series-edit-geoset">make a geographic set</button> <button class="series-edit-cancel right">cancel</button> <!--button class="series-edit-save-as right" onclick="saveSeriesEditor(true)">save as copy</button--> <button class="series-edit-save right">save</button> <button class="series-edit-preview right">preview</button>
+                <br /><span class="set-header-label">frequency:</span><select id="set_freq"></select> <span id="set_freq_format"></span>
                 <div id="set-edit-header">
                     <span class="set-header-label">set name:</span><input id="set_name" maxlength="500" /><br />
                     <span class="set-header-label">set units:</span><input id="set_units" maxlength="100" /><br />
