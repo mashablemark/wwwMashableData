@@ -2008,6 +2008,7 @@ MashableData.grapher = function(){
                                 var selectedMarkers = $map.getSelectedMarkers();
                                 var popGraph = new MD.Graph(), plt, formula, i, j, c, X, regionCodes, regionNames, pointset, mapComps, comps, newComp, asset, found;
                                 popGraph.title = 'from map of ' + oGraph.title;
+                                popGraph.sourceGraph = oGraph;
                                 for(i=0;i<selectedMarkers.length;i++){  //the IDs of the markers are either the lat,lng in the case of pointsets or the '+' separated region codes for bubble graphs
                                     if(_drawMap_isBubble()){
                                         //get array of regions codes

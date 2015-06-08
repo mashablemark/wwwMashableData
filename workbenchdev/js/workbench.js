@@ -1152,11 +1152,12 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
         qGraph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
         $qvChangeFreq.hide();
+        $('#edit-my-series, #quick-view-to-series').hide();
         if($qvChangeFreq.selectmenu('instance')) $qvChangeFreq.selectmenu('destroy');
         $quickViewChangeGeo.hide();
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
-        oQuickViewSeries = aoSeries; //aoSeries is guarented to be an array of series
+        oQuickViewSeries = aoSeries; //aoSeries is guarenteed to be an array of series
 
         //allow geo switching on a single series only
         $('#quick-view-geo-select').hide();  //hide the autocomplete
@@ -1778,6 +1779,7 @@ function editSeries(setToEdit){//either a single set or an array containing a on
         }
     }
 }
+
 function showSeriesEditor(setsToEdit, map){
 //setsToEdit is either an array of single-series set objects or Mapset/Pointset object, or not defined (when invoked by new series button)
 //called from:

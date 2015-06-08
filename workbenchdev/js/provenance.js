@@ -134,7 +134,7 @@ function ProvenanceController(panelId){
                 + '</li>',
             seriesPlotEditor: '<div class="plot-editor" style="display: none;">'
                 + '<button class="plot-close prov-float-btn">close</button>'
-                + '<button class="plot-copy prov-float-btn">make copy</button>'
+                + '<button class="plot-copy prov-float-btn">clone</button>'
                 + '<button class="plot-delete prov-float-btn">delete plot</button>'
                 + '<fieldset class="edit-line" style="padding: 0 5px;display:inline-block;"><legend>color, thickness, &amp; style</legend>'
                 +   '<div class="edit-block"><input class="plot-color" type="text" data="color" value="{{color}}" /></div>'
@@ -167,9 +167,8 @@ function ProvenanceController(panelId){
                 + '</div>',
             mapPlotEditor: '<div class="plot-editor" style="display: none;">{{mergeFormula}}'
                 + '<button class="plot-close prov-float-btn">close</button>'
-                + '<button class="plot-copy prov-float-btn">make copy</button>'
-                + '<button class="plot-delete prov-float-btn">delete map set</button>'
-                +   '<button class="plot-delete prov-float-btn">delete heat map</button>'
+                + '<button class="plot-copy prov-float-btn">clone</button>'
+                + '<button class="plot-delete prov-float-btn">delete map</button>'
                 +   '<div class="edit-block">name: </span><input class="plot-name" type="text" data="name"/></div><br>'
                 +   '<div class="edit-block"><span class="edit-label">units:</span><input class="plot-units long" data="units" type="text"/><span class="plot-edit-k"> scalor: <input class="short" value="{{k}}"></div><br>'
                 +   '<span class="edit-label">Point calculations:</span>'
@@ -360,7 +359,7 @@ function ProvenanceController(panelId){
                         name: comp.name(),
                         freq: plot.options.fdown!=comp.freq&&plot.options.algorithm?period.name[comp.freq]+' created by <a href="/workbench-help/changing-frequency/" traget="_blank">'+algorithm[plot.options.algorithm] +'</a> '+period.name[comp.freq]+' data':period.name[comp.freq],
                         units: comp.units,
-                        source: comp.isSeries()?' <a class="link comp-view">view source data</a>':''
+                        source: ' <a class="link comp-view">view source data</a>'
                     });
                 }
                 return mustache(templates.components, {
@@ -782,8 +781,8 @@ function ProvenanceController(panelId){
                 var model = controller.getModel(liComp);
                 var component = model.component;
                 var handle = component .handle();
-                var editDiv = (component.isSeries()?'<button class="comp-copy prov-float-btn">make copy</button>':'')
-                    + '<button class="comp-delete prov-float-btn">remove series</button>'
+                var editDiv = (component.isPointSet()?'':'<button class="comp-copy prov-float-btn">clone</button>')
+                    + '<button class="comp-delete prov-float-btn">remove</button>'
                 var $editDiv = $(editDiv);
                 $liComp.find(".plot-op").hide().after(
                     '<div class="op">'
