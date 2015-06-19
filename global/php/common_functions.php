@@ -152,7 +152,7 @@ function requiresLogin(){
     $uid = intval($_POST["uid"]);
     if($uid==0){
         closeConnection();
-        die('{"status": "This function requires you to be logged in.  Create a free account or user your FaceBook account."}');
+        die('{"status": "This function requires you to be signed in.  MashableData is a free service and authenticate using your Facebook account so netierh of us has to remember another password. <b>Sign in</b> at top right."}');
     }
     $sql = "select name, orgid from users where userid = " . $uid . ($laptop?'':" and accesstoken=" . safeSQLFromPost("accessToken"));
     $result = runQuery($sql);

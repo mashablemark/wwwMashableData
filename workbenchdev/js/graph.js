@@ -382,6 +382,19 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         this.eachPlot(function(){isEmpty = false;});
         return isEmpty;
     };
+    Graph.prototype.onlySameSetPlots = function(){ //returns array of series (component objects) if graph only contains plots of series from a single set with no mathematical alternations ELSE returns false.
+        var series = [];
+        this.eachPlot(function(){
+            if(series){
+                series.push(this.components[0]);
+                if((this.components.length > 1 || this.isMapPlot() || this.isPointPlot())
+                ||  (this.options.userFormula || this.components[0].options.k != 1 || this.components[0].options.op != '+')
+                ||  (series[0].setid != this.components[0].setid || series[0].freq != this.components[0].freq))
+                    series = false;
+            }
+        });
+        return series;
+    };
     Graph.prototype.eachPlot = function eachPlot(callback){
         var graph = this;
         if(graph.mapsets) $.each(graph.mapsets, function(p){callback.call(this, p, graph, graph.mapsets)});

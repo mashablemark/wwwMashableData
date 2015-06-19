@@ -1,4 +1,4 @@
-//too much trouble:  "use strict";
+"use strict";
 /** workbench.js
  * Created with JetBrains PhpStorm.
  * User: mark
@@ -15,8 +15,7 @@
 
 //shortcuts:
 var MD = MashableData, globals = MD.globals, grapher = MD.grapher, common = MD.common;
-var
-    themeCubes = globals.themeCubes,
+var themeCubes = globals.themeCubes,
     iconsHMTL = globals.iconsHMTL,
     panelGraphs = globals.panelGraphs,
     oMySets = globals.MySets,
@@ -93,6 +92,21 @@ var lastSeriesSearch="", lastGraphSearch=""; //kill column sorting on new search
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
 var $quickViewRows = null; //used to remember jQuery set of rows being previewed in case user chooses to delete them
+var qvControls = {
+    $ChangeGeo: null,
+    $GeoSelector: null,
+    $MapOrChartButtonSet: null,
+    $FreqSelector: null,
+    $EditData: null,
+    $AddMyData: null,
+    $RemoveMyData: null,
+    $GraphSelector: null,
+    $MapSelector: null,
+    $CubeSelector: null,
+    $AddToGraph: null,
+    Graph: false  //this is the MD.Graph object that is shown in the QuickView pop up in the workbench
+};
+var $helpMenu;
 
 var editingPanelId = null;  //TODO:  phase out as global var.  (was used for editing a graph's series list via the MySeries panel.  Replaced by graph's series provenance panel and by add to graph from quickViews.
 var mySeriesLoaded = false;
@@ -102,7 +116,7 @@ var tab_counter = 1; //incremented with each new $graphTabs and used to create u
 var localSeriesIndex = 0;  //used to give localSeries from chart plugin unique handles when user is not logged in
 
 var oQuickViewSeries; //global storage of last series quick-viewed.  Used by "Add to my Series" and "add to Graph" button functions.
-var quickChart;
+var quickChart;  //instantiated Highcharts chart object displayed in quickView
 var lastTabAnchorClicked;  //when all graphs are deleted, this gets shown
 var parsingHash = false;
 
@@ -154,23 +168,27 @@ $(document).ready(function(){
     addJQueryStringify();   // add extension after jQuery guaranteed to be loaded
 
     //setup the quickview controls
-    $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
-        editSeries(oQuickViewSeries); //else dialogShow('warning',dialogues.editLimit);
+    qvControls.$EditData = $('#edit-my-series').button({icons: {secondary: "ui-icon-pencil"}}).click(function(){
+        editSeries(qvControls.Graph); //else dialogShow('warning',dialogues.editLimit);
     });
-    $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}}).click(function(){quickViewToSeries(this)});
-    $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error')
+    qvControls.$AddMyData = $('#quick-view-to-series').button({icons: {secondary: "ui-icon-person"}}).click(function(){quickViewToSeries(this)});
+    qvControls.$RemoveMyData = $('#quick-view-delete-series').button({icons: {secondary: "ui-icon-trash"}}).addClass('ui-state-error')
         .click(function(){
             quickViewClose();
             deleteMySeries(this);
         });
-    $('#quick-view-chart-or-map').buttonset();
+    qvControls.$MapOrChartButtonSet = $('#quick-view-chart-or-map').buttonset();
     $('#quick-view-map').button({icons: {secondary: "ui-icon-flag"}});
     $('#quick-view-chart').button({icons: {secondary: "ui-icon-image"}});
 
-    $('#quick-view-add-to-graph').button().click(quickViewToGraph);
-    $quickViewChangeGeo = $('#quick-view-change-geo').button().click(quickViewFetchGeos);
+    qvControls.$AddToGraph = $('#quick-view-add-to-graph').button().click(quickViewToGraph);
+    qvControls.$ChangeGeo = $('#quick-view-change-geo').button().click(quickViewFetchGeos);
     $('#quick-view-close').button({icons: {secondary: "ui-icon-close"}}).click(quickViewClose);
-
+    qvControls.$MapSelector = $('#quick-view-maps');
+    qvControls.$FreqSelector = $('#quick-view-change-freq');
+    qvControls.$GeoSelector = $('#quick-view-geo-select');
+    qvControls.$CubeSelector = $('#quick-view-select-viz');
+    qvControls.$GraphSelector = $('#quick-view-to-graphs');
     $(".show-graph-link").fancybox({  //TODO: replace index html with dynamic FancyBox invocations per account.js
         'width'             :  '100%',
         'height'            : '100%',
@@ -1144,37 +1162,37 @@ function preview(series, map, showAddSeries){ //series is an array of Set object
     }
 }
 function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an array of series objects, or a complete graph object
-    var qGraph, aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
+    var aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
-    var $mapSelect =  $('#quick-view-maps'), $qvChangeFreq = $('#quick-view-change-freq'), $qvSelectGeo = $('#quick-view-geo-select').hide();
-    if($qvSelectGeo.get(0).options.length) $qvSelectGeo.combobox('destroy'); //   off().closest('div.widget').find('.custom-combobox').remove();
+    qvControls.$GeoSelector.hide();
+    if(qvControls.$GeoSelector.get(0).options.length) qvControls.$GeoSelector.combobox('destroy'); //   off().closest('div.widget').find('.custom-combobox').remove();
     if(obj.plots){ // a graphs object was passed in
-        qGraph = obj; // everything including title should be set by caller
+        qvControls.Graph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
-        $qvChangeFreq.hide();
-        $('#edit-my-series, #quick-view-to-series').hide();
-        if($qvChangeFreq.selectmenu('instance')) $qvChangeFreq.selectmenu('destroy');
-        $quickViewChangeGeo.hide();
+        qvControls.$FreqSelector.hide();
+        //always allow user to edit or add series to graph.  Note that code needs to check for compound plots and may need to deny with warning in some cases $('#edit-my-series, #quick-view-to-series').hide();
+        if(qvControls.$FreqSelector.selectmenu('instance')) qvControls.$FreqSelector.selectmenu('destroy');
+        qvControls.$ChangeGeo.hide();
     } else { //obj is either an array of series or a single series
         if(obj instanceof Array) aoSeries = obj; else aoSeries = [obj];
         oQuickViewSeries = aoSeries; //aoSeries is guarenteed to be an array of series
 
         //allow geo switching on a single series only
-        $('#quick-view-geo-select').hide();  //hide the autocomplete
+        qvControls.$GeoSelector.hide();  //hide the autocomplete
 
         if(aoSeries.length==1 && aoSeries[0].settype!='S'){
-            $quickViewChangeGeo.show(); //show the autocomplete fill button
+            qvControls.$ChangeGeo.show(); //show the autocomplete fill button
             $('#outer-show-graph-div .ui-autocomplete').remove();
         } else {
-            $qvChangeFreq.hide();
-            if($qvChangeFreq.selectmenu('instance')) $qvChangeFreq.selectmenu('destroy');
-            $quickViewChangeGeo.hide();
+            qvControls.$FreqSelector.hide();
+            if(qvControls.$FreqSelector.selectmenu('instance')) qvControls.$FreqSelector.selectmenu('destroy');
+            qvControls.$ChangeGeo.hide();
         }
 
-        qGraph = new MD.Graph();
+        qvControls.Graph = new MD.Graph();
         var allFreqs = [], allFreq = [];
         for(i=0;i<aoSeries.length;i++){
-            qGraph.addPlot([new MD.Component(aoSeries[i])]);
+            qvControls.Graph.addPlot([new MD.Component(aoSeries[i])]);
             if(allFreq.indexOf(aoSeries[i].freq)===-1) allFreq.push(aoSeries[i].freq);
             if(aoSeries[i].freqs && allFreqs.indexOf(aoSeries[i].freqs.toString())===-1) allFreqs.push(aoSeries[i].freqs.toString());
         }
@@ -1183,7 +1201,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
             $.each(aoSeries[0].freqs, function(f, freq){ //previous test guarantees that all aoSeries have identical freq and freqs
                 options += '<option value="'+freq+'" '+(freq==aoSeries[0].freq?'selected':'')+'>'+globals.period.name[freq]+'</option>';
             });
-            $('#quick-view-change-freq').html(options).off().change(function(){
+            qvControls.$FreqSelector.html(options).off().change(function(){
                 var newF = this.value;
                 $.each(aoSeries, function(){
                     this.freq = newF;
@@ -1192,12 +1210,12 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
                 preview(aoSeries, map, showAddSeries);
             });
         } else {
-            $('#quick-view-change-freq').hide().selectmenu('destroy');
+            qvControls.$FreqSelector.hide(); //.selectmenu('destroy');
         }
     }
-    var quickChartOptions = grapher.makeChartOptionsObject(qGraph);
+    var quickChartOptions = grapher.makeChartOptionsObject(qvControls.Graph);
 
-    qGraph.eachComponent(function(){
+    qvControls.Graph.eachComponent(function(){
         if(globals.MySets[this.handle()] || globals.MySets[this.setHandle()]) someMySeries.push(this);
         if(!globals.MySets[this.handle()]) someNewSeries.push(this);
     });
@@ -1254,23 +1272,23 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
 
     //initial map and/or chart buttonset visibility + map selector fill
     if(setMaps.length){ //make sure we have maps to show
-        $('#quick-view-chart-or-map').show().find('input').off().click(_showHideMapSelector);
-        map = $mapSelect.html(setMaps.join('')).val(map).val();  //if no passed in map preference, set it to the first map = used in determining graph capatilibity
+        qvControls.$MapOrChartButtonSet.show().find('input').off().click(_showHideMapSelector);
+        map = qvControls.$MapSelector.html(setMaps.join('')).val(map).val();  //if no passed in map preference, set it to the first map = used in determining graph capatilibity
         _showHideMapSelector();
     } else {
-        $mapSelect.hide();
-        $('#quick-view-chart-or-map').hide();
+        qvControls.$MapSelector.hide();
+        qvControls.$MapOrChartButtonSet.hide();
     }
 
     if(showAddSeries && someNewSeries){
-        $('#quick-view-to-series').show();
+        qvControls.$AddMyData.show();
     } else {
-        $('#quick-view-to-series').hide();
+        qvControls.$AddMyData.hide();
     }
     if(someMySeries.length>0){
-        $('#quick-view-delete-series').show();
+        qvControls.$RemoveMyData.show();
     } else {
-        $('#quick-view-delete-series').hide();
+        qvControls.$RemoveMyData.hide();
     }
     //populate the graph selector
     var currentGraphId = MD.grapher.visiblePanelId(), graphOptions = '<option value="new">new graph</option>';
@@ -1280,22 +1298,22 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
     });
 
     //populate the cube selector
-    fillCubeSelector($('#quick-view-select-viz'), setids, themeids);
+    fillCubeSelector(qvControls.$CubeSelector, setids, themeids);
 
     //program the "add to graph" button
     var addTo = currentGraphId && panelGraphs[currentGraphId].map && map && panelGraphs[currentGraphId].map==map?currentGraphId:'new';
-    $('#quick-view-to-graphs').html(graphOptions).val(addTo)
+    qvControls.$GraphSelector.html(graphOptions).val(addTo)
         .off()
         .click(function(){
-            $('#quick-view-add-to-graph').find('.ui-button-text').html(($(this).val()=='new')?'create graph':'add to graph');
+            qvControls.$AddToGraph.find('.ui-button-text').html(($(this).val()=='new')?'create graph':'add to graph');
         })
         .click(); //set the button text
     $('.show-graph-link').click();
 
     function _showHideMapSelector (){
-        var show = ($('#quick-view-chart-or-map input:checked').val()!='chart');
-        var shown = $mapSelect.css("display")!='none';
-        if(show&&!shown || !show&&shown) $mapSelect.animate({width: 'toggle'});  //the complete function is sync insurance
+        var show = qvControls.$MapOrChartButtonSet.find('input:checked').val()!='chart';
+        var shown = qvControls.$MapSelector.css("display")!='none';
+        if(show&&!shown || !show&&shown) qvControls.$MapSelector.animate({width: 'toggle'});  //the complete function is sync insurance
     }
 }
 function quickViewToSeries(btn){ //called from button. to add series shown in active quickView to MySeries
@@ -1329,8 +1347,8 @@ function quickViewFetchGeos(){
                     options += '<option value="'+geo.geoid+'" '+(isQvSet?'selected':'')+'>'+geo.name+'</option>';
                 }
             }
-            $quickViewChangeGeo.slideUp();
-            var $geoSelect = $('#quick-view-geo-select').html(options).off().slideDown().change(function(){
+            qvControls.$ChangeGeo.slideUp();
+            var $geoSelect = qvControls.$GeoSelector.html(options).off().slideDown().change(function(){
                 console.log($(this).val());
             });
 
@@ -1538,8 +1556,8 @@ function quickViewFetchGeos(){
 function quickViewToGraph(){
     var panelId =  $('#quick-view-to-graphs').val();
     var mapped=false, charted=false;
-    if($('#quick-view-chart-or-map:visible').length){
-        switch($('#quick-view-chart-or-map input:radio:checked').val()){
+    if(qvControls.$MapOrChartButtonSet.is(':visible')){
+        switch(qvControls.$MapOrChartButtonSet.find('input:radio:checked').val()){
             case 'map':
                 mapped = true;
                 break;
@@ -1569,24 +1587,31 @@ function quickViewToGraph(){
         }
     }
 
-    var oGraph;
+    var oGraph, inConfigMode = false;
     if(panelId=="new"){
         oGraph = new MD.Graph();
     } else {
         oGraph = panelGraphs[panelId];
-        oGraph.controls.provenance.commitChanges(false);
+        inConfigMode = !!(oGraph.controls.provenance.provAnnotations);
+        //TODO: add to prov instead of oGraph if prov open oGraph.controls.provenance.commitChanges(false);
     }
     if(mapped) {
         oGraph.map = map;
         oGraph.mapconfig.legendLocation = globals.maps[map].legend;
         oGraph.fetchMap(); //preload
     }
-    var themeids = [], setids = [];
+    var themeids = [], setids = [], plots;
     if(oQuickViewSeries.plots){
         if(charted){
-            if(!oGraph.plots) oGraph.plots = [];
+            if(inConfigMode){
+                if(!oGraph.controls.provenance.provPlots) oGraph.controls.provenance.provPlots = [];
+                plots = oGraph.controls.provenance.provPlots;
+            } else {
+                if(!oGraph.plots) oGraph.plots = [];
+                plots = oGraph.plots;
+            }
             for(var p=0;p<oQuickViewSeries.plots.length;p++){
-                oGraph.plots.push(oQuickViewSeries.plots[p]);
+                plots.push(oQuickViewSeries.plots[p]);
             }
         }
     } else {
@@ -1618,9 +1643,17 @@ function quickViewToGraph(){
     var cubeSelection = $('#quick-view-select-viz').val();
     if(cubeSelection!=""){
         if(isNaN(cubeSelection)){
-            oGraph.mapconfig.mapViz = cubeSelection;
+            if(inConfigMode){
+                oGraph.controls.provenance.provMapconfig.mapViz = cubeSelection;
+            } else {
+                oGraph.mapconfig.mapViz = cubeSelection;
+            }
         } else {
-            oGraph.cubeid = cubeSelection;
+            if(inConfigMode){
+                oGraph.controls.provenance.provGraph.cubeid = cubeSelection;
+            } else {
+                oGraph.cubeid = cubeSelection;
+            }
         }
     }
     oGraph.fetchAssets(function(){
@@ -1630,10 +1663,15 @@ function quickViewToGraph(){
                 MD.grapher.buildGraphPanel(oGraph);
             } else {
                 $("ul#graph-tabs li a[href='#"+panelId+"']").click(); //show the graph first = ensures correct sizing
-                oGraph.controls.redraw();
+                if(inConfigMode){
+                    oGraph.controls.provenance.build(false);  //rebuild the prov panel
+                    oGraph.controls.provenance.makeDirty();
+                } else {
+                    mask('drawing');
+                    oGraph.controls.redraw();
+                }
+                setPanelHash();
             }
-            mask('drawing');
-            setPanelHash();
         });
     });
     hideGraphEditor();
@@ -1641,7 +1679,7 @@ function quickViewToGraph(){
 }
 
 //used by quickview and by the graph editor
-function fillCubeSelector($cubeSelector, setids, themeids, graph){
+function fillCubeSelector($CubeSelector, setids, themeids, graph){
     //1. if no themeids passed and a graph is, try to make a list of graph's map and pointsetids that are part of a theme (only these can be part of cubes)
     if(!themeids.length && graph){
         setids = [];
@@ -1667,6 +1705,7 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
                 _fillSelector();
             });
     } else _fillSelector();
+    return possibleCubes;
 
     function _fillSelector(){
         var cubeOptions = '<option value="none">none </option>' +
@@ -1694,89 +1733,115 @@ function fillCubeSelector($cubeSelector, setids, themeids, graph){
             cubeOptions += '</optgroup>'
         }
         if(!currentCubeAccountedFor && graph && graph.cubeid) cubeOptions = '<select value="' + graph.cubeid + '" selected>' + graph.cubename || 'data cube' + '</select>' + cubeOptions;
-        $cubeSelector.html(cubeOptions);
-        if(graph && graph.mapconfig && !graph.cubeid) $cubeSelector.val(graph.mapconfig.mapViz);
-        $cubeSelector.show();
+        $CubeSelector.html(cubeOptions);
+        if(graph && graph.mapconfig && !graph.cubeid) $CubeSelector.val(graph.mapconfig.mapViz);
+        $CubeSelector.show();
     }
-    return possibleCubes;
 }
 
 function quickViewClose(){
-    //$quickViewChangeGeo.closest('div.widget').find('.custom-combobox').remove();
+    //qvControls.$ChangeGeo.closest('div.widget').find('.custom-combobox').remove();
     quickChart.destroy();
-    delete window.$quickViewRows;
+    if(window.$quickViewRows) delete window.$quickViewRows;
+    qvControls.Graph = false;
     $('#fancybox-close').click();
 }
 
 //series editor pre-processing.
-function editSeries(setToEdit){//either a single set or an array containing a one set
-    if($('#outer-show-graph-div:visible').length==1) quickViewClose();
-    if(Array.isArray(setToEdit)&&setToEdit.length==1) setToEdit = setToEdit[0];
-    //1. Is setToEdit my edits?  If so edit the worksheet ( = all the series with the same update stamp).  This mean fetching these other single-series sets and passing them to showSeriesEditor as an array of MashableData.set objects
-    if(setToEdit.userid == account.info.userId){  //this set is something the user has already edited!
-        if((setToEdit.settype=='M' || setToEdit.settype=='X') && setToEdit.maps){
-            //this is a map or marker set the user created.  Edit the whole thing (no choice)
-            var params = {command: 'GetSets', map: setToEdit.preferredMap};
-            params[setToEdit.settype=='M'?'mapSets':'pointSets'] = [{setid: setToEdit.setid, freq: setToEdit.freq}];
-            callApi(params, function(result){
-                for(var handle in result.assets){
-                    showSeriesEditor(result.assets[handle], setToEdit.preferredMap);
-                }
-            });
-        } else {
-            //this is a single-series set.  Edit its workbook (a workbook = all the series created at to same time, including later additions)
-            var worksheetSets = getWorkSheet(setToEdit);
-            if(worksheetSets) showSeriesEditor(worksheetSets);
-        }
-    } else { //not mine!
-        if((setToEdit.settype=='M' || setToEdit.settype=='X') && setToEdit.maps){
-            //2. Is setToEdit part of a public set (i.e. is settype 'M' or 'X')? If so, ask if the use wants to edit the series or the entire set
-            //see if user wants to edit the entire set or just this series
-            var html = '<div id="seriesOrSet" style="width:330px;">'
-                + '<h4>This series is part of a set</h4>'
-                + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
-                + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the set\'s series for the map:<br>'
-                + '<select class="hidden" style="margin-top: 8px;margin-left: 25px"></select></label><br><br>'
-                + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button><br><br><br>'
-                + '<i>Note:  Edits of public data will make a copy and <br>add your edited copy to your <b>My Data</b></i>'
-                + '</div>';
-            $.fancybox(html,
-                {
-                    showCloseButton: false,
-                    autoScale: true,
-                    scrolling: false,
-                    overlayOpacity: 0.5,
-                    hideOnOverlayClick: false
-                });
-            var $panel = $('#seriesOrSet');
-            var mapOptions='',
-                $select = $panel.find('select').html('').show().click(function(){$panel.find('input:radio').removeAttr('checked').filter('[value="set"]').attr('checked','checked')});
-            for(var mapKey in setToEdit.maps){
-                mapOptions+='<option value="'+mapKey+'">'+ globals.maps[mapKey].name +' ('+setToEdit.maps[mapKey]+' series)</option>';
-            }
-            $select.html(mapOptions);
-
-            $('#seriesOrSetOk').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
-                if($('input:radio[name=\'editSeriesOrSet\']:checked').val()=='series'){
-                    showSeriesEditor([setToEdit]);
-                } else {
-                    var params = {command: 'GetSets', map: $select.val()};
-                    params[setToEdit.settype=='M'?'mapSets':'pointSets'] = [{setid: setToEdit.setid, freq: setToEdit.freq}];
-                    callApi(params, function(result){
-                        for(var handle in result.assets){
-                            showSeriesEditor(result.assets[handle], $select.val());
+function editSeries(obj){//either a MD.Set or a MD.Graph (for new series, call is made directly to showSeriesEditor()
+    if($('#outer-show-graph-div').is(':visible')) quickViewClose();
+    var setToEdit, seriesToEdit, qGraph;
+    if(obj.plots && !obj.setid){
+        qGraph = obj;
+        if(seriesToEdit = qGraph.onlySameSetPlots()){
+            //is this a user set?
+            setToEdit = seriesToEdit[0];
+            callApi({command: 'SetPreEditInfo', setid: setToEdit.setid}, function(jsoData){
+                setToEdit.userid = jsoData.userid;
+                setToEdit.settype = jsoData.settype;
+                setToEdit.maps = jsoData.maps;
+                setToEdit.parseMaps();
+                if(jsoData.userid){
+                    if(setToEdit.userid==account.info.userId){
+                        setToEdit.preferredmap = jsoData.preferredmap;
+                        setToEdit.worksheet = jsoData.worksheet;
+                        if((setToEdit.settype=='M' || setToEdit.settype=='X') && setToEdit.preferredmap){
+                            _editSet(setToEdit.setid, setToEdit.preferredmap);
+                        } else {
+                            _editWorkSheet(setToEdit.worksheet, showSeriesEditor);
                         }
-                    });
+                    } else {
+                        dialogShow('Non-public data set','This is an other user&rsquo;s entered data set.  Your can only edit public data sets and data sets you have created.');
+                    }
+                } else {
+                    //public data:  ask whether to edit set or the series
+                    if((setToEdit.settype=='M' || setToEdit.settype=='X') && setToEdit.maps){
+                        //2. Is setToEdit part of a public set (i.e. is settype 'M' or 'X')? If so, ask if the use wants to edit the series or the entire set
+                        //see if user wants to edit the entire set or just this series
+                        var html = '<div id="seriesOrSet" style="width:330px;">'
+                            + '<h4>This series is part of a mappable data set</h4>'
+                            + '<label><input type="radio" name="editSeriesOrSet" value="series" checked> edit just this series </label><br>'
+                            + '<label><input type="radio" name="editSeriesOrSet" value="set"> view and edit the data set\'s series for the map:<br>'
+                            + '<select class="hidden" style="margin-top: 8px;margin-left: 25px"></select></label><br><br>'
+                            + '<button class="right" id="seriesOrSetCancel">cancel</button> <button class="right" id="seriesOrSetOk">OK</button><br><br><br>'
+                            + '<i>Note:  Edits of public data will make a copy and <br>add your edited copy to your <b>My Data</b></i>'
+                            + '</div>';
+                        $.fancybox(html,
+                            {
+                                showCloseButton: false,
+                                autoScale: true,
+                                scrolling: false,
+                                overlayOpacity: 0.5,
+                                hideOnOverlayClick: false
+                            });
+                        var $panel = $('#seriesOrSet');
+                        var mapOptions='',
+                            $select = $panel.find('select').html('').show().click(function(){$panel.find('input:radio').removeAttr('checked').filter('[value="set"]').attr('checked','checked')});
+                        for(var mapKey in setToEdit.maps){
+                            mapOptions+='<option value="'+mapKey+'">'+ globals.maps[mapKey].name +' ('+setToEdit.maps[mapKey]+' series)</option>';
+                        }
+                        $select.html(mapOptions);
+
+                        $('#seriesOrSetOk').button({icons: {secondary: 'ui-icon-check'}}).click(function(){
+                            if($('input:radio[name=\'editSeriesOrSet\']:checked').val()=='series'){
+                                showSeriesEditor(seriesToEdit);
+                            } else {
+                                _editMapPointSet(setToEdit, $select.val())
+                            }
+                            $.fancybox.close();
+                        });
+                        $('#seriesOrSetCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
+                            $.fancybox.close();
+                        });
+                    } else {
+                        //3. If setToEdit a public single-series set (not part of a map or marker set), just go straight to showSeriesEditor
+                        showSeriesEditor(seriesToEdit);
+                    }
                 }
-                $.fancybox.close();
-            });
-            $('#seriesOrSetCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
-                $.fancybox.close();
             });
         } else {
-            //3. If setToEdit a public single-series set (not part of a map or marker set), just go straight to showSeriesEditor
-            showSeriesEditor([setToEdit]);
+            //complex plots of just a bunch of simple plot of different sets?
+            dialogShow('Plots have components','Only the underlying data can be edited, not derived data created from mashing together multiple data sets.  To edit an underlying data set, open the <b>more configurations</b> panel and <span class="comp-view">view source data</span>.');
         }
+    }
+
+    function _editWorkSheet(worksheet, callBack){
+        callApi({command: 'GetWorkSheet', worksheet: worksheet}, function(results){
+            var setsToEdit = [];
+            for(var i=0;i<results.series.length;i++){
+                setsToEdit.push(new MashableData.Set(results.series))
+            }
+            callBack(setsToEdit);
+        });
+    }
+    function _editMapPointSet(set, map){
+        var params = {command: 'GetSets', map: map};
+        params[setToEdit.settype=='M'?'mapSets':'pointSets'] = [{setid: setToEdit.setid, freq: setToEdit.freq}];
+        callApi(params, function(result){
+            for(var handle in result.assets){
+                showSeriesEditor(result.assets[handle], map); //should only get called once as we requested a single set
+            }
+        });
     }
 }
 
@@ -1800,155 +1865,177 @@ function showSeriesEditor(setsToEdit, map){
         $('#set_freq_format').html('(Please format as ' + globals.period.format[$('#set_freq').val()]+')');
     });
 
-    var $editor;  //variable set in initialize() and used throughout
-    var seriesEditorInitialised=false;
-    var periodOfEdits=false;
-    var editorCols = 2;
-    var setid = null;
-    var geoid = null;
-    var bunnyColumns = [];   
+    var $editor,  //variable set in initialize() and used throughout
+        seriesEditorInitialised=false,
+        periodOfEdits=false,
+        editorCols = 2,
+        setid = null,
+        geoid = null,
+        bunnyColumns = [],
+        fixedRowsTop = 5, //gets modified for set mapset and pointset edits
+        fixedColumnsLeft = 1;
+
+    var settype, 
+        worksheet, 
+        mapableSourceSet, 
+        now = new Date();
     
-    var settype, worksheetid, mapableSourceSet, now = new Date();
     $('#series-tabs').find('li.local-series a').click();
     var rows = {
         U: {setid: 0, name: 1, units: 2, notes: 3, header: 4},
         M: {geoid: 0, header: 1},
         X: {geoid: 0, geoname: 1, lat: 2, lon: 3, header: 4}
     };
-    if(setsToEdit){
+    if(!setsToEdit) {
+        setsToEdit = [];
+        settype = 'U';
+        worksheet = now.getTime();
+    } else {
         var isWorkSheet = Array.isArray(setsToEdit);
-        if(isWorkSheet){
+        if (isWorkSheet) {
             settype = 'U';
-            worksheetid = setsToEdit[0].worksheetid  || now.getTime();
+            worksheet = setsToEdit[0].worksheet || now.getTime();
         } else {
             mapableSourceSet = setsToEdit;
             settype = mapableSourceSet.settype;
             $('#series-edit-preview, .series-edit-geoset').hide();
         }
+    }
 
-        var seriesData, point, i, j, row, grid;
-        switch(settype){
-            case 'M':
-                var mapSet = mapableSourceSet;
-                _initializeSeriesEditor();
+    var seriesData, point, i, j, row, grid, isoDate;
+    switch(settype){
+        case 'M':
+            var mapSet = mapableSourceSet;
+            _initializeSeriesEditor();
 
-                $('#set-edit-header').show();
-                $('#set_name').val(mapSet.setname);
-                $('#set_units').val(mapSet.units);
-                $('#set_notes').val(mapSet.setmetadata);
-                $('#set_freq').val(mapSet.freq);
-                grid = [["geoid"], ["date"]];
-                for(var geokey in mapSet.data){
-                    grid[rows.M.geoid].push(mapSet.data[geokey].geoid);
-                    grid[rows.M.header].push(mapSet.data[geokey].geoname);
-                    row = rows.M.header+1;  //first data row
-                    if(mapSet.data[geokey].data){
-                        seriesData = mapSet.data[geokey].data.split('|');
-                        seriesData.sort(); //this should not be necessary if series were properly ordered
-                        for(j=0;j<seriesData.length;j++){
-                            point = seriesData[j].split(':');
-                            while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
-                            if(row==grid.length){
-                                grid.push(_makeRow(point, grid[0].length));
-                            } else {
-                                if(grid[row][0]==point[0]) grid[row].push(point[1]);
-                                if(grid[row][0]<point[0]) grid.splice(row, 0, _makeRow(point, grid[0].length));
-                            }
-                            row++;
-                        }
-                    }
-                    while(row<grid.length) grid[row++].push('');
-                }
-                editorCols = grid[0].length;  //users cannot add columns to mapset:  they are complete for a given map
-                $("#data-editor").removeAttr("data")
-                    .handsontable({
-                        data: grid
-                    }).
-                    //hiding handled in renderer:  find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
-                unmask();
-                break;
-            case 'X'://MARKER SET EDIT
-                _initializeSeriesEditor();
-                $('#set_freq').val(mapableSourceSet.freq);
-                var aryLatLon, setData = mapableSourceSet.data;
-                grid = [["marker set",setData.name],["units",setData.units],["notes",""],["geoid"],["lat"],["lon"],[set],["date"]]; //handle col will hold the set id
-                for(var latlon in setData){
-                    aryLatLon = latlon.split(',');
-                    grid[rows.X.geoid].push(setData[latlon].geoid);
-                    grid[rows.X.lat].push(aryLatLon[0]);
-                    grid[rows.X.lon].push(aryLatLon[1]);
-                    grid[rows.X.header].push(setData[latlon].name.replace(setData.name,'').trim());
-                    row = rows.X.header+1;  //first data row
-                    if(setData[latlon].data){
-                        seriesData = setData[latlon].data.split('|');
-                        seriesData.sort(); //this should not be necessary is series were properly ordered
-                        for(j=0;j<seriesData.length;j++){
-                            point = seriesData[j].split(':');
-                            while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
-                            if(row==grid.length){
-                                grid.push(_makeRow(point, grid[0].length));
-                            } else {
-                                if(grid[row][0]==point[0]) grid[row].push(point[1]);
-                                if(grid[row][0]<point[0]) grid.splice(row, 0, _makeRow(point, grid[0].length));
-                            }
-                            row++;
-                        }
-                    }
-                    while(row<grid.length) grid[row++].push('');
-                }
-                editorCols = setData.geographies.length + 1;
-                $("#data-editor").removeAttr("data")
-                    .handsontable({
-                        data: grid,
-                        minCols: editorCols
-                    }).
-                    find('table.htCore tr').show().filter(':eq('+rows.X.handle+')').hide().end().filter(':eq('+rows.X.geoid+')').hide();
-                unmask();
-                break;
-            case 'U':
-                _initializeSeriesEditor();
-                grid = [["setid"],["name"],["units"],["notes"],["date"]]; //handle col will hold the set id
-                $('#set_freq').val(setsToEdit[0].freq);  //a worksheet can only have a singel freq
-                for(i=0;i<setsToEdit.length;i++){
-                    var serie = setsToEdit[i];
-                    grid[rows.U.setid].push(serie.userid == account.info.userId?serie.setid||-i:-i);
-                    grid[rows.U.units].push(serie.units||'units required');
-                    grid[rows.U.notes].push(serie.setMetdata||'');
-                    grid[rows.U.name].push(serie.name());
-                    seriesData = Array.isArray(serie.data)?serie.data:serie.data.split('|');
-                    seriesData.sort(); //this should not be necessary is series were properly ordered
-                    row = rows.U.header+1;  //first data row
+            $('#set-edit-header').show();
+            $('#set_name').val(mapSet.setname);
+            $('#set_units').val(mapSet.units);
+            $('#set_notes').val(mapSet.setmetadata);
+            $('#set_freq').val(mapSet.freq);
+            grid = [["geoid"], ["date"]];
+            for(var geokey in mapSet.data){
+                grid[rows.M.geoid].push(mapSet.data[geokey].geoid);
+                grid[rows.M.header].push(mapSet.data[geokey].geoname);
+                row = rows.M.header + 1;  //first data row
+                if(mapSet.data[geokey].data){
+                    seriesData = mapSet.data[geokey].data.split('|');
+                    seriesData.sort(); //this should not be necessary if series were properly ordered
                     for(j=0;j<seriesData.length;j++){
                         point = seriesData[j].split(':');
-                        while(row<grid.length && grid[row][0]<point[0]) grid[row++].push('');
+                        isoDate = common.isoDateFromMdDate(point[0]);
+                        while(row<grid.length && grid[row][0]<isoDate){
+                            grid[row++].push('');
+                        }
                         if(row==grid.length){
                             grid.push(_makeRow(point, grid[0].length));
                         } else {
-                            if(grid[row][0]==point[0]) grid[row].push(point[1]);
-                            if(grid[row][0]<point[0]) grid.splice(row, 0, _makeRow(point, grid[0].length));
+                            if(grid[row][0]==isoDate) {
+                                grid[row].push(isNaN(point[1])?point[1]:parseFloat(point[1]));
+                            }
+                            if(grid[row][0]<isoDate) {
+                                grid.splice(row, 0, _makeRow(point, grid[0].length));
+                            }
                         }
                         row++;
                     }
-                    while(row<grid.length) grid[row++].push('');
                 }
-                $("#data-editor").removeAttr("data")
-                    .handsontable({
-                        data: grid,
-                        minCols: editorCols
-                    });
-                $('#edit-user-series').slideDown();
-                $('#set-edit-header').hide();
+                while(row<grid.length) grid[row++].push('');
+            }
+            editorCols = grid[0].length;  //users cannot add columns to mapset:  they are complete for a given map
+            fixedRowsTop = 2;
+            $("#data-editor").removeAttr("data")
+                .handsontable({
+                    data: grid,
+                    fixedRowsTop: fixedRowsTop,
+                    fixedColumnsLeft: fixedColumnsLeft
+                }).
+                //hiding handled in renderer:  find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+                unmask();
+            break;
+        case 'X'://MARKER SET EDIT
+            _initializeSeriesEditor();
+            $('#set_freq').val(mapableSourceSet.freq);
+            var aryLatLon, setData = mapableSourceSet.data;
+            grid = [["marker set",setData.name],["units",setData.units],["notes",""],["geoid"],["lat"],["lon"],[set],["date"]]; //handle col will hold the set id
+            for(var latlon in setData){
+                aryLatLon = latlon.split(',');
+                grid[rows.X.geoid].push(setData[latlon].geoid);
+                grid[rows.X.lat].push(aryLatLon[0]);
+                grid[rows.X.lon].push(aryLatLon[1]);
+                grid[rows.X.header].push(setData[latlon].name.replace(setData.name,'').trim());
+                row = rows.X.header+1;  //first data row
+                if(setData[latlon].data){
+                    seriesData = setData[latlon].data.split('|');
+                    seriesData.sort(); //this should not be necessary is series were properly ordered
+                    for(j=0;j<seriesData.length;j++){
+                        point = seriesData[j].split(':');
+                        isoDate = common.isoDateFromMdDate(point[0]);
+                        while(row<grid.length && grid[row][0]<isoDate) grid[row++].push('');
+                        if(row==grid.length){
+                            grid.push(_makeRow(point, grid[0].length));
+                        } else {
+                            if(grid[row][0]==isoDate) grid[row].push(isNaN(point[1])?point[1]:parseFloat(point[1]));
+                            if(grid[row][0]<isoDate) grid.splice(row, 0, _makeRow(point, grid[0].length));
+                        }
+                        row++;
+                    }
+                }
+                while(row<grid.length) grid[row++].push('');
+            }
+            editorCols = setData.geographies.length + 1;
+            $("#data-editor").removeAttr("data")
+                .handsontable({
+                    data: grid,
+                    fixedRowsTop: fixedRowsTop,
+                    fixedColumnsLeft: fixedColumnsLeft,
+                    minCols: editorCols
+                }).
+                find('table.htCore tr').show().filter(':eq('+rows.X.handle+')').hide().end().filter(':eq('+rows.X.geoid+')').hide();
+            unmask();
+            break;
+        case 'U':
+            _initializeSeriesEditor();
+            grid = [["setid"],["name"],["units"],["notes"],["date"]]; //handle col will hold the set id
+            $('#set_freq').val(setsToEdit[0].freq);  //a worksheet can only have a singel freq
+            for(i=0;i<setsToEdit.length;i++){
+                var serie = setsToEdit[i];
+                grid[rows.U.setid].push(serie.userid == account.info.userId?serie.setid||-i:-i);
+                grid[rows.U.units].push(serie.units||'units required');
+                grid[rows.U.notes].push(serie.setMetdata||'');
+                grid[rows.U.name].push(serie.name());
+                seriesData = Array.isArray(serie.data)?serie.data:serie.data.split('|');
+                seriesData.sort(); //this should not be necessary is series were properly ordered
+                row = rows.U.header+1;  //first data row
+                for(j=0;j<seriesData.length;j++){
+                    point = seriesData[j].split(':');
+                    isoDate = common.isoDateFromMdDate(point[0]);
+                    while(row<grid.length && grid[row][0]<isoDate) grid[row++].push('');
+                    if(row==grid.length){
+                        grid.push(_makeRow(point, grid[0].length));
+                    } else {
+                        if(grid[row][0]==isoDate) grid[row].push(isNaN(point[1])?point[1]:parseFloat(point[1]));
+                        if(grid[row][0]<isoDate) grid.splice(row, 0, _makeRow(point, grid[0].length));
+                    }
+                    row++;
+                }
+                while(row<grid.length) grid[row++].push('');
+            }
+            $("#data-editor").removeAttr("data")
+                .handsontable({
+                    data: grid,
+                    fixedRowsTop: fixedRowsTop,
+                    fixedColumnsLeft: fixedColumnsLeft,
+                    minCols: editorCols
+                });
+            $('#edit-user-series').slideDown();
+            $('#set-edit-header').hide();
         }
-    } else {
-        settype = 'U';
-        worksheetid = now.getTime();
-        seriesEditor();
-    }
     
     function _makeRow(point, length){
         var i, newRow = [common.isoDateFromMdDate(point[0])];
         for(i=1;i<length-1;i++) newRow.push('');
-        newRow.push(point[1]);
+        newRow.push(isNaN(point[1])?point[1]:parseFloat(point[1]));
         return newRow;
     }
     function _initializeSeriesEditor(){
@@ -1967,7 +2054,7 @@ function showSeriesEditor(setsToEdit, map){
             if(arySeries) quickGraph(arySeries, false, false);
         });
         $panel.find('button.series-edit-geoset').button({icons:{secondary:'ui-icon-flag'}}).show().off().click(function(){
-            showUserSetWizard();
+            _showUserSetWizard();
         });
         $panel.find('button.series-edit-save-as').button({icons:{secondary:'ui-icon-copy'}});
         $editor.handsontable({
@@ -2082,7 +2169,6 @@ function showSeriesEditor(setsToEdit, map){
         });
         seriesEditorInitialised=true;
     }
-    var fixedRowsTop = 5, fixedColumnsLeft = 1;  //gets modified for set mapset and pointset edits
     function _handsOnCellRenderer(instance, td, row, col, prop, value, cellProperties){
         switch(settype){
             case 'U':
@@ -2119,7 +2205,7 @@ function showSeriesEditor(setsToEdit, map){
                 }
         }
     }
-    function seriesEditor(series){ //this is called if array of series object is to be edited
+/*    function seriesEditor(series){ //this is called if array of series object is to be edited
         if(!seriesEditorInitialised) _initializeSeriesEditor();
         var data, i, $editor = $("#data-editor");
         $('button#series-edit-save').attr("disabled","disabled");
@@ -2161,62 +2247,7 @@ function showSeriesEditor(setsToEdit, map){
                         );
                     }
                     break;
-                /* case 'M':
-                 $('#set-edit-header').show();
-                 callApi(
-                 {command:"GetMapSets", mapsetids: [handle.substr(1)], map: map, modal: 'persist'},
-                 function(jsoData, textStatus, jqXHR){
-                 if(jsoData.mapsets[handle]){
-                 var mapset = jsoData.mapsets[handle];
-                 var oDates = {}, mapDates=[], jvmCode, mapDate;
-                 callApi(
-                 {command: 'GetMapGeographies', map: map},
-                 function(jsoData, textStatus, jqXHR){
-                 var data = [["map set"],["units"],["notes"],["geoid"],["handle"],["date"]];
-                 for(i=0;i<mapDates.length;i++){ //write the left date list
-                 data.push([MD.grapher.formatDateByPeriod(mapDates[i].dt.getTime(), mapset.period)]);
-                 }
-                 for(var i=0;i<jsoData.geographies.length;i++){ //write the columns
-                 data[rows.M.geoid].push(jsoData.geographies[i].geoid);
-                 data[rows.M.name].push(jsoData.geographies[i].name);
-                 if(mapset.data[jsoData.geographies[i].code]){ //map code matched one of the mapset's series
-                 var j, k=0, serie = mapset.data[jsoData.geographies[i].code], point;
-                 data[rows.M.handle][i+1] = serie.handle;
-                 var serieData = serie.data.split('|');
-                 for(j=0;j<mapDates.length;j++){
-                 point = serieData[k].split([':']);
-                 if(k<serieData.length && point[0]==mapDates[j].s){
-                 data[rows.M.header + j + 1].push(point[1]);
-                 k++;
-                 } else {
-                 data[rows.M.header + j + 1].push('');
-                 }
-                 }
 
-                 }
-
-                 }
-                 $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
-                 editorCols = jsoData.geographies.length + 1;
-                 $("#data-editor").removeAttr("data").handsontable({
-                 data: data,
-                 minCols: editorCols
-                 });
-                 }
-                 );
-                 for(jvmCode in mapset.data){  //compute Mapdates while fetching GetMapGeographies
-                 data = mapset.data[jvmCode].data.split('|');
-                 for(i=0;i<data.length;i++){
-                 oDates[data[i].split(':')[0]] = true;
-                 }
-                 }
-                 for(mapDate in oDates){
-                 mapDates.push({s: mapDate, dt: dateFromMdDate(mapDate)});
-                 }
-                 mapDates.sort(function(a,b){return a.dt.getTime() - b.dt.getTime()});
-                 }
-                 }
-                 );*/
                 default:
                     dialogShow('series editor','This option is not yet supported');
                     return;
@@ -2230,25 +2261,25 @@ function showSeriesEditor(setsToEdit, map){
             $('#series-edit-preview, .series-edit-geoset').show();
         }
         $('div#edit-user-series').slideDown();
-    }
-    function showUserSetWizard(){
+    }*/
+    function _showUserSetWizard(){
         showPanel();
 
-        function showPanel(){
-            var $panel, mapsAsOptions='', i;
-            for(var map in globals.maps){
-                mapsAsOptions += '<option value="'+map+'">'+globals.maps[map].name+'</option>';
+        function showPanel() {
+            var $panel, mapsAsOptions = '', i;
+            for (var map in globals.maps) {
+                mapsAsOptions += '<option value="' + map + '">' + globals.maps[map].name + '</option>';
             }
             var html = '<div id="setsWizard" style="width:330px;">'  //TODO: CSS entries
-                +   '<h4>Create a set of series that can be mapped:</h4>'
-                +   '<label><input name="setsWizardType" type="radio" value="X" /> as points (requires latitudes and longitudes)</label><br />'
-                +   '<label><input name="setsWizardType" type="radio" value="M" checked /> as countries or administrative areas</label><br /><br />'
-                +   '<i>For areas, optional regional series allow vizualizations that use regional tracking series.  In the editor, these are shaded turquoise: <span style="background-color:DarkTurquoise;">  </span></i><br /><br />'
-                +   '<select id="setsWizardMap" style="width: 300px;">'
-                +     '<option value="nomap" class="nomap">select map</option>'
-                +     mapsAsOptions
-                +   '</select><br><br>'
-                +   '<button class="right" id="setsWizardCancel">cancel</button><button class="right" id="setsWizardOk">OK</button>'
+                + '<h4>Create a set of series that can be mapped:</h4>'
+                + '<label><input name="setsWizardType" type="radio" value="X" /> as points (requires latitudes and longitudes)</label><br />'
+                + '<label><input name="setsWizardType" type="radio" value="M" checked /> as countries or administrative areas</label><br /><br />'
+                + '<i>For areas, optional regional series allow vizualizations that use regional tracking series.  In the editor, these are shaded turquoise: <span style="background-color:DarkTurquoise;">  </span></i><br /><br />'
+                + '<select id="setsWizardMap" style="width: 300px;">'
+                + '<option value="nomap" class="nomap">select map</option>'
+                + mapsAsOptions
+                + '</select><br><br>'
+                + '<button class="right" id="setsWizardCancel">cancel</button><button class="right" id="setsWizardOk">OK</button>'
                 + '</div>';
             $.fancybox(html,
                 {
@@ -2257,64 +2288,67 @@ function showSeriesEditor(setsToEdit, map){
                     overlayOpacity: 0.5,
                     hideOnOverlayClick: false
                 });
-            $('#setsWizardMap').change(function(){
-                if($(this).val()!='nomap'){
-                    $('#setsWizardOk').button( "option", "disabled", false);
+            $('#setsWizardMap').change(function () {
+                if ($(this).val() != 'nomap') {
+                    $('#setsWizardOk').button("option", "disabled", false);
                     $(this).find('option[value=\'nomap\']').remove();
                 }
             });
-            $('#setsWizardOk').button({icons: {secondary: 'ui-icon-check'}, disabled: true}).click(function(){
-                configureUserSet($('#setsWizardMap').val(),  $('#setsWizardMap').text(), $('input:radio[name=\'setsWizardType\']:checked').val());  //TODO: write configureUserSet routine!
+            $('#setsWizardOk').button({icons: {secondary: 'ui-icon-check'}, disabled: true}).click(function () {
+                _showUserSetWizard_configureUserSet($('#setsWizardMap').val(), $('#setsWizardMap').text(), $('input:radio[name=\'setsWizardType\']:checked').val());
                 $.fancybox.close();
             });
-            $('#setsWizardCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function(){
+            $('#setsWizardCancel').button({icons: {secondary: 'ui-icon-close'}}).click(function () {
                 $.fancybox.close();
             });
-        }
-        function configureUserSet(map, mapName, type){  //type = [X|M] for pointset or mapset
-            settype = type;
-            //1. if mapset: get maps's components from db
-            // on callback:  separator (default ':') on top too + columns of: noneditable geoname headers
-            // else pointset
-            //2. clear and reconfigure grid with map name and editable set name and units name on top
-            //2B. for pointsets:  columns of: noneditable geoname headers + editable green shaded cells for lat & lon
-            //3. cell A1 = [name|map set| point set] will be
-            callApi({command: 'GetMapGeographies', settype: type, map: map}, function(jsoData, textStatus, jqXH){_newUserMapSet(jsoData, type)});  //mapsets shown on callback
-            $('#set_name').val('');
-            $('#set_units').val('');
-            $('#set_notes').val('');
+            function _showUserSetWizard_configureUserSet(map, mapName, type) {  //type = [X|M] for pointset or mapset
+                settype = type;
+                //1. if mapset: get maps's components from db
+                // on callback:  separator (default ':') on top too + columns of: noneditable geoname headers
+                // else pointset
+                //2. clear and reconfigure grid with map name and editable set name and units name on top
+                //2B. for pointsets:  columns of: noneditable geoname headers + editable green shaded cells for lat & lon
+                //3. cell A1 = [name|map set| point set] will be
+                callApi({command: 'GetMapGeographies', settype: type, map: map}, function (jsoData, textStatus, jqXH) {
+                    _showUserSetWizard_newUserMapSet(jsoData, type)
+                });  //mapsets shown on callback
+                $('#set_name').val('');
+                $('#set_units').val('');
+                $('#set_notes').val('');
 
-        }
-
-        function _newUserMapSet(jsoData, type){
-            bunnyColumns = [];
-            var data;
-            if(type=='M'){
-                data = [["geoid"],["date"]]; //["map set"],["units"] & ["notes"] are now in the header (#set_name, #set_units, #set_notes)
-                    for(var i=0;i<jsoData.geographies.length;i++){
-                        data[rows.M.geoid].push(jsoData.geographies[i].geoid);
-                        data[rows.M.header].push(decodeURIComponent(escape(jsoData.geographies[i].name)));
-                        if(jsoData.geographies[i].type=='bunny' || jsoData.geographies[i].type=='region') bunnyColumns.push(i+1);  //used by renderer to shade columns
-                    }
-                fixedRowsTop = 2;
-            } else { //markerset
-                data = [["geoid"],["geography"],["lat,lon"],["date"]]; //["map set"],["units"] & ["notes"] are now in the header (#set_name, #set_units, #set_notes)
-                //TODO: create the array that will field the autocomplete field for point containers
             }
 
-            //HIDE GEO ROW - TRY TO DO IT THE RIGHT WAY  $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
-            editorCols = jsoData.geographies.length + 1;
-            $('#set-edit-header').show();
-            $("#data-editor").removeAttr("data").handsontable({
-                data: data,
-                minCols: editorCols,
-                fixedColumnsLeft: fixedColumnsLeft,
-                fixedRowsTop: fixedRowsTop
-            });
-            $('#series-edit-preview, .series-edit-geoset').hide();
+            function _showUserSetWizard_newUserMapSet(jsoData, type) {
+                bunnyColumns = [];
+                var data;
+                if (type == 'M') {
+                    data = [["geoid"], ["date"]]; //["map set"],["units"] & ["notes"] are now in the header (#set_name, #set_units, #set_notes)
+                    for (var i = 0; i < jsoData.geographies.length; i++) {
+                        data[rows.M.geoid].push(jsoData.geographies[i].geoid);
+                        data[rows.M.header].push(decodeURIComponent(escape(jsoData.geographies[i].name)));
+                        if (jsoData.geographies[i].type == 'bunny' || jsoData.geographies[i].type == 'region') bunnyColumns.push(i + 1);  //used by renderer to shade columns
+                    }
+                    fixedRowsTop = 2;
+                } else { //markerset
+                    data = [["geoid"], ["geography"], ["lat,lon"], ["date"]]; //["map set"],["units"] & ["notes"] are now in the header (#set_name, #set_units, #set_notes)
+                    //TODO: create the array that will field the autocomplete field for point containers
+                }
 
+                //HIDE GEO ROW - TRY TO DO IT THE RIGHT WAY  $editor.find('table.htCore tr').show().filter(':eq('+rows.M.handle+')').hide().end().filter(':eq('+rows.M.geoid+')').hide();
+                editorCols = jsoData.geographies.length + 1;
+                $('#set-edit-header').show();
+                $("#data-editor").removeAttr("data").handsontable({
+                    data: data,
+                    minCols: editorCols,
+                    fixedColumnsLeft: fixedColumnsLeft,
+                    fixedRowsTop: fixedRowsTop
+                });
+                $('#series-edit-preview, .series-edit-geoset').hide();
+
+            }
         }
     }
+    
     function userSeriesFromEditor(){
         //build series and validate
         var $editor = $("#data-editor");
@@ -2472,16 +2506,10 @@ function showSeriesEditor(setsToEdit, map){
         $de.handsontable('destroy');  //handsontable does not support chaining
         $de.attr('style','overflow:scroll;');
         $('div#edit-user-series').fadeOut();
+        window.history.back();
     }
 }
-function getWorkSheet(setToEdit){
-    callApi({command: 'GetWorkSheet', worksheet: setToEdit.workseet}, function(results){
-        var setsToEdit = [];
-        for(var i=0;i<results.series.length;i++){
-            setsToEdit.push(new MashableData.Set(results.series))
-        }
-    });
-}
+
 
 //USER ACCOUNT FUNCTIONS
 function getUserId(){ //called by window.fbAsyncInit after FaceBook auth library loads and determines that user is authenticated
@@ -2548,7 +2576,7 @@ function syncMyAccount(){ //called only after loggin and after initial report of
 
                 //$('#series-table').find("td.quick-view button[data='"+oldHandle+"']").attr('data',serie.handle);
 
-                for(tab in panelGraphs){
+                for(var tab in panelGraphs){
                     updateHandles(panelGraphs[tab],oldHandle, serie);
                 }
                 for(var graph in oMyGraphs){
@@ -2792,7 +2820,7 @@ function synthesizeTitle(titles){
     var synTitle = [];
     if(titles.length == 1){return(titles[0])}
     if(titles.length == 0){return("")}
-    firstTitleWords = titles[0].split(" ");
+    var firstTitleWords = titles[0].split(" ");
     for(var i=0;i<firstTitleWords.length;i++){
         var bFoundInAll = true;
         for(var j=1;j<titles.length;j++){
@@ -3323,8 +3351,8 @@ function makeDataGrid(panelId, type, mapData, mapPlot){  //create tables in data
             }
             markers.sort(function(a,b){return a.lon- b.lon});
             for(m=0; m<markers.length; m++){
-                markerKey = markers[m].marker; //this can be a complex handle
-                handles =  markerKey.match(handlePattern);
+                var markerKey = markers[m].marker; //this can be a complex handle
+                var handles =  markerKey.match(handlePattern);
                 for(i=0; i<handles.length;i++){
                     if(vectors.indexOf(handles[i]) == -1){ //make sure series is in pointset and not a 1D vector
                         for(var key in oGraph.assets){
@@ -3356,7 +3384,7 @@ function makeDataGrid(panelId, type, mapData, mapPlot){  //create tables in data
                     grid[rowPosition.lat_lon].push(mapData.markers[markerKey].latLng[0] + ', ' + mapData.markers[markerKey].latLng[1]);
                     grid[rowPosition.date].push(markerKey);
                     makeSquare();
-                    for(date in mapData.markerData){
+                    for(var date in mapData.markerData){
                         addPointToGrid(date + '|' + mapData.markerData[date][markerKey], mapData.freq);  // everything else happens here!
                     }
                 }

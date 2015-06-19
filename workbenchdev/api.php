@@ -516,6 +516,28 @@ switch($command) {
                 $output = array("status"=>"Error:  Requested map sets not found.");
             }
             break;*/
+    case "SetPreEditInfo":  //prior to editing, check userid and worksheet
+        requiresLogin();
+        $uid = intval($_POST["uid"]);
+        $setid = isset($_POST["setid"])?intval($_POST["setid"]):0;
+        $sql = "select s.userid, ms.worksheet, replace(s.maps,'M_','') as maps,
+                left(s.settype,1) as settype, ms.preferredmap
+            from sets s left outer join mysets ms on s.setid = s.setid=ms.setid
+            where s.userid=$uid";
+        $result = runQuery($sql, "SetPreEditInfo");
+        if($result->num_rows>0){
+            $output = $result->fetch_assoc();
+            $output["status"] = "ok";
+        } else {
+            $result2 = runQuery("select s.userid, replace(s.maps,'M_','') as maps, left(s.settype,1) as settype from sets s where setid = $setid", "SetPreEditInfo2");  //must be public
+            if($result2->num_rows==1){
+                $output = $result2->fetch_assoc();
+                $output["status"] = "ok";
+            } else {
+                $output = ["status" => "Set data not found"];
+            }
+        }
+        break;
     case "GetSets": //used by Graph.fetchAssets() only get all types of asset in a single call (no ambiguous sets; for that use GetSeries)
         $output = ["status" => "ok", "assets" => []];
         if ($series = (isset($_POST["series"]) && count($_POST["series"]) > 0) ? $_POST["series"] : false) {
@@ -1365,14 +1387,15 @@ switch($command) {
         $user_id =  intval($_POST['uid']);
         $output = ["status"=>"ok", "series"=> []];
         foreach($series as $orginalHandle => $serie){
-            if(!isset($serie["geoid"]) && (!isset($serie["latlon"])||$serie["latlon"]=="")){
+            if(!isset($serie["latlon"]) || !$serie["latlon"]) $serie["latlon"] = "";
+            if(!isset($serie["geoid"]) && $serie["latlon"]==""){
                 //1. see if a preferred map (and bunny)
                 if($fromMap  && $fromMap!="false"){
                     //1a.  look for bunny
                     $sql = "select geoid, latlon from setdata where setid=$serie[setid] and freq='$serie[freq]' and geoid=$fromMap[bunny]";
                     $result = runQuery($sql);
                     if($result->num_rows>0){
-                        $row = $result->fetch_assoc();
+                        $row = $result->fetch_assoc();  //grab the first
                         $serie["geoid"] = $row["geoid"];
                         $serie["latlon"] = $row["latlon"];
                     } else {

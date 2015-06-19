@@ -2039,7 +2039,7 @@ MashableData.grapher = function(){
                                 }
                                 //regions (mapsets) are simpler than markers (pointsets) because there is only one
                                 if(oGraph.mapsets){  //skip if not mapset
-                                    var sourceMapPlot, sourceComponent, popComponent, popComponents, mapAsset, regionSeries;
+                                    var sourceMapPlot, sourceComponent, popComponent, popComponents, popOptions, mapAsset, regionSeries;
                                     for(i=0;i<selectedRegions.length;i++){
                                         if(
                                             (calculatedMapData.regionData && typeof calculatedMapData.regionData[calculatedMapData.dates[val].s][selectedRegions[i]]!='undefined') //bubble map don't have regionColors
@@ -2048,30 +2048,23 @@ MashableData.grapher = function(){
                                         ){  //make sure this region has data (for multi-component mapsets, all component must this regions data (or be a straight series) for this region to have calculatedMapData data
                                             sourceMapPlot = oGraph.mapsets[activeMapTab];
                                             popComponents = [];
+                                            popOptions = {userFormula: sourceMapPlot.userFormula};
                                             sourceMapPlot.eachComponent(function(){
                                                 sourceComponent = this;
                                                 popComponent = sourceComponent.clone();
                                                 if(sourceComponent.isMapSet()){
                                                     mapAsset = oGraph.assets[sourceComponent.handle()];
                                                     regionSeries = mapAsset.data[selectedRegions[i]];
-                                                    //popComponent = new MD.Component(regionSeries.handle);  //bare bones component!
-                                                    //popComponent.setname = mapAsset.name;
-                                                    //popComponent.maps = mapAsset.maps;
-                                                    //popComponent.freqs = mapAsset.freqs;
                                                     popComponent.geoname = regionSeries.geoname;
+                                                    popOptions.name = regionSeries.geoname;
                                                     popComponent.geoid = regionSeries.geoid;
                                                     popComponent.parsedData(regionSeries.data);
                                                     popComponent.firstdt = regionSeries.firstdt;
                                                     popComponent.lastdt = regionSeries.lastdt;
-                                                    //popComponent.units = mapAsset.units;
-                                                    //popComponent.src = mapAsset.src;
-                                                    //popComponent.setmetdata = mapAsset.setmetadata;
-                                                    //popComponent.themeid = mapAsset.themeid;
-                                                    //popComponent.options = {op: sourceComponent.options.op, k: sourceComponent.options.k};
                                                 }
                                                 popComponents.push(popComponent);
                                             });
-                                            popGraph.addPlot(popComponents, {userFormula: sourceMapPlot.userFormula});
+                                            popGraph.addPlot(popComponents, popOptions);
                                         }
                                     }
                                 }

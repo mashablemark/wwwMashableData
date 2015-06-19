@@ -30,7 +30,7 @@ MashableData.Set = function(SetParams){
             }
         }
     }
-    if(this.maps && typeof this.maps=="string") this.maps = JSON.parse('{'+this.maps+'}');
+    this.parseMaps();
     this.parsedData();
     if(this.freqs && !Array.isArray(this.freqs )) this.freqs = this.freqs.split(',');
     return this;
@@ -54,10 +54,16 @@ MashableData.Set = function(SetParams){
             return false;
         }
     };
+    MashableData.Set.prototype.parseMaps  = function(){
+        if(this.maps && typeof this.maps=="string") this.maps = JSON.parse('{'+this.maps+'}');
+    };
     MashableData.Set.prototype.chartData = function(updatedData){
-        var point, chartData = this.parsedData(updatedData);
-        for(var i=0;i<chartData.length;i++){
-            point = chartData[i].split(':');
+        var point,
+            seriesData = this.parsedData(updatedData),
+            chartData = [];
+
+        for(var i=0;i<seriesData.length;i++){
+            point = seriesData[i].split(':');
             chartData[i] = [Date.parse(common.dateFromMdDate(point[0] )), point[1]==="null"||point[1]===null ? null : parseFloat(point[1])];
         }
         return chartData;
@@ -85,8 +91,8 @@ MashableData.Set = function(SetParams){
                     handles: {}
                 };
                 params.handles[thisHandle]= {
-                            setid: this.setid,
-                            freq: this.preferedFreq()
+                    setid: this.setid,
+                    freq: this.preferedFreq()
                 };
                 if(this.geoid) params.handles[thisHandle].geoid = this.geoid;
                 if(this.latLon) params.handles[thisHandle].latlon = this.latlon;
@@ -99,14 +105,14 @@ MashableData.Set = function(SetParams){
                         self.geocounts = jsoData.series[thisHandle].geocounts;
 
                         /*for(i=0;i<series.length;i++){
-                            handle = series[i].handle;
-                            if(oMySeries[handle]){ //if this happens to be in mySeries...
-                                oMySeries[handle].data = jsoData.series[handle].data;
-                                oMySeries[handle].notes = jsoData.series[handle].notes;
-                                oMySeries[handle].geocounts = jsoData.series[handle].geocounts;
-                            }
-                            series.splice(i, 1, jsoData.series[handle]);
-                        }*/
+                         handle = series[i].handle;
+                         if(oMySeries[handle]){ //if this happens to be in mySeries...
+                         oMySeries[handle].data = jsoData.series[handle].data;
+                         oMySeries[handle].notes = jsoData.series[handle].notes;
+                         oMySeries[handle].geocounts = jsoData.series[handle].geocounts;
+                         }
+                         series.splice(i, 1, jsoData.series[handle]);
+                         }*/
                         callBack();
                     }
                 );
@@ -136,7 +142,7 @@ MashableData.Set = function(SetParams){
         if(this.geoname){
             pos = name.indexOf(elipseCode);
             if(pos>=0){
-                name.replace(elipseCode,this.geoname)
+                name = name.replace(elipseCode,this.geoname);
             } else
                 name += ': '+this.geoname;
         }
@@ -174,7 +180,49 @@ MashableData.Set = function(SetParams){
             return mapNames.join('; ');
         } else return "";
     };
-
+    MashableData.Set.prototype.seriesProps = function(id){ //id can be a latlon or a geoid.  If undefined, grabs the first series' properties in the map or pointset
+        for(var geokey in this.data){
+            if(!id || this.data[geokey].geoid == id || this.data[geokey].latlon == id) return this.data[geokey]
+        }
+        return false;
+    };
+    MashableData.Set.prototype.save = function(worksheetid, callBack){
+        //returns the new Set Object in callBack
+        var now = new Date(),
+            wsid = this.worksheetid || worksheetid || now.getTime();
+        callApi({
+                command: 'SetSave', //updates/save as new depending on current ownership
+                setid: this.setid,
+                setname: this.setname,
+                freq: this.freq,
+                setmetadata: this.setmetadata,
+                units: this.units,
+                data: this.data
+            },
+            function(jsoData){
+                if(this.setid) this.oldsetid = this.setid;
+                this.setid = jsoData.setid;
+                if(callBack) callBack(this);  //up to workbench to check
+            }
+        );
+    };
+    MashableData.Set.prototype.saveAs = function(callBack){
+        this.oldsetid = this.setid;
+        delete this.setid;
+        delete this.worksheetid;
+        this.save(null, callBack);
+    };
+    MashableData.Set.prototype.delete = function(warn, callBack){
+        callApi(
+            {
+                command: 'SetDelete',
+                setid: this.setid,
+                warn: warn
+            }, function(jsoData){
+                if(jsoData.deleted && callBack) callBack(this);  //up to workbench to remove dataTable rows
+            }
+        )
+    };
 })();
 
 MashableData.Component = function(SetParams, componentOptions){
@@ -186,26 +234,26 @@ MashableData.Component = function(SetParams, componentOptions){
 (function(){
     MashableData.Component.prototype = Object.create(MashableData.Set.prototype); //inheritance in JavaScript
     MashableData.Component.prototype.clone = function(mapCode){  //if mapCode if given, PointSets and Mapsets will be converted to series (provided set data is available)
-    var thisComp = this;
-    var clone = new MashableData.Component(thisComp, thisComp.options);  //new object, same parameters
-    if(mapCode){
-        if(clone.data && clone.data[mapCode]){
-            clone.geoid = this.data[mapCode].geoid;
-            clone.geoname = this.data[mapCode].geoname;
-            clone.seriesname = this.data[mapCode].seriesname;
-            clone.firstdt = this.data[mapCode].firstdt;
-            clone.lastdt = this.data[mapCode].lastdt;
-            clone.parsedData(this.data[mapCode].data);
-            if(thisComp.isPointSet()) {
-                clone.latlon = this.data[mapCode].latlon;
+        var thisComp = this;
+        var clone = new MashableData.Component(thisComp, thisComp.options);  //new object, same parameters
+        if(mapCode){
+            if(clone.data && clone.data[mapCode]){
+                clone.geoid = this.data[mapCode].geoid;
+                clone.geoname = this.data[mapCode].geoname;
                 clone.seriesname = this.data[mapCode].seriesname;
+                clone.firstdt = this.data[mapCode].firstdt;
+                clone.lastdt = this.data[mapCode].lastdt;
+                clone.parsedData(this.data[mapCode].data);
+                if(thisComp.isPointSet()) {
+                    clone.latlon = this.data[mapCode].latlon;
+                    clone.seriesname = this.data[mapCode].seriesname;
+                }
+            } else {
+                return null;  //don't return a comp if a set to series conversion is requested that is not possible
             }
-        } else {
-            return null;  //don't return a comp if a set to series conversion is requested that is not possible
         }
-    }
-    return clone;  //data may be relational, but options are copies
-};
+        return clone;  //data may be relational, but options are copies
+    };
     MashableData.Component.prototype.geoScaledData = function(code, utcStartDateNumber, utcEndDateNumber){
         if(!this.data || !this.data[code]) return null;
         var seriesData = (typeof this.data[code].data == "string") ? this.data[code].data.split('|') : this.data[code].data,

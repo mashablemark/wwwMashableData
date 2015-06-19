@@ -46,6 +46,18 @@ MashableData.Plot = function(components, options){
             return calcName;
         }
     };
+    Plot.prototype.isMapPlot = function(){
+        this.eachComponent(function(){
+            if(this.isMapSet()) return true
+        });
+        return false;
+    };
+    Plot.prototype.isPointPlot = function(){
+        this.eachComponent(function(){
+            if(this.isPointSet()) return true
+        });
+        return false;
+    };
     Plot.prototype.freq = function(){
         return this.options.fdown || this.components[0].freq;
     };
@@ -250,6 +262,7 @@ MashableData.Plot = function(components, options){
                 data = components[i].parsedData();
             }
             for(j=0; j<data.length; j++){
+                //point = Array.isArray(data[j]) ? data[j] : data[j].split(':');
                 point = data[j].split(':');
                 if(!oComponentData[point[0].toString()]){
                     oComponentData[point[0].toString()] = {};
