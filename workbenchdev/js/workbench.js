@@ -1855,15 +1855,7 @@ function showSeriesEditor(setsToEdit, map){
         dialogShow("account required", dialogues.signInRequired);
         return;
     }
-    //frequency editor
-    var freqOptions = '';
-    for(var freq in globals.period.name){
-        if(freq!='N') freqOptions += '<option value="'+freq+'">'+globals.period.name[freq]+'</option>';
-    }
-    $('#set_freq_format').html('');
-    $('#set_freq').off().html(freqOptions).click(function(){
-        $('#set_freq_format').html('(Please format as ' + globals.period.format[$('#set_freq').val()]+')');
-    });
+
 
     var $editor,  //variable set in initialize() and used throughout
         seriesEditorInitialised=false,
@@ -1876,10 +1868,21 @@ function showSeriesEditor(setsToEdit, map){
         fixedColumnsLeft = 1;
 
     var settype, 
-        worksheet, 
+        worksheet,
+        editorFreq = null,
         mapableSourceSet, 
         now = new Date();
-    
+
+    //frequency editor
+    var freqOptions = '';
+    for(var freq in globals.period.name){
+        if(freq!='N') freqOptions += '<option value="'+freq+'">'+globals.period.name[freq]+'</option>';
+    }
+    $('#set_freq_format').html('');
+    var $freqSelect = $('#set_freq').off().html(freqOptions).click(function(){
+        editorFreq = $freqSelect.val();
+        $('#set_freq_format').html('(Please format as ' + globals.period.format[editorFreq]+')');
+    });
     $('#series-tabs').find('li.local-series a').click();
     var rows = {
         U: {setid: 0, name: 1, units: 2, notes: 3, header: 4},
@@ -1912,7 +1915,7 @@ function showSeriesEditor(setsToEdit, map){
             $('#set_name').val(mapSet.setname);
             $('#set_units').val(mapSet.units);
             $('#set_notes').val(mapSet.setmetadata);
-            $('#set_freq').val(mapSet.freq);
+            $freqSelect.val(mapSet.freq).click();
             grid = [["geoid"], ["date"]];
             for(var geokey in mapSet.data){
                 grid[rows.M.geoid].push(mapSet.data[geokey].geoid);
@@ -1955,7 +1958,7 @@ function showSeriesEditor(setsToEdit, map){
             break;
         case 'X'://MARKER SET EDIT
             _initializeSeriesEditor();
-            $('#set_freq').val(mapableSourceSet.freq);
+            $freqSelect.val(mapableSourceSet.freq).click();
             var aryLatLon, setData = mapableSourceSet.data;
             grid = [["marker set",setData.name],["units",setData.units],["notes",""],["geoid"],["lat"],["lon"],[set],["date"]]; //handle col will hold the set id
             for(var latlon in setData){
@@ -1997,7 +2000,7 @@ function showSeriesEditor(setsToEdit, map){
         case 'U':
             _initializeSeriesEditor();
             grid = [["setid"],["name"],["units"],["notes"],["date"]]; //handle col will hold the set id
-            $('#set_freq').val(setsToEdit[0].freq);  //a worksheet can only have a singel freq
+            $freqSelect.val(setsToEdit[0].freq).click();  //a worksheet can only have a single freq
             for(i=0;i<setsToEdit.length;i++){
                 var serie = setsToEdit[i];
                 grid[rows.U.setid].push(serie.userid == account.info.userId?serie.setid||-i:-i);
@@ -2076,6 +2079,7 @@ function showSeriesEditor(setsToEdit, map){
                 }
                 if(row>=fixedRowsTop && col>=fixedColumnsLeft){
                     cellProperties.type = 'numeric';
+                    cellProperties.format = '0,0.[0000]';
                 } else {
                     cellProperties.renderer = _handsOnCellRenderer;
                 }
@@ -2203,6 +2207,18 @@ function showSeriesEditor(setsToEdit, map){
                 if(row >= rows.M.header && bunnyColumns.indexOf(col) !== -1){
                     td.style.background = 'DarkTurquoise';
                 }
+        }
+        if(row>fixedRowsTop && col>fixedColumnsLeft){ //data value cell
+            if(value!="null" && isNaN(value)  && value.trim()!='') value = 'null';
+        }
+        if(row>fixedRowsTop && col==0){ //date cell
+            if(globals.period.test.loose[editorFreq]){
+                if(!globals.period.test.loose[editorFreq].test(value)) {
+                    td.style.background = 'Red';
+                } else {
+                    value = globals.period.test.loose[editorFreq].exec(value)[0];
+                }
+            }
         }
     }
 /*    function seriesEditor(series){ //this is called if array of series object is to be edited
@@ -2348,7 +2364,7 @@ function showSeriesEditor(setsToEdit, map){
             }
         }
     }
-    
+
     function userSeriesFromEditor(){
         //build series and validate
         var $editor = $("#data-editor");
