@@ -163,7 +163,7 @@ MashableData.Set = function(SetParams){
         return clone;
     };
     MashableData.Set.prototype.isSeries = function(){
-        return (this.freq && (this.geoid || this.latlon))?true:false;
+        return (this.freq && (this.geoid || this.latlon || this.settype == 'S'))?true:false;
     };
     MashableData.Set.prototype.isMapSet = function(){
         return (this.freq && (!this.geoid && !this.latlon) && this.settype=='M')?true:false;

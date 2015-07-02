@@ -1323,7 +1323,7 @@ switch($command) {
                 //1. loop through the single series sets
                 $worksheetSetIds = [];
                 foreach($myData as $i=>$series){
-                    $worksheetId = $series["worksheetid"];
+                    $worksheetId = $series["worksheet"];
                     $series["oldsetid"] = $series["setid"];
                     $series["settype"] = $setType;
                     $series["setid"] = saveUserSet($series["setid"], $setType, $series["setname"], $series["units"], $series["setmetadata"], $updatets, $worksheetId);
@@ -1334,6 +1334,7 @@ switch($command) {
                     }
                     $worksheetSetIds[] = $series["setid"];
                     saveUserSetData($series["setid"], $series["freq"], $series["data"]);  //default values latlon and geoid
+                    setGhandlesFreqsFirstLast("all", "all", $series["setid"]);
                     unset($series["data"]);
                 }
                 $sql = "select * from mysets where userid = $uid and worksheet = $worksheetId and setid not in (".implode(",", $worksheetSetIds).")";
@@ -1348,7 +1349,7 @@ switch($command) {
                 }
                 break;
             case "M":
-                $worksheetId = $myData["worksheetid"];
+                $worksheetId = $myData["worksheet"];
                 $worksheetGeoids = [];
                 $myData["oldsetid"] = $myData["setid"];
                 $myData["settype"] = $setType;
@@ -1370,7 +1371,7 @@ switch($command) {
                 setMapsetCounts($myData["setid"]);
                 break;
             case "X":
-                $worksheetId = $myData["worksheetid"];
+                $worksheetId = $myData["worksheet"];
                 $worksheetLatlons = [];
                 $myData["oldsetid"] = $myData["setid"];
                 $myData["settype"] = $setType;
@@ -2338,7 +2339,7 @@ function flushCloudFlare($ghash){
 }
 
 function saveUserSet($setid, $setType, $name, $units, $metadata, $updatets, $worksheetid, $preferredMap = null, $latlon = null){  //if latlon then $setid is the mastersetid
-    global $uid, $db;  //set by requireLogin()
+    global $orgid, $uid, $db;  //set by requireLogin()
     //determines whether set is owned by user and save accordingly.  Updates mysets table too as needed.  Returns db setid as saved (may be different)
 
     //1. see if the set is mine
@@ -2365,15 +2366,16 @@ function saveUserSet($setid, $setType, $name, $units, $metadata, $updatets, $wor
         $insertNeeded = true;
     }
     if($insertNeeded){
-        $sql = "insert into sets (name, namelen, settype, units, metadata, updatets, latlon, matersetid)
-        values (".safeStringSQL($name)
-            .", ". strlen($name)
-            .", ".safeStringSQL($setType=="S"?$setType:$setType."S_")
-            .", ".safeStringSQL($units)
-            .", ".safeStringSQL($metadata)
-            .", " . $updatets
-            .", ".safeStringSQL($latlon)
-            .", ".($latlon?$setid:'null')
+        $sql = "insert into sets (userid, orgid, name, namelen, settype, units, metadata, latlon, mastersetid)
+        values (" . intval($uid)
+            .", " . ($orgid == 0? "null" : $orgid)
+            .", " . safeStringSQL($name)
+            .", " . strlen($name)
+            .", " . safeStringSQL($setType=="S"?$setType:$setType."S_")
+            .", " . safeStringSQL($units)
+            .", " . safeStringSQL($metadata)
+            .", " . safeStringSQL($latlon, false)
+            .", " . ($latlon?$setid:'null')
             .")";
         $result = runQuery($sql);
         $setid = $db->insert_id;
@@ -2381,7 +2383,7 @@ function saveUserSet($setid, $setType, $name, $units, $metadata, $updatets, $wor
 
     //insert/update usersets records
     $preferredmapSql = safeStringSQL($preferredMap);
-    $sql = "insert into mysets (userid, setid, preferredmap, worksheetid, savedt) value ($uid, $setid, $preferredmapSql, $worksheetid, $updatets) on duplicate key set savedt = $updatets";
+    $sql = "insert into mysets (userid, setid, preferredmap, worksheet, savedt) value ($uid, $setid, $preferredmapSql, $worksheetid, $updatets) on duplicate key update savedt = $updatets";
     runQuery($sql);
 
     return $setid;

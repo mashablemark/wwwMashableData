@@ -91,8 +91,9 @@ var searchCatName = false;
 var lastSeriesSearch="", lastGraphSearch=""; //kill column sorting on new searches.  Sort is by name length asc to show most concise (best fit) first
 
 //variables used to keep track of datatables detail rows opened and closed with dt.fnopen() dt.fnclose() calls
-var $quickViewRows = null; //used to remember jQuery set of rows being previewed in case user chooses to delete them
+
 var qvControls = {
+    $quickViewRows: null, //used to remember jQuery set of rows being previewed in case user chooses to delete them
     $ChangeGeo: null,
     $GeoSelector: null,
     $MapOrChartButtonSet: null,
@@ -1089,7 +1090,7 @@ function titleChange(titleControl){
 function previewMySeries(){
     var series = [], hasMySeries = false;
     $('#local-series-header input').focus(); //deselect anything table text accidentally selected through double-clicking
-    $quickViewRows = $dtMyData.find('tr.ui-selected').each(function(){
+    qvControls.$quickViewRows = $dtMyData.find('tr.ui-selected').each(function(){
         series.push($dtMyData.fnGetData(this));
     });
     if(series.length==0){
@@ -1742,7 +1743,7 @@ function fillCubeSelector($CubeSelector, setids, themeids, graph){
 function quickViewClose(){
     //qvControls.$ChangeGeo.closest('div.widget').find('.custom-combobox').remove();
     quickChart.destroy();
-    if(window.$quickViewRows) delete window.$quickViewRows;
+    if(qvControls.$quickViewRows) delete qvControls.$quickViewRows;
     qvControls.Graph = false;
     $('#fancybox-close').click();
 }
@@ -1761,7 +1762,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
         if(setOrGraph.plots){
             qGraph = setOrGraph;
             seriesSetsToEdit = qGraph.onlySameSetPlots();
-            if(!seriesToEdit){
+            if(!seriesSetsToEdit){
                 //complex plots of just a bunch of simple plot of different sets?
                 dialogShow('Plots have different components','Only the underlying data can be edited, not derived data created from mashing together multiple data sets.  To edit an underlying data set, open the <b>more configurations</b> panel and <span class="comp-view">view source data</span>.');
                 return;
@@ -2058,7 +2059,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                 closeSeriesEditor();
             });
             $panel.find('button.series-edit-preview').button({icons: {secondary: 'ui-icon-image'}}).off().click(function(){
-                var dataArray, previewSet, previewSets = [], editorObj = getMyDataFromEditor();
+                var dataArray, previewSet, previewSets = [], editorObj = getMyDataFromEditor(true);
                 if(editorObj) {  //false on error
                     if(Array.isArray(editorObj)){  //else an array of data objects (not MD.Set!) for single-series sets or the data object for a map or pointset
                         dataArray = editorObj;
@@ -2129,7 +2130,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                                 var precedingDateEntry = (hot.getDataAtCell(r-1, 0)||'').toString();
                                 if(precedingDateEntry.length>3 && (isoDate = _isValidIsoDate(precedingDateEntry))){ //something is there.  Hopefully a valid MD date...
                                     var precedingDate = dateFromMdDate(_mdDateFromIso(isoDate));
-                                    var nextMdDate = common.mdDateFromDate(nextDate(precedingDate, editorFreq));
+                                    var nextMdDate = common.mashableDate(nextDate(precedingDate, editorFreq), editorFreq);
                                     hot.setDataAtCell(r, 0, nextMdDate);
                                 }
                             }
@@ -2148,7 +2149,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                 onChange: function(changes, source){
                     if(source=="edit"||source=="empty"){ //remove excess columns/rows
                         try{
-                            var r, c, totalChanges, gridData = hot.getDataReference();
+                            var r, c, totalChanges, gridData = hot.getData();
                             //check for empty columns
                             for(c=gridData[0].length-1;c>1;c--){ //loop through columns right to left skipping the first two (date+first value column)
                                 totalChanges = "";
@@ -2161,7 +2162,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                                 hot.alter('remove_col', c, c+1); //remove it!!
                             }
                             //check for excess empty bottom rows
-                            gridData = hot.getDataReference(); //get a fresh copy
+                            gridData = hot.getData(); //get a fresh copy
                             for(r=gridData.length-1;r>5;r--){  //loop through bottom heading up
                                 totalChanges = "";
                                 for(c=0;c<gridData[0].length;c++){ //loop through all columns
@@ -2222,9 +2223,9 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                 if(isoDate = _isValidIsoDate(value)){
                     if(value != isoDate) {
                         instance.setDataAtCell(row, col, isoDate);
-                    } else {
-                        td.style.background = 'Red';
                     }
+                } else {
+                    td.style.background = 'Red';
                 }
             }
         }
@@ -2336,10 +2337,10 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
             }
         }
 
-        function getMyDataFromEditor(){
+        function getMyDataFromEditor(forPreview){
             //build series and validate
             hot.destroyEditor(false);  //exit cell edit mode and without reverting (ie. commit any edits)
-            var gridData = $editor.data('handsontable').getData(),
+            var gridData = hot.getData(),
                 timestamp = (new Date()).getTime(),
                 localSeriesIndex= 1,
                 uSerie,
@@ -2355,7 +2356,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
             switch(settype){
                 case 'M':
                 case 'X':
-                    var userSet = new MashableData.Set({
+                    var userSet = {
                         units: $('#set_units').val().trim(),
                         setname: $('#set_name').val().trim(),
                         setmetadata: $('#set_notes').val().trim(),
@@ -2363,7 +2364,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                         settype: settype,
                         worksheet: worksheetId,
                         data: []
-                    });
+                    };
                     if(mapableSourceSet.setid) userSet.setid = mapableSourceSet.setid;
                     if(mapableSourceSet.uid) userSet.uid = mapableSourceSet.uid;
                     if(mapableSourceSet.worksheet) userSet.worksheet = mapableSourceSet.worksheet;
@@ -2420,6 +2421,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                                 geoname: gridData[rows.M.header][1],
                                 data: mdata
                             };
+                            if(forPreview) uSerie.units = userSet.units;
                             userSet.data.push(uSerie);
                             break;
                         case 'X':
@@ -2448,6 +2450,10 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                                 savedt: new Date().getTime(),
                                 data: mdata
                             };
+                            if(forPreview) {
+                                uSerie.units = userSet.units;
+                                uSerie.freq = editorFreq;
+                            }
                             userSet.data.push(uSerie);
                             break;
                         default:
@@ -2457,16 +2463,21 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                                 return false;
                             }
                             //4U. Create the single series Set
-                            uSerie = new MD.Set({
-                                setid: gridData[rows.S.setid][c].trim(),
+                            uSerie = {
+                                setid: parseInt(gridData[rows.S.setid][c] || 0),
                                 settype: 'S',
+                                freq: editorFreq,
                                 setname: gridData[rows.S.name][c].trim(),
                                 units: gridData[rows.S.units][c].trim(),
                                 setmetadata: gridData[rows.S.notes][c].trim(),
                                 savedt: timestamp,
+                                worksheet: worksheetId,
                                 data: mdata
-                            });
-                            if(!uSerie.setname.length || !uSerie.units.length) dialogShow("Name and units required",'Name and units are required for each non-empty column.  Please correct column '+c+' and try again.');
+                            };
+                            if(!uSerie.setname.length || !uSerie.units.length) {
+                                dialogShow("Name and units required",'Name and units are required for each non-empty column.  Please correct column '+c+' and try again.');
+                                return false;
+                            }
                             worksheetSets.push(uSerie);
                             break;
                     }
@@ -2510,7 +2521,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                 myData = getMyDataFromEditor();  //returns false if missing name or units or data
             //need to add geoid (of bunny for PointSets + setname)
             if(myData){
-                callApi({command: "SaveMyData", data: myData, settype: settype, freq: editorFreq, preferredmap: map}, //set ie either 'S' or the handle of a mapset or pointset
+                callApi({command: "SaveUserSets", data: myData, settype: settype, freq: editorFreq, preferredmap: map}, //set ie either 'S' or the handle of a mapset or pointset
                     function(jsoData, textStatus, jqXH){
                         //add update MySeriesGrid on success
                         for(i=0;i<myData.length;i++){
@@ -2738,14 +2749,14 @@ function deleteMySeries(){  //remove all series in quickView from users MySeries
         [
             {text: 'delete',id:'btn-delete',
                 click:  function() {
-                    for(var i=0;i<$quickViewRows.length;i++){
-                        obj = $dtMyData.fnGetData($quickViewRows.get(i));
+                    for(var i=0;i<qvControls.$quickViewRows.length;i++){
+                        obj = $dtMyData.fnGetData(qvControls.$quickViewRows.get(i));
                         if(account.loggedIn()){
                             updateMySeries(obj, 'D');  //delete from DB
                         }
                         delete oMySets[obj.handle()];
                         delete oMySets[obj.setHandle()];
-                        $dtMyData.fnDeleteRow($quickViewRows.get(i));
+                        $dtMyData.fnDeleteRow(qvControls.$quickViewRows.get(i));
                     }
                     $(this).dialog('close');
                 }

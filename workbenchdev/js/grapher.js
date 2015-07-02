@@ -4089,7 +4089,7 @@ MashableData.grapher = function(){
         oGraph.largestPeriod = "N";
         var min, max, jsdt, handle, key;
         oGraph.eachComponent(function(){
-            if(!this.firstdt && (this.handle.charAt(0)=='M' || this.handle.charAt(0)=='X')){
+            if(!this.firstdt && (this.settype=='M' || this.settype=='X')){
                 for(handle in oGraph.assets[this.handle()].data){
                     jsdt = oGraph.assets[this.handle()].data[handle].firstdt;
                     oGraph.assets[this.handle()].firstdt = Math.min(oGraph.assets[this.handle()].firstdt, jsdt)||jsdt;
