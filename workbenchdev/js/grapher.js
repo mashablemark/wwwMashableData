@@ -3310,7 +3310,7 @@ MashableData.grapher = function(){
                             if(components[i].isMapSet()){
                                 for(geo in graph.assets[components[i].handle()].data){
                                     if(!geos[geo]) { //geos will be used later to loop over the geographies and square up the final set (i.e. add nulls for missing values)
-                                        geos[geo]= graph.assets[components[i].handle()].data[geo].isBunny?'b':'r';
+                                        geos[geo]= graph.assets[components[i].handle()].data[geo].type=='bunny'?'b':'r';
                                         sortedGeoList.push({geo: geo, name: graph.assets[components[i].handle()].geoname});
                                     }
                                     data = graph.assets[components[i].handle()].data[geo].data.split('|');

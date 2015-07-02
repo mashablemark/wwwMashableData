@@ -91,7 +91,7 @@ ManageMySeries:  workbench.updateMySeries
 */
 $time_start = microtime(true);
 if(isset($_REQUEST['command']))
-$command =  isset($_REQUEST['command'])?$_REQUEST['command']:(isset($command)?$command:"");
+    $command =  isset($_REQUEST['command'])?$_REQUEST['command']:(isset($command)?$command:"");
 $con = getConnection();
 switch($command) {
     case "LogError":
@@ -475,7 +475,6 @@ switch($command) {
                         }
                     }
                 }
-
                 //2. check uid...
                 if(isset($_POST["uid"]) && isset($graph['userid']) && $graph['userid'] == intval(safePostVar("uid"))) {
                     requiresLogin();  //login not required, but if claiming to be the author then verify the token
@@ -484,7 +483,6 @@ switch($command) {
                     $graph['gid'] = null;
                 }
                 //3. create / update cache file
-
                 $cacheSubPath = substr($ghash, 0, 2) . "/" . substr($ghash, 2, 2) . "/";
                 if (!is_dir($cacheRoot . $cacheSubPath)) {
                     mkdir($cacheRoot . $cacheSubPath, 0755, true);
@@ -620,13 +618,11 @@ switch($command) {
         $sqlMap = safeSQLFromPost('map');
         //bunny
         // + intermediate containing geos
-
         // + detailed geogeos (if map or not contained or container not map bunny)
         //1. map bunny (always get)
         $sql1 = "select 'bunny' as type, g.geoid, g.name, 'A' as jvorder
           from geographies g join maps m on g.geoid=m.bunny
           where map=$sqlMap";
-
         //2. intermediates (avoid member that have not containing id (e.g. latvia) for mapset as that will be capture by $sql3
         $sql2 = "select distinct 'region' as type, coalesce(cg.geoid, g.geoid) as geoid, coalesce(cg.name, g.name) as name, coalesce(cg.jvsort, cg.jvectormap, g.jvsort, g.jvectormap) as jvorder
           from maps m join mapgeographies mg on m.map=mg.map join geographies g on mg.geoid=g.geoid left outer join geographies cg on g.containingid = cg.geoid
@@ -636,7 +632,6 @@ switch($command) {
         else
             $sql2 .= " and g.containingid is not null";
         $sql = $sql1 . " UNION DISTINCT " . $sql2;
-
         //3. for mapsets, grab all the mapgeographies
         if($type == "M") $sql .=
             " UNION DISTINCT
@@ -644,7 +639,6 @@ switch($command) {
                 from mapgeographies mg join geographies g on mg.geoid=g.geoid
                 where mg.map=$sqlMap
             order by jvorder ";  //used as a ordering code to group countries/states with their sub-admiistrative districts
-
         $result = runQuery($sql, "GetMapGeographies");
         $output = ["status" => "ok", "geographies" => []];
         while ($row = $result->fetch_assoc()) {
@@ -792,7 +786,7 @@ switch($command) {
             }
         }
         break;
-    case 'GetBunnySeries':
+    case "GetBunnySeries":
         $setids = $_POST["setids"];
         $freq = safeSQLFromPost("freq");
         if (!isset($_POST["geoid"]) || intval($_POST["geoid"]) == 0) {
@@ -955,11 +949,9 @@ switch($command) {
                         cardStateProv: $screen.find('input.cardStateProv').val(),
                         cardPostal: $screen.find('input.cardPostal').val(),
                         cardCountry: $screen.find('input.cardCountry').val()*/
-
     case "GetCatChain":  //gets a single chain (even if set is multihomed) with all siblings at each level
         $setid = intval($_POST["setid"]);
         $geoid = isset($_POST["geoid"]) ? intval($_POST["geoid"]) : 0;
-
         $parentId = false;
         if ($setid > 0) { //try to get the starting cat
             $result = runQuery("select catid, parentid from categorysets cs join catcat cc on cs.catid=cc.childid where setid=$setid and geoid=$geoid");
@@ -969,13 +961,11 @@ switch($command) {
                 $parentId = $row["parentid"];
             }
         }
-
         if (!$parentId) {
             $setid = 0;
             $catid = 0;
             $parentId = 1;  //root cat
         }
-
         $chain = [];
         $maxLevels = 20; //safety counter to avoid infinite loops
         while ($parentId && count($chain) < $maxLevels) {
@@ -1307,69 +1297,112 @@ switch($command) {
         break;
     case "SaveUserSets":
         requiresLogin();  //sets global $orgid & $username
+
+        /*unlimited usage for account for now: uncomment to setup tiered account levels
         $usageTracking = trackUsage("count_userseries");
-        if (!$usageTracking["approved"]) {
+        if(!$usageTracking["approved"]){
             $output = array("status" => $usageTracking["msg"]);
             break;
-        }
-        $set = $_REQUEST['set'];  //either "U" or a mapset or pointset handle
-        $setid = (strlen($set) > 1) ? intval(substr($set, 1)) : 0;
-        $user_id = intval($_REQUEST['uid']);
-        $setType = substr($set, 0, 1);
-        $arySeries =& $_REQUEST['setdata'];
-        $output = array(
+        }*/
+
+        $output = [
             "status" => "ok",
-        );
-        $sqlName = safeSQLFromPost("setname");
-        $sqlUnits = safeSQLFromPost("units");
+            "saved" => [],
+            "deleted" => [],
+            "errors" => [],  //associative array of errors for deleted series ( = omitted from a worksheet save) that are used in graphs
+            "warnings" => []  //associative array of warnings of the saved graphs that use a public data set that just got edited and saved as the application does not automatically update the graph's components
+        ];
+        $setType = substr($_REQUEST['settype'],0,1);
+        if(strpos("SMX", $setType) === false) die('"status":"Invalid set parameters.  Please contact MashableData <a href=\"mailto:support@mashabledata.com\">support</a> if you feel this is an error."');
+        $updatets = intval($_REQUEST['freq']);
         $sqlFreq = safeSQLFromPost("freq");
-        if(strpos("''A'S'Q'M'W'D'H'T'", $sqlFreq) === false) die('"status":"Invalid set parameters.  Please contact MashableData tech support if you feel this is an error."');
-        if(strpos("SMX", $setType) === false) die('"status":"Invalid set parameters.  Please contact MashableData tech support if you feel this is an error."');
-
-        $sql = "select * from sets where setid=$setid and userid=$user_id and apiid is null";
-        $result = runQuery($sql);
-        if ($result->num_rows == 1) {
-            //update
-            $set = $result->fetch_assoc();
-            if ($set["name"] != $_POST['setname'] || $set["units"] != $set['units'] || $set["freq"] != $set['freq']) {
-                $sql = "update sets set name=$sqlName, units=$sqlUnits, freq=$sqlFreq where setid=$setid";
-                runQuery($sql);
-            }
-
-        } else {
-            //insert new
-            $nameLen = strlen($sqlName) - 2;
-            $setTypeField = ($setype=="S" ? "S" : $setype . "S_"); //"S", "MS_" or "XS_"
-            $sql = "insert into sets (name, namelen, settype, freq, units, userid, orgid, src, apidt) values ($sqlName, $nameLen, '$setTypeField', $sqlFreq,  $sqlUnits, $user_id, $orgid, '$saveTs'" . safeStringSQL($username) . ")";
-            runQuery($sql);
-            $setid = $db->insert_id;
+        if(strpos("''A'S'Q'M'W'D'H'T'", $sqlFreq) === false) die('"status":"Invalid set parameters.  Please contact MashableData <a href=\"mailto:support@mashabledata.com\">support</a> if you feel this is an error."');
+        $myData = $_REQUEST['data'];  //either an array (worksheet) of single series sets or a mapset or pointset
+        switch($setType){
+            case "S":
+                //1. loop through the single series sets
+                $worksheetSetIds = [];
+                foreach($myData as $i=>$series){
+                    $worksheetId = $series["worksheetid"];
+                    $series["oldsetid"] = $series["setid"];
+                    $series["settype"] = $setType;
+                    $series["setid"] = saveUserSet($series["setid"], $setType, $series["setname"], $series["units"], $series["setmetadata"], $updatets, $worksheetId);
+                    if($series["oldsetid"] != $series["setid"] && $series["oldsetid"] > 0){
+                        if($graphWarning = graphsUsageCheck($series["oldsetid"], $uid)) {
+                            $output["warnings"][] = $graphWarning;
+                        }
+                    }
+                    $worksheetSetIds[] = $series["setid"];
+                    saveUserSetData($series["setid"], $series["freq"], $series["data"]);  //default values latlon and geoid
+                    unset($series["data"]);
+                }
+                $sql = "select * from mysets where userid = $uid and worksheet = $worksheetId and setid not in (".implode(",", $worksheetSetIds).")";
+                $result = runQuery($sql, "find omitted worksheet sets");
+                while($row = $result->fetch_assoc()){
+                    if($deleteError = graphsUsageCheck($row["setid"], $uid)){
+                        $output["errors"][] = $deleteError;
+                    } else {
+                        $output["deleted"][] = ["setid"=>$row["setid"], "setname"=>$row["name"]];
+                        $result = runQuery("delete from userset us join sets s on su.setid=s.setid join setdata sd on s.setid=sd.setid where us.userid=$uid and s.userid=$uid", "delete omitted worksheet setdata");
+                    }
+                }
+                break;
+            case "M":
+                $worksheetId = $myData["worksheetid"];
+                $worksheetGeoids = [];
+                $myData["oldsetid"] = $myData["setid"];
+                $myData["settype"] = $setType;
+                $myData["setid"] = saveUserSet($myData["setid"], $setType."S_", $myData["setname"], $myData["units"], $myData["setmetadata"], $updatets, $worksheetId, $_REQUEST["preferredmap"]);
+                if($myData["oldsetid"] != $myData["setid"] && $myData["oldsetid"] > 0){
+                    if($graphWarning = graphsUsageCheck($myData["oldsetid"], $uid)) {
+                        $output["warnings"][] = $graphWarning;
+                    }
+                }
+                foreach($myData["data"] as $i => $marker) {
+                    //save the data
+                    saveUserSetData($myData["setid"], $freq, $marker["data"], $marker["geoid"]);
+                    //remember the latlons saved to detect omitted, which must be deleted
+                    $worksheetGeoids[] = $marker["geoid"];
+                }
+                $sql = "delete from setdata where setid = $myData[setid] and geoid not in ('".implode("','", $worksheetGeoids)."')";
+                $result = runQuery($sql, "delete omitted set geographies");
+                setGhandlesFreqsFirstLast("all", "all", $myData["setid"]);
+                setMapsetCounts($myData["setid"]);
+                break;
+            case "X":
+                $worksheetId = $myData["worksheetid"];
+                $worksheetLatlons = [];
+                $myData["oldsetid"] = $myData["setid"];
+                $myData["settype"] = $setType;
+                $myData["setid"] = saveUserSet($myData["setid"], $setType."S_", $myData["setname"], $myData["units"], $myData["setmetadata"], $updatets, $worksheetId, $_REQUEST["preferredmap"]);
+                if($myData["oldsetid"] != $myData["setid"] && $myData["oldsetid"] > 0){
+                    if($graphWarning = graphsUsageCheck($myData["oldsetid"], $uid)) {
+                        $output["warnings"][] = $graphWarning;
+                    }
+                }
+                foreach($myData["data"] as $i => $marker) {
+                    //save the data
+                    saveUserSetData($myData["setid"], $freq, $marker["data"], $marker["geoid"], $marker["latlon"]);
+                    //save the marker's alias set
+                    saveUserSet($myData["setid"], $setType . "S_", $myData["setname"], $myData["units"], '', $updatets, null, null, $marker["latlon"]);  //metadata and preferred map saved with masterset
+                    //remember the latlons saved to detect omitted, which must be deleted
+                    $worksheetLatlons[] = $marker["latlon"];
+                }
+                $sql = "delete from setdata where setid = $myData[setid] and latlon not in ('".implode("','", $worksheetLatlons)."')";
+                $result = runQuery($sql, "delete omitted set markers");
+                $sql = "select setid, name as setname from sets where mastersetid = $myData[setid] and latlon not in ('".implode("','", $worksheetLatlons)."')";
+                $result = runQuery($sql, "get list of omitted set marker aliases");
+                while($row = $result->fetch_assoc()){
+                    $output["deleted"][] = $row;
+                }
+                $sql = "delete from sets where mastersetid = $myData[setid] and latlon not in ('".implode("','", $worksheetLatlons)."')";
+                $result = runQuery($sql, "delete omitted set marker aliases");
+                setGhandlesFreqsFirstLast("all", "all", $myData["setid"]);
+                setPointsetCounts($myData["setid"]);
+                break;
         }
-        //delete set data and resave
-        $status = ["updated" => 0, "failed" => 0, "skipped" => 0, "added" => 0];
-        $saveTs = intval($_REQUEST["savedt"] / 1000) * 1000;
-        for ($i = 0; $i < count($arySeries); $i++) {
-            saveSetData($status, $setid, null, null, $freq, $arySeries[$i]["geoid"], $arySeries[$i]["latlon"], $arySeries[$i]["data"], '$saveTs', $arySeries[$i]["notes"]);
-            $usid = $db->insert_id;
-        }
-        //remove any old setdata that wasn't udated (+ deleted on user's end)
-        $sql = "delete from setdata where setid=$setid and apidt<>'$saveTs'";
-        runQuery($sql);
-
-        $preferredMap = safeSQLFromPost("map");
-        $sql = "insert into mysets (userid, setid, preferredmap, savedt) values ($userid, $setid, $preferredMap, $saveTs) on duplicate key update preferredmap=$preferredMap, savedt=$saveTs";
-        runQuery($sql, "mysets insert/update for user series");
-        if($setid>0) {
-            setGhandlesFreqsFirstLast("all", "all", $setid);
-
-            if($setType=="M") setMapsetCounts($setid);
-            if($setType=="X") setPointsetCounts($setid);
-        }
-        if(isset($usageTracking["msg"])) $output["msg"] = $usageTracking["msg"];
-        $output["updated"] = $status["updated"];
-        $output["added"] = $status["added"];
-        $output["deleted"] = $deleted;
-        $output["setid"] = $setid;
         break;
+
     case "GetSeries":  //formerly GetMashableData
         //takes sets and get a series in that set, guessing at geo and latlon as needed (note: workbench should already have guessed at freq
         $usageTracking = trackUsage("count_seriesview");
@@ -1506,7 +1539,7 @@ switch($command) {
             runQuery($sql);
         }
         break;
-    case  "GetAnnotations":
+    case "GetAnnotations":
         if(safePostVar('whose')=="M"){
             requiresLogin();
             $anno_userid = intval($_POST["uid"]);
@@ -1521,7 +1554,7 @@ switch($command) {
             array_push($output["annotations"], $aRow);
         }
         break;
-    case  "GetAnnotation":
+    case "GetAnnotation":
         $sql = "SELECT annoid, name, description, annotation from annotations where annoid=". intval($_POST['annoid']);
         $result = runQuery($sql);
         $output = array("status" => "annotation not found");
@@ -1598,8 +1631,6 @@ $output["exec_time"] = $time_elapsed . 'ms';
 $output["command"] = $command;
 echo json_encode($output);
 closeConnection();
-
-
 //shared routines
 function getCatChildren($parentId){  //used by the category browser routines
     $sql = "SELECT
@@ -1618,7 +1649,6 @@ function getCatChildren($parentId){  //used by the category browser routines
     }
     return $catChildren;
 }
-
 function BuildChainLinks(&$chains){
     $recurse = false;
     foreach($chains as $name => $chain){
@@ -1649,18 +1679,15 @@ function BuildChainLinks(&$chains){
     }
     return $recurse;
 }
-
 function makeGhash($gid){
     return md5($gid . "mashrocks".microtime());
 }
-
 function setGhash($gid){  //does not check permissions!
     $newHash = makeGhash($gid);
     $sql = "update graphs set ghash = '" . $newHash . "' where graphid = " . $gid;
     runQuery($sql, "setGhash");
     return $newHash;
 }
-
 function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEmbeddedGraph"
     global $ft_join_char, $command;
 //if $userid = 0, must be a public graph; otherwise must own graph
@@ -1810,26 +1837,22 @@ function getGraphs($userid, $ghash){  //only called by "GetFullGraph" and "GetEm
                 } else {
                     $cubegeoid = 0;
                 }
-
                 if(isset($mapconfig["cubefreq"])){
                     $cubefreq = safeStringSQL($mapconfig["cubefreq"]);
                 } else {
                     $cubegeoid = 0;
                 }
-
                 getCubeSeries($output['graphs']['G' . $gid]["assets"], $mapconfig["cubeid"], $cubegeoid);
             }
         }
     }
     return $output;
 }
-
 function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false, $getBunnies = false){
 //used by:
 //    "GetSet" command from workbench.QuickViewToMap and workbench.getGraphMapSets()
 //    "GetFullGraph" command (api.getGraphs()) from grapher.createMyGraph() only
 //    "GetEmbeddedGraph" command (api.getGraphs()) from grapher.createMyGraph() only
-
     global $db, $orgid, $command;
     $setFilters = [];
     //print_r($requestedSets);
@@ -1903,10 +1926,8 @@ function getMapSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false
         $assets[$handle]["lastdt"] = max($assets[$handle]["lastdt"], $row["lastdt100k"]*100000);
         if($getBunnies && $row["containingid"] && !in_array($row["containingid"], $bunnies)) $bunnies[] = $row["containingid"];
     }
-
     if($getBunnies && $currentMapSetId>0) getBunnies($assets[$handle]["data"], $currentMapSetId, $currentFreq, $bunnies);
 }
-
 function getBunnies(&$data, $setId, $freq, $bunnies){
     if(count($bunnies)>0){  //get the map's bunny plus the containing ids
         $sql = "select setid, freq, g.geoid, data, firstdt100k, lastdt100k, g.name as geoname, g.containingid, g.jvectormap as map_code
@@ -1927,7 +1948,6 @@ function getBunnies(&$data, $setId, $freq, $bunnies){
         }
     }
 }
-
 function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = false){
     //note: works for us state map, but not us county map.  But that's fine because such a map (of a NUTS map of Europe) with markers would be too crowded and slow
     global $db, $orgid, $command;
@@ -1991,13 +2011,11 @@ function getPointSets(&$assets, $map, $requestedSets, $mustBeOwnerOrPublic = fal
         $assets[$handle]["lastdt"] = max($assets[$handle]["lastdt"], $row["lastdt100k"]*100000);
     }
 }
-
 function freqsFieldToArray($freqs){
     global $ft_join_char;
     if(!$freqs) return [];
     return explode(",", str_replace("F".$ft_join_char, "", $freqs));
 }
-
 function mapsFieldCleanup($mapsField){
     global $ft_join_char;
     if($mapsField) {
@@ -2006,11 +2024,9 @@ function mapsFieldCleanup($mapsField){
         return null;
     }
 }
-
 function handle(&$obj){
     return $obj["settype"].$obj["setid"].(isset($obj["freq"])?$obj["freq"]:"").(isset($obj["geoid"])?"G".$obj["geoid"]:"").(isset($obj["latlon"])?"L".$obj["latlon"]:"");
 }
-
 function getCubeSeries(&$output, $cubeid, $geoid=0, $sqlFreq=false){
     //fetch cube and theme name (just in case)
     $sql = "select c.units, c.name as cubename, t.name as themename, cd1.name as baraxis, cd1.json as barnames, cd2.name as stackaxis, cd2.json as stacknames, cd3.name as sideaxis, cd3.json as sidenames
@@ -2050,7 +2066,6 @@ function getCubeSeries(&$output, $cubeid, $geoid=0, $sqlFreq=false){
         $output["series"][] = $row;
     }
 }
-
 function dataSliver($data, $period, $firstDt, $lastDt, $start, $end, $intervals=false){ //call only if jsStart and jsEnd are valid
     if($intervals){
         $points = explode('|', $data);
@@ -2297,7 +2312,6 @@ function payBill($paymentid){
     //TODO: merchant credit card processing here
     return true;
 }
-
 function flushCloudFlare($ghash){
     $cloudFlareApiUrl = "https://www.cloudflare.com/api_json.html";
     $cloudFlareVars = [
@@ -2310,19 +2324,101 @@ function flushCloudFlare($ghash){
     //url-ify the data for the POST
     $fieldVars = [];
     foreach($cloudFlareVars as $key=>$value) { $fieldVars[] = $key . '=' . urlencode($value); }
-
     //open connection
     $ch = curl_init();
-
 //set the url, number of POST vars, POST data
     curl_setopt($ch, CURLOPT_URL, $cloudFlareApiUrl);
     curl_setopt($ch, CURLOPT_POST, count($fieldVars));
     curl_setopt($ch, CURLOPT_POSTFIELDS, implode("&", $fieldVars));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-
 //execute post
     $result = curl_exec($ch);
-
 //close connection
     curl_close($ch);
+}
+
+function saveUserSet($setid, $setType, $name, $units, $metadata, $updatets, $worksheetid, $preferredMap = null, $latlon = null){  //if latlon then $setid is the mastersetid
+    global $uid, $db;  //set by requireLogin()
+    //determines whether set is owned by user and save accordingly.  Updates mysets table too as needed.  Returns db setid as saved (may be different)
+
+    //1. see if the set is mine
+    if(is_numeric($setid) && $setid>0){
+        if($latlon){
+            $result = runQuery("select * from sets where mastersetid = ". intval($setid). " and latlon = " . safeStringSQL($latlon));
+        } else {
+            $result = runQuery("select * from sets where setid = ". intval($setid));
+        }
+        if($result->num_rows == 1){
+            $row = $result->fetch_assoc();
+            if($row["userid"] == $uid){
+                $insertNeeded = false;
+                $sql = "update sets set name = ".safeStringSQL($name).", namelen = ".strlen($name).", units=".safeStringSQL($units).", metadata=".safeStringSQL($metadata).", updatets = $updatets,  where setid = $row[setid]";
+                $result = runQuery($sql);
+            } else {
+                $insertNeeded = true;
+            }
+        } else {
+            $insertNeeded = true;
+        }
+
+    } else {
+        $insertNeeded = true;
+    }
+    if($insertNeeded){
+        $sql = "insert into sets (name, namelen, settype, units, metadata, updatets, latlon, matersetid)
+        values (".safeStringSQL($name)
+            .", ". strlen($name)
+            .", ".safeStringSQL($setType=="S"?$setType:$setType."S_")
+            .", ".safeStringSQL($units)
+            .", ".safeStringSQL($metadata)
+            .", " . $updatets
+            .", ".safeStringSQL($latlon)
+            .", ".($latlon?$setid:'null')
+            .")";
+        $result = runQuery($sql);
+        $setid = $db->insert_id;
+    }
+
+    //insert/update usersets records
+    $preferredmapSql = safeStringSQL($preferredMap);
+    $sql = "insert into mysets (userid, setid, preferredmap, worksheetid, savedt) value ($uid, $setid, $preferredmapSql, $worksheetid, $updatets) on duplicate key set savedt = $updatets";
+    runQuery($sql);
+
+    return $setid;
+}
+
+function saveUserSetData($setid, $freq, $arrayData, $geoid = 0, $latlon = ""){
+    sort($arrayData);  //extra, extra safety
+    $firstPoint = explode(":", $arrayData[0]);
+    $lastPoint = explode(":", $arrayData[count($arrayData)-1]);
+    $firstDate100k = unixDateFromMd($firstPoint[0])/100;
+    $lastDate100k = unixDateFromMd($lastPoint[0])/100;
+    $dataSql = safeStringSQL(implode("|", $arrayData));
+    $latlonSql =  safeStringSQL($latlon);
+    $sql = "insert into setdata (setid, freq, geoid, latlon, data, firstdt100k, lastdt100k) value($setid, $freq, $geoid, $latlonSql, $dataSql)
+        on duplicate key update data = $dataSql, firstdt100k = $firstDate100k, lastdt100k = $lastDate100k";
+    runQuery($sql);
+}
+
+function graphsUsageCheck($setid, $userid){
+    $sql = "select distinct g.graphid, g.title as graphname, s.name as setname, s.setid
+            from graphs g
+            join plotcomponents c on g.graphid = c.graphid
+            join sets s on s.setid = c.setid
+            where g.userid = $userid and c.setid = $setid";
+    $result = runQuery($sql);
+    if($result->num_rows==0){
+        return false;
+    } else {
+        $usages = [];
+        while($row = $result->fetch_assoc()){
+            $usages[] = [
+                "gid" => $row["graphid"],
+                "graph" => $row["graphname"],
+                "set" => $row["setname"],
+                "setid" => $row["setid"],
+            ];
+        }
+        return $usages;
+    }
 }

@@ -13,10 +13,9 @@ $CRYPT_KEY = "jfdke4wm7nfew84i55vs";
 $SUBSCRIPTION_RATE = 10.00;
 $SUBSCRIPTION_MONTHS = 6;  //this will be reduced to 3 1 year after launch
 $MAIL_HEADER = "From: admin@mashabledata.com\r\n"
- . "Reply-To: admin@mashabledata.com\r\n"
- . "Return-Path: sender@mashabledata.com\r\n";
+    . "Reply-To: admin@mashabledata.com\r\n"
+    . "Return-Path: sender@mashabledata.com\r\n";
 $MAX_SERIES_POINTS = 20000;  //do not save ridiculously long series in full
-
 //helper functions
 function runQuery($sql, $log_name = 'sql logging'){
     global $db, $sql_logging;
@@ -30,17 +29,14 @@ function runQuery($sql, $log_name = 'sql logging'){
     }
     return $result;
 }
-
 function myEncrypt($data){
     global $CRYPT_KEY;
     return  base64_encode(mcrypt_encrypt(MCRYPT_RIJNDAEL_256, md5($CRYPT_KEY), $data, MCRYPT_MODE_CBC, md5(md5($CRYPT_KEY))));
-
 }
 function myDecrypt($encryption){
     global $CRYPT_KEY;
     return rtrim(mcrypt_decrypt(MCRYPT_RIJNDAEL_256, md5($CRYPT_KEY), base64_decode($encryption), MCRYPT_MODE_CBC, md5(md5($CRYPT_KEY))), "\0");
 }
-
 function MdToPhpDate($strDt){
     if(strlen($strDt)==4){
         return ("01-01-" . $strDt);
@@ -50,7 +46,6 @@ function MdToPhpDate($strDt){
         return (substr($strDt,6,2) ."-" . sprintf((intval(substr($strDt,4,2))+1),"%02d") . "-" . substr($strDt,0,4));
     } else return null;
 }
-
 function logEvent($command, $sql){
     global $event_logging, $db;
     if($event_logging){
@@ -58,7 +53,6 @@ function logEvent($command, $sql){
         $db->query($log_sql);
     }
 }
-
 function safeRequest($key){
     if(isset($_REQUEST[$key])){
         $val = $_REQUEST[$key];
@@ -67,11 +61,9 @@ function safeRequest($key){
     }
     return $val;
 }
-
 function safeSQLFromPost($key, $nullable = true){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
     return safeStringSQL(safePostVar($key, $nullable));
 }
-
 function safePostVar($key){
     if(isset($_POST[$key])){
         $val = $_POST[$key];
@@ -80,7 +72,6 @@ function safePostVar($key){
     }
     return $val;
 }
-
 function safeStringSQL($val, $nullable = true){  //needed with mysql_fetch_array, but not with mysql_fetch_assoc
     if(is_array($val)) throw new Exception("safeStringSQL unable to process arrays");
     if($nullable && ($val === NULL || strtoupper($val) == "NULL"  || $val == '')){  //removed "|| $val==''" test
@@ -89,7 +80,6 @@ function safeStringSQL($val, $nullable = true){  //needed with mysql_fetch_array
         return "'" . str_replace("'", "''", ($val===null?"":$val)) . "'";
     }
 }
-
 function getConnection(){
     global $db, $laptop;
     if($laptop){
@@ -113,7 +103,6 @@ function closeConnection(){
     global $db;
     $db->close();
 }
-
 function md_nullhandler($val){
     if($val=='' || $val == NULL){
         return 'null';
@@ -121,7 +110,6 @@ function md_nullhandler($val){
         return $val;
     }
 }
-
 function httpGet($target, $timeout = 15){
     $fp = false;
     $tryLimit = 3;
@@ -144,17 +132,18 @@ function httpGet($target, $timeout = 15){
     }
     return $content;
 }
-
 $orgid = 0;  //global var
 $username = null;
+$uid = null;
 function requiresLogin(){
-    global $orgid, $username, $laptop;
-    $uid = intval($_POST["uid"]);
-    if($uid==0){
+    global $uid, $orgid, $username, $laptop;
+    $uid = isset($_POST["uid"]) ? intval($_POST["uid"]) : 0;
+    $accessToken = safeSQLFromPost("accessToken");
+    if($uid==0 || $accessToken == ""){
         closeConnection();
         die('{"status": "This function requires you to be signed in.  MashableData is a free service and authenticate using your Facebook account so netierh of us has to remember another password. <b>Sign in</b> at top right."}');
     }
-    $sql = "select name, orgid from users where userid = " . $uid . ($laptop?'':" and accesstoken=" . safeSQLFromPost("accessToken"));
+    $sql = "select name, orgid from users where userid = " . $uid . ($laptop?"":" and accesstoken=$accessToken");
     $result = runQuery($sql);
     if($result->num_rows==0){
         closeConnection();
@@ -164,7 +153,6 @@ function requiresLogin(){
         $orgid = intval($aRow["orgid"]);  //global var for use elsewhere as needed
         $username = $aRow["name"];
     }
-    //eventually will check for valid userID/accesstoken combo.  If not present, return status with error
 }
 function trackUsage($counter){
     global $laptop;
@@ -176,7 +164,6 @@ function trackUsage($counter){
         "count_userseries" => array("name"=>"user series", "warn"=>10, "max"=>15),
         "count_datadown" => array("name"=>"data downloads", "warn"=>4, "max"=>6)
     );
-
     if(isset($_POST["uid"])){ //if UID is truly required, it will be caught by requiresLogin()
         if(isset($limits[$counter])){
             $uid = intval($_POST["uid"]);
@@ -185,7 +172,6 @@ function trackUsage($counter){
             $sql = "select ".$counter.", subscription from users where userid = " . $uid . ($laptop?"":" and accesstoken=" . safeSQLFromPost("accessToken"));
             $result = runQuery($sql);
             $aRow = $result->fetch_assoc();
-
             if($aRow[$counter]==$limits[$counter]["warn"]&&$aRow[$counter]=="F"){
                 return array(
                     "approved"=>true,
@@ -206,7 +192,6 @@ function trackUsage($counter){
         return array("approved"=>true);
     }
 }
-
 function cleanIdArray($dirtyIds){
     $cleanIds = array();
     for($i=0;$i<count($dirtyIds);$i++){
@@ -214,7 +199,6 @@ function cleanIdArray($dirtyIds){
     }
     return $cleanIds;
 }
-
 function getMapSet($name, $apiid, $freq, $units, $meta=null, $themeid=null, $msKey=null){ //get a mapset id, creating a record if necessary
     global $db;
     if($msKey){
@@ -257,7 +241,6 @@ function getPointSet($name, $apiid, $freq, $units){ //get a mapset id, creating 
         return false;
     }
 }
-
 function setCategoryByName($apiid, $name, $parentid){ //insert categories and catcat records as needed; return catid
     //ASSUMES SIBLINGS HAVE UNIQUE NAMES
     global $db;
@@ -288,12 +271,10 @@ function setCategoryById($apiid, $apicatid, $name, $apiparentid){ //insert categ
         $row = $result->fetch_assoc();
         $catid = $row["catid"];
     }
-
     $sql = "insert ignore into catcat (parentid, childid) select catid, $catid from categories where apiid=$apiid and apicatid=".safeStringSQL($apiparentid);
     $result = runQuery($sql);
     return $catid;
 }
-
 function setThemeByName($apiid, $themeName){
     global $db;
     $sql = "select themeid from themes where apiid=$apiid and name='$themeName'";
@@ -307,7 +288,6 @@ function setThemeByName($apiid, $themeName){
         return $row["themeid"];
     }
 }
-
 function getTheme($apiid, $themeName, $meta = null, $tkey = null){
     global $db;
     $sql = "select * from themes where apiid=$apiid and ";
@@ -326,7 +306,6 @@ function getTheme($apiid, $themeName, $meta = null, $tkey = null){
         return $row;
     }
 }
-
 function printNow($msg){ //print with added carriage return and flushes buffer so messages appears as there are created instead all at once after entire process completes
     print($msg . "<br />");
     ob_flush();
@@ -340,14 +319,10 @@ function preprint($var){
 function timeOut($msg){
     printNow(microtime(true)."ms: ".$msg);
 }
-
 function encyptAcctInfo($value){
-
 }
 function decryptAcctInfo($encyptedString){
-
 }
-
 function mdDateFromUnix($iDateUnix, $period){
     $uDate = new DateTime();
     $uDate->setTimestamp($iDateUnix);
@@ -363,13 +338,12 @@ function mdDateFromUnix($iDateUnix, $period){
             return $uDate->format("Y").sprintf("%02d", $jsMonth);
         case "W":
         case "D":
-        return $uDate->format("Y").sprintf("%02d", $jsMonth).$uDate->format("d");
+            return $uDate->format("Y").sprintf("%02d", $jsMonth).$uDate->format("d");
             break;
         default:
             return false;
     }
 }
-
 function unixDateFromMd($mdDate){
     $len = strlen($mdDate);
     if($len==4) {
@@ -395,7 +369,6 @@ function unixDateFromMd($mdDate){
     }
     return false;
 }
-
 //function for sets-based structures
 function setCatSet($catid, $setid, $geoid = 0){
     if($catid==0 || $setid==0) return false;
@@ -410,7 +383,6 @@ function setCatSet($catid, $setid, $geoid = 0){
             SET s.titles = cat.category WHERE s.setid = cat.setid  ";
         runQuery($sql, "set sets.title");
     }
-
     /*    to update all sets titles:     (run nightly!!!)
         UPDATE sets s,
             (SELECT setid, GROUP_CONCAT( c.name separator "; " ) AS category
@@ -421,7 +393,6 @@ function setCatSet($catid, $setid, $geoid = 0){
     */
     return true;
 }
-
 function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all", $setid = "all"){
     //will enable searching on newly inserted series by updating sets.freq from its default value on note_searchable
     runQuery("SET SESSION group_concat_max_len = 50000;","setGhandlesPeriodicities");
@@ -435,11 +406,9 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all", $setid = "a
     } else {
         $sql .=" join sets s on sd.setid=s.setid where s.apiid=$apiid ".($themeid == "all"?"":" and s.themeid=$themeid ")." group by s.setid;";
     }
-
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast");
     runQuery("update sets s join temp t on s.setid=t.id1
     set s.ghandles = concat(t.text1,','), s.freqs = t.text2, s.firstsetdt100k = t.int1, s.lastsetdt100k = t.int2;", "setGhandlesPeriodicities");
-
     //freqs, firstdt, lastdt and ghandles for points!!! (runs in 33sec for St Louis FRED = 31,000 markers first time; second time = 27sec)
     //note ghandles makes new sets searchable
     $sql = "update sets s join
@@ -456,7 +425,6 @@ function setGhandlesFreqsFirstLast($apiid = "all", $themeid = "all", $setid = "a
             s.ghandles = pointghandles, s.freqs = pointfreqs";
     runQuery($sql, "setGhandlesPeriodicitiesFirstLast set points first last");
 }
-
 function setMapsetCounts($setid="all", $apiid, $themeid = false){
 //step1:  determine sets' maximum map coverage in percent (8.6s for 6024 sets = 1 million setdata rows)
     $themeFilter = $themeid?" and themeid=$themeid ":"";
@@ -471,7 +439,6 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
          ON s.setid=mc2.setid
         SET s.maxmapcoverage=least(100,maxcov), s.settype='MS_'";
     runQuery($sqlSetMaxCov,"set Max MapSet coverage");
-
 //step 2: set the sets.maps field (exec time 13.1s for 6024 sets = 1 million setdata rows)
     $sqlSetMaps = "update sets s join
             (select setid, group_concat(mapcount) as mapcounts from
@@ -498,12 +465,10 @@ function setMapsetCounts($setid="all", $apiid, $themeid = false){
             set su.elements = sc.elementscount",
         "set element count for Mapsets");
 }
-
 function setPointsetCounts($setid="all", $apiid = "all"){
     //1. update mastersets
     runQuery("truncate temp;","setPointsetCounts");
     runQuery("SET SESSION group_concat_max_len = 4000;","setPointsetCounts");
-
     //subquery1 finds maps for which points' geoids is a component (e.g. USA)
     $subQuery1 = "SELECT s.setid, mg.map, concat('\"M_',mg.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount,
         count(distinct sd.geoid, sd.latlon) as markercount
@@ -512,7 +477,6 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     if($apiid != "all") $subQuery1 .= " and apiid=".$apiid;
     if($setid != "all") $subQuery1 .= " and setid=".$setid;
     $subQuery1 .= " group by s.setid, mg.map ";
-
     //subquery2 finds maps whose bunny = points' geoids (e.g. Virginia)
     $subQuery2 = "SELECT sd.setid, m.map, concat('\"M_',m.map, '\":',count(distinct sd.geoid, sd.latlon)) as mapcount,
         0 as markercount
@@ -521,12 +485,10 @@ function setPointsetCounts($setid="all", $apiid = "all"){
     if($apiid != "all") $subQuery2 .= " and apiid=".$apiid;
     if($setid != "all") $subQuery2 .= " and setid=".$setid;
     $subQuery2 .= " group by setid, sd.geoid ";
-
     $insertSql = "insert into temp (id1, text1) SELECT setid, group_concat(mapcount) from ($subQuery1 UNION $subQuery2) mc group by setid;";
     runQuery($insertSql, "setPointsetCounts");
     runQuery("update sets s join temp t on s.setid=t.id1 set s.maps=t.text1;", "setPointsetCounts");
     runQuery("truncate temp;","setPointsetCounts");
-
     //set 3. mastersets' sets.elements = count of distinct map element (region or points) in set = runs in 15 secs for FRED!
     runQuery(
         "update sets su join (select s.setid,  count(distinct sd.geoid, sd.latlon) as elementscount
@@ -535,36 +497,31 @@ function setPointsetCounts($setid="all", $apiid = "all"){
             group by s.setid) as sc on su.setid=sc.setid
             set su.elements = sc.elementscount",
         "set element count for Mapsets");
-
 //TODO: alias sets' from and to dates and frequency
-/*joining to mastersetid in newsearch eliminates the need to replicate
-    //2. update the points' maps
-    $subQuery1 = "SELECT setid, sd.geoid, concat('\"M_', mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount
-        FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
-    $subQuery2 = "SELECT setid, sd.geoid, concat('\"M_', m.map, '\":',count(distinct sd.geoid, latlon)) as mapcount
-        FROM setdata sd join maps m on sd.geoid=m.bunny ";
-    if($setid != "all"){
-        $subQuery1 .= " WHERE setid=$setid";
-        $subQuery2 .= " WHERE setid=$setid";
-    } elseif($apiid != "all") {
-        $subQuery1 .= " JOIN sets s on sd.setid = s.setid where s.apiid=$apiid";
-        $subQuery2 .= " JOIN sets s on sd.setid = s.setid where s.apiid=$apiid";
-    }
-    runQuery("insert into temp (id1, id2, text1) select setid, geoid, group_concat(mapcount) from ($subQuery1  UNION $subQuery2) mc group by setid, geoid;","setPointsetCounts");
-    runQuery("update temp t join setdata sd on t.id1=sd.setid and t.id2=sd.geoid join sets s on s.mastersetid=t.id1 and sd.latlon=s.latlon
-        set s.maps=t.text1;", "setPointsetCounts");
-
-    runQuery("truncate temp;","setPointsetCounts");
-*/
+    /*joining to mastersetid in newsearch eliminates the need to replicate
+        //2. update the points' maps
+        $subQuery1 = "SELECT setid, sd.geoid, concat('\"M_', mg.map, '\":',count(distinct sd.geoid, latlon)) as mapcount
+            FROM setdata sd join mapgeographies mg on sd.geoid=mg.geoid ";
+        $subQuery2 = "SELECT setid, sd.geoid, concat('\"M_', m.map, '\":',count(distinct sd.geoid, latlon)) as mapcount
+            FROM setdata sd join maps m on sd.geoid=m.bunny ";
+        if($setid != "all"){
+            $subQuery1 .= " WHERE setid=$setid";
+            $subQuery2 .= " WHERE setid=$setid";
+        } elseif($apiid != "all") {
+            $subQuery1 .= " JOIN sets s on sd.setid = s.setid where s.apiid=$apiid";
+            $subQuery2 .= " JOIN sets s on sd.setid = s.setid where s.apiid=$apiid";
+        }
+        runQuery("insert into temp (id1, id2, text1) select setid, geoid, group_concat(mapcount) from ($subQuery1  UNION $subQuery2) mc group by setid, geoid;","setPointsetCounts");
+        runQuery("update temp t join setdata sd on t.id1=sd.setid and t.id2=sd.geoid join sets s on s.mastersetid=t.id1 and sd.latlon=s.latlon
+            set s.maps=t.text1;", "setPointsetCounts");
+        runQuery("truncate temp;","setPointsetCounts");
+    */
 }
-
 function setAllCountsHandles($api_id){
     setMapsetCounts("all", $api_id);
     setPointsetCounts("all", $api_id);
     setGhandlesFreqsFirstLast($api_id ); //newly inserted sets become workbench searchable when sets.freq gets updated
 }
-
-
 function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', $apidt='', $themeid='null', $latlon='', $lasthistoricaldt=null, $mastersetid=null, $type="S"){
     global $db;
     if($type!="S") $type .= "S_";  //MS_ or XS_ for full text search
@@ -634,7 +591,6 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         return false;
     }
 }
-
 function saveSetData(&$status, $setid, $apiid = null, $seriesKey = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
     global $MAX_SERIES_POINTS;  //very large string (>500KB) data strings can cause the MySql connection object to lose its mind.  Therefore, limit the length and avoid "on duplicate key" syntax which double SQL length
     $time_start_saveSetData = microtime(true);
@@ -647,7 +603,6 @@ function saveSetData(&$status, $setid, $apiid = null, $seriesKey = null, $freq, 
     $firstDate100k = unixDateFromMd($firstPoint[0])/100;
     $lastDate100k = unixDateFromMd($lastPoint[0])/100;
     $data = implode("|", $arrayData);
-
     $skip = false;  //change to true if exists with same key and matching data
     if($seriesKey && $apiid){ //if source or set key is given, ensure the setdata record's setid and latlon match $setid and $latlon; else clear it and reinsert it
         $findSQL = "select sd.setid, sd.freq, sd.geoid, sd.latlon, sd.data
@@ -695,7 +650,7 @@ function saveSetData(&$status, $setid, $apiid = null, $seriesKey = null, $freq, 
                 values($setid, '$freq', $geoid, '$latlon',".($metadata===false?"":safeStringSQL($metadata).","). "'$data', $firstDate100k, $lastDate100k, '$apidt', ". safeStringSQL($seriesKey) . ")";
         } else {
             $sql = "update setdata set firstdt100k=$firstDate100k, lastdt100k=$lastDate100k, data=".safeStringSQL($data).($metadata===false?"":", metadata=".safeStringSQL($metadata).", apidt='$apidt', skey=".safeStringSQL($seriesKey))
-            . " where setid=$setid and freq='$freq' and geoid=$geoid and latlon= '$latlon'";
+                . " where setid=$setid and freq='$freq' and geoid=$geoid and latlon= '$latlon'";
         }
         $time_start_insert = microtime(true);
         $result = runQuery($sql, $logAs);
@@ -703,13 +658,11 @@ function saveSetData(&$status, $setid, $apiid = null, $seriesKey = null, $freq, 
         return $result;
     }
 }
-
 function updateSetdataMetadata($setid, $freq, $geoid=0, $latlon="", $metadata, $logAs="save SetMetadata"){
     $sql = "update setdata set metadata = ".  safeStringSQL($metadata)
         ." where setid=$setid and freq='$freq' and geoid=$geoid and latlon='$latlon'";
     return runQuery($sql, $logAs);
 }
-
 function deleteDirectory($dir) {
     system('rm -rf ' . escapeshellarg($dir), $retval);
     return $retval == 0; // UNIX commands return zero on success

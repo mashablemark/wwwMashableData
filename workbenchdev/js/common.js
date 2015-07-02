@@ -86,31 +86,32 @@ MashableData.common = {
         return mdDate;
     },
 
-    dateFromMdDate: function dateFromMdDate(mddt){  //returns a data object
+    dateFromMdDate: function dateFromMdDate(mddt){  //returns a Date object
         var udt;
-        udt = new Date('1/1/' + mddt.substr(0,4) + ' UTC'); //language & region independent
-        if(mddt.length>4){
-            switch(mddt.substr(4,1)){
+        udt = new Date(mddt.substr(0,4) + '-01-01 UTC'); //language & region independent
+        if(mddt.length==6) {
+            switch (mddt.substr(4, 1)) {
                 case 'Q':
                     udt.period = 'Q';
-                    udt.setUTCMonth((mddt.substr(5,1)-1)*3);
+                    udt.setUTCMonth((mddt.substr(5, 1) - 1) * 3);
                     break;
                 case 'H':
                     udt.period = 'H';
-                    udt.setUTCMonth((mddt.substr(5,1)-1)*6);
+                    udt.setUTCMonth((mddt.substr(5, 1) - 1) * 6);
                     break;
                 default:
+                    udt = new Date(mddt.substr(0, 4) + '-' + mddt.substr(4, 2) + '-01 UTC');  //better validation than just setting the month separately
                     udt.period = 'M';
-                    udt.setUTCMonth(mddt.substr(4,2));
             }
-            if(mddt.length>6){
-                udt.period = 'D';
-                udt.setUTCDate(mddt.substr(6,2));
-                if(mddt.length>8){
-                    udt.setUTCHours(mddt.substr(9,2));
-                    udt.setUTCMinutes(mddt.substr(12,2));
-                    udt.setUTCSeconds(mddt.substr(15,2));
-                }
+        }
+        if(mddt.length>6){
+            udt = new Date(mddt.substr(0, 4) + '-' + mddt.substr(4, 2) + '-' + mddt.substr(6,2) + ' UTC');  //better validation than just setting the year, month and day separately
+            udt.period = 'D';
+            if(mddt.length>8){
+                udt.period = 'H';
+                udt.setUTCHours(mddt.substr(9,2));
+                udt.setUTCMinutes(mddt.substr(12,2));
+                udt.setUTCSeconds(mddt.substr(15,2));
             }
         }
         return udt
