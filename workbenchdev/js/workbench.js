@@ -1166,7 +1166,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
     var aoSeries, i, j, someNewSeries = [], someMySeries = [], themeids=[], setids=[];
     var setMaps = [], sets = [];
     qvControls.$GeoSelector.hide();
-    if(qvControls.$GeoSelector.get(0).options.length) qvControls.$GeoSelector.combobox('destroy'); //   off().closest('div.widget').find('.custom-combobox').remove();
+    if(qvControls.$GeoSelector.get(0).options.length && qvControls.$GeoSelector.combobox("instance")) qvControls.$GeoSelector.combobox('destroy'); //   off().closest('div.widget').find('.custom-combobox').remove();
     if(obj.plots){ // a graphs object was passed in
         qvControls.Graph = obj; // everything including title should be set by caller
         oQuickViewSeries = obj; //store in global var <<BAD FORM!!
@@ -1531,17 +1531,7 @@ function quickViewFetchGeos(){
                     function(jsoData, textStatus, jqXH){
                         var newSerie = new MD.Set(jsoData.series['newgeo']);
                         if(oQuickViewSeries[0].preferredMap) newSerie.preferredMap = oQuickViewSeries[0].preferredMap;
-                        oQuickViewSeries[0] = newSerie;
-                        quickChart.get('P0').remove();
-                        quickChart.addSeries({
-                            color: globals.hcColors[0],
-                            dashStyle: 'solid',
-                            data: newSerie.chartData(),
-                            name: newSerie.name(),
-                            freq: newSerie.freq,
-                            id: 'P0'
-                        });
-                        quickChart.setTitle({text: newSerie.name()});
+                        quickGraph(newSerie);
                     }
                 );
             }
@@ -2411,7 +2401,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                     }
                 }
                 if(colData.length) {   //don't try to save empty columns
-                    mdata = colData.sort().join('|');
+                    mdata = colData.sort();  //leave unjoined for save and plotting .join('|');
                     switch(settype){
                         case 'M':
                             //3M. no additional mapset error checks needed

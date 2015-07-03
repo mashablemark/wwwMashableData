@@ -521,7 +521,7 @@ switch($command) {
         $sql = "select s.userid, ms.worksheet, replace(s.maps,'M_','') as maps,
                 left(s.settype,1) as settype, ms.preferredmap
             from sets s left outer join mysets ms on s.setid = s.setid=ms.setid
-            where s.userid=$uid";
+            where s.userid=$uid and ms.setid=$setid";
         $result = runQuery($sql, "SetPreEditInfo");
         if($result->num_rows>0){
             $output = $result->fetch_assoc();
@@ -1318,6 +1318,7 @@ switch($command) {
         $sqlFreq = safeSQLFromPost("freq");
         if(strpos("''A'S'Q'M'W'D'H'T'", $sqlFreq) === false) die('"status":"Invalid set parameters.  Please contact MashableData <a href=\"mailto:support@mashabledata.com\">support</a> if you feel this is an error."');
         $myData = $_REQUEST['data'];  //either an array (worksheet) of single series sets or a mapset or pointset
+        $db->begin_transaction();
         switch($setType){
             case "S":
                 //1. loop through the single series sets
@@ -1402,6 +1403,7 @@ switch($command) {
                 setPointsetCounts($myData["setid"]);
                 break;
         }
+        $db->commit();
         break;
 
     case "GetSeries":  //formerly GetMashableData
@@ -2396,8 +2398,10 @@ function saveUserSetData($setid, $freq, $arrayData, $geoid = 0, $latlon = ""){
     $firstDate100k = unixDateFromMd($firstPoint[0])/100;
     $lastDate100k = unixDateFromMd($lastPoint[0])/100;
     $dataSql = safeStringSQL(implode("|", $arrayData));
-    $latlonSql =  safeStringSQL($latlon);
-    $sql = "insert into setdata (setid, freq, geoid, latlon, data, firstdt100k, lastdt100k) value($setid, $freq, $geoid, $latlonSql, $dataSql)
+    $latlonSql =  safeStringSQL($latlon, false);
+    $freqSql =  safeStringSQL($freq);
+
+    $sql = "insert into setdata (setid, freq, geoid, latlon, data, firstdt100k, lastdt100k) values ($setid, $freqSql, $geoid, $latlonSql, $dataSql, $firstDate100k, $lastDate100k)
         on duplicate key update data = $dataSql, firstdt100k = $firstDate100k, lastdt100k = $lastDate100k";
     runQuery($sql);
 }
