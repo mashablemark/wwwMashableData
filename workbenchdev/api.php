@@ -1318,7 +1318,7 @@ switch($command) {
         $sqlFreq = safeSQLFromPost("freq");
         if(strpos("''A'S'Q'M'W'D'H'T'", $sqlFreq) === false) die('"status":"Invalid set parameters.  Please contact MashableData <a href=\"mailto:support@mashabledata.com\">support</a> if you feel this is an error."');
         $myData = $_REQUEST['data'];  //either an array (worksheet) of single series sets or a mapset or pointset
-        $db->begin_transaction();
+        //$con->begin_transaction();
         switch($setType){
             case "S":
                 //1. loop through the single series sets
@@ -1403,7 +1403,7 @@ switch($command) {
                 setPointsetCounts($myData["setid"]);
                 break;
         }
-        $db->commit();
+        //$con->commit();
         break;
 
     case "GetSeries":  //formerly GetMashableData
