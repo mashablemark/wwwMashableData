@@ -90,9 +90,8 @@ ManageMySeries:  workbench.updateMySeries
  *   annoid:
 */
 $time_start = microtime(true);
-if(isset($_REQUEST['command']))
-    $command =  isset($_REQUEST['command'])?$_REQUEST['command']:(isset($command)?$command:"");
-$con = getConnection();
+$command =  isset($_REQUEST['command'])?$_REQUEST['command']:(isset($command)?$command:"");
+
 switch($command) {
     case "LogError":
         logEvent("javascript error", safeStringSQL(json_encode($_POST)));
@@ -1318,7 +1317,7 @@ switch($command) {
         $sqlFreq = safeSQLFromPost("freq");
         if(strpos("''A'S'Q'M'W'D'H'T'", $sqlFreq) === false) die('"status":"Invalid set parameters.  Please contact MashableData <a href=\"mailto:support@mashabledata.com\">support</a> if you feel this is an error."');
         $myData = $_REQUEST['data'];  //either an array (worksheet) of single series sets or a mapset or pointset
-        //$con->begin_transaction();
+        //$db->begin_transaction();
         switch($setType){
             case "S":
                 //1. loop through the single series sets
@@ -1403,7 +1402,7 @@ switch($command) {
                 setPointsetCounts($myData["setid"]);
                 break;
         }
-        //$con->commit();
+        //$db->commit();
         break;
 
     case "GetSeries":  //formerly GetMashableData
