@@ -510,8 +510,8 @@ function setupMyDataTable(){
                     }
                 },
                 { "mData": "units", "sTitle": "Units<span></span>", "sClass": "units", "bSortable": true, "sWidth": layoutDimensions.widths.myDataTable.columns.units + "px",  "mRender": function(value, type, obj){return value}},
-                { "mData": "maps", "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.myDataTable.columns.maps + "px",  "mRender": function(value, type, obj){return spanWithTitle(obj.mapList())}},
-                { "mData": "freqs", "sTitle": "f<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.freq + "px",
+                { "mData": null, "sTitle": "Maps to<span></span>", "sClass": "maps-to", "bSortable": true, "sWidth": layoutDimensions.widths.myDataTable.columns.maps + "px",  "mRender": function(value, type, obj){return spanWithTitle(obj.mapList())}},
+                { "mData": null, "sTitle": "f<span></span>", "sClass": 'dt-freq', "bSortable": true, "sWidth": colWidths.freq + "px",
                     "mRender": function(value, type, obj){return formatFreqWithSpan(obj.freqs.join(' '))}
                 },
                 { "mData":"firstdt", "sTitle": "from<span></span>", "sClass": "dte", "sWidth": colWidths.shortDate+"px", "bSortable": true, sType: "numeric", "asSorting":  [ 'desc','asc'],
@@ -2350,7 +2350,8 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                         units: $('#set_units').val().trim(),
                         setname: $('#set_name').val().trim(),
                         setmetadata: $('#set_notes').val().trim(),
-                        freq: $('#set_freq').val(),
+                        freq: editorFreq,
+                        freqs: [editorFreq],
                         settype: settype,
                         worksheet: worksheetId,
                         data: []
@@ -2457,6 +2458,7 @@ function editData(setOrGraph){//either a MD.Set or a MD.Graph (not defined for n
                                 setid: parseInt(gridData[rows.S.setid][c] || 0),
                                 settype: 'S',
                                 freq: editorFreq,
+                                freqs: [editorFreq],
                                 setname: gridData[rows.S.name][c].trim(),
                                 units: gridData[rows.S.units][c].trim(),
                                 setmetadata: gridData[rows.S.notes][c].trim(),
