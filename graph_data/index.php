@@ -35,7 +35,16 @@ if(preg_match("/\/graph_data\/([A-F]|[a-f]|[0-9]){32}\.js/", $url)) {
 $web_root = "/var/www/vhosts/mashabledata.com/httpdocs";
 $cacheRoot = "/var/www/vhosts/mashabledata.com/cache/";  //outside the webroot = cannot be surfed
 $logFile = "embed.log";
+$processingFile = "temp.log";
+
 $maxAge = 24 * 60 * 60;  //1 day (in seconds)
+$logFields = [
+    "command",
+    "ghash",
+    "log/fetch",
+    "Unix timestamp",
+    "host"
+];
 
 //these headers should be set by .htaccess, but for good measure
 header("Access-Control-Allow-Origin: *");
@@ -62,12 +71,21 @@ $cacheSubPath = substr($ghash, 0, 2) . "/" . substr($ghash, 2, 2) . "/";
 if($command=='GetEmbeddedGraph' || $command=='GetCubeSets'){
     //1. log request
     $now = time();
+    $logValues = [
+        $command,
+        $ghash,
+        (isset($_REQUEST["logonly"])?'log':'get'),
+        $now,
+        (isset($_REQUEST["host"])?$_REQUEST["host"]:"")  //document.referrer
+    ];
     if (!is_dir($cacheRoot))
     {
         mkdir($cacheRoot, 0755, true);
     }
+
     $lp = fopen($cacheRoot.$logFile, "a");
-    fwrite($lp, $command . "," . $ghash . "," . (isset($_REQUEST["logonly"])?'log':'fetch') . "," . $now . "," . (isset($_REQUEST["host"])?$_REQUEST["host"]:""));
+
+    fputcsv($lp, $logValues);
     fclose($lp);
 
     //2. data requested???? or just logging if data embedded
@@ -92,10 +110,76 @@ if($command=='GetEmbeddedGraph' || $command=='GetCubeSets'){
         }
     }
 }
+if($command=="ProcessLog"){
+    $sql_logging = false;
+    include_once($web_root."/global/php/common_functions.php");
+    //1.rename the log file to "tmp.log"
+    rename($cacheRoot.$logFile, $cacheRoot.$processingFile);
+    //2. open "tmp.log" and loop through, saving to associative array $processedLog as [ghash][yyy-mm date][host][page=> qlog=>, qfetch=>, rlog=>, rfetch=>]
+    $processedLog = [];
+    $fldCommand = 0;
+    $fldGhash = 1;
+    $fldType = 2;
+    $fldTimestamp = 3;
+    $fldUrl = 4;
+
+    $fp = fopen($cacheRoot.$processingFile, "r");
+    while(!feof($fp)){
+        $logFields = fgetcsv($fp);
+        $ghash = $logFields[$fldGhash];
+        $date =  date("Y-m-d", $logFields[$fldTimestamp]);
+        $url = $logFields[$fldUrl] || 'unknown';
+        $urlParts = explode("/", $url);
+        $host = count($urlParts)>2 ? $urlParts[2] : "unknown";
+        if(!isset($processedLog[$ghash])) $processedLog[$ghash] = [];
+        if(!isset($processedLog[$ghash][$date])) $processedLog[$ghash][$date] = [];
+        if(!isset($processedLog[$ghash][$date][$host])) $processedLog[$ghash][$date][$host] = [
+            "url" => $url,
+            "getG" => 0, //graph, full fetch
+            "getR" => 0, //graph, log only
+            "logG" => 0, //relation click, data fetch
+            "logR" => 0, //relation click log only (not programmed as yet!)
+        ];
+        switch($logFields[$fldCommand]){
+            case "GetEmbeddedGraph":
+                $processedLog[$ghash][$date][$host][$logFields[$fldType]."G"]++;
+                break;
+            case"GetCubeSets":
+                $processedLog[$ghash][$date][$host][$logFields[$fldType]."R"]++;
+                break;
+        }
+    }
+    fclose($fp);
+    unlink($cacheRoot.$processingFile);
+    //3. loop through condense processed log and insert / update log records
+    /*TODO    REWORK!!!   embedlog (
+                          `host` int(11) NOT NULL COMMENT 'remote domain',
+                          obj int(11) NOT NULL COMMENT 'graphcode or "series"',
+                          objfetches int(11) NOT NULL DEFAULT '0' COMMENT 'count of fetch of the graph or number of series',
+                          cubefecthes int(11) NOT NULL DEFAULT '0' COMMENT 'for graphs, the count of user cube fetches',
+                          PRIMARY KEY (`host`,obj)
+    )
+    */
+
+    //TODO: check for second unnecessary call to $conn = getConnection() in api.php after $db = getConnection() in common.php
+
+    foreach($processedLog as $ghash => &$ghashLog){
+        foreach($ghashLog as $date => &$dayLog){
+            foreach($dayLog as $host => &$log){
+
+                $sql = "insert into embedlog (viewdate, host, url, graphget, graphlog, relationget, relationlog)
+                value ('$date', , , $log[getG], $log[logG], $log[getR], $log[logR])
+                on duplicate key update graphget = graphget + $log[getG], graphlog = graphlog + $log[logG], relationget = relationget + $log[getR], relationlog = relationlog + $log[logR]";
+                runQuery($sql);
+            }
+        }
+    }
+
+    exit();
+}
 //embedded file created below
 if(strpos($_SERVER["REQUEST_URI"], "dev")){
     include_once($web_root."/workbenchdev/api.php");
 } else {
     include_once($web_root."/workbench/api.php");
 }
-
