@@ -151,7 +151,7 @@ function ApiCrawl($catid, $api_row){
     $list = new FredList();
     $list->bulkFolderRoot = $bulkFolder;
     $list->api_row = $api_row;
-    $list->IngestAll();
+    $list->IngestAll();  //all the work done here!
     $added = $list->status["added"];
     $updated = $list->status["updated"];
     $failed = $list->status["failed"];
@@ -273,7 +273,7 @@ class FredList
         $this->dupFile = fopen($this->bulkFolderRoot."FRED_duplicates.txt", 'w');
         while(!feof($fp) && count($headerFields)==6){
             $this->trimFields($headerFields);
-            $this->processLine($headerFields, $Since);
+            $this->processLine($headerFields, $Since); //the parsing and in-memory set creation done here
             $line++;
             if($debug && intval($line/1000)*1000==$line) {
                 printNow("read $line lines. ". strftime ("%r")." ");
@@ -281,6 +281,7 @@ class FredList
             }
             $headerFields = fgetcsv($fp, 9999, ";", "\"");
         }
+
         fclose($fp);
         fwrite($this->dupFile, "Summary: $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
         fclose($this->dupFile);
@@ -295,112 +296,143 @@ class FredList
         $apiid = $this->api_row["apiid"];
         $processedForSave = 0;
         foreach($this->sets as $setName => &$multiUnitsFreqsSet){
-            foreach($multiUnitsFreqsSet as $caseInsenstiveUnits => &$freqsBranch){
+            foreach($multiUnitsFreqsSet as $caseInsensitiveUnits => &$freqsBranch) {
                 ksort($freqsBranch); //make save into setdata in order of PK (should be faster)
-                foreach($freqsBranch as $freq => $setFreqBranch){  //referenced by value in hopes of not bloating $this->sets with data array
+                foreach ($freqsBranch as $freq => $setFreqBranch) {  //referenced by value in hopes of not bloating $this->sets with data array
                     $setid = false;
                     $masterSetid = null;
                     $setSize = count($setFreqBranch);
-                    if($debug) printNow("$setName ($freq; $caseInsenstiveUnits): $setSize series @ ". strftime ("%r"));
+                    if ($debug) printNow("$setName ($freq; $caseInsensitiveUnits): $setSize series @ " . strftime("%r"));
 
                     //get all the data and notes first (need to determine if metadata is at the set or series level)
-                    $setMetaData = null;
+                    $setMetaData = null;  //value: null = no metadata; false = different and must be saved at the series level; string = uniform set metadata should be saved at the set level
                     ksort($setFreqBranch); //make save into setdata in order of PK (should be faster)
 
-                    //1. see if there are are updates in this branch
+                    //1. scan for updates in this branch, or set merges, or unit changes
                     $branchUpdates = false;
-                    foreach($setFreqBranch as $geoKey => &$seriesInfo){
-                        if($seriesInfo["apidt"]!=$seriesInfo["dbUpdateDT"]) $branchUpdates = true;
-                    }
-                    //2. if any updates in branch, than we need to get metadata for all series so we can
-                    //figure out if the metadata should be series or set based
-                    if($branchUpdates) {
-                        foreach($setFreqBranch as $geoKey => &$seriesInfo){
-                            if($seriesInfo["apidt"]!=$seriesInfo["dbUpdateDT"]) {
-                                $this->getData($seriesInfo, false);
-                            } elseif(!isset($seriesInfo["data"]) ) {
-                                $this->getData($seriesInfo, true);
+                    $newUnits = false;
+                    foreach ($setFreqBranch as $geoKey => &$seriesInfo) {
+                        if($seriesInfo["apidt"] != $seriesInfo["dbUpdateDT"]) {
+                            $branchUpdates = true;
+                        }
+                        if(isset($seriesInfo["dbUnits"])){
+                            if(!$newUnits){
+                                $newUnits = $seriesInfo["units"];
+                            } else {
+                                if($newUnits != $seriesInfo["units"]) {
+                                    preprint($setFreqBranch);
+                                    emailAdminFatal("unable to change FRED set units", "units changed in setid $seriesInfo[setid] on geoid = $seriesInfo[geoid], not uniformly from '$seriesInfo[dbUnits]' to '$newUnits'");
+                                }
                             }
-                            if($setMetaData !== false && (isset($seriesInfo["data"])||isset($seriesInfo["notes"]))){
-                                if($setMetaData === null) {
-                                    $setMetaData = $seriesInfo["notes"];
-                                } elseif($setMetaData != $seriesInfo["notes"]){
-                                    $setMetaData = false;
+                        }
+                        if($seriesInfo["setid"]!==null){
+                            if(!$setid){
+                                $setid = $seriesInfo["setid"];
+                            } else {
+                                if($setid != $seriesInfo["setid"]) {
+                                    preprint($setFreqBranch);
+                                    emailAdminFatal("unable to merge FRED sets", "setid $seriesInfo[setid] ans $setid");
                                 }
                             }
                         }
                     }
-                    foreach($setFreqBranch as $geoKey => &$seriesInfo){
-                        if(isset($seriesInfo["lastDate100k"]) && $seriesInfo["lastDate100k"]>0){ //FRED has a bunch of early 20th century series.  If they end before 1970, skip it!
-                                                if($debug && intval(++$processedForSave/1000)*1000==$processedForSave) printNow("Save $processedForSave series. ". strftime ("%r")." ");
-                            if($seriesInfo["setid"]!==null){  //this could be a set or a masterset...
+
+                    if($setid && $newUnits){  //units change for the set (note: an inconsistent units change errors out above.
+                        if(!runQuery("update sets set units = ".safeStringSQL($newUnits)." where setid=$setid or mastersetid=$setid")) die("update units sql error");
+                    }
+
+                    //2. if any updates in branch, than we need to get metadata for all series so we can
+                    //figure out if the metadata should be series or set based
+                    $setid = false;
+                    if($branchUpdates) {
+                        foreach ($setFreqBranch as $geoKey => &$seriesInfo) {
+                            if ($seriesInfo["apidt"] != $seriesInfo["dbUpdateDT"]) {
+                                $this->getData($seriesInfo, false);
+                            } elseif (!isset($seriesInfo["data"])) {
+                                $this->getData($seriesInfo, true);  //only get the metadata
+                            }
+                            if($setMetaData !== false && (isset($seriesInfo["data"]) || isset($seriesInfo["notes"]))) {
+                                if ($setMetaData === null) {
+                                    $setMetaData = $seriesInfo["notes"];
+                                } elseif ($setMetaData != $seriesInfo["notes"]) {
+                                    $setMetaData = false;
+                                }
+                            }
+                        }
+                        if($setMetaData === null) {preprint($seriesInfo);die("no notes");}
+                    }
+                    foreach ($setFreqBranch as $geoKey => &$seriesInfo) {
+                        if(isset($seriesInfo["lastDate100k"]) && $seriesInfo["lastDate100k"] > 0) { //FRED has a bunch of early 20th century series.  If they end before 1970 = 0 UNIX time, skip it!
+                            if ($debug && intval(++$processedForSave / 1000) * 1000 == $processedForSave) printNow("Save $processedForSave series. " . strftime("%r") . " ");
+                            //if($seriesInfo["setid"]!==null && $seriesInfo["latlon"]!="") {preprint($freqsBranch); die();}
+                            /*if($seriesInfo["setid"]!==null){  //this could be a set or a masterset...
                                 if($seriesInfo["latlon"]==""){
                                     $setid = $seriesInfo["setid"];
                                 } else {
                                     $masterSetid = $seriesInfo["setid"]; //childset has been saved in a previous ingestion
                                 }
-                            } else {
-                                //if a point, save/get its mastersetid
-                                if($seriesInfo["latlon"]!="" && $masterSetid==null){
-                                    //TODO: allow updates to previously save sets
-                                    $masterSetid = saveSet(
-                                        $apiid,
-                                        null,
-                                        $seriesInfo["geoid"]==0?$seriesInfo["title"]:$setName,
-                                        $seriesInfo["units"],
-                                        "St. Louis Federal Reserve",
-                                        "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"],
-                                        $setMetaData || $seriesInfo["isCopyrighted"]?"copyrighted":"",
-                                        "",
-                                        'null',
-                                        "",
-                                        null,
-                                        null,
-                                        "X");
-                                    if(!$masterSetid){
-                                        preprint($seriesInfo);
-                                        die("masterset not saved");
-                                    }
+                            } else { //this ELSE means that previous saved sets never get updated*/
+
+                            //save/get the masterset
+                            $breadCrumbs = "";
+                            if ($seriesInfo["latlon"] != "" && $masterSetid === null) { //save the masterset
+                                $breadCrumbs .= " > masterSet save";
+                                $masterSetid = saveSet(
+                                    $apiid,
+                                    null,
+                                    $seriesInfo["geoid"] == 0 ? $seriesInfo["title"] : $setName,
+                                    $seriesInfo["units"],
+                                    "St. Louis Federal Reserve",
+                                    "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"],
+                                    $setMetaData || $seriesInfo["isCopyrighted"] ? "copyrighted" : "",
+                                    "",
+                                    'null',
+                                    "",
+                                    null,
+                                    null,
+                                    "X");
+                                if (!$masterSetid || ($seriesInfo["setid"] != null && $seriesInfo["setid"] != $masterSetid)) {
+                                    preprint($seriesInfo);
+                                    die("masterset not saved or not saved properly");
                                 }
-                                //save set if (a) not yet set and large set (2) unique (3) latlon
-                                if(!$setid || $seriesInfo["latlon"]!="" || $setSize<$minSetSize || $seriesInfo["geoid"]==0){
-                                    $thissetid = saveSet(
-                                        $apiid,
-                                        null,
-                                        ($seriesInfo["geoid"]==0 || $setSize<$minSetSize || $seriesInfo["latlon"]!="") ? $seriesInfo["title"] : $setName,
-                                        $seriesInfo["units"],
-                                        "St. Louis Federal Reserve",
-                                        $setMetaData || "",
-                                        $seriesInfo["isCopyrighted"]?"copyrighted":"",
-                                        "",
-                                        'null',
-                                        $seriesInfo["latlon"],
-                                        null,
-                                        $seriesInfo["latlon"]==""?null:$masterSetid,
-                                        $seriesInfo["latlon"]==""?($seriesInfo["geoid"]==0 || $setSize<$minSetSize?"S":"M"):"X"
-                                    );
-                                    if($seriesInfo["latlon"]=="") $setid = $thissetid;  //some sets are mixed point / map
-                                }
+
                             }
-                            //preprint($seriesInfo);
-                            if($seriesInfo["apidt"]!=$seriesInfo["dbUpdateDT"]) {
-                                saveSetData($this->status, $seriesInfo["latlon"]==""?$setid:$masterSetid, $apiid, $seriesInfo["skey"], $freq, $setSize<$minSetSize&&$seriesInfo["latlon"]==""?0:$seriesInfo["geoid"], $seriesInfo["latlon"], $seriesInfo["data"], $seriesInfo["apidt"], $setMetaData? "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"] : $seriesInfo["notes"]);
+                            //save the set or slave-sets
+                            //i.e. if (a) not yet set and large set; (2) its a point, or (3) its a single series set  (note:  $setid is set to false at start of each set branch)
+                            if (!$setid || $seriesInfo["latlon"] != "" || $setSize < $minSetSize || $seriesInfo["geoid"] == 0) {
+                                $breadCrumbs .= " > Set save";
+                                $thissetid = saveSet(
+                                    $apiid,
+                                    null,
+                                    ($seriesInfo["geoid"] == 0 || $setSize < $minSetSize || $seriesInfo["latlon"] != "") ? $seriesInfo["title"] : $setName,
+                                    $seriesInfo["units"],
+                                    "St. Louis Federal Reserve",
+                                    "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"],
+                                    $seriesInfo["isCopyrighted"] ? "Copyrighted. " : "" . $setMetaData || "",
+                                    "",
+                                    'null',
+                                    $seriesInfo["latlon"],
+                                    null,
+                                    $seriesInfo["latlon"] == "" ? null : $masterSetid,
+                                    $seriesInfo["latlon"] == "" ? ($seriesInfo["geoid"] == 0 || $setSize < $minSetSize ? "S" : "M") : "X"
+                                );
+                                if ($seriesInfo["latlon"] == "") $setid = $thissetid;  //some sets are mixed point / map
+                            }
+                            if ($seriesInfo["apidt"] != $seriesInfo["dbUpdateDT"]) {
+                                if(!($seriesInfo["latlon"] == "" ? $setid : $masterSetid)){preprint($seriesInfo);die("setid ($setid) / masterSetid ($masterSetid) ID missing");}  //todo: remove
+                                saveSetData($this->status, $seriesInfo["latlon"] == "" ? $setid : $masterSetid, $apiid, $seriesInfo["skey"], $freq, $setSize < $minSetSize && $seriesInfo["latlon"] == "" ? 0 : $seriesInfo["geoid"], $seriesInfo["latlon"], $seriesInfo["data"], $seriesInfo["apidt"], $setMetaData ? "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"] : $seriesInfo["notes"]);
                             } else {
                                 $this->status["skipped"]++;
                             }
                         } else {
+                            if (isset($seriesInfo["lastDate100k"]) && $seriesInfo["lastDate100k"] < 0) printNow("skipped due to age");
                             $this->status["skipped"]++;
                         }
-
                     }
-                    unset($freqsBranch[$freq]);  //make available for trash collection
                 }
+                unset($freqsBranch[$freq]);  //make available for trash collection
             }
         }
-/*        if($debug) {
-            ksort($this->histogram);
-            preprint($this->histogram);
-        }*/
         printNow("IngestAll end");
     }
 
@@ -476,36 +508,39 @@ class FredList
             return false;
         }
 
-        //2. check if to see if this line already exists as in setdata
+        //2. check if to see if this line already exists as in SETDATA table
         $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt, g.geoset
         from setdata sd join sets s on sd.setid=s.setid left outer join geographies g on sd.geoid=g.geoid
         where apiid=$apiid and sd.skey=". safeStringSQL($skey));
         if($result->num_rows==1){
             //this series is in the database already!!
             $set = $result->fetch_assoc();
-            $dbSetName = 
             $dbSetUnits = $set["units"];
             $dbSetFeq = $set["freq"];
-            if($dbSetFeq!=$frequency || strtolower($dbSetUnits)!=strtolower($units)) { //make case insensitive check
+            if($dbSetFeq!=$frequency){
                 preprint($set);
-                printNow("frequency: $frequency");
-                printNow("units: $units");
-                die("mismatch freq or units for $file");
+                printNow("frequency: /$frequency/ ".($dbSetFeq==$frequency));
+                die("mismatch freq for $file");
             }
+
             $seriesInfo = [
-                "setid" => $set["setid"],
-                "freq" => $frequency,
-                "units" => $units,
+                "setid" => $set["setid"],  //$set is from DB
+                "freq" => $frequency, //from FRED
+                "units" => $units, //from FRED
                 "latlon" => $set["latlon"],
                 "geoid" => $set["geoid"],
-                "skey" => $skey,
-                "file" => $file,
-                "apidt" => $updatedDt,
+                "skey" => $skey, //from FRED
+                "file" => $file, //from FRED
+                "apidt" => $updatedDt, //from FRED
                 "dbUpdateDT" => $set["apidt"],
                 "isCopyrighted" => $isCopyrighted,
-                "title" => $title.$seasonalAdjustments[$saCode],
-                "geoset" => $set["geoset"],
+                "title" => $title.$seasonalAdjustments[$saCode], //from FRED
+                "geoset" => $set["geoset"], //from db
             ];
+            if(strtolower($dbSetUnits)!=strtolower($units)) { //make case insensitive check
+                $seriesInfo["dbUnits"] = $dbSetUnits;  //process at the set level
+                printNow("db units do not match new data file units.  Will be processed in save routine ($units != $dbSetUnits)");
+            }
             $setName = $set["name"];
         }
         //preprint($seriesInfo);
@@ -513,7 +548,7 @@ class FredList
         //3. look for geo matches
         if(!$seriesInfo){
             //3a. check exact name match for
-            //I would have thought that this would work, but PHP will find the first match (say "for") and lock on that ignore later matches of a a differnet patter (say "in")
+            //I would have thought that this would work, but PHP will find the first match (say "for") and lock on that ignore later matches of a different pattern (say "in")
             //$regex = "/( in | for | from )/";
             //if(preg_match($regex, $title, $matches)>0){
             $separator = false;
@@ -573,7 +608,7 @@ class FredList
                         "dbUpdateDT" => null,
                         "isCopyrighted" => $isCopyrighted,
                         "title" => $title.$seasonalAdjustments[$saCode],
-                        "geoset" => $pointSet?$geoset:$geography["geoset"],
+                        "geoset" => $pointSet ? $geoset : $geography["geoset"],
                     ];
                     if($pointSet) $setName .= " ($geoset)";
                 } else {
@@ -645,43 +680,43 @@ class FredList
                 $setName = $title.$seasonalAdjustments[$saCode];  //use default if no geomatch
             }
         }
-        $caseInsenstiveUnits = strtolower($units);
+        $caseInsensitiveUnits = strtolower($units);
         if(!isset($this->sets[$setName])) $this->sets[$setName] = [];
-        if(!isset($this->sets[$setName][$caseInsenstiveUnits])) $this->sets[$setName][$caseInsenstiveUnits] = [];
-        if(!isset($this->sets[$setName][$caseInsenstiveUnits][$frequency])) $this->sets[$setName][$caseInsenstiveUnits][$frequency] = [];
+        if(!isset($this->sets[$setName][$caseInsensitiveUnits])) $this->sets[$setName][$caseInsensitiveUnits] = [];
+        if(!isset($this->sets[$setName][$caseInsensitiveUnits][$frequency])) $this->sets[$setName][$caseInsensitiveUnits][$frequency] = [];
 
         $geoKey = $seriesInfo["geoid"].":".$seriesInfo["latlon"];
-        if(isset($this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey])) {
+        if(isset($this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey])) {
             $this->dupCount++;
 
             $this->getData($seriesInfo); //data file is only read for the 10k or so duplicates
-            $this->getData($this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]);
-            $firstSkey = $this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]["skey"];
-            if(json_encode($seriesInfo["data"])==json_encode($this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]["data"])){
+            $this->getData($this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]);
+            $firstSkey = $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"];
+            if(json_encode($seriesInfo["data"])==json_encode($this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["data"])){
                 fwrite($this->dupFile, "series_ids with duplicate title, SA, units, f, and data: $seriesInfo[skey], $firstSkey: $seriesInfo[title] in $seriesInfo[units]". PHP_EOL);
                 $this->dupTrueCount++;
                 //if($dupPoint) printNow("duplicate point data!");
             } else {
                 $this->dupProblemCount++;
                 fwrite($this->dupFile, "duplicate title, SA, units, f, but mismatching data: $seriesInfo[skey], $firstSkey: $seriesInfo[title] in $seriesInfo[units]". PHP_EOL);
-                if($seriesInfo["latlon"]!="" && $seriesInfo["title"]!=$this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]["title"]) {
+                if($seriesInfo["latlon"]!="" && $seriesInfo["title"]!=$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]) {
                     //note: true duplicates (same data) are not conflicts.  They are freaking duplicates!
-                    $geoSetConflict =  $seriesInfo["geoset"]." & ". $this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]["geoset"];
+                    $geoSetConflict =  $seriesInfo["geoset"]." & ". $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["geoset"];
                     if(!isset($this->geoSetConflicts[$geoSetConflict])){
                         $this->geoSetConflicts[$geoSetConflict] = 1;
                         printNow("geoset conflict: $geoSetConflict");
                     } else {
                         $this->geoSetConflicts[$geoSetConflict]++;
                     }
-                    printNow("$geoSetConflict conflict in $setName: $seriesInfo[title] and ".$this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]["title"]);
+                    printNow("$geoSetConflict conflict in $setName: $seriesInfo[title] and ".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]);
                 }
                 //many of the duplicate series are different historical period:  if so, grab teh latest
-                if($seriesInfo["lastDate100k"]<$this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey]["lastDate100k"]){
+                if($seriesInfo["lastDate100k"]<$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["lastDate100k"]){
                     $seriesInfo = false; //if older data, don't replace existing series
                 }
             }
         }
-        if($seriesInfo) $this->sets[$setName][$caseInsenstiveUnits][$frequency][$geoKey] = $seriesInfo;
+        if($seriesInfo) $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey] = $seriesInfo;
         /*if($seriesInfo["geoset"]=="msa") {
             if(!isset($this->geoSetConflicts["msas"][$geoName]))
                 $this->geoSetConflicts["msas"][$geoName] = 1;

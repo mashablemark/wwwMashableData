@@ -15,6 +15,7 @@ $SUBSCRIPTION_MONTHS = 6;  //this will be reduced to 3 1 year after launch
 $MAIL_HEADER = "From: admin@mashabledata.com\r\n"
     . "Reply-To: admin@mashabledata.com\r\n"
     . "Return-Path: sender@mashabledata.com\r\n";
+$ADMIN_EMAIL = "mark@mashabledata.com;markelbert@gmail";
 $MAX_SERIES_POINTS = 20000;  //do not save ridiculously long series in full
 //helper functions
 function runQuery($sql, $log_name = 'sql logging'){
@@ -28,6 +29,16 @@ function runQuery($sql, $log_name = 'sql logging'){
         die("bad query ($log_name): $sql");
     }
     return $result;
+}
+function emailAdmin($subject, $msg){
+//resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
+    global $db, $MAIL_HEADER, $ADMIN_EMAIL;
+    return mail($ADMIN_EMAIL,$subject, $msg, $MAIL_HEADER);
+}
+function emailAdminFatal($subject, $msg){
+//resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
+    emailAdmin($subject, $msg);
+    die($msg);
 }
 function myEncrypt($data){
     global $CRYPT_KEY;
