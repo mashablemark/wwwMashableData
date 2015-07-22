@@ -20,6 +20,20 @@ $workbenchVersion = "-1.0";
             <!--CSS files-->
             <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.11.css" />
             <link rel="stylesheet" href="/embed/mashabledata_embedtools.css" />
+            <!-- Google Analytics -->
+            <script type="text/javascript">
+                (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+                })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+                ga('create', 'UA-37101083-1', 'auto');
+                ga('set', {
+                page: '/embed/?url=' + document.referrer,
+                title: 'Embedded MD Visualization'
+                });
+                ga('send', 'pageview');
+            </script>
             <!--JQUERY LIBRARIES-->
             <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
             <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
@@ -47,12 +61,16 @@ $workbenchVersion = "-1.0";
             <?php } else { ?>
                 <script type="text/javascript" src="/embed/mashabledata_embedtools.min.js"></script>
             <?php }
-            // the graphcode could be read by jQuery, but this will request and load the graph's definition faster
+            // the graphcode could be read by jQuery, but this will request and load the graph definition and map definition faster
             if(isset($_REQUEST["g"])) {
                 $graphcode = $_REQUEST["g"];
                 print('<script type="text/javascript" src="//www.mashabledata.com/graph_data/' . $graphcode . '.js"></script>');
             } else {
                 $graphcode = false;
+            }
+            if(isset($_REQUEST["map"])) {
+                $map = $_REQUEST["map"];
+                print('<script type="text/javascript" src="//www.mashabledata.com/global/js/map/$map.js"></script>');
             }
             // the height and width will be ready by jQuery
             ?>
