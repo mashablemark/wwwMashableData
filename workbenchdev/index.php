@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <meta http-equiv="X-UA-Compatible" content="IE=9">
-    <title>MashableData Workbench</title>
+    <title>Workbench - MashableData</title>
 
     <!--CSS files-->
     <link  rel="stylesheet" href="/global/css/smoothness/jquery-ui-1.11.css?v=<?=$workbenchVersion?>" />
