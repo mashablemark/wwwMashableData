@@ -1207,7 +1207,7 @@ function quickGraph(obj, map, showAddSeries){   //obj can be a series object, an
                 $.each(aoSeries, function(){
                     this.freq = newF;
                     delete this.data;
-                }).selectmenu();
+                });
                 preview(aoSeries, map, showAddSeries);
             });
         } else {
@@ -1348,8 +1348,8 @@ function quickViewFetchGeos(){
                     options += '<option value="'+geo.geoid+'" '+(isQvSet?'selected':'')+'>'+geo.name+'</option>';
                 }
             }
-            qvControls.$ChangeGeo.slideUp();
-            var $geoSelect = qvControls.$GeoSelector.html(options).off().slideDown().change(function(){
+            qvControls.$ChangeGeo.hide();
+            var $geoSelect = qvControls.$GeoSelector.html(options).off().show().change(function(){
                 console.log($(this).val());
             });
 
@@ -1373,6 +1373,7 @@ function quickViewFetchGeos(){
             this.element.hide();
             this._createAutocomplete();
             this._createShowAllButton();
+            this.$showAll.click();
         },
 
         _createAutocomplete: function() {
@@ -1428,7 +1429,7 @@ function quickViewFetchGeos(){
             var input = this.input,
                 wasOpen = false;
 
-            $( "<a>" )
+            this.$showAll = $( "<a>" )
                 .attr( "tabIndex", -1 )
                 .attr( "title", "Show All Items" )
                 .tooltip()
@@ -1502,6 +1503,7 @@ function quickViewFetchGeos(){
             this.input
                 .val( "" )
                 .attr( "title", value + " didn't match any item" )
+                .css('font-size', '10px')
                 .tooltip( "open" );
             this.element.val( "" );
             this._delay(function() {
@@ -1512,28 +1514,31 @@ function quickViewFetchGeos(){
         },
 
         //private function to fetch and show new serie
-        _fetchSerieForNewGeo: function(newGeoid){
+        _fetchSerieForNewGeo: function(newID){
             //fire a change of geo here if a truly new geoid is requested
-            if(oQuickViewSeries.length==1 && oQuickViewSeries[0].geoid != newGeoid){
+            if(oQuickViewSeries.length==1){
                 var serie = oQuickViewSeries[0];
-                callApi(
-                    {
-                        command:  'GetSeries',
-                        series: {
-                            "newgeo": {
-                                setid: serie.mastersetid || serie.setid,
-                                freq: serie.freq,
-                                geoid: newGeoid, //from autocomplete!!
-                                latlon: serie.latlon
+                if(serie.geoid!=newID && serie.settype == 'M' || serie.latlon!=newID && serie.settype == 'X'){
+                    callApi(
+                        {
+                            command: 'GetSeries',
+                            series: {
+                                "newgeo": {
+                                    setid: serie.mastersetid || serie.setid,
+                                    freq: serie.freq,
+                                    settype: serie.settype,
+                                    geoid: serie.settype == 'M' ? newGeoid: null, //from autocomplete!!
+                                    latlon: serie.settype == 'X' ? newID : ''
+                                }
                             }
+                        },
+                        function (jsoData, textStatus, jqXH) {
+                            var newSerie = new MD.Set(jsoData.series['newgeo']);
+                            if (oQuickViewSeries[0].preferredMap) newSerie.preferredMap = oQuickViewSeries[0].preferredMap;
+                            quickGraph(newSerie);
                         }
-                    },
-                    function(jsoData, textStatus, jqXH){
-                        var newSerie = new MD.Set(jsoData.series['newgeo']);
-                        if(oQuickViewSeries[0].preferredMap) newSerie.preferredMap = oQuickViewSeries[0].preferredMap;
-                        quickGraph(newSerie);
-                    }
-                );
+                    );
+                }
             }
         },
         _destroy: function() {

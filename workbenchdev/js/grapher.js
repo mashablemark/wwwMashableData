@@ -417,33 +417,33 @@ MashableData.grapher = function(){
                     graphModel.fetchMap();  //if the bluePrint is loaded, so should the map def.  This call is (a) for insurance and (b) creates derivative maps as needed
                     _createGraph();  //new obj for API = no need to create working copy
                 } else {
-                    require(['//www.mashabledata.com/graph_data/'+ghash+'.js'], function(){
+                    var $thisPanel = $('div[data=\''+ oGraph.ghash +'\']:first'),
+                        dataFiles,
+                        map;
+                    if($thisPanel.hasClass('archival')){
+                        dataFiles = ['/mashabledata/' + oGraph.ghash + '.js'];
+                    } else {
+                        dataFiles = ['//www.mashabledata.com/graph_data/'+ghash+'.js'];
+                        if(map = $thisPanel.attr('map')){ //preload the map
+                            dataFiles.push('//www.mashabledata.com/global/js/maps/'+ globals.maps[map].jvectormap +'.js');
+                        }
+                    }
+                    require(dataFiles, function(){
                         graphModel = new MD.Graph(MashableData.globals.graphBluePrints[ghash]);
                         _createGraph();
                     });
                 }
-                callApi({command: 'GetEmbeddedGraph', ghash: ghash, logonly: true}); //still log the embedded usage (non-blocking and no data is fetched)
-            } else {
+                //Google analytics replaces the need for:  callApi({command: 'GetEmbeddedGraph', ghash: ghash, logonly: true}); //still log the embedded usage (non-blocking and no data is fetched)
+            } else { //not embedded
                 callApi(
-                    {command: globals.isEmbedded?'GetEmbeddedGraph':'GetFullGraph', ghash: ghash},
+                    {command: 'GetFullGraph', ghash: ghash},
                     function(oReturn, textStatus, jqXH){
                         for(var ghandle in oReturn.graphs){
                             //if user wants to save, it must be saved as a copy if graph.userid <> this user (enforced in API too)
                             graphModel = new MD.Graph(oReturn.graphs[ghandle]);
                             graphModel.fetchMap();  //prefetch and continue proocessing without waitng for call back (a second gating fetchMap() call occurs deep inside buildGraphPanel() just before map draw)
                             // if(globals.isEmbedded){
-                            MashableData.globals.graphBluePrints[ghash] = oReturn.graphs[ghandle]; //share if shown twice on same webpage
-                            if(document.URL.indexOf('mashabledata.com/preview')!==-1){
-                                //for preview pages, show the data and the map file in a DIV as part of the instructions for high volume websites
-                                var graphDataHtml = 'MashableData.globals.graphBluePrints["'+ghash+'"] = ' + JSON.stringify(oReturn.graphs[ghandle]);
-                                var $JsonDiv = $('#MashableData_graphData');
-                                $JsonDiv.html($JsonDiv.html() + '&#13;&#10;&#13;&#10;' + graphDataHtml + '&#13;&#10;&#13;&#10;');
-                                if(graphModel.mapFile){
-                                    $.get('/global/js/maps/'+ graphModel.mapFile +'.js', function(mapDef){
-                                        $JsonDiv.html($JsonDiv.html() + mapDef + '&#13;&#10;');
-                                    });
-                                }
-                            }
+                            MashableData.globals.graphBluePrints[ghash] = oReturn.graphs[ghandle]; //share if shown twice on same web page
                         }
                         _createGraph();  //new obj for API = no need to creat working copy
                     }
@@ -950,11 +950,11 @@ MashableData.grapher = function(){
                         '<fieldset>' +
                         '<legend>&nbsp;Sharing&nbsp;</legend>' +
                         '<div class="share-links">' +
-                        '<a href="#" class="post-facebook"><img src="images/icons/facebook.png" />facebook</a> ' +
-                            //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
-                        '<a class="graph-email">email </a> ' +
-                        '<button class="graph-link">link </button>' +
                         '<button class="graph-embed">embed </button>' +
+                        '<a class="graph-email">email </a> ' +
+                        '<a href="#" class="post-facebook"><img src="images/icons/facebook25.png" /></a> ' +
+                            //'<a href="#" class="post-twitter"><img src="images/icons/twitter.png" />twitter</a> ' +
+                        '<button class="graph-link">link </button>' +
                             //'<a href="#" class="email-link"><img src="images/icons/email.png" />email</a> ' +
                         '</div>'+
                         '<div class="searchability">' +
@@ -1194,10 +1194,10 @@ MashableData.grapher = function(){
                             //var offset = $(this).offset();  //button offset relative to document
                             var linkDivHTML =
                                 '<div id="embed-info">' +
+                                //'<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
+                                '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/embed-preview/'+'?graphcode='+oGraph.ghash+(oGraph.map?'&map='+oGraph.map:'')+(globals.isDev?'&d=jfiDz84':'')+'" target="_blank">graph\'s preview page</a>. ' +
+                                '<textarea id="link-html" style="margin:6px 0;">&lt;iframe type=&quot;text/javascript&quot; src=&quot;https://www.mashabledata.com/embed?g='+oGraph.ghash+(oGraph.map?'&map='+oGraph.map:'')+'&quot; height=&quot;500px&quot; style=&quot;border:none;padding:0;width:100%;&quot;&gt;&lt;/iframe&gt;</textarea>' +
                                 '<button class="right" id="embed-info-close">close</button>' +
-                                '<b>link code: </b><span id="link-ghash">' + oGraph.ghash + '</span><br><br>' +
-                                '<em>To preview the embedded graph and for instructions for embedding it on your website, please visit this <a href="/preview'+(globals.isDev?'dev':'')+'?graphcode='+oGraph.ghash+'" target="_blank">graph\'s preview page</a>. ' +
-                                '<textarea id="link-html">&lt;div class=&quot;mashabledata_embed&quot; data=&quot;'+oGraph.ghash+'&quot;&gt;&lt;/div&gt;</textarea>' +
                                 '</div>';
                             $.fancybox(linkDivHTML,
                                 {

@@ -174,15 +174,17 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
             if(window.jvm && !jvm.Map.maps[graph.mapFile]){  //allow embedded visualization to include mapFile directly.  require.js does not make this distinction
                 require(requiredFile, function(){
                     if(globals.maps[graph.map].redef) common.makeMap(graph.map);  //if this a regional map derived from a master map (eg. world -> WB regions)
-                    //translate names:
 
-                    var myTranslations = graph.literal('geonames'),
-                        mapPaths = jvm.Map.maps[graph.mapFile].paths,
-                        code,
-                        geoName;
-                    for(code in mapPaths){
-                        geoName = mapPaths[code].name;
-                        if(myTranslations[geoName]) mapPaths[code].name = myTranslations[geoName];
+                    //translate names (embedded graph only):
+                    if(globals.isEmbedded){
+                        var myTranslations = graph.literal('geonames'),
+                            mapPaths = jvm.Map.maps[graph.mapFile].paths,
+                            code,
+                            geoName;
+                        for(code in mapPaths){
+                            geoName = mapPaths[code].name;
+                            if(myTranslations[geoName]) mapPaths[code].name = myTranslations[geoName];
+                        }
                     }
                     if(callback) callback();
                 });
@@ -478,8 +480,9 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
         return false;
     };
     Graph.prototype.literal = function(key){
-        var myLang =  globals.translations[this.mapconfig.lang || 'English'];
+        var myLang =  globals.translations[globals.isEmbedded ? 'English': this.mapconfig.lang || 'English'];
         return myLang[key] || globals.translations['English'][key] || null;
     };
 
 })();
+

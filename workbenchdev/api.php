@@ -1516,7 +1516,7 @@ switch($command) {
               left outer join sets xs on xs.mastersetid=s.setid and xs.latlon=sd.latlon
             WHERE
               s.setid = $serie[setid] and sd.freq = '$serie[freq]' and sd.latlon = '$serie[latlon]'";
-            if(isset($serie["geoid"])) $sql .= " and sd.geoid = $serie[geoid]";
+            if(isset($serie["geoid"]) && $serie["geoid"]) $sql .= " and sd.geoid = $serie[geoid]";
             $result = runQuery($sql, "GetSeries series");
             if($result->num_rows==1){
                 $aRow = $result->fetch_assoc();
