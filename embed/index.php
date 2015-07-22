@@ -57,7 +57,7 @@ $workbenchVersion = "-1.0";
                 <script type="text/javascript" src="/workbenchdev/js/jstat.js"></script>
                 <script type="text/javascript" src="/workbenchdev/js/annotator.js"></script>
                 <script type="text/javascript" src="/workbenchdev/js/treemap.js"></script>
-                <script type="text/javascript" src="/embed/mashabledata_embedtools.js>"></script>
+                <script type="text/javascript" src="/embed/mashabledata_embedtools.js"></script>
             <?php } else { ?>
                 <script type="text/javascript" src="/embed/mashabledata_embedtools.min.js"></script>
             <?php }
