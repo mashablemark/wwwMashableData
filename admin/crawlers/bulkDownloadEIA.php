@@ -108,17 +108,17 @@ function ApiCrawl($catid, $api_row){ //initiates a EIA data file download and in
     file_put_contents($localBulkFolder.$manifestFile, $manifestText);
 }
 
-function ApiExecuteJob($api_run, $job_row){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single single api run until no more
     global $MAIL_HEADER, $db, $freqRegex;
     global $localBulkFolder, $minSetSize;
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $jobid = $job_row["jobid"];
-    $apiid = $api_run["apiid"];
+    $jobid = $api_run_job_row["jobid"];
+    $apiid = $api_run_job_row["apiid"];
 
 
     //reusable SQL
     $update_job = "update apirunjobs set enddt = now() where jobid=$jobid";
-    $jobInfo = json_decode($job_row["jobjson"],true);
+    $jobInfo = json_decode($api_run_job_row["jobjson"],true);
     $datasetKey = $jobInfo["data_set"];
     $bulkCategoryName = $jobInfo["name"];
     $fp = fopen($localBulkFolder.$datasetKey.".txt","r");

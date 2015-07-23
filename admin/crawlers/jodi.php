@@ -161,7 +161,7 @@ function ApiCrawl($catid, $api_row){ //initiates a JODI data file download and i
     $result = runQuery("update apirunjobs set enddt=now(), status='S' where jobid=$thisJobId");
 }
 
-function ApiExecuteJob($api_run_row, $job_row){//runs one queued job as kicked off by api queue master
+function ApiExecuteJob($api_run_job_row){//runs one queued job as kicked off by api queue master
 
     global $jodi_codes, $HEADER, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
     static $MONTHS = array(
@@ -180,9 +180,9 @@ function ApiExecuteJob($api_run_row, $job_row){//runs one queued job as kicked o
     );
     $unrecognized = [];
     global $MAIL_HEADER, $db;
-    $jobid = $job_row["jobid"];
-    $runid = $api_run_row["runid"];
-    $apiid = $api_run_row["apiid"];
+    $jobid = $api_run_job_row["jobid"];
+    $runid = $api_run_job_row["runid"];
+    $apiid = $api_run_job_row["apiid"];
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
 
     //reusable update SQL
@@ -192,7 +192,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs one queued job as kicked o
     runQuery($timestamp_job_sql);
 
     set_time_limit(60);
-    $jobInfo = json_decode($job_row["jobjson"], true);
+    $jobInfo = json_decode($api_run_job_row["jobjson"], true);
 
     $csv = fopen("bulkfiles/jodi/".$jobInfo["filename"].".csv", "r");
     $header = fgets($csv);  //throw away the header line

@@ -94,12 +94,10 @@ switch($command){
         break;
     case "ExecuteJobs":
         try{
-            $findJobSQL = <<<END
-                    select * from apirunjobs
+            $findJobSQL = "select * from apirunjobs
                     where (status = 'Q'
                     or (status = 'R' and  tries<$maxTries and TIMESTAMPDIFF(MINUTE , enddt, NOW())>$maxJobRunMinutes)
-                    or (status = 'F' and  tries<$maxTries))
-END;
+                    or (status = 'F' and  tries<$maxTries))";
             if($runid!=0) { //further define
                 $findJobSQL .= " and runid = " . $runid;
             }
@@ -109,7 +107,7 @@ END;
             } else {
                 $loop = true;
             }
-            $jobResults = runQuery($findJobSQL ." order by status DESC limit 0,1", "ExecuteJobs: inititial find jobs");
+            $jobResults = runQuery($findJobSQL ." order by status DESC limit 0,1", "ExecuteJobs: initial find jobs");
             if($jobResults->num_rows==1){
                 $output = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
                 $job_row = $jobResults->fetch_assoc();
@@ -132,7 +130,8 @@ END;
                     runQuery($update_run_sql);
                     runQuery("update apirunjobs set tries=tries+1, threadjobid = $threadid, startdt=now(), enddt=now(), status = 'R' where jobid = $thisJob");
                     //****
-                    $status = ApiExecuteJob($api_run, $job_row); //execute this API's job routine
+                    $api_run_job = array_merge($job_row, $api_run);
+                    $status = ApiExecuteJob($api_run_job); //execute this API's job routine
                     //****
                     runQuery( "update apiruns set finishdt=now(), scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"].", added=added+".$status["added"].", updated=updated+".$status["updated"].", failed=failed+".$status["failed"]." where runid=".$api_run["runid"]);
                     $output["updated"] += $status["updated"];
@@ -320,6 +319,7 @@ function queueJob($runid, $config){  //return jobid
 
 //checks if all active jobs for this run have ended.  If so, runs and emails the report and then runs setMapHandlesCounts if added>0
 function jobThreadEnded($runid){
+    global $MAIL_HEADER;
     $sql = "select count(*) as activejobcount from apirunjobs where runid=".$runid." and status='R' and tries<$maxTries and TIMESTAMPDIFF(MINUTE , startdt, NOW())<10)";
     $result = runQuery($sql,"activejobcount check");
     $row = $result->fetch_assoc();
@@ -341,8 +341,14 @@ function updateJob($jobid, $status, $options){
 
 }
 
-function setCatSeries($catid, $seriesid){ //insert catSeries record if DNE
-
+function shrinkCats($apiid = null){
+//replaces a bunch of individual cat-series records with a single cat-set record
+    $sql = "select setid, count(distinct catid) as catcount, max(geoid) as maxgeo, count(distinct geoid) as geocount from categorysets where geoid <> 0 group by setid having count(distinct catid)=1"; //10ms execution time
+    $result = runQuery($sql);
+    while($row = $result->fetch_assoc()){  //this loop will nto run on repeated calls to shrinkCats as the category will already be collapsed
+        runQuery("delete from categorysets where setid=$row[setid] and geoid<>$row[maxgeo]");
+        runQuery("update categorysets set geoid=0 where setid=$row[setid]");
+    }
 }
 
 

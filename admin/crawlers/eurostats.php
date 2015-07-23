@@ -58,7 +58,7 @@ function ApiCrawl($catid, $api_row){ //$catid unused. Refactor out??
     runQuery("update LOW_PRIORITY apiruns set finishdt=now() where runid = $runid");
 }
 
-function ApiExecuteJob($runid, $apirunjob){ //called by master thread loop to excute queued jobs
+function ApiExecuteJob($apirunjob){ //called by master thread loop to excute queued jobs
     $jobid = $apirunjob["jobid"];
     $jobconfig = json_decode($apirunjob["jobjson"], true);
     if(isset($jobconfig["type"])&&$jobconfig["type"]=="themIngest"){ //only theme ingests jobs supported

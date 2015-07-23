@@ -383,7 +383,7 @@ function unixDateFromMd($mdDate){
 //function for sets-based structures
 function setCatSet($catid, $setid, $geoid = 0){
     if($catid==0 || $setid==0) return false;
-    $sql = "select setid from categorysets where setid=$setid and catid = $catid and geoid=$geoid";
+    $sql = "select setid from categorysets where setid=$setid and catid = $catid and (geoid=$geoid or geoid=0)";  //geoid=0 covers the entire set
     $temp= runQuery($sql, "check for CatSets relationship");
     if($temp->num_rows==0){
         $sql = "insert into categorysets (catid, setid, geoid) values ($catid, $setid, $geoid)";
@@ -394,7 +394,7 @@ function setCatSet($catid, $setid, $geoid = 0){
             SET s.titles = cat.category WHERE s.setid = cat.setid  ";
         runQuery($sql, "set sets.title");
     }
-    /*    to update all sets titles:     (run nightly!!!)
+    /*the following should never be needed as this function updates the set titles whenever a categorySets record if added
         UPDATE sets s,
             (SELECT setid, GROUP_CONCAT( c.name separator "; " ) AS category
             FROM categorysets cs INNER JOIN categories c ON cs.catid = c.catid

@@ -1,7 +1,7 @@
 <?php
 $event_logging = true;
 $sql_logging = false;
-$downloadFiles = false;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
+$downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST FAO; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
 
 
 
@@ -36,7 +36,7 @@ $threadjobid="null";  //used to track of execution thread
 
 
 //fetched Jul 22, 2015
-$treeJson = '{"Food Security":{"Suite of Food Security<br> Indicators":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Food_Security_Data_E_All_Data.zip","updated":null}},"Production":{"Crops":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Production_Crops_E_All_Data.zip","updated":null},"Crops processed":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Production_CropsProcessed_E_All_Data.zip","updated":null},"Live Animals":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Production_Livestock_E_All_Data.zip","updated":null},"Livestock Primary":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Production_LivestockPrimary_E_All_Data.zip","updated":null},"Livestock Processed":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Production_LivestockProcessed_E_All_Data.zip","updated":null},"Production Indices":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Production_Indices_E_All_Data.zip","updated":null},"Value of Agricultural<br> Production":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Value_of_Production_E_All_Data.zip","updated":null}},"Trade":{"Crops and livestock<br> products":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Trade_Crops_Livestock_E_All_Data.zip","updated":null},"Live animals":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Trade_LiveAnimals_E_All_Data.zip","updated":null},"Detailed trade matrix":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Trade_DetailedTradeMatrix_E_All_Data.zip","updated":null},"Trade Indices":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Trade_Indices_E_All_Data.zip","updated":null}},"Food Balance":{"Commodity Balances -<br> Crops Primary Equivalent":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/CommodityBalances_Crops_E_All_Data.zip","updated":null},"Commodity Balances -<br> Livestock and Fish Primary Equivalent":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/CommodityBalances_LivestockFish_E_All_Data.zip","updated":null},"Food Supply - Crops<br> Primary Equivalent":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/FoodSupply_Crops_E_All_Data.zip","updated":null},"Food Supply - Livestock<br> and Fish Primary Equivalent":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/FoodSupply_LivestockFish_E_All_Data.zip","updated":null}},"Prices":{"Producer Prices -<br> Annual":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Prices_E_All_Data.zip","updated":null},"Producer Prices -<br> Monthly":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Prices_Monthly_E_All_Data.zip","updated":null},"Producer Price Indices<br> - Annual":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Price_Indices_E_All_Data.zip","updated":null},"Producer Prices -<br> Archive":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/PricesArchive_E_All_Data.zip","updated":null},"Consumer Price Indices":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/ConsumerPriceIndices_E_All_Data.zip","updated":null}},"Inputs":{"Fertilizers":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Fertilizers_E_All_Data.zip","updated":null},"Fertilizers archive":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Resources_FertilizersArchive_E_All_Data.zip","updated":null},"Fertilizers - Trade<br> Value":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Resources_FertilizersTradeValues_E_All_Data.zip","updated":null},"Pesticides (use)":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Pesticides_Use_E_All_Data.zip","updated":null},"Pesticides (trade)":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Pesticides_Trade_E_All_Data.zip","updated":null},"Land":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Land_E_All_Data.zip","updated":null}},"Population":{"Annual population":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Population_E_All_Data.zip","updated":null}},"Investment":{"Capital Stock":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Investment_CapitalStock_E_All_Data.zip","updated":null},"Machinery":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Investment_Machinery_E_All_Data.zip","updated":null},"Machinery Archive":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Investment_MachineryArchive_E_All_Data.zip","updated":null},"Government Expenditure":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Investment_GovernmentExpenditure_E_All_Data.zip","updated":null},"Credit to Agriculture":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Investment_CreditAgriculture_E_All_Data.zip","updated":null}},"Macro-Statistics":{"Key Indicators":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Macro-Statistics_Key_Indicators_E_All_Data.zip","updated":null}},"Agri-Environmental<br> Indicators":{"Air and climate change":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_AirClimateChange_E_All_Data.zip","updated":null},"Energy":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Energy_E_All_Data.zip","updated":null},"Fertilizers":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Fertilizers_E_All_Data.zip","updated":null},"Land":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Land_E_All_Data.zip","updated":null},"Livestock":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Livestock_E_All_Data.zip","updated":null},"Pesticides":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Pesticides_E_All_Data.zip","updated":null},"Soil":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Soil_E_All_Data.zip","updated":null},"Water":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Environment_Water_E_All_Data.zip","updated":null}},"Emissions - Agriculture":{"Agriculture Total":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Agriculture_total_E_All_Data.zip","updated":null},"Enteric Fermentation":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Enteric_Fermentation_E_All_Data.zip","updated":null},"Manure Management":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Manure_Management_E_All_Data.zip","updated":null},"Rice Cultivation":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Rice_Cultivation_E_All_Data.zip","updated":null},"Synthetic Fertilizers":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Synthetic_Fertilizers_E_All_Data.zip","updated":null},"Manure applied to Soils":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Manure_applied_to_soils_E_All_Data.zip","updated":null},"Manure left on Pasture":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Manure_left_on_pasture_E_All_Data.zip","updated":null},"Crop Residues":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Crop_Residues_E_All_Data.zip","updated":null},"Cultivation of Organic<br> Soils":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Cultivated_Organic_Soils_E_All_Data.zip","updated":null},"Burning - Savanna":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Burning_Savanna_E_All_Data.zip","updated":null},"Burning - Crop Residues":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Burning_crop_residues_E_All_Data.zip","updated":null},"Energy Use":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Energy_E_All_Data.zip","updated":null}},"Emissions - Land Use":{"Land Use Total":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Land_Use_Total_E_All_Data.zip","updated":null},"Forest Land":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Forest_Land_E_All_Data.zip","updated":null},"Cropland":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Cropland_E_All_Data.zip","updated":null},"Grassland":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Grassland_E_All_Data.zip","updated":null},"Burning - Biomass":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Burning_Biomass_E_All_Data.zip","updated":null}},"Forestry":{"Forestry Production and<br> Trade":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Forestry_E_All_Data.zip","updated":null},"Forestry Trade Flows":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Forestry_Trade_Flows_E_All_Data.zip","updated":null}},"ASTI R&amp;D Indicators":{"ASTI-Researchers by<br> Agency Type":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/ASTI_ResearchersAgency_E_All_Data.zip","updated":null},"ASTI-Researchers by<br> Gender and Degree Level":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/ASTI_ResearchersGenderDegree_E_All_Data.zip","updated":null},"ASTI-Expenditures":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/ASTI_Expenditures_E_All_Data.zip","updated":null}},"Emergency Response":{"Food Aid Shipments<br> (WFP)":{"link":" http://faostat3.fao.org/faostat-bulkdownloads/Food_Aid_Shipments_WFP_E_All_Data.zip","updated":null}}}';
+$treeJson = '{"Food Security":{"Suite of Food Security<br> Indicators":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Food_Security_Data_E_All_Data.zip","updated":null}},"Production":{"Crops":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Production_Crops_E_All_Data.zip","updated":null},"Crops processed":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Production_CropsProcessed_E_All_Data.zip","updated":null},"Live Animals":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Production_Livestock_E_All_Data.zip","updated":null},"Livestock Primary":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Production_LivestockPrimary_E_All_Data.zip","updated":null},"Livestock Processed":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Production_LivestockProcessed_E_All_Data.zip","updated":null},"Production Indices":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Production_Indices_E_All_Data.zip","updated":null},"Value of Agricultural<br> Production":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Value_of_Production_E_All_Data.zip","updated":null}},"Trade":{"Crops and livestock<br> products":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Trade_Crops_Livestock_E_All_Data.zip","updated":null},"Live animals":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Trade_LiveAnimals_E_All_Data.zip","updated":null},"Detailed trade matrix":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Trade_DetailedTradeMatrix_E_All_Data.zip","updated":null},"Trade Indices":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Trade_Indices_E_All_Data.zip","updated":null}},"Food Balance":{"Commodity Balances -<br> Crops Primary Equivalent":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/CommodityBalances_Crops_E_All_Data.zip","updated":null},"Commodity Balances -<br> Livestock and Fish Primary Equivalent":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/CommodityBalances_LivestockFish_E_All_Data.zip","updated":null},"Food Supply - Crops<br> Primary Equivalent":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/FoodSupply_Crops_E_All_Data.zip","updated":null},"Food Supply - Livestock<br> and Fish Primary Equivalent":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/FoodSupply_LivestockFish_E_All_Data.zip","updated":null}},"Prices":{"Producer Prices -<br> Annual":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Prices_E_All_Data.zip","updated":null},"Producer Prices -<br> Monthly":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Prices_Monthly_E_All_Data.zip","updated":null},"Producer Price Indices<br> - Annual":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Price_Indices_E_All_Data.zip","updated":null},"Producer Prices -<br> Archive":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/PricesArchive_E_All_Data.zip","updated":null},"Consumer Price Indices":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/ConsumerPriceIndices_E_All_Data.zip","updated":null}},"Inputs":{"Fertilizers":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Fertilizers_E_All_Data.zip","updated":null},"Fertilizers archive":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Resources_FertilizersArchive_E_All_Data.zip","updated":null},"Fertilizers - Trade<br> Value":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Resources_FertilizersTradeValues_E_All_Data.zip","updated":null},"Pesticides (use)":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Pesticides_Use_E_All_Data.zip","updated":null},"Pesticides (trade)":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Pesticides_Trade_E_All_Data.zip","updated":null},"Land":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Inputs_Land_E_All_Data.zip","updated":null}},"Population":{"Annual population":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Population_E_All_Data.zip","updated":null}},"Investment":{"Capital Stock":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Investment_CapitalStock_E_All_Data.zip","updated":null},"Machinery":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Investment_Machinery_E_All_Data.zip","updated":null},"Machinery Archive":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Investment_MachineryArchive_E_All_Data.zip","updated":null},"Government Expenditure":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Investment_GovernmentExpenditure_E_All_Data.zip","updated":null},"Credit to Agriculture":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Investment_CreditAgriculture_E_All_Data.zip","updated":null}},"Macro-Statistics":{"Key Indicators":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Macro-Statistics_Key_Indicators_E_All_Data.zip","updated":null}},"Agri-Environmental<br> Indicators":{"Air and climate change":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_AirClimateChange_E_All_Data.zip","updated":null},"Energy":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Energy_E_All_Data.zip","updated":null},"Fertilizers":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Fertilizers_E_All_Data.zip","updated":null},"Land":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Land_E_All_Data.zip","updated":null},"Livestock":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Livestock_E_All_Data.zip","updated":null},"Pesticides":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Pesticides_E_All_Data.zip","updated":null},"Soil":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Soil_E_All_Data.zip","updated":null},"Water":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Environment_Water_E_All_Data.zip","updated":null}},"Emissions - Agriculture":{"Agriculture Total":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Agriculture_total_E_All_Data.zip","updated":null},"Enteric Fermentation":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Enteric_Fermentation_E_All_Data.zip","updated":null},"Manure Management":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Manure_Management_E_All_Data.zip","updated":null},"Rice Cultivation":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Rice_Cultivation_E_All_Data.zip","updated":null},"Synthetic Fertilizers":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Synthetic_Fertilizers_E_All_Data.zip","updated":null},"Manure applied to Soils":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Manure_applied_to_soils_E_All_Data.zip","updated":null},"Manure left on Pasture":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Manure_left_on_pasture_E_All_Data.zip","updated":null},"Crop Residues":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Crop_Residues_E_All_Data.zip","updated":null},"Cultivation of Organic<br> Soils":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Cultivated_Organic_Soils_E_All_Data.zip","updated":null},"Burning - Savanna":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Burning_Savanna_E_All_Data.zip","updated":null},"Burning - Crop Residues":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Burning_crop_residues_E_All_Data.zip","updated":null},"Energy Use":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Agriculture_Energy_E_All_Data.zip","updated":null}},"Emissions - Land Use":{"Land Use Total":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Land_Use_Total_E_All_Data.zip","updated":null},"Forest Land":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Forest_Land_E_All_Data.zip","updated":null},"Cropland":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Cropland_E_All_Data.zip","updated":null},"Grassland":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Grassland_E_All_Data.zip","updated":null},"Burning - Biomass":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Emissions_Land_Use_Burning_Biomass_E_All_Data.zip","updated":null}},"Forestry":{"Forestry Production and<br> Trade":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Forestry_E_All_Data.zip","updated":null},"Forestry Trade Flows":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Forestry_Trade_Flows_E_All_Data.zip","updated":null}},"ASTI R&amp;D Indicators":{"ASTI-Researchers by<br> Agency Type":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/ASTI_ResearchersAgency_E_All_Data.zip","updated":null},"ASTI-Researchers by<br> Gender and Degree Level":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/ASTI_ResearchersGenderDegree_E_All_Data.zip","updated":null},"ASTI-Expenditures":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/ASTI_Expenditures_E_All_Data.zip","updated":null}},"Emergency Response":{"Food Aid Shipments<br> (WFP)":{"link":"http://faostat3.fao.org/faostat-bulkdownloads/Food_Aid_Shipments_WFP_E_All_Data.zip","updated":null}}}';
 
 /* rerunning file ingestion:
 truncate eventlog;
@@ -74,7 +74,7 @@ to refetch tree with last updated dates: */
                             console.info('branch: '+branch+', sub: '+sub);
                             $('#bulk-downloads-menu ul ul li a').each(function(){
                                 if($(this).attr('href').toUpperCase().indexOf('_ALL_DATA.ZIP')>0) {
-                                    tree[branch][sub]={link: $(this).attr('href'), updated: null}
+                                    tree[branch][sub]={link: $(this).attr('href').trim(), updated: null}
                                 }
                             });
                             if(!tree[branch][sub]) console.info('all data zip file not found!!!!!!');
@@ -145,11 +145,11 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     runQuery("update apirunjobs set status='S' where jobid=".$jobid);
 }
 
-function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single single api run until no more
     global $MAIL_HEADER, $db;
-    $jobid = $job_row["jobid"];
-    $runid = $api_run_row["runid"];
-    $apiid = $api_run_row["apiid"];
+    $jobid = $api_run_job_row["jobid"];
+    $runid = $api_run_job_row["runid"];
+    $apiid = $api_run_job_row["apiid"];
 
     //reusable SQL statements
     $updateRunSql = "update apiruns set finishdt=now() where runid=$runid";
@@ -176,7 +176,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
     $colValue = 9;
     $colFlag = 10;
 
-    $branchInfo = json_decode($job_row['jobjson'], true);
+    $branchInfo = json_decode($api_run_job_row['jobjson'], true);
     $branchName = $branchInfo['name'];
     $catid  = $branchInfo['catid'];
     print("STARTING FAO : $branchName (job $jobid)<br>\r\n");
@@ -210,7 +210,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                 }
                 //special country cases
                 if($line[$colCountry] == "Ethiopia PDR") $line[$colCountry] = "Ethiopia";  //combine the two into a single series under geoid=72
-                if($line[$colCountry] == "China") $line[$colCountry] = "XXhina";  //use "China, mainland" with Taiwan and HK separate
+
 
                 if(faoCountryLookup($line[$colCountry])){
                     if(!isset($stats[$setKey]["series"][$line[$colCountry]])){
@@ -233,11 +233,11 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                             $thisSetName = str_ireplace("SLC",$geo["currency"], $set["name"]);
                             $thisSetName = str_ireplace("Standard Local Currency",$geo["currency"], $thisSetName);
                             $thisSetUnits = str_replace("SLC",$geo["currency"], $set["units"]);
-                            $thisSetId = saveSet($apiid, $thisSetKey, $thisSetName, $thisSetUnits, "UNFAO", "http://faostat3.fao.org/home/index.html", "Data from ".$branchInfo["link"]);
+                            $thisSetId = saveSet($apiid, $thisSetKey, $thisSetName, $thisSetUnits, "UNFAO", "http://faostat3.fao.org/home/E", "Data from ".$branchInfo["link"]);
                             //note: do not save setid for series in SLC because the set is actually multiple sets by currency
                         } else {
-                            $thisSetId = saveSet($apiid, $setKey, $set["name"], $set["units"], "UNFAO", "http://faostat3.fao.org/home/index.html", "Data from ".$branchInfo["link"]);
-                            if(!$thisSetId) emailAdminFatal("eror ingesting FAO", "unable to save set: $setKey $set[name] $set[units]");
+                            $thisSetId = saveSet($apiid, $setKey, $set["name"], $set["units"], "UNFAO", "http://faostat3.fao.org/home/E", "Data from ".$branchInfo["link"]);
+                            if(!$thisSetId) emailAdminFatal("error ingesting FAO", "unable to save set: $setKey $set[name] $set[units]");
                             $set["setid"] = $thisSetId;  //save to only call db once
                         }
                     } else {
@@ -251,7 +251,7 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
                         setCatSet($thisCatId, $thisSetId);
                     }
                     sort($data);
-                    saveSetData($status, $thisSetId, $apiid, null, "A", $geo["geoid"], "", $data, $country==$geo["name"]?false:$country);
+                    saveSetData($status, $thisSetId, $apiid, null, "A", $geo["geoid"], "", $data, date("Y-m-d"));
                 }
             }
         }
@@ -277,119 +277,50 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
 function ApiRunFinished($api_run){
     set_time_limit(200);
-    setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
+    setGhandlesFreqsFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
     set_time_limit(200);
     prune($api_run["apiid"]);  //remove empty categories
 }
-/*
-function saveFaoSeries(&$status, $api_row, $jobid, $series_header, $branchInfo, $line, $aryData){
-    $colCountryCode = 0;
-    $colCountry = 1;
-    $colItemCode = 2;
-    $colItem = 3;
-    $colElementGroup = 4;
-    $colElementCode	= 5;
-    $colElement	= 6;
-    $colYear = 7;
-    $colUnit = 8;
-    $colValue = 9;
-    $colFlag = 10;
-
-    static $unknownGeographies = [];
-    static $setIds = [];
-    $thisCatId = setCategoryByName($api_row["apiid"], $series_header[$colItem], $branchInfo["catid"]);
-    $geo = faoCountryLookup($series_header[$colCountry]);
-    if($geo){
-        $geoid = $geo["geoid"];
-        $setName = $series_header[$colElement] .": ". $series_header[$colItem];
-        $setkey = $series_header[$colElementCode]."-".$series_header[$colItemCode]."-". $series_header[$colUnit];
-        if(strpos("LCU", $series_header[$colUnit])!==false){
-            $setkey .= $geo["currency"];
-            $setName = preg_replace("LCU",$geo["currency"], $setName);
-        }
-        if(isset($setIds[$setkey])){
-            $setId = $setIds[$setkey];
-        } else {
-            $setId = saveSet(
-                $api_row["apiid"],
-                $setkey,
-                $setName,
-                $series_header[$colUnit],
-                "UNFAO",
-                "http://faostat3.fao.org/home/index.html",
-                "Data from ".$branchInfo["link"]
-            );
-            setCatSet($thisCatId, $setId);
-            //TODO move url and note to api.url and api.metadata
-            $setIds[$setkey] = $setId;
-        }
-        //$mapSetId = getMapSet($setName, $api_row["apiid"], "A", $series_header[$colUnit]);  //every series is part of a mapset, even if it not mappable
-
-        $skey = $setkey .":".$series_header[$colCountryCode];
-        saveSetData($status, $setId, "A", $geoid, "", $aryData, false, false, date("yyyymdd"));
-        $seriesid = updateSeries(
-            $status,
-            $jobid,
-            $skey,
-            $setName.": ".$series_header[$colCountry],
-            "FAO",
-            "http://faostat3.fao.org/home/index.html",
-            "A",
-            $series_header[$colUnit],
-            $series_header[$colUnit],
-            "For methodology, classification, local currency units, and abbreviations visit http://faostat3.fao.org/home/index.html#METADATA_METHODOLOGY. Data from ".$branchInfo["link"],
-            $branchInfo["name"],
-            $api_row["apiid"],
-            $branchInfo["updated"],
-            strtotime($series_header[$colYear]."-01-01 UTC")*1000,
-            strtotime($line[$colYear]."-01-01 UTC")*1000,
-            $aryData,
-            $geoid,
-            $mapSetId,
-            null, null, null);
-        catSeries($thisCatId, $seriesid);
-        return ["setid"=>$setId, "freq"=>"A", "geoid"=>$geoid, "latlon"=>""];
-    } else {
-        if(array_search($series_header[$colCountry], $unknownGeographies)===false){
-            $unknownGeographies[] = $series_header[$colCountry];
-            logEvent("unknown FAO geography", $series_header[$colCountry]." in ". $branchInfo["file"]);
-        }
-        $status["failed"]++;
-        return false;
-    }
-}*/
 
 function faoCountryLookup($faoCountry){
     //does not currently handle FAO regions
-    static $countries = "null";
-    static $faoMatches = []; //speeds up search for something tha must be done 500,000 times per complete FAO ingest
-    static $matchesByGhandle = [];
+    static $countries = "null";  //filled with db.geographies
+    static $faoMatches = []; //speeds up search for something that must be done 500,000 times per complete FAO ingest
+    static $matchesByGhandle = []; //helper array to find potential errors
+    //1-time database read of geographies into static $countries
     if($countries=="null"){
         $countries = array();
-        $result = runQuery("select geoid, name, coalesce(currency, 'local currency unit') as currency, regexes, exceptex from geographies where geoset='countries' order by length(name) desc");
+        $result = runQuery("select geoid, name, coalesce(currency, 'local currency unit') as currency, regexes, exceptex from geographies where geoset='countries' and regexes is not null order by length(name) desc");
         while($row=$result->fetch_assoc()){
             $countries[] = $row;
         }
     }
+    //Only allow World, EU, and Africa totals; skip the others (e.g. "Eastern Asia + (Total)")
     if($faoCountry == "World + (Total)") {
         $faoCountry = "World";
     } elseif($faoCountry == "European Union + (Total)"){
         $faoCountry = "European Union";
+    } elseif($faoCountry == "Africa + (Total)"){
+        $faoCountry = "Africa";
     } elseif (strpos($faoCountry, " + (Total)")!==false) return null;
 
     if(array_key_exists($faoCountry, $faoMatches)){
-        return $faoMatches[$faoCountry];
+        return $faoMatches[$faoCountry];  //found in cache!
     } else {
         for($i=0;$i<count($countries);$i++){
             $regex = "#( for | in | from )?". $countries[$i]["regexes"]."#";
-
-            if(preg_match($regex, $faoCountry, $matches)==1){
+            if($countries[$i]["name"]==$faoCountry || ($regex && preg_match($regex, $faoCountry, $matches)==1)){
                 $exceptex = $countries[$i]["exceptex"];
                 if($exceptex==null || preg_match("#".$exceptex."#", $faoCountry, $matches)==0){
                     $faoMatches[$faoCountry] = $countries[$i];
-                    if(isset($matchesByGhandle["G".$countries[$i]["geoid"]])) logEvent("FAO ingest duplicate country detected","G".$countries[$i]["geoid"].": ".$matchesByGhandle["G".$countries[$i]["geoid"]]." vs. ". $faoCountry);
+                    if(isset($matchesByGhandle["G".$countries[$i]["geoid"]])) {
+                        $event = "FAO ingest duplicate country detected";
+                        $eventMsg = "G".$countries[$i]["geoid"].": ".$matchesByGhandle["G".$countries[$i]["geoid"]]." vs. ". $faoCountry;
+                        print($event . " = " . $eventMsg);
+                        logEvent($event, $eventMsg);
+                    }
                     $matchesByGhandle["G".$countries[$i]["geoid"]] = $faoCountry;
                     //printNow("G".$countries[$i]["geoid"]." (".$countries[$i]["name"].") = ".$faoCountry);
                     return $faoMatches[$faoCountry];

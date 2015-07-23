@@ -168,7 +168,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 //  (c) create dataset root cat
 
 
-function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a single single api run until no more
+function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single single api run until no more
     $skipCountries = [  //all regional WB aggregates shown; commented out = ingest!
         "ARB"=>"Arab World",
         "CSS"=>"Caribbean small states",
@@ -213,10 +213,10 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
     $apidt = date("Y-m-d");
     global $MAIL_HEADER, $db;
-    $jobid = $job_row["jobid"];
-    $runid = $api_run_row["runid"];
-    $apiid = $api_run_row["apiid"];
-    $src = $api_run_row["name"];
+    $jobid = $api_run_job_row["jobid"];
+    $runid = $api_run_job_row["runid"];
+    $apiid = $api_run_job_row["apiid"];
+    $src = $api_run_job_row["name"];
 
     $CountrySeriesFile_CountryCodeColumn=0;  //column A
     $CountrySeriesFile_SetCodeColumn=1;  //column B
@@ -224,10 +224,10 @@ function ApiExecuteJob($api_run_row, $job_row){//runs all queued jobs in a singl
 
 
 //  (a) create dataset root_cat
-    $ROOT_WB_CATID = $api_run_row["rootcatid"];
-    $datasetInfo = json_decode($job_row['jobjson'], true);
+    $ROOT_WB_CATID = $api_run_job_row["rootcatid"];
+    $datasetInfo = json_decode($api_run_job_row['jobjson'], true);
     $acronym = $datasetInfo["acronym"];
-    $datasetRootCatId = setCategoryById($api_run_row['apiid'], $acronym, $datasetInfo["category"], $ROOT_WB_CATID);
+    $datasetRootCatId = setCategoryById($api_run_job_row['apiid'], $acronym, $datasetInfo["category"], $ROOT_WB_CATID);
 
     $DataFile_CountryNameColumn = $datasetInfo["DataFile_CountryNameColumn"];
     $DataFile_CountryCodeColumn = $datasetInfo["DataFile_CountryCodeColumn"];

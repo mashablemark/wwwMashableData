@@ -35,8 +35,8 @@ $bulkFolder = "bulkfiles/fred/";
 //apidid=2;
 
 
-function ApiExecuteJob($runid, $apirunjob){
-//jobs only used by category crawler getCategoryChildren()
+function ApiExecuteJob($apirunjob){
+//with the new bulk file process, jobs are only used by category crawler getCategoryChildren()
     global $MAIL_HEADER, $db;
     $jobid = $apirunjob["jobid"];
 
@@ -168,6 +168,8 @@ function ApiCrawl($catid, $api_row){
 
 function ApiRunFinished($api_run){
     global $MAIL_HEADER;
+
+    shrinkCats();
 
     set_time_limit(600);
     setMapsetCounts("all", $api_run["apiid"]);
@@ -311,9 +313,13 @@ class FredList
                     //1. scan for updates in this branch, or set merges, or unit changes
                     $branchUpdates = false;
                     $newUnits = false;
+                    $newName = false;
                     foreach ($setFreqBranch as $geoKey => &$seriesInfo) {
-                        if($seriesInfo["apidt"] != $seriesInfo["dbUpdateDT"]) {
+                        if($seriesInfo["apidt"] != $seriesInfo["dbUpdateDt"]) {
                             $branchUpdates = true;
+                        }
+                        if(isset($seriesInfo["dbSetName"]) && $seriesInfo["dbSetName"]!=$setName){
+                            $nameName = true;
                         }
                         if(isset($seriesInfo["dbUnits"])){
                             if(!$newUnits){
@@ -331,14 +337,17 @@ class FredList
                             } else {
                                 if($setid != $seriesInfo["setid"]) {
                                     preprint($setFreqBranch);
-                                    emailAdminFatal("unable to merge FRED sets", "setid $seriesInfo[setid] ans $setid");
+                                    emailAdminFatal("unable to merge FRED sets", "setid $seriesInfo[setid] and $setid");
                                 }
                             }
                         }
                     }
-
+                    //todo:  prevent duplicates
                     if($setid && $newUnits){  //units change for the set (note: an inconsistent units change errors out above.
                         if(!runQuery("update sets set units = ".safeStringSQL($newUnits)." where setid=$setid or mastersetid=$setid")) die("update units sql error");
+                    }
+                    if($setid && $newName){  //units change for the set (note: an inconsistent units change errors out above.
+                        if(!runQuery("update sets set name = ".safeStringSQL($setName)." where setid=$setid")) die("update name sql error");
                     }
 
                     //2. if any updates in branch, than we need to get metadata for all series so we can
@@ -346,7 +355,7 @@ class FredList
                     $setid = false;
                     if($branchUpdates) {
                         foreach ($setFreqBranch as $geoKey => &$seriesInfo) {
-                            if ($seriesInfo["apidt"] != $seriesInfo["dbUpdateDT"]) {
+                            if ($seriesInfo["apidt"] != $seriesInfo["dbUpdateDt"]) {
                                 $this->getData($seriesInfo, false);
                             } elseif (!isset($seriesInfo["data"])) {
                                 $this->getData($seriesInfo, true);  //only get the metadata
@@ -418,7 +427,7 @@ class FredList
                                 );
                                 if ($seriesInfo["latlon"] == "") $setid = $thissetid;  //some sets are mixed point / map
                             }
-                            if ($seriesInfo["apidt"] != $seriesInfo["dbUpdateDT"]) {
+                            if ($seriesInfo["apidt"] != $seriesInfo["dbUpdateDt"]) {
                                 if(!($seriesInfo["latlon"] == "" ? $setid : $masterSetid)){preprint($seriesInfo);die("setid ($setid) / masterSetid ($masterSetid) ID missing");}  //todo: remove
                                 saveSetData($this->status, $seriesInfo["latlon"] == "" ? $setid : $masterSetid, $apiid, $seriesInfo["skey"], $freq, $setSize < $minSetSize && $seriesInfo["latlon"] == "" ? 0 : $seriesInfo["geoid"], $seriesInfo["latlon"], $seriesInfo["data"], $seriesInfo["apidt"], $setMetaData ? "http://research.stlouisfed.org/fred2/graph/?id=" . $seriesInfo["skey"] : $seriesInfo["notes"]);
                             } else {
@@ -497,7 +506,7 @@ class FredList
         if(!$geographies){
             $result = runQuery("select name, geoid, geoset, containingid, lat, lon, type, regexes, exceptex
             from geographies
-            where regexes is not null and geoset<>'uscounties' and geoset not like 'nuts%'
+            where regexes is not null and geoset not like 'nuts%'
             order by length(name) desc");  //try to find a match with the longest first (ie. "West Virginia" before "Virginia")
             while($geography = $result->fetch_assoc()) $geographies[$geography["name"]] =  $geography;
         }
@@ -508,111 +517,108 @@ class FredList
             return false;
         }
 
-        //2. check if to see if this line already exists as in SETDATA table
-        $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt, g.geoset
-        from setdata sd join sets s on sd.setid=s.setid left outer join geographies g on sd.geoid=g.geoid
-        where apiid=$apiid and sd.skey=". safeStringSQL($skey));
-        if($result->num_rows==1){
-            //this series is in the database already!!
-            $set = $result->fetch_assoc();
-            $dbSetUnits = $set["units"];
-            $dbSetFeq = $set["freq"];
-            if($dbSetFeq!=$frequency){
-                preprint($set);
-                printNow("frequency: /$frequency/ ".($dbSetFeq==$frequency));
-                die("mismatch freq for $file");
-            }
+        //setname is used as a key in the associative array to collate series into sets.  This is the default value, which gets changed if geographies are detected
+        $setName = $title.$seasonalAdjustments[$saCode];
+        //skeleton which will be filled out from the db and from parsing and finding geography matches
+        $seriesInfo = [
+            "freq" => $frequency,
+            "units" => $units,
+            "skey" => $skey,
+            "file" => $file,
+            "apidt" => $updatedDt,
+            "dbUpdateDt" => null,
+            "isCopyrighted" => $isCopyrighted,
+            "title" => $setName, //the title field serves as a memory of the unmodified series name
+            "geoset" => null,
+            "setid" => null,
+            "geoid" => 0, //default
+            "latlon" => "", //default
+        ];
 
-            $seriesInfo = [
-                "setid" => $set["setid"],  //$set is from DB
-                "freq" => $frequency, //from FRED
-                "units" => $units, //from FRED
-                "latlon" => $set["latlon"],
-                "geoid" => $set["geoid"],
-                "skey" => $skey, //from FRED
-                "file" => $file, //from FRED
-                "apidt" => $updatedDt, //from FRED
-                "dbUpdateDT" => $set["apidt"],
-                "isCopyrighted" => $isCopyrighted,
-                "title" => $title.$seasonalAdjustments[$saCode], //from FRED
-                "geoset" => $set["geoset"], //from db
-            ];
-            if(strtolower($dbSetUnits)!=strtolower($units)) { //make case insensitive check
-                $seriesInfo["dbUnits"] = $dbSetUnits;  //process at the set level
-                printNow("db units do not match new data file units.  Will be processed in save routine ($units != $dbSetUnits)");
+
+        //2. check if to see if this line already exists as in SETDATA table (this will be used later, but still need to process the whole shebang
+        //this check allows us to (a) determine the setid (b) skip the geography search in the series name
+        $result = runQuery("select s.name, s.units, s.setid, sd.freq, sd.geoid, sd.latlon, sd.apidt, g.geoset
+            from setdata sd join sets s on sd.setid=s.setid left outer join geographies g on sd.geoid=g.geoid
+            where apiid=$apiid and sd.skey=". safeStringSQL($skey));
+        if($result->num_rows==1) {
+            //this series is in the database already!!
+            $dbSet = $result->fetch_assoc();
+            if($dbSet["freq"]!=$frequency){  //frequencies cannot be adjusted
+                preprint($dbSet);
+                emailAdminFatal("FRED mismatch freq for $file", "frequency mismatch: file $file is /$frequency/ whereas sets.freq is /$dbSet[freq]/ ");
             }
-            $setName = $set["name"];
+            $seriesInfo["latlon"] = $dbSet["latlon"];
+            $seriesInfo["geoid"] = $dbSet["geoid"];
+            $seriesInfo["dbSetName"] = $dbSet["name"];
+            if(strtolower($seriesInfo["units"]) != strtolower($dbSet["units"])){  //units (and series / set names) can be adjusted
+                $seriesInfo["dbUnits"] = $dbSet["units"];
+            }
+            $seriesInfo["dbUpdateDt"] = $dbSet["apidt"];
+        } elseif($result->num_rows>1) {
+            emailAdminFatal("FRED duplicat keys",$result->num_rows." results found for apiid=2 and skey=$skey");
+        } else {
+            $dbSet = false;
         }
-        //preprint($seriesInfo);
 
         //3. look for geo matches
-        if(!$seriesInfo){
-            //3a. check exact name match for
-            //I would have thought that this would work, but PHP will find the first match (say "for") and lock on that ignore later matches of a different pattern (say "in")
-            //$regex = "/( in | for | from )/";
-            //if(preg_match($regex, $title, $matches)>0){
-            $separator = false;
-            $pointSet = false;
-            $separatorPosition = -1;
-            foreach($this->separators as $i=>$pattern){
-                $position = strrpos($title, $pattern);
-                if($position>$separatorPosition){
-                    $separatorPosition = $position;
-                    $separator = $pattern;
+        //3a. find separator
+        //  I would have thought that this would work, but PHP will find the first match (say "for") and lock on that ignore later matches of a different pattern (say "in")
+        //  $regex = "/( in | for | from )/";
+        //  if(preg_match($regex, $title, $matches)>0){
+        $separator = false;
+        $separatorPosition = -1;
+        foreach($this->separators as $i=>$pattern){
+            $position = strrpos($title, $pattern);
+            if($position>$separatorPosition){
+                $separatorPosition = $position;
+                $separator = $pattern;
+            }
+        }
+
+        if($separator) { //no separator = use the defaults set at the top of the loop
+            //think we have a geoName...
+            $setName = trim(substr($title, 0, $separatorPosition)) . $seasonalAdjustments[$saCode] . $separator . "&hellip;";
+            $geoName = trim(substr($title, $separatorPosition + strlen($separator)));
+
+
+            //try to figure out is this is a pointset
+            if(preg_match("#\((.+)\)#", $geoName, $geoset)==1){
+                $geoset = $geoset[1];
+                if($pointSet = strpos("MSA,MD,CSA,MSAD,NECTA Division,NECTA,CMSA,", $geoset.",")!==false){
+                    $geoName = trim(str_replace(" (".$geoset.")","",$geoName)); //strip out the geoset
                 }
+                //combining certain geosets into single pointsets:
+                if($geoset == "MSA" || $geoset == "NECTA" || $geoset == "CSA" || $geoset == "CMSA"){
+                    $geoset = "MSA/NECTA";
+                    $setName .= " ($geoset)";
+                    $seriesInfo["geoset"] = $geoset;
+                }
+                if($geoset == "MD" || $geoset == "MSAD" || $geoset == "NECTA Division") {
+                    $geoset = "MD/NECTA Division";
+                    $setName .= " ($geoset)";
+                    $seriesInfo["geoset"] = $geoset;
+                }
+            } else {
+                $geoset = false;
+                $pointSet = false;
             }
 
-            if($separator){
-                //think we have a geoName...
-                $setName = trim(substr($title, 0, $separatorPosition)).$seasonalAdjustments[$saCode].$separator."&hellip;";
-                $geoName = trim(substr($title, $separatorPosition+strlen($separator)));
-                
-                //this->geosets is to help understand the FRED data and is not persisted 
-                if(preg_match("#\((.+)\)#", $geoName, $geoset)==1){
-                    $geoset = $geoset[1];
-                    $pointSet = strpos("MSA,MD,CSA,MSAD,NECTA Division,NECTA,CMSA,", $geoset.",")!==false;
-                    if($pointSet){
-                        $geoName = trim(str_replace(" (".$geoset.")","",$geoName)); //strip out the geoset
-                    }
-                    //combining certain geosets into single pointsets:
-                    if($geoset == "MSA" || $geoset == "NECTA" || $geoset == "CSA" || $geoset == "CMSA") $geoset = "MSA/NECTA";
-                    if($geoset == "MD" || $geoset == "MSAD" || $geoset == "NECTA Division") $geoset = "MD/NECTA Division";
-                } else {
-                    $geoset = false;
-                    $pointSet = false;
-                }
+            if(!$dbSet){  //with the $setName set, we can skip the search for geography if this series has already been parsed
+                //look for an exact match for what we think is the geography component of the series name
                 $sql = "select geoset, geoid, type, lat, lon, geoset, containingid
-                    from geographies
-                    where name=".safeStringSQL($geoName );
-                if($pointSet)
-                    $sql .= " and geoset='msa'";  //this is necessary because FRED is so messed up with duplicates
-                else
-                    $sql .= " and geoset<>'msa'";
-
+                from geographies
+                where name=".safeStringSQL($geoName )." and geoset" . ($pointSet?"=":"<>")."'msa'";  //this is necessary because FRED is so messed up with duplicates
                 $result = runQuery($sql, "FindSets");
                 if($result->num_rows==1){
-                    if($debug && !isset($foundGeoNames[$geoName])){
-                        //printNow("match: $geoName");
-                        $foundGeoNames[$geoName] = true;
-                    }
+                    //exact geography match!!
+                    $foundGeoNames[$geoName] = true;
                     $geography = $result->fetch_assoc();
-                    $seriesInfo = [
-                        "latlon" => $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"",
-                        "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
-                        "setid" => null,
-                        "freq" => $frequency,
-                        "units" => $units,
-                        "skey" => $skey,
-                        "file" => $file,
-                        "apidt" => $updatedDt,
-                        "dbUpdateDT" => null,
-                        "isCopyrighted" => $isCopyrighted,
-                        "title" => $title.$seasonalAdjustments[$saCode],
-                        "geoset" => $pointSet ? $geoset : $geography["geoset"],
-                    ];
-                    if($pointSet) $setName .= " ($geoset)";
+                    $seriesInfo["latlon"] = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
+                    $seriesInfo["geoid"] = $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"];
+                    $seriesInfo["geoset"] = $pointSet ? $geoset : $geography["geoset"];
                 } else {
-                    //loop through the geographies and try to find a match
+                    //no exact geography match = loop through ALL the geographies and try to find a match using regexes
                     foreach($geographies as $name=>$geography){
                         //use msa geographies only for MSAs
                         if(($geography["geoset"]=="msa")==$pointSet){   //this is necessary because FRED is so messed up with duplicates
@@ -621,26 +627,10 @@ class FredList
                                 //match!
                                 if(strlen($geoMatches[0])>0.75*strlen($geoName)){ //must be tight match!!!
                                     //$setName = trim(preg_replace ($regex," &hellip;",$title.$seasonalAdjustments[$saCode]));
-                                    $latlon = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
-                                    $seriesInfo = [
-                                        "latlon" => $latlon,
-                                        "geoid" => $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"],
-                                        "freq" => $frequency,
-                                        "units" => $units,
-                                        "setid" => null,
-                                        "skey" => $skey,
-                                        "file" => $file,
-                                        "apidt" => $updatedDt,
-                                        "dbUpdateDT" => null,
-                                        "isCopyrighted" => $isCopyrighted,
-                                        "title" => $title.$seasonalAdjustments[$saCode],
-                                        "geoset" => $pointSet?$geoset:$geography["geoset"],
-                                    ];
-                                    if($pointSet) $setName .= " ($geoset)";
-                                    if(!isset($foundGeoNames[$geoName])){
-                                        //printNow("found $geoName ($geoset) as $geography[name]");
-                                        $foundGeoNames[$geoName] = true;
-                                    }
+                                    $seriesInfo["latlon"] = ($geography["type"]=="X") ? $geography["lat"].",".$geography["lon"] : "";
+                                    $seriesInfo["geoid"] = $geography["type"]=="M" ? $geography["geoid"] : $geography["containingid"];
+                                    $seriesInfo["geoset"] = $pointSet ? $geoset : $geography["geoset"];
+                                    $foundGeoNames[$geoName] = true;
                                 } else {
                                     if($debug) printNow("rejected loose match: $geoMatches[0] IN $geoName");
                                 }
@@ -648,47 +638,29 @@ class FredList
                             }
                         }
                     }
-                    if(!isset($foundGeoNames[$geoName]) && !isset($unmatchedGeoNames[$geoName])){
-                        if($pointSet && $seriesInfo && $seriesInfo["latlon"]==""){
-                            printNow("unmatched possible statistical area:  $geoName ($geoset)");
+                    //check if no match  > revert to original series values
+                    if($seriesInfo["geoid"]==0){
+                        $setName = $seriesInfo["title"];
+                        if(isset($seriesInfo["geoset"]) && $pointSet){
+                            $unmatchedGeoNames[$geoName] = true;
+                            printNow("unmatched possible statistical area:  $geoName ($geoset) in $setName");
                         } else {
-                            //printNow("unmatched:  $geoName");
+                            unset($seriesInfo["geoset"]);
                         }
-                        $unmatchedGeoNames[$geoName] = true;
                     }
                 }
-            } else {
-                $setName = $title.$seasonalAdjustments[$saCode]; //use default if not even a separator (therefore no geomatch)
-            }
-            
-            
-            if(!$seriesInfo){ //if not part of a geoset or already in DB, use series values
-                $seriesInfo = [
-                    "latlon" => "",
-                    "geoid" => 0,
-                    "freq" => $frequency,
-                    "units" => $units,
-                    "setid" => null,
-                    "skey" => $skey,
-                    "file" => $file,
-                    "apidt" => $updatedDt,
-                    "dbUpdateDT" => null,
-                    "isCopyrighted" => $isCopyrighted,
-                    "title" => $title.$seasonalAdjustments[$saCode],
-                    "geoset" => null,
-                ];
-                $setName = $title.$seasonalAdjustments[$saCode];  //use default if no geomatch
             }
         }
+
+        //save the FRED associative array with 200,000 series
         $caseInsensitiveUnits = strtolower($units);
         if(!isset($this->sets[$setName])) $this->sets[$setName] = [];
         if(!isset($this->sets[$setName][$caseInsensitiveUnits])) $this->sets[$setName][$caseInsensitiveUnits] = [];
         if(!isset($this->sets[$setName][$caseInsensitiveUnits][$frequency])) $this->sets[$setName][$caseInsensitiveUnits][$frequency] = [];
-
         $geoKey = $seriesInfo["geoid"].":".$seriesInfo["latlon"];
         if(isset($this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey])) {
+            //duplicate found!!
             $this->dupCount++;
-
             $this->getData($seriesInfo); //data file is only read for the 10k or so duplicates
             $this->getData($this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]);
             $firstSkey = $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"];
@@ -717,12 +689,6 @@ class FredList
             }
         }
         if($seriesInfo) $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey] = $seriesInfo;
-        /*if($seriesInfo["geoset"]=="msa") {
-            if(!isset($this->geoSetConflicts["msas"][$geoName]))
-                $this->geoSetConflicts["msas"][$geoName] = 1;
-            else
-                $this->geoSetConflicts["msas"][$geoName]++;
-        }*/
         return $seriesInfo;
     }
 
@@ -843,19 +809,20 @@ function mdDateFromISO($isoDate, $frequency){
     return $date;
 }
 
-function getCategoryChildren($api_row, $job_row){
+function getCategoryChildren($catid, $api_job_row){
     global $fred_api_key;
     static $count = 0;
-
-    $apiid = $api_row["apiid"];
-    $job_config = json_decode($job_row["jobjson"]);
+    preprint($api_job_row);
+    $apiid = $api_job_row["apiid"];
+    $job_config = json_decode($api_job_row["jobjson"], true);
     $deep = $job_config ["deep"];
     $catid = $job_config ["catid"];
 
     //1. fetch apicatid from db (assumes the current apicat exist in MD)
     $result = runQuery("select apicatid from categories where apiid=$apiid and catid=$catid");
     if($result->num_rows==0) {
-        runQuery("update apirunjobs set status='F' where jobid=".$job_row["jobid"]);
+        runQuery("update apirunjobs set status='F' where jobid=$api_job_row[jobid]");
+        emailAdmin("FRED cat ingest error", "unable to find catid $catid");
         return false;
     }
     $row = $result->fetch_assoc();
@@ -870,12 +837,10 @@ function getCategoryChildren($api_row, $job_row){
         for($i=0; $i<count($catSeries["seriess"]);$i++){
             $count++;
             $sourceKey = $catSeries["seriess"][$i]["id"];
-
-            $sql = "insert into categoryseries (catid, seriesid) (select $catid, seriesid from series where apiid=$apiid and key='$sourceKey') on duplicate key update catid = $catid ";
-            $result = runQuery($sql);
-            if($result===false) {
-                runQuery("update apirunjobs set status='F' where jobid=".$job_row["jobid"]);
-                return false;
+            $result = runQuery("select s.mastersetid, sd.setid, sd.geoid from sets s join setdata sd on s.setid=sd.setid where s.apiid=$apiid and sd.skey=".safeStringSQL($sourceKey));
+            if($result->num_rows){  //possible that this series was skipped (redundant or too old)
+                $series = $result->fetch_assoc();
+                setCatSet($catid, $series["mastersetid"] ? $series["mastersetid"] : $series["setid"], $series["geoid"]);
             }
         }
     } while($catSeries["count"]>$offset);
@@ -885,13 +850,10 @@ function getCategoryChildren($api_row, $job_row){
     $childCats = json_decode(httpGet($catChildrenCommand), true);
     for($i=0; $i<count($childCats["categories"]);$i++){ //no limit on the returned cat children (therefor no offset or do loop needed)
         $name = $childCats["categories"][$i]["name"];
-        $sqlName = safeStringSQL($name);
         $apichildid = $childCats["categories"][$i]["id"];
-        $sql = "insert in categories (name, apicatid, apiid) values ($sqlName, '$apichildid', $apiid) on duplicate key update name = $sqlName";
-        runQuery($sql);
         $childId = setCategoryById($apiid, $apichildid, $name, $apicatid);
         if($deep) {
-            queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$childId));  //ignore the $catid passed in; from root
+            queueJob($api_job_row["runid"], ["type"=>"CatCrawl", "deep"=>true, "catid"=>$childId]);  //ignore the $catid passed in; from root
         }
     }
     return ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>$count];

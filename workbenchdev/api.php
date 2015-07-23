@@ -94,15 +94,9 @@ $command =  isset($_REQUEST['command'])?$_REQUEST['command']:(isset($command)?$c
 
 switch($command) {
     case "LogError":
-        logEvent("javascript error", safeStringSQL(json_encode($_POST)));
-        /*                        browser: browser,
-                                url: window.location.href,
-                                message: err.message,
-                                stack: err.stack,
-                                uid: account.info.userId,
-                                lang: navigator.language,
-                                platform: navigator.platform,
-                                version: mashableVersion*/
+        $body = json_encode($_POST);
+        logEvent("javascript error", safeStringSQL($body));
+        emailAdmin("javascript error", $body);
         $output = array("status" => "logged");
         break;
     case "NewSearchSeries":
