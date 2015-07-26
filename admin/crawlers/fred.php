@@ -9,6 +9,7 @@ $event_logging = true;
 $sql_logging = false;
 $debug = true;  //no file fetch
 $fetchData = false;  //no file fetch
+$run_msgs = [];
 
 /* This is the plugin for the St Louis Federal Reserve API.  This and other API specific plugins
  * are included by /admin/crawlers/index.php and invoke by the admin panel /admin
@@ -115,7 +116,7 @@ function ApiBatchUpdate($since,$periodicity, $api_row){
 
 
 function ApiCrawl($catid, $api_row){
-    global $bulkFolder, $debug, $fetchData;
+    global $bulkFolder, $debug, $fetchData, $run_msgs;
     //zend.enable_gc();
 //1. use the bulk file to perform a complete ingestion of all series
 //2. use the API to read the entire category tree and assign cat series
@@ -162,6 +163,7 @@ function ApiCrawl($catid, $api_row){
     //2. queue the job to process the categories
     queueJob($api_row["runid"], array("type"=>"CatCrawl", "deep"=>true, "catid"=>$api_row["rootcatid"]));  //ignore the $catid passed in; from root
     //ApiExecuteJob will be launch by chron
+    $run_msgs = $list->messages;
     return $list->status;
 }
 
@@ -204,6 +206,7 @@ class FredList
     public $dupFile = false;
     public $separators = [" in "," from "," for "];
     public $geoSetConflicts = ["msas"=>[]];
+    public $messages = [];
     /*$listFile format:
     FRED: All Data Series
     Link: http://research.stlouisfed.org/fred2/
@@ -290,7 +293,7 @@ class FredList
         $this->dupFile = false;
 
         if($debug) printNow("preprocessed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
-
+die();
         preprint($this->geoSetConflicts);
 
         //save $this->sets to database
@@ -510,7 +513,6 @@ class FredList
             order by length(name) desc");  //try to find a match with the longest first (ie. "West Virginia" before "Virginia")
             while($geography = $result->fetch_assoc()) $geographies[$geography["name"]] =  $geography;
         }
-        $seriesInfo = false;  //will be added to $this->sets once filled out
         //1. skip discontinued series
         if(strpos($title, "DISCONTINUED")||strpos($title, "Discontinued")) {
             $this->status["skipped"]++;
@@ -579,7 +581,7 @@ class FredList
         if($separator) { //no separator = use the defaults set at the top of the loop
             //think we have a geoName...
             $setName = trim(substr($title, 0, $separatorPosition)) . $seasonalAdjustments[$saCode] . $separator . "&hellip;";
-            $geoName = trim(substr($title, $separatorPosition + strlen($separator)));
+            $geoPart = $geoName = trim(substr($title, $separatorPosition + strlen($separator)));
 
 
             //try to figure out is this is a pointset
@@ -603,7 +605,7 @@ class FredList
                 $geoset = false;
                 $pointSet = false;
             }
-
+            if($seriesInfo["geoid"]) $seriesInfo["geopart"] = $geoPart;
             if(!$dbSet){  //with the $setName set, we can skip the search for geography if this series has already been parsed
                 //look for an exact match for what we think is the geography component of the series name
                 $sql = "select geoset, geoid, type, lat, lon, geoset, containingid
@@ -617,11 +619,12 @@ class FredList
                     $seriesInfo["latlon"] = $geography["type"]=="X"?$geography["lat"].",".$geography["lon"]:"";
                     $seriesInfo["geoid"] = $geography["type"]=="M"?$geography["geoid"]:$geography["containingid"];
                     $seriesInfo["geoset"] = $pointSet ? $geoset : $geography["geoset"];
+                    $seriesInfo["geopart"] = $geoPart;
                 } else {
                     //no exact geography match = loop through ALL the geographies and try to find a match using regexes
                     foreach($geographies as $name=>$geography){
                         //use msa geographies only for MSAs
-                        if(($geography["geoset"]=="msa")==$pointSet){   //this is necessary because FRED is so messed up with duplicates
+                        if(($geography["geoset"]=="msa") && $pointSet){   //this is necessary because FRED is so messed up with duplicates
                             $regex = "#". $geography["regexes"]."#";
                             if(preg_match($regex, $geoName, $geoMatches)===1 && ($geography["exceptex"]==null || preg_match("#". $geography["exceptex"]."#", $geoName)==0 )){
                                 //match!
@@ -630,6 +633,7 @@ class FredList
                                     $seriesInfo["latlon"] = ($geography["type"]=="X") ? $geography["lat"].",".$geography["lon"] : "";
                                     $seriesInfo["geoid"] = $geography["type"]=="M" ? $geography["geoid"] : $geography["containingid"];
                                     $seriesInfo["geoset"] = $pointSet ? $geoset : $geography["geoset"];
+                                    $seriesInfo["geopart"] = $geoPart;
                                     $foundGeoNames[$geoName] = true;
                                 } else {
                                     if($debug) printNow("rejected loose match: $geoMatches[0] IN $geoName");
@@ -671,21 +675,37 @@ class FredList
             } else {
                 $this->dupProblemCount++;
                 fwrite($this->dupFile, "duplicate title, SA, units, f, but mismatching data: $seriesInfo[skey], $firstSkey: $seriesInfo[title] in $seriesInfo[units]". PHP_EOL);
-                if($seriesInfo["latlon"]!="" && $seriesInfo["title"]!=$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]) {
-                    //note: true duplicates (same data) are not conflicts.  They are freaking duplicates!
-                    $geoSetConflict =  $seriesInfo["geoset"]." & ". $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["geoset"];
-                    if(!isset($this->geoSetConflicts[$geoSetConflict])){
-                        $this->geoSetConflicts[$geoSetConflict] = 1;
-                        printNow("geoset conflict: $geoSetConflict");
-                    } else {
-                        $this->geoSetConflicts[$geoSetConflict]++;
+                if($seriesInfo["lastDate100k"] == $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["lastDate100k"]){
+                    if($seriesInfo["latlon"]!="" && $seriesInfo["title"]!=$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]) {
+                        //note: true duplicates (same data) are not conflicts.  They are freaking duplicates!
+                        //$geoSetConflict =  $seriesInfo["geoset"]." & ". $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["geoset"];
+                        $geoSetConflict =  $seriesInfo["geopart"] . " & " . $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["geopart"];
+                        if(!isset($this->geoSetConflicts[$geoSetConflict])){
+                            $this->geoSetConflicts[$geoSetConflict] = 1;
+                            printNow("geoset conflict: $geoSetConflict");
+                            $this->messages[] = "geoset conflict: $geoSetConflict";
+                        } else {
+                            $this->geoSetConflicts[$geoSetConflict]++;
+                        }
+                        printNow("$geoSetConflict conflict in $setName between <ol><li>$seriesInfo[skey]: $seriesInfo[title]</li><li>".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"].": ".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]."</li></ol>");
+                    } elseif ($seriesInfo["geoid"]!=0){
+                        $mathcingNotes = $seriesInfo["notes"]!="" && $seriesInfo["notes"]==$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["notes"];
+                        $geoSetConflict = "mapset conflict over geokey ([notes] " . ($mathcingNotes?"match":"do not match or are empty") . ") between <ol>
+                        <li><a href=\"https://research.stlouisfed.org/fred2/series/" . $seriesInfo["skey"] . "\">$seriesInfo[skey]: $seriesInfo[title]</a> <a href=\"".$this->bulkFolderRoot."FRED2_txt_2\$seriesInfo[file]\" target=\"_blank\">text file</a></li>
+                        <li><a href=\"https://research.stlouisfed.org/fred2/series/" . $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"] . "\">".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"].": ".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]."</a> <a href=\"".$this->bulkFolderRoot."FRED2_txt_2\"".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["file"]."\" target=\"_blank\">text file</a></li>
+                        </ol>";
+                        if(!isset($this->geoSetConflicts[$geoSetConflict])){
+                            $this->geoSetConflicts[$geoSetConflict] = 1;
+                            $this->messages[] = "$geoSetConflict";
+                        }
+                        printNow($geoSetConflict . " in $setName:  $seriesInfo[geopart]"
+                            . " & " . $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["geopart"]);
                     }
-                    printNow("$geoSetConflict conflict in $setName: $seriesInfo[title] and ".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]);
-                }
-                //many of the duplicate series are different historical period:  if so, grab teh latest
-                if($seriesInfo["lastDate100k"]<$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["lastDate100k"]){
+                } elseif ($seriesInfo["lastDate100k"] < $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["lastDate100k"]){
                     $seriesInfo = false; //if older data, don't replace existing series
                 }
+                //many of the duplicate series are different historical period:  if so, grab the latest
+
             }
         }
         if($seriesInfo) $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey] = $seriesInfo;
