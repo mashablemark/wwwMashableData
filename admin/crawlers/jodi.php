@@ -5,7 +5,6 @@
 
 $event_logging = true;
 $sql_logging = false;
-
 /*To clean JODI API, leaving only the 3 root cats:
 rerunning import... Jun 2013
     DELETE FROM series WHERE apiid = 6;
@@ -297,7 +296,7 @@ function ApiExecuteJob($api_run_job_row){//runs one queued job as kicked off by 
 
 function ApiRunFinished($api_run){
     set_time_limit(200);
-    setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
+    setGhandlesFreqsFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
 }
@@ -308,7 +307,7 @@ function updateTempJodi($filenum, $aryLine, $data){
     global $jodi_codes, $COL_COUNTRY, $COL_PRODUCT, $COL_FLOW, $COL_UNIT, $COL_DATE, $COL_VALUE;
     $keys = implode(array_slice($aryLine, 0, $COL_UNIT+1), ",");
     $sql = "insert into temp_jodi values(".$filenum.",'".$keys."','".$data."') on duplicate key update data=concat(data,',','" . $data . "')";
-    if($keys=="") fatal_error("unable to insert temp_jodi record #".$i.": ".implode(",", $aryLine));
+    if($keys=="") emailAdminFatal("fatal error during JODI api run", "unable to insert temp_jodi record #".$i.": ".implode(",", $aryLine));
     runQuery($sql);
 }
 
@@ -318,9 +317,11 @@ function countryLookup($country){
         "ARGENTIN" => array("iso3166"=>"ARG"),
         "AUSTRALI" => array("iso3166"=>"AUS"),
         "COSTARIC" => array("iso3166"=>"CRI"),
+        "CZECH" => array("iso3166"=>"CZE"),
         "DOMINICANR" => array("iso3166"=>"DOM"),
         "ECUADALL" => array("iso3166"=>"ECU"),
         "ELSALVADOR" => array("iso3166"=>"SLV"),
+        "FYROM" => array("iso3166"=>"MKD"),
         "FYR OF MACEDONIA" => array("iso3166"=>"MKD"),
         "GUATEMAL" => array("iso3166"=>"GTM"),
         "HONGKONG" => array("iso3166"=>"HKG"),
@@ -328,6 +329,7 @@ function countryLookup($country){
         "LUXEMBOU" => array("iso3166"=>"LUX"),
         "MYANUNSD" => array("iso3166"=>"MMR"),
         "NETHLAND" => array("iso3166"=>"NLD"),
+        "NIGER" => array("iso3166"=>"NER"),
         "NZ" => array("iso3166"=>"NZL"),
         "PAPUANG" => array("iso3166"=>"PNG"),
         "PERUAPEC" => array("iso3166"=>"PER"),
@@ -347,27 +349,15 @@ function countryLookup($country){
     $country = strtoupper($country);
     if(!isset($countries[$country])){
         $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='countries' and name like '". $country ."%'");
-        if($result->num_rows != 1) fatal_error("unable to find country = ". $country);  //or found more than one!
+        if($result->num_rows != 1) emailAdminFatal("fatal error during JODI api run", "unable to find country = ". $country);  //or found more than one!
         $geo = $result->fetch_assoc();
         $countries[$country] = array("name"=>$geo["name"], "geoid"=>$geo["geoid"], "iso3166"=>$geo["iso3166"]);
     } elseif(!isset($countries[$country]["geoid"])) {
         $result = runQuery("select geoid, name, iso3166, regexes from geographies where geoset='countries' and iso3166 = '". $countries[$country]["iso3166"] ."'");
-        if($result->num_rows != 1) fatal_error("unable to find country = ". $country);  //or found more than one!
+        if($result->num_rows != 1) emailAdminFatal("fatal error during JODI api run", "unable to find country = ". $country);  //or found more than one!
         $geo = $result->fetch_assoc();
         $countries[$country] = array("name"=>$geo["name"], "geoid"=>$geo["geoid"], "iso3166"=>$geo["iso3166"]);
     }
     return $countries[$country];
 }
 
-function fatal_error($msg){
-    global $MAIL_HEADER;
-    logEvent("JODI ingest error", $msg);
-    if(isset($_POST["email"])){
-        mail($_POST["email"],
-            "fatal error during JODI api run",
-            $msg,
-            $MAIL_HEADER
-        );
-    }
-    die($msg);
-}

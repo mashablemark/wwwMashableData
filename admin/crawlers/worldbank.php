@@ -1,7 +1,7 @@
 <?php
 $event_logging = true;
 $sql_logging = false;
-$downloadFiles = false;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
+$downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
 
 
 function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
@@ -114,7 +114,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     }
     if(count($acronyms)>0){
         $msg = "unable to find (".implode(",",$acronyms).") in data catalog.";
-        logEvent("World Bank ingest error", $msg);
+        emailAdmin("World Bank ingest error", $msg);
         print($msg."<br>");
     }
 
@@ -440,7 +440,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
 
 function ApiRunFinished($api_run){
     set_time_limit(200);
-    setGhandlesPeriodicitiesFirstLast($api_run["apiid"]);
+    setGhandlesFreqsFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
     //freqSets($api_run["apiid"]);

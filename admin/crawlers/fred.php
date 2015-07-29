@@ -293,7 +293,8 @@ class FredList
         $this->dupFile = false;
 
         if($debug) printNow("preprocessed file. $this->dupTrueCount duplicates with matching data and $this->dupProblemCount duplicates with mismatching data found.");
-die();
+
+        printNow("GEOSET CONLFICT REPORT");
         preprint($this->geoSetConflicts);
 
         //save $this->sets to database
@@ -691,12 +692,14 @@ die();
                     } elseif ($seriesInfo["geoid"]!=0){
                         $mathcingNotes = $seriesInfo["notes"]!="" && $seriesInfo["notes"]==$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["notes"];
                         $geoSetConflict = "mapset conflict over geokey ([notes] " . ($mathcingNotes?"match":"do not match or are empty") . ") between <ol>
-                        <li><a href=\"https://research.stlouisfed.org/fred2/series/" . $seriesInfo["skey"] . "\">$seriesInfo[skey]: $seriesInfo[title]</a> <a href=\"".$this->bulkFolderRoot."FRED2_txt_2\$seriesInfo[file]\" target=\"_blank\">text file</a></li>
-                        <li><a href=\"https://research.stlouisfed.org/fred2/series/" . $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"] . "\">".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"].": ".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]."</a> <a href=\"".$this->bulkFolderRoot."FRED2_txt_2\"".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["file"]."\" target=\"_blank\">text file</a></li>
+                        <li><a href=\"https://research.stlouisfed.org/fred2/series/" . $seriesInfo["skey"] . "\">$seriesInfo[skey]: $seriesInfo[title]</a> <a href=\"".$this->bulkFolderRoot."FRED2_txt_2/data/$seriesInfo[file]\" target=\"_blank\">text file</a></li>
+                        <li><a href=\"https://research.stlouisfed.org/fred2/series/" . $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"] . "\">".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["skey"].": ".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["title"]."</a> <a href=\"".$this->bulkFolderRoot."FRED2_txt_2/data/".$this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["file"]."\" target=\"_blank\">text file</a></li>
                         </ol>";
-                        if(!isset($this->geoSetConflicts[$geoSetConflict])){
-                            $this->geoSetConflicts[$geoSetConflict] = 1;
+                        if(!isset($this->geoSetConflicts[$setName])){
+                            $this->geoSetConflicts[$setName] = 1;
                             $this->messages[] = "$geoSetConflict";
+                        } else {
+                            $this->geoSetConflicts[$setName]++;
                         }
                         printNow($geoSetConflict . " in $setName:  $seriesInfo[geopart]"
                             . " & " . $this->sets[$setName][$caseInsensitiveUnits][$frequency][$geoKey]["geopart"]);
