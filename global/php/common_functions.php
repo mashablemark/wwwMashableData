@@ -33,12 +33,14 @@ function runQuery($sql, $log_name = 'sql logging'){
 function emailAdmin($subject, $msg){
 //resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
     global $db, $MAIL_HEADER, $ADMIN_EMAIL;
+    logEvent($subject, $msg);
+    printNow($subject.": ".$msg);
     return mail($ADMIN_EMAIL,$subject, $msg, $MAIL_HEADER);
 }
 function emailAdminFatal($subject, $msg){
 //resend invitation if exists, otherwise create and sends invitation.  To make, $adminid required
     emailAdmin($subject, $msg);
-    die($msg);
+    die();
 }
 function myEncrypt($data){
     global $CRYPT_KEY;

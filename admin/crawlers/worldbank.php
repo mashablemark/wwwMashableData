@@ -10,7 +10,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 
     $catalogURL = "http://api.worldbank.org/v2/datacatalog?format=json&per_page=250";
     $catalogRaw = json_decode(file_get_contents($catalogURL), true)["datacatalog"];
-    $catalog = [];
+    printNow("fetched and decoded World Bank's data catalog from $catalogURL");
 
     $datasets = [
         "WDI"=>[  //data file headers always Country_Name_attr,Country__attrCode,Indicator_Name,Indicator_Code, years
@@ -76,6 +76,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "DataFile_DataColumn" => 8
         ],
         "HNP Stats"=>[
+            "theme"=>"Health Nutrition and Population Statistics",  //missing acronym require name matching
             "filePrefix"=>"HNP",
             "CountrySeriesSuffix"=>"_Country-Series",
             "setKey"=>"SeriesCode",
@@ -98,10 +99,11 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         if(isset($newDataSet["acronym"])){
             $acronym = $newDataSet["acronym"];
             if(in_array($acronym, $acronyms)){
+                printNow("$acronym found in data catalog");
                 $datasets[$acronym]["acronym"] = $acronym;
                 $datasets[$acronym]["datasetName"] = $newDataSet["name"];
                 $datasets[$acronym]["url"] = $newDataSet["url"];
-                $datasets[$acronym]["freq"] = substr($newDataSet["freq"], 0, 1);
+                $datasets[$acronym]["freq"] = substr($newDataSet["periodicity"], 0, 1);
                 preg_match("#http:\S+csv\.zip#i",  $newDataSet["bulkdownload"], $matches);
                 $datasets[$acronym]["bulkdownload"] = $matches[0];
                 $datasets[$acronym]["category"] = $newDataSet["name"];
@@ -127,11 +129,9 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 
         set_time_limit(300);
 
-        //$branchInfo["catid"] = $catid;
-        //$branchInfo["name"] = $branchName;
-
         $theme = getTheme($api_row["apiid"], $dataset["datasetName"], $dataset["themeMetadata"], $acronym);
-        if($theme["apidt"] !== $dataset["lastrevisiondate"]){ //create a job iff new lastrevisiondate
+        preprint($theme);
+        if(!isset($theme["apidt"]) || !isset($theme["apidt"])===null || $theme["apidt"] !== $dataset["lastrevisiondate"]){ //create a job iff new lastrevisiondate
             $url = $dataset["bulkdownload"];
             $parts = explode("/", $url);
             $fileName =  $parts[count($parts)-1];
