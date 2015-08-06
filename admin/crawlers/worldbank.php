@@ -2,7 +2,7 @@
 $event_logging = true;
 $sql_logging = false;
 $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
-
+//to run: admin.mashabledata.com/admin/crawlers/?apiid=3&uid=1&command=Crawl&name=WB
 
 function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     global $downloadFiles;
@@ -95,6 +95,13 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         for($j=0;$j<count($catalogRaw[$i]["metatype"]);$j++){
             //var_dump($catalogRaw[$i]["metatype"][$j]["id"]);
             $newDataSet[(string) $catalogRaw[$i]["metatype"][$j]["id"]] = $catalogRaw[$i]["metatype"][$j]["value"];
+        }
+        //hack because WorldBank has dropped the acronym for the following:
+        if(!isset($newDataSet["acronym"]) && isset($newDataSet["name"])){
+            switch($newDataSet["name"]){
+                case "Health Nutrition and Population Statistics":
+                    $newDataSet["acronym"] = "HNP Stats";
+            }
         }
         if(isset($newDataSet["acronym"])){
             $acronym = $newDataSet["acronym"];
@@ -226,6 +233,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
 //  (a) create dataset root_cat
     $ROOT_WB_CATID = $api_run_job_row["rootcatid"];
     $datasetInfo = json_decode($api_run_job_row['jobjson'], true);
+    preprint($datasetInfo);
     $acronym = $datasetInfo["acronym"];
     $datasetRootCatId = setCategoryById($api_run_job_row['apiid'], $acronym, $datasetInfo["category"], $ROOT_WB_CATID);
 
@@ -443,7 +451,4 @@ function ApiRunFinished($api_run){
     setGhandlesFreqsFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
-    //freqSets($api_run["apiid"]);
-    /*    set_time_limit(200);
-        pruneSets($api_run["apiid"]);*/
 }

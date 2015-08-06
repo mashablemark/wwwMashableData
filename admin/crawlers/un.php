@@ -9,19 +9,34 @@
 /**
  * Created by MEL on 8/6/14.
  *
- * loops through:
- * A. $reporting countries = 14 largest economies / media markets
- *   B. $partners = universe of countries and geographies (including world)
+ * apiid = 10
+ * UNCOMM trade API documentation:  http://comtrade.un.org/data/doc/api/
+ * limits = 1 call per second & 100 calls per hour per IP of 50,000 records max
+ * nested loops through:
+ *  A. $reporting countries = world + 14 largest economies / media markets
+ *  B. $partners = universe of 254 countries and geographies (including world)
+ *
+ * locked:
+ *  freq = M (skip A)
+ *  flows: imports and exports (skip re-import and re-export)  http://comtrade.un.org/data/cache/tradeRegimes.json
+ *   2-digit classifications = 98 <-
+ *   4-digit classifications = 1259 (averaging 13 per 2-digit class)
+ *   6-digit classifications = 6294 (averaging 5 per 4-digit class)
+ *  cc=all = all 7,656 commodity codes
+ *  px: classification not specified = defaults to HS Harmonized System (HS)
+ *  ps=recent: 5 most recent periods (months) that have data
+ *
+ * OHV server currently has 1 IP.  16 IP address cost $260 per year.  Free trial at http://www.ntrepidcorp.com/ion/
+ *
  */
 
 
+//CONSTANTS
 $dataFolder = "bulkfiles/un/";
-
 $flows = [
     "imports"=> 1,
     "exports"=> 2
 ];
-
 $reporting = [
     ["id"=> "0","text"=> "World"],
     ["id"=> "97","text"=>  "EU-28"],
@@ -39,7 +54,6 @@ $reporting = [
     ["id"=> "699","text"=>  "India"],
     ["id"=> "156","text"=>  "China"],
 ];
-
 $partners =  [
     //["id"=> "all","text"=> "All"],  all is not a "World total", rather it is all valid partners codes in single request = too big!
     ["id"=> "0","text"=> "World"],
@@ -93,10 +107,10 @@ $partners =  [
     ["id"=> "178","text"=> "Congo"],
     ["id"=> "184","text"=> "Cook Isds"],
     ["id"=> "188","text"=> "Costa Rica"],
-    ["id"=> "384","text"=> "CÃ´te d'Ivoire"],
+    ["id"=> "384","text"=> "Cote d'Ivoire"],
     ["id"=> "191","text"=> "Croatia"],
     ["id"=> "192","text"=> "Cuba"],
-    ["id"=> "531","text"=> "CuraÃ§ao"],
+    ["id"=> "531","text"=> "Curasao"],
     ["id"=> "196","text"=> "Cyprus"],
     ["id"=> "203","text"=> "Czech Rep."],
     ["id"=> "200","text"=> "Czechoslovakia"],
@@ -299,77 +313,89 @@ $partners =  [
     ["id"=> "716","text"=> "Zimbabwe"]
 ];
 
-$counts = [];
-$maxRecords = 0;
-$NetWeights = 0;
-foreach($reporting as $reporter){
-    $iPartner = 0;
-    $callSize = 5; //number of countries
-    print("<b>".$reporter["text"]."</b><br>");
-    $counts[$reporter["text"]] = [
-        "Export"=> [
-            "L2"=>0,
-            "L4"=>0,
-            "L5"=>0,
-            "L6"=>0,
-            "NetWeight"=>0,
-        ],
-        "Import"=> [
-            "L2"=>0,
-            "L4"=>0,
-            "L5"=>0,
-            "L6"=>0,
-            "NetWeight"=>0,
-        ]
-    ];
-    $reporterId = $reporter["id"];
-    $thisCounts =& $counts[$reporter["text"]];
-    while($iPartner<count($partners)){
-        $slicePartners = array_slice($partners, $iPartner, $callSize);
-        $apIds = [];
-        foreach($slicePartners as $partner){
-            array_push($apIds, $partner["id"]);
+function ApiCrawl($catid, $api_row){
+global $reporting, $partners, $flows, $dataFolder;
+    $counts = [];
+    $maxRecords = 0;
+    $NetWeights = 0;
+    foreach($reporting as $reporter){
+        $iPartner = 0;
+        $callSize = 5; //number of partner countries per request
+        //max possible records = 2 flows * 7656 commodities * 5 partners * 5 recent periods = 378,000 records, but in practise
+        print("<b>".$reporter["text"]."</b><br>");
+        $counts[$reporter["text"]] = [
+            "Export"=> [
+                "L2"=>0,
+                "L4"=>0,
+                "L5"=>0,
+                "L6"=>0,
+                "NetWeight"=>0,
+            ],
+            "Import"=> [
+                "L2"=>0,
+                "L4"=>0,
+                "L5"=>0,
+                "L6"=>0,
+                "NetWeight"=>0,
+            ]
+        ];
+        $reporterId = $reporter["id"];
+        $thisCounts =& $counts[$reporter["text"]];
+        while($iPartner < count($partners)){
+            $slicePartners = array_slice($partners, $iPartner, $callSize);
+            $apIds = [];
+            foreach($slicePartners as $partner){
+                array_push($apIds, $partner["id"]);
+            }
+            $spIds = implode(",", $apIds);
+
+            $url = "http://comtrade.un.org/api/get?r=$reporterId&p=".$spIds."&max=100000&cc=ALL&rg=1,2&freq=M&ps=recent&fmt=csv";
+            //cc = commodity codes; rg= imports and exports; ps = period (recent = 5 most recent reporting periods)
+            //fmt=csv because resulting download is less than 1/3 = faster + no json_decode with large memory requirements
+            $iPartner += $callSize;
+
+            //wget works whereas the php curl and fopen command fails (similar to eurostat)
+            $outputfile = $dataFolder . "undata".microtime(true).".csv";
+            $cmd = "wget -q \"$url\" -O $outputfile";
+            print($url);
+            print(exec($cmd));
+            die();
+            $recordCount = 0;
+
+            $fp = fopen($outputfile, 'r');
+            $header = fgetcsv($fp);
+            print("<PRE>CSV header: ".print_r($header, true)."</PRE>");
+            while(!feof($fp)){
+                $record = fgetcsv($fp);
+                if($recordCount<10){print($recordCount++); print_r($record);}
+
+                //$rISO = $record["rt3ISO"];
+                //$pISO = $record["pt3ISO"];
+                $commCode = $record["cmdCode"];
+                $flow = $record["rgDesc"];
+                /*if(!isset($thisCounts[$pISO])){
+                    $thisCounts[$pISO] = [];
+                }*/
+                $level = "L".strlen($commCode);
+                if($record["TradeValue"]) $thisCounts[$flow][$level]++;
+                if($record["NetWeight"]) $thisCounts[$flow]["NetWeight"]++;
+            }
+            if($recordCount>49999) print("Maximum recordcount reached for $url<br>");
+            print($recordCount ." records<BR>");
+            unlink($outputfile);
+            sleep(1);
         }
-        $spIds = implode(",", $apIds);
-        $url = "http://comtrade.un.org/api/get?r=$reporterId&p=".$spIds."&max=100000&cc=ALL&rg=1,2&freq=M&ps=recent";//&fmt=csv"; //cc = commodity codes; rg= imports and exports; ps = period (recent = 5 most recent reporting periods)
-        //fmt=csv because resulting download is less than 1/3 = faster + no json_decode with large memory requirements
-        $iPartner += $callSize;
-
-        //wget works whereas the php fopen command fails (similar to eurostat)
-        $outputfile = $dataFolder . "undata".microtime(true).".csv";
-        $cmd = "wget -q \"$url\" -O $outputfile";
-        print($url);
-        print(exec($cmd));
-        die();
-        $recordCount = 0;
-
-        $fp = fopen($outputfile, 'r');
-        $header = fgetcsv($fp);
-        print("<PRE>CSV header: ".print_r($header, true)."</PRE>");
-        while(!feof($fp)){
-            $record = fgetcsv($fp);
-            print($recordCount++);
-
-            print_r($record);
-
-            if($recordCount==10) die();
-            //$rISO = $record["rt3ISO"];
-            //$pISO = $record["pt3ISO"];
-            $commCode = $record["cmdCode"];
-            $flow = $record["rgDesc"];
-            /*if(!isset($thisCounts[$pISO])){
-                $thisCounts[$pISO] = [];
-            }*/
-            $level = "L".strlen($commCode);
-            if($record["TradeValue"]) $thisCounts[$flow][$level]++;
-            if($record["NetWeight"]) $thisCounts[$flow]["NetWeight"]++;
-        }
-        if($recordCount>999999) print("Maximum recordcount reached for $url<br>");
-        print($recordCount ." records<BR>");
-        unlink($outputfile);
-        sleep(1);
     }
 }
+
+
+function ApiRunFinished($api_run){
+    set_time_limit(200);
+    setGhandlesFreqsFirstLast($api_run["apiid"]);
+    set_time_limit(200);
+    setMapsetCounts("all", $api_run["apiid"]);
+}
+
 
 function recordValue($field) {
     global $record, $header;
