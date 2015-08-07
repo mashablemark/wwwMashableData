@@ -246,7 +246,7 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                     graph.eachPlot(function(){
                         if(this.options.name) this.options.name = this.options.name.replace(regex, jsoData.replacement);
                         if(jsoData.bunnies){
-                            this.eachComponent(function(){
+                            graph.eachComponent(function(){
                                 var oldBunnyHandle = this.handle();
                                 if(jsoData.bunnies[oldBunnyHandle]){
                                     this.parseData(jsoData.bunnies[oldBunnyHandle].data);
@@ -261,7 +261,6 @@ MashableData.Graph = function(properties){ //replaces function emptyGraph
                         graph.assets[handle] = jsoData.assets[handle];
                         graph.assets[handle].mappedTo = mapCode;
                     }
-                    this.map = newMap;
                     callback();
                 }
             );
