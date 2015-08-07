@@ -38,9 +38,9 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "DataFile_DataColumn" => 4,
         ],
         "EdStats"=>[
-            "filePrefix"=>"EDStats",
+            "filePrefix"=>"EdStat",
             "CountrySeriesSuffix"=>"_Country-Series",
-            "dataFile" => "Edstat_Data",
+            "dataFile" => "EdStat_Data",
             "setKey"=>"Series Code",
             "name"=>"Indicator Name",  //if split(":").length>1, first part = category
             "metaData"=>["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
@@ -155,12 +155,15 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
                 unlink("bulkfiles/wb/".$dataset["filePrefix"].".zip");  //delete the zip file
                 print('downloaded '.$dataset["filePrefix"].'.zip<br>');
             }
-            if(file_exists("bulkfiles/wb/".$dataset["filePrefix"]."_Data.csv")){
+            $dataFile = (isset($dataset["dataFile"])? $dataset["dataFile"] : "bulkfiles/wb/".$dataset["filePrefix"]."_Data").".csv";
+            if(file_exists($dataFile)){
                 $jobJSON = json_encode($dataset);
                 printNow("creating job for ".$acronym.": ".$jobJSON."<br>");
                 //queue the job after the file is downloaded and unzipped
                 $sql = "insert into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL($jobJSON).",0,'Q')";
                 runQuery($sql);
+            } else {
+                emailAdminFatal("WB file injest eror", "unable to find data file $dataFile");
             }
             runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
             runQuery("update apirunjobs set enddt=now() where jobid=".$jobid);
@@ -172,7 +175,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 }
 
 //2. write execute jobs to
-//  (c) create dataset root cat
+//  (c) create dataset root category
 
 
 function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single single api run until no more
@@ -199,7 +202,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
         "LDC"=>"Least developed countries: UN classification",
         "LMY"=>"Low & middle income",
         //"LIC"=>"Low income",
-        "LMC"=>"Lower middle income",
+        //"LMC"=>"Lower middle income",
         //"MEA"=>"Middle East & North Africa (all income levels)",
         "MNA"=>"Middle East & North Africa (developing only)",
         "CME"=>"Middle East and North Africa (IFC classification)",
@@ -303,7 +306,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
                 $setUnits = "";
             }
             if(strpos($setUnits, "LCU")===false){
-                $setId = saveSet($apiid, $setKey, $setName, $setUnits, $src, $datasetInfo["url"], $setMeta, $apidt, $themeId);
+                $setId = saveSet($apiid, $setKey, $setName, $setUnits, $src, $datasetInfo["url"], $setMeta, $datasetInfo["lastrevisiondate"], $themeId);
                 $sets[$setKey] = ["setid"=>$setId];
                 setCatSet($catId, $setId);
                 $sets[$setKey] = [
@@ -328,7 +331,8 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
 
     print("INGEST WB DATA : $datasetName (job $jobid)<br>\r\n");
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $dataFilePath = isset($datasetInfo["dataFile"])?$datasetInfo["dataFile"]:"bulkfiles/wb/".$datasetInfo["filePrefix"]."_Data.csv";
+    $dataFile = (isset($dataset["dataFile"])? $dataset["dataFile"] : "bulkfiles/wb/".$dataset["filePrefix"]."_Data").".csv";
+    $dataFilePath = "bulkfiles/wb/".$dataFile;
     $dataFilePointer = fopen($dataFilePath, "r");
     $columns = fgetcsv($dataFilePointer);  //header line
     $loggedCountryCodes = [];
@@ -377,7 +381,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
                                 $setName = $sets[$setKey]["name"];
                                 $setMeta = $sets[$setKey]["meta"];
                                 $src = $sets[$setKey]["src"];
-                                $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $apidt, $themeId);
+                                $setId = saveSet($apiid, $lcuSetKey, $setName, $lcuSetUnits, $src, $datasetInfo["url"], $sets[$setKey]["meta"], $datasetInfo["lastrevisiondate"], $themeId);
                                 if($setId){
                                     setCatSet($sets[$setKey]["catid"], $setId);
                                     $sets[$lcuSetKey]["setid"] = $setId;
@@ -434,6 +438,8 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
     }
 
     $updatedJobJson = json_encode(array_merge($datasetInfo, $status));
+    $sqlRevisionDate = safeStringSQL($datasetInfo["lastrevisiondate"]);
+    runQuery("update themes set apidt = $sqlRevisionDate where themeid = $themeId");
     runQuery("update apirunjobs set status = 'S', jobjson=".safeStringSQL($updatedJobJson). ", enddt=now() where jobid=$jobid");
     runQuery($updateRunSql);
     /*runQuery( "update apiruns set scanned=scanned+".$status["skipped"]."+".$status["added"]."+".$status["failed"]."+".$status["updated"]
