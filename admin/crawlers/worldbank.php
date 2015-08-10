@@ -3,10 +3,17 @@ $event_logging = true;
 $sql_logging = false;
 $downloadFiles = true;  //SET THIS TRUE TO GET THE LATEST WB; ELSE WILL ONLY DOWN IF FILE DOES NOT EXIST LOCALLY
 //to run: admin.mashabledata.com/admin/crawlers/?apiid=3&uid=1&command=Crawl&name=WB
+$BULK_FOLDER = "bulkfiles/wb/";
+$HEADERS = [
+  "data" => "Country Name,Country Code,Indicator Name,Indicator Code,",  //followed by the years covered
+  "series" => "Series Code,Topic,Dataset,Indicator Name,Short definition,Long definition,Periodicity,Base Period,Aggregation method,General comments,Source",
+  "counntrySeries" => "CountryCode,SeriesCode,Description"
+];
 
 function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     global $downloadFiles;
     global $db;
+    global $BULK_FOLDER;
 
     $catalogURL = "http://api.worldbank.org/v2/datacatalog?format=json&per_page=250";
     $catalogRaw = json_decode(file_get_contents($catalogURL), true)["datacatalog"];
@@ -15,7 +22,11 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     $datasets = [
         "WDI"=>[  //data file headers always Country_Name_attr,Country__attrCode,Indicator_Name,Indicator_Code, years
             "filePrefix"=>"WDI",
-            "CountrySeriesSuffix"=>"_CS_Notes",
+            "files" => [
+                "data" => "WDI_data.csv", //
+                "series" => "WDI_CS_Notes.csv",  //set info and metadata
+                "countrySeries" => "WDI_CS_Notes.csv",  //setdata.metadata
+            ],
             "setKey"=>"Series Code",
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","Other notes","Derivation method","Aggregation method","Limitations and exceptions","Notes from original source","General comments","Statistical concept and methodology"],
@@ -27,7 +38,11 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         ],
         "ADI"=>[
             "filePrefix" => "ADI",
-            "CountrySeriesSuffix" => false,
+            "files" => [
+                "data" => "ADI_Data.csv", //
+                "series" => "ADI_series.csv",  //set info and metadata
+                "countrySeries" => false,  //setdata.metadata
+            ],
             "setKey" => "SeriesCode",
             "name" => "Indicator Name",
             "metaData" => ["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
@@ -39,8 +54,12 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         ],
         "EdStats"=>[
             "filePrefix"=>"EdStat",
-            "CountrySeriesSuffix"=>"_Country-Series",
-            "dataFile" => "EdStat_Data",
+            "files" => [
+                "data" => "EdStat-Data.csv", //
+                "series" => "EdStat-Series.csv",  //set info and metadata
+                "countrySeries" => "EdStat_Country-Series.csv",  //setdata.metadata
+                //EdStat-FootNote.csv contain point-level metadata
+            ],
             "setKey"=>"Series Code",
             "name"=>"Indicator Name",  //if split(":").length>1, first part = category
             "metaData"=>["Short definition","Long definition","Source","Limitations and exceptions","General comments"],
@@ -52,8 +71,12 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "DataFile_DataColumn" => 4,
         ],
         "GenderStats"=>[
-            "filePrefix"=>"Gender",
-            "CountrySeriesSuffix"=>"_Country-Series",
+            "filePrefix"=>"GenderStats",
+            "files" => [
+                "data" => "GenderStats-Data.csv", //
+                "series" => "GenderStats_Series.csv",  //set info and metadata
+                "countrySeries" => "GenderStats_Country-Series.csv",  //setdata.metadata
+            ],
             "setKey"=>"Series Code",
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","Derivation method","Aggregation method","Limitations and exceptions","Notes from original source","General comments"],
@@ -65,7 +88,12 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         ],
         "IDS"=>[ //
             "filePrefix"=>"IDS",
-            "CountrySeriesSuffix"=>"_Country-Series",
+            "files" => [
+                "data" => "IDS_Data.csv", //
+                "series" => "IDS_Series.csv",  //set info and metadata
+                "countrySeries" => "IDS_Country-Series.csv",  //setdata.metadata
+                //EdStat-FootNote.csv contain point-level metadata
+            ],
             "setKey"=>"SeriesCode",
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","General comments"],
@@ -78,7 +106,11 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         "HNP Stats"=>[
             "theme"=>"Health Nutrition and Population Statistics",  //missing acronym require name matching
             "filePrefix"=>"HNP",
-            "CountrySeriesSuffix"=>"_Country-Series",
+            "files" => [
+                "data" => "IDS_Data.csv", //
+                "series" => "IDS_Series.csv",  //set info and metadata
+                "countrySeries" => "IDS_Country-Series.csv",  //setdata.metadata
+            ],
             "setKey"=>"SeriesCode",
             "name"=>"Indicator Name",
             "metaData"=>["Short definition","Long definition","Source","Notes from original source","Limitations and exceptions","General comments"],
@@ -96,6 +128,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             //var_dump($catalogRaw[$i]["metatype"][$j]["id"]);
             $newDataSet[(string) $catalogRaw[$i]["metatype"][$j]["id"]] = $catalogRaw[$i]["metatype"][$j]["value"];
         }
+
         //hack because WorldBank has dropped the acronym for the following:
         if(!isset($newDataSet["acronym"]) && isset($newDataSet["name"])){
             switch($newDataSet["name"]){
@@ -123,8 +156,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     }
     if(count($acronyms)>0){
         $msg = "unable to find (".implode(",",$acronyms).") in data catalog.";
-        emailAdmin("World Bank ingest error", $msg);
-        print($msg."<br>");
+        emailAdminFatal("World Bank ingest error", $msg);
     }
 
     //first build the base categories:
@@ -142,28 +174,27 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             $url = $dataset["bulkdownload"];
             $parts = explode("/", $url);
             $fileName =  $parts[count($parts)-1];
-            if($downloadFiles || !file_exists("bulkfiles/wb/".$dataset["filePrefix"]."_Series.csv")){
+            if($downloadFiles || !file_exists($BULK_FOLDER.$dataset["files"]["data"])){
                 printNow("downloading ".$url." to bulkfiles/wb/".$dataset["filePrefix"].".zip<br>");
                 $fr = fopen($url, 'r');
-                file_put_contents("bulkfiles/wb/".$dataset["filePrefix"].".zip", $fr);
+                file_put_contents($BULK_FOLDER.$dataset["filePrefix"].".zip", $fr);
                 fclose($fr);
                 print('unzipping '.$dataset["filePrefix"].'.zip<br>');
                 $zip = new ZipArchive;
-                $zip->open("bulkfiles/wb/".$dataset["filePrefix"].".zip");
+                $zip->open($BULK_FOLDER.$dataset["filePrefix"].".zip");
                 $zip->extractTo('./bulkfiles/wb/');
                 $zip->close();
-                unlink("bulkfiles/wb/".$dataset["filePrefix"].".zip");  //delete the zip file
+                unlink($BULK_FOLDER.$dataset["filePrefix"].".zip");  //delete the zip file
                 print('downloaded '.$dataset["filePrefix"].'.zip<br>');
             }
-            $dataFile = (isset($dataset["dataFile"])? $dataset["dataFile"] : "bulkfiles/wb/".$dataset["filePrefix"]."_Data").".csv";
-            if(file_exists($dataFile)){
+            if(file_exists($BULK_FOLDER.$dataset["files"]["data"]) && file_exists($BULK_FOLDER.$dataset["files"]["series"]) && (!$dataset["files"]["countrySeries"] || !file_exists($BULK_FOLDER.$dataset["files"]["countrySeries"]))){
                 $jobJSON = json_encode($dataset);
                 printNow("creating job for ".$acronym.": ".$jobJSON."<br>");
                 //queue the job after the file is downloaded and unzipped
                 $sql = "insert into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL($jobJSON).",0,'Q')";
                 runQuery($sql);
             } else {
-                emailAdminFatal("WB file injest eror", "unable to find data file $dataFile");
+                emailAdminFatal("WB file ingest error", "unable to find data files for $dataset[filePrefix] after download and unzip operation");
             }
             runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
             runQuery("update apirunjobs set enddt=now() where jobid=".$jobid);
@@ -179,6 +210,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
 
 
 function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single single api run until no more
+    global $BULK_FOLDER;
     $skipCountries = [  //all regional WB aggregates shown; commented out = ingest!
         "ARB"=>"Arab World",
         "CSS"=>"Caribbean small states",
@@ -264,7 +296,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
     $sets = []; //used to store set headers in memory until data file ingested to solve LCU series problem
     print("STARTING WB : $datasetName (job $jobid)<br>\r\n");
 
-    $seriesFilePointer=fopen("bulkfiles/wb/".$datasetInfo["filePrefix"]."_Series.csv","r");
+    $seriesFilePointer=fopen($BULK_FOLDER.$datasetInfo["files"]["series"], "r");
     $columns = fgetcsv($seriesFilePointer);  //header line
     $initial = true;
     $opCount = 0;
@@ -331,8 +363,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
 
     print("INGEST WB DATA : $datasetName (job $jobid)<br>\r\n");
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $dataFile = (isset($dataset["dataFile"])? $dataset["dataFile"] : "bulkfiles/wb/".$dataset["filePrefix"]."_Data").".csv";
-    $dataFilePath = "bulkfiles/wb/".$dataFile;
+    $dataFilePath = $BULK_FOLDER.$dataset["files"]["data"];
     $dataFilePointer = fopen($dataFilePath, "r");
     $columns = fgetcsv($dataFilePointer);  //header line
     $loggedCountryCodes = [];
@@ -414,8 +445,8 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
     fclose($dataFilePointer);
 //  (f) if exists, loop through country-series and update setdata.metadata
 
-    if($datasetInfo["CountrySeriesSuffix"] && file_exists("bulkfiles/wb/".$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"])){
-        $countrySeries_csv = fopen("bulkfiles/wb/".$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"].".csv","r");
+    if($datasetInfo["CountrySeriesSuffix"] && file_exists($BULK_FOLDER.$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"])){
+        $countrySeries_csv = fopen($BULK_FOLDER.$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"].".csv","r");
         $columns = fgetcsv($countrySeries_csv);  //header line
         while(!feof($countrySeries_csv)){
             $values = fgetcsv($countrySeries_csv);
@@ -448,7 +479,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
         .", failed=failed+".$status["failed"]
         ." where runid=$runid");*/
 
-    print("ENDING WB: file="."bulkfiles/wb/".$datasetInfo["filePrefix"]."_Series.csv"." (job $jobid)<br>\r\n");
+    print("ENDING WB: file=".$BULK_FOLDER.$datasetInfo["filePrefix"]."_Series.csv"." (job $jobid)<br>\r\n");
     return $status;
 }
 
