@@ -23,7 +23,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
         "WDI"=>[  //data file headers always Country_Name_attr,Country__attrCode,Indicator_Name,Indicator_Code, years
             "filePrefix"=>"WDI",
             "files" => [
-                "data" => "WDI_data.csv", //
+                "data" => "WDI_Data.csv", //
                 "series" => "WDI_CS_Notes.csv",  //set info and metadata
                 "countrySeries" => "WDI_CS_Notes.csv",  //setdata.metadata
             ],
@@ -40,7 +40,7 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
             "filePrefix" => "ADI",
             "files" => [
                 "data" => "ADI_Data.csv", //
-                "series" => "ADI_series.csv",  //set info and metadata
+                "series" => "ADI_Series.csv",  //set info and metadata
                 "countrySeries" => false,  //setdata.metadata
             ],
             "setKey" => "SeriesCode",
@@ -160,8 +160,8 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
     }
 
     //first build the base categories:
-    $insertInitialRun = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now())";
-    $result = runQuery($insertInitialRun);
+    $insertInitialRunSQL = "insert into apirunjobs (runid, jobjson, tries, status, startdt) values(".$api_row["runid"] .",'{\"startCrawl\":true}',1,'R', now())";
+    $result = runQuery($insertInitialRunSQL);
     $jobid = $db->insert_id;
 
     foreach($datasets as $acronym=>$dataset){
@@ -187,14 +187,20 @@ function ApiCrawl($catid, $api_row){ //initiates a FAO crawl
                 unlink($BULK_FOLDER.$dataset["filePrefix"].".zip");  //delete the zip file
                 print('downloaded '.$dataset["filePrefix"].'.zip<br>');
             }
-            if(file_exists($BULK_FOLDER.$dataset["files"]["data"]) && file_exists($BULK_FOLDER.$dataset["files"]["series"]) && (!$dataset["files"]["countrySeries"] || !file_exists($BULK_FOLDER.$dataset["files"]["countrySeries"]))){
+
+            $missingFiles = [];
+            if(!file_exists($BULK_FOLDER.$dataset["files"]["data"])) $missingFiles[] = $BULK_FOLDER.$dataset["files"]["data"];
+            if(!file_exists($BULK_FOLDER.$dataset["files"]["series"])) $missingFiles[] = $BULK_FOLDER.$dataset["files"]["series"];
+            if(!$dataset["files"]["countrySeries"] && !file_exists($BULK_FOLDER.$dataset["files"]["countrySeries"])) $missingFiles[] = $BULK_FOLDER.$dataset["files"]["countrySeries"];
+
+            if(!count($missingFiles)){
                 $jobJSON = json_encode($dataset);
                 printNow("creating job for ".$acronym.": ".$jobJSON."<br>");
                 //queue the job after the file is downloaded and unzipped
                 $sql = "insert into apirunjobs (runid, jobjson, tries, status) values(".$api_row["runid"] .",".safeStringSQL($jobJSON).",0,'Q')";
                 runQuery($sql);
             } else {
-                emailAdminFatal("WB file ingest error", "unable to find data files for $dataset[filePrefix] after download and unzip operation");
+                emailAdmin("WB file ingest error", "unable to find data files for $dataset[filePrefix] after download and unzip operation:  ". implode("; ", $missingFiles));
             }
             runQuery("update apiruns set finishdt=now() where runid=".$api_row["runid"]);
             runQuery("update apirunjobs set enddt=now() where jobid=".$jobid);
@@ -267,7 +273,9 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
 
 //  (a) create dataset root_cat
     $ROOT_WB_CATID = $api_run_job_row["rootcatid"];
-    $datasetInfo = json_decode($api_run_job_row['jobjson'], true);
+    $rawJobJson = $api_run_job_row['jobjson'];
+    $sanitizedJobJson = str_replace("\n", "", $rawJobJson);  //the lousy php encode throws leaves carriage return in string that its decoder can't handle
+    $datasetInfo = json_decode($sanitizedJobJson, true);
     preprint($datasetInfo);
     $acronym = $datasetInfo["acronym"];
     $datasetRootCatId = setCategoryById($api_run_job_row['apiid'], $acronym, $datasetInfo["category"], $ROOT_WB_CATID);
@@ -363,7 +371,7 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
 
     print("INGEST WB DATA : $datasetName (job $jobid)<br>\r\n");
     $status = array("updated"=>0,"failed"=>0,"skipped"=>0, "added"=>0);
-    $dataFilePath = $BULK_FOLDER.$dataset["files"]["data"];
+    $dataFilePath = $BULK_FOLDER.$datasetInfo["files"]["data"];
     $dataFilePointer = fopen($dataFilePath, "r");
     $columns = fgetcsv($dataFilePointer);  //header line
     $loggedCountryCodes = [];
@@ -445,8 +453,8 @@ function ApiExecuteJob($api_run_job_row){//runs all queued jobs in a single sing
     fclose($dataFilePointer);
 //  (f) if exists, loop through country-series and update setdata.metadata
 
-    if($datasetInfo["CountrySeriesSuffix"] && file_exists($BULK_FOLDER.$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"])){
-        $countrySeries_csv = fopen($BULK_FOLDER.$datasetInfo["filePrefix"].$datasetInfo["CountrySeriesSuffix"].".csv","r");
+    if($datasetInfo["files"]["countrySeries"] && file_exists($BULK_FOLDER.$datasetInfo["files"]["countrySeries"])){
+        $countrySeries_csv = fopen($BULK_FOLDER.$datasetInfo["files"]["countrySeries"],"r");
         $columns = fgetcsv($countrySeries_csv);  //header line
         while(!feof($countrySeries_csv)){
             $values = fgetcsv($countrySeries_csv);
@@ -488,4 +496,5 @@ function ApiRunFinished($api_run){
     setGhandlesFreqsFirstLast($api_run["apiid"]);
     set_time_limit(200);
     setMapsetCounts("all", $api_run["apiid"]);
+    print("WB ApiRunFinished: setGhandlesFreqsFirstLast and setMapsetCounts ran successfully");
 }
