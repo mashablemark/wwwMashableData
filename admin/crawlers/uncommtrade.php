@@ -13,8 +13,9 @@
  * UNCOMM trade API documentation:  http://comtrade.un.org/data/doc/api/
  * limits = 1 call per second & 100 calls per hour per IP of 50,000 records max
  * nested loops through:
- *  A. $reporting countries = world + 14 largest economies / media markets
- *  B. $partners = universe of 254 countries and geographies (including world)
+ *  1. freq = A, M;
+ *  2. $reporting countries = world + 14 largest economies / media markets
+ *  3. $partners = universe of 254 countries and geographies (including world)
  *
  * locked:
  *  freq = M (skip A)
@@ -24,7 +25,7 @@
  *   6-digit classifications = 6294 (averaging 5 per 4-digit class)
  *  cc=all = all 7,656 commodity codes
  *  px: classification not specified = defaults to HS Harmonized System (HS)
- *  ps=recent: 5 most recent periods (months) that have data
+ *  ps: periods are determined by $period array and must be manually change to start a new cycle (note "recent" fetches 5 most recent periods that have data for requested freq)
  *
  * OHV server currently has 1 IP.  16 IP address cost $260 per year.  Free trial at http://www.ntrepidcorp.com/ion/
  *
@@ -36,6 +37,10 @@ $dataFolder = "bulkfiles/un/";
 $flows = [
     "imports"=> 1,
     "exports"=> 2
+];
+$periodicities = [
+    ["freq" => "A", "ps"=> "recent"],
+    ["freq" => "M", "ps"=> "recent"],
 ];
 $reporting = [
     ["id"=> "0","text"=> "World"],
@@ -314,76 +319,193 @@ $partners =  [
 ];
 
 function ApiCrawl($catid, $api_row){
-global $reporting, $partners, $flows, $dataFolder;
+/*
+    This crawler is intended to be kicked off every hour and makes 100 data fetches from the UNCOMM Trade API.  The nested loops are reporter >  partners for most recent Annual, than monthly data.
+    The periods request are controlled by the $annualPeriods and $monthlyPeriods global variables, which are hard coded for now.
+    The current position in the grand loop is stored in the last  apirun's runson;  each jobJSON for this apiid=9.  The
+    fatalAdmin email occurs when loop is complete for the current periods.
+
+*/
+    global $reporting, $partners, $periodicities, $dataFolder, $db;
+
+    //get the runid and the starting configurations
+    $apiid = $api_row["appid"];
+    if(isset($api_row["runid"])){
+        //new run
+        $runId = $api_row["runid"];
+        $runIndexes = [
+            "freq"=>0,
+            "reporter"=>0,
+            "partner"=>0,
+        ];
+        $jobjson = json_encode($runIndexes);
+    } else {
+        //no runid = "Continue" command = get last run
+        $result = runQuery("select max(runid) as lastrunid from apiruns where apiid=$apiid");
+        $row = $result->fetch_assoc();
+        if($row["lastrunid"]) {
+            $runId = $row["lastrunid"];
+            $result = runQuery("select * from apiruns where runid = $row[lastrunid]");
+            $run_row = $result->fetch_assoc();
+            $jobjson = $run_row["runjson"];
+            $runIndexes = json_decode($jobjson, true);
+        } else {
+            emailAdminFatal("fatal UNCOMMTRADE error","no apirun to Continue for apiid=$apiid");
+        }
+    }
+    //marked as successful at end of run
+    $result = runQuery("insert into apirunjobs (runid, jobjson, status, startdt) values ($runId, '$jobjson', 'F', now())");
+    $jobId = $db->insert_id;
+
     $counts = [];
     $maxRecords = 0;
     $NetWeights = 0;
-    foreach($reporting as $reporter){
-        $iPartner = 0;
-        $callSize = 5; //number of partner countries per request
-        //max possible records = 2 flows * 7656 commodities * 5 partners * 5 recent periods = 378,000 records, but in practise
-        print("<b>".$reporter["text"]."</b><br>");
-        $counts[$reporter["text"]] = [
-            "Export"=> [
-                "L2"=>0,
-                "L4"=>0,
-                "L5"=>0,
-                "L6"=>0,
-                "NetWeight"=>0,
-            ],
-            "Import"=> [
-                "L2"=>0,
-                "L4"=>0,
-                "L5"=>0,
-                "L6"=>0,
-                "NetWeight"=>0,
-            ]
-        ];
-        $reporterId = $reporter["id"];
-        $thisCounts =& $counts[$reporter["text"]];
-        while($iPartner < count($partners)){
-            $slicePartners = array_slice($partners, $iPartner, $callSize);
-            $apIds = [];
-            foreach($slicePartners as $partner){
-                array_push($apIds, $partner["id"]);
+
+
+    $unApiCallCount = 0; //max possible records = 2 flows * 7656 commodities * 5 partners * 5 recent periods = 378,000 records, but in practise much less.  US to world = 50k records; EU to world = 38k records
+    $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
+    $PARTNERS_PER_REQUEST = 5;
+    $MAX_CALLS_PER_HOUR = 100;
+    $UNCOMM_TRADE_URL = "http://comtrade.un.org/";
+
+    for($iFreq = $runIndexes["freq"]; $iFreq < count($periodicities); $iFreq++){
+        $frequency = $periodicities[$iFreq];
+        for($iReporter = $runIndexes["reporter"]; $iReporter < count($reporting); $iReporter++){
+            $reporter = $reporting[$iReporter];
+            $iPartner = 0;
+            print("<b>Reporter".$reporter["text"]."</b><br>");
+            $reporterGeography = nameLookup($reporter["text"]);
+/*            $counts[$reporter["text"]] = [
+                "Export"=> [
+                    "L2"=>0,
+                    "L4"=>0,
+                    "L5"=>0,
+                    "L6"=>0,
+                    "NetWeight"=>0,
+                ],
+                "Import"=> [
+                    "L2"=>0,
+                    "L4"=>0,
+                    "L5"=>0,
+                    "L6"=>0,
+                    "NetWeight"=>0,
+                ]
+            ];*/
+            $reporterId = $reporter["id"];
+            for($iPartner = $runIndexes["partner"]; $iPartner < count($reporting); $iPartner += $PARTNERS_PER_REQUEST){
+                if($unApiCallCount >= $MAX_CALLS_PER_HOUR){
+                    //end this command
+                    runQuery("update apirunjobs set status='S', enddt=now() where jobid = $jobId");
+                    ApiRunFinished($api_row);  //update the counts, freqs, maps, and ghandles
+                    return;
+                }
+
+                $slicePartners = array_slice($partners, $iPartner, $PARTNERS_PER_REQUEST);
+                $apIds = [];
+                foreach($slicePartners as $partner){
+                    array_push($apIds, $partner["id"]);
+                }
+                $spIds = implode(",", $apIds);
+                $freq = $periodicities[$iFreq]["freq"];
+                $periods = $periodicities[$iFreq]["ps"];
+                $url = "http://comtrade.un.org/api/get?r=$reporterId&p=".$spIds."&max=100000&cc=ALL&rg=1,2&freq=$freq&ps=$periods&fmt=csv";
+                //cc = commodity codes; rg= imports and exports; ps = period (recent = 5 most recent reporting periods)
+                //fmt=csv because resulting download is less than 1/3 = faster + no json_decode with large memory requirements
+                //example of US to first 5: http://comtrade.un.org/api/get?r=842&p=0,4,8,12,20&max=100000&cc=ALL&rg=1,2&freq=M&ps=recent&fmt=json
+
+                $iPartner += $PARTNERS_PER_REQUEST;
+                $unApiCallCount++;
+
+                //wget works whereas the php curl and fopen command fails (similar to eurostat)
+                $outputfile = $dataFolder . "undata".microtime(true).".csv";
+                $cmd = "wget -q \"$url\" -O $outputfile";
+                print($url);
+                print(exec($cmd));
+
+                $fp = fopen($outputfile, 'r');
+                $header = fgetcsv($fp);
+                if(implode(",",$header) != "Classification,Year,Period,Period Desc.,Aggregate Level,Is Leaf Code,Trade Flow Code,Trade Flow,Reporter Code,Reporter,Reporter ISO,Partner Code,Partner,Partner ISO,Commodity Code,Commodity,Qty Unit Code,Qty Unit,Qty,Netweight (kg),Trade Value (US$),Flag")
+                    emailAdminFatal("UN Commtrade fatal error","unrecognized header". preprint($header));
+                print("<PRE>CSV header: ".print_r($header, true)."</PRE>");
+                $recordCount = 0;
+                $collation = [];  //each CSV return is collated by flow, commodity (set), partner (series), periods (setdata array) before any saves to the database because periods are not together and sets are not together.  This will greatly reduced DB operations
+                while(!feof($fp)){
+                    $record = fgetcsv($fp);
+                    $recordCount++;
+                    //if($recordCount<10){print($recordCount); print_r($record);}
+                    $partnerName = $record[array_search("Partner", $header, true)];
+                    $aggregateLevel = $record[array_search("Aggregate Level", $header)];
+                    $commodityCode = $record[array_search("Commodity Code", $header)];
+                    $commodityName = $record[array_search("Commodity", $header)];
+                    $period = $record[array_search("Period", $header)];
+                    $tradeFlow = strtolower($record[array_search("Trade Flow", $header)]);
+                    $value = trim($record[array_search("Trade Value (US$)", $header)]);
+                    $weight = trim($record[array_search("Netweight (kg)", $header)]);
+
+
+
+                    if(!isset($collation[$tradeFlow])) $collation[$tradeFlow] = [];
+                    $commodityKey = "HS" . sprintf("%06d", $commodityCode);
+                    if(!isset($collation[$tradeFlow][$commodityKey])) $collation[$tradeFlow][$commodityKey] = [
+                        "commodityCode" => $commodityCode,
+                        "commodityName" => $commodityName,
+                        "level" => $aggregateLevel,
+                        "partners" => [],
+                    ];
+
+                    if(!isset($collation[$tradeFlow][$commodityKey]["partners"][$partnerName])) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName] = [
+                        "id"=> $record[array_search("Partner Code", $header, true)],
+                        "value" => [],
+                        "weight" => [],
+                    ];
+                    if(is_numeric($value)) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName]["value"][] = [$period . ":" . $value];
+                    if(is_numeric($weight)) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName]["weight"][] = [$period . ":" . $weight];
+                }
+                if($recordCount>=99999) emailAdminFatal("UN CommTrade fatal error", "Maximum recordcount exceeded for $url");
+                unlink($outputfile);
+
+                //save the collation's sets, setdata and categories
+                foreach($collation as $tradeFlow => &$flowData){
+                    asort($flowData);  //make sure the commodity keys are ordered
+                    $valueSetId = null;
+                    $weightSetId = null;
+                    $tradeCatId = setCategoryById($apiid, $tradeFlow, $tradeFlow, "HS"); //harmonized system = root UN Comm Trade apicatid
+                    foreach($flowData as $commodityKey => &$commodityData) {
+                        if($commodityData["level"] == 2){
+                            //root level aggregate
+                            $commodityCatId = setCategoryById($apiid, $tradeFlow, $tradeFlow, $tradeFlow);
+                        } else {
+                            //else 
+                        }
+                        foreach($commodityData["partners"] as $partnerName => &$partnerData){
+                            $partnerGeoId = nameLookup($partnerName);
+                            if(!$partnerGeoId) emailAdminFatal("UN CommTrade fatal error", "Unable to found geogrpahy for $partnerName");
+                            if(count($partnerData["value"])) {
+                                if (!$valueSetId) {
+                                    $valueKey = $reporterId . "-" . $tradeFlow . "-" . $commodityKey . "-USD";
+                                    $name = "$reporterGeography[name] $tradeFlow of $commodityData[name]";
+                                    $valueSetId = saveSet($apiid, $valueKey, $name, "US Dollars", $api_row["name"], $UNCOMM_TRADE_URL, "", "", "null", "", null, "M");
+                                }
+                                saveSetData($status, $valueSetId, null, null, $freq, $partnerGeoId, "", $partnerData["value"]);
+                            }
+                            if(count($partnerData["weight"])) {
+                                if (!$valueSetId) {
+                                    $valueKey = $reporterId . "-" . $tradeFlow . "-" . $commodityKey . "-KG";
+                                    $name = "$reporterGeography[name] $tradeFlow of $commodityData[name]";
+                                    $valueSetId = saveSet($apiid, $valueKey, $name, "kg (net)", $api_row["name"], $UNCOMM_TRADE_URL, "", "", "null", "", null, "M");
+                                    $valueCatId = setCategoryById();
+                                }
+                                saveSetData($status, $valueSetId, null, null, $freq, $partnerGeoId, "", $partnerData["value"]);
+                            }
+                        }
+                    }
+                }
+
+
+
+                printNow("Precessed $recordCount records");
+                sleep(1);
             }
-            $spIds = implode(",", $apIds);
-
-            $url = "http://comtrade.un.org/api/get?r=$reporterId&p=".$spIds."&max=100000&cc=ALL&rg=1,2&freq=M&ps=recent&fmt=csv";
-            //cc = commodity codes; rg= imports and exports; ps = period (recent = 5 most recent reporting periods)
-            //fmt=csv because resulting download is less than 1/3 = faster + no json_decode with large memory requirements
-            $iPartner += $callSize;
-
-            //wget works whereas the php curl and fopen command fails (similar to eurostat)
-            $outputfile = $dataFolder . "undata".microtime(true).".csv";
-            $cmd = "wget -q \"$url\" -O $outputfile";
-            print($url);
-            print(exec($cmd));
-            die();
-            $recordCount = 0;
-
-            $fp = fopen($outputfile, 'r');
-            $header = fgetcsv($fp);
-            print("<PRE>CSV header: ".print_r($header, true)."</PRE>");
-            while(!feof($fp)){
-                $record = fgetcsv($fp);
-                if($recordCount<10){print($recordCount++); print_r($record);}
-
-                //$rISO = $record["rt3ISO"];
-                //$pISO = $record["pt3ISO"];
-                $commCode = $record["cmdCode"];
-                $flow = $record["rgDesc"];
-                /*if(!isset($thisCounts[$pISO])){
-                    $thisCounts[$pISO] = [];
-                }*/
-                $level = "L".strlen($commCode);
-                if($record["TradeValue"]) $thisCounts[$flow][$level]++;
-                if($record["NetWeight"]) $thisCounts[$flow]["NetWeight"]++;
-            }
-            if($recordCount>49999) print("Maximum recordcount reached for $url<br>");
-            print($recordCount ." records<BR>");
-            unlink($outputfile);
-            sleep(1);
         }
     }
 }

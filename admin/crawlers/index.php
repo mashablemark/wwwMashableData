@@ -83,9 +83,10 @@ switch($command){
             . " values (" . $api_id . "," . safeStringSQL($command) . ",". safeStringSQL($since) . "," . $user_id . ",0,0,0, NOW())";
         $result = runQuery($sql, "NewApiRun");
         $runid = $db->insert_id;
-        $api_row["runid"]=$runid;
-        $api_row["userid"]=$user_id;
-        if($command=="Crawl"){
+        $api_row["runid"] = $runid;
+    case "Continue":
+        $api_row["userid"] = $user_id;
+        if($command == "Crawl" || $command == "Continue"){
             $output = ApiCrawl($catid, $api_row);  //creates apirunjobs which are run by an ExecuteJobs cron = out of process
         } else {
             $output = ApiBatchUpdate($since, $periodicity, $api_row);
@@ -391,4 +392,24 @@ function jvmCodeLookup($jVectorMapCode, $set = "ALL"){
     }
 }
 
-
+function nameLookup($name, $set = "countries"){
+    static $geographies = "null";
+    static $lookup = [];
+    if($geographies=="null"){
+        //one time load of the grographies
+        $geographies = array();
+        $geos_sql = "select geoid, name, iso3166, regexes, currency from geographies where geoset = ". safeStringSQL($set);
+        $result = runQuery($geos_sql);
+        while($row=$result->fetch_assoc()){
+            $geographies[] = $row;
+        }
+    }
+    if(isset($lookup[$name])) return $lookup[$name];  //previously found
+    foreach($geographies as $i => $geography){
+        if($name==$geography["name"] || preg_match("#". $geography["regexes"]."#", $name, $geoMatches)===1 && ($geography["exceptex"]==null || preg_match("#". $geography["exceptex"]."#", $name)==0)){
+            $lookup[$name] = $geography;
+            return $lookup[$name];
+        }
+    }
+    return false;  //not found
+}
