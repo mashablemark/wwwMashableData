@@ -43,8 +43,8 @@ $periodicities = [
     ["freq" => "M", "ps"=> "recent"],
 ];
 $reporting = [
-    ["id"=> "0","text"=> "World"],
-    ["id"=> "97","text"=>  "EU-28"],
+//    ["id"=> "0","text"=> "World"], there is no world reporting this must created from each reporter imports / exports to World
+    ["id"=> "97","text"=>  "EU-28"],  //EU to world = 51,000 records = the largest pairing
     ["id"=> "251","text"=>  "France"],
     ["id"=> "842","text"=>  "USA"],
     ["id"=> "276","text"=>  "Germany"],
@@ -60,7 +60,7 @@ $reporting = [
     ["id"=> "156","text"=>  "China"],
 ];
 $partners =  [
-    //["id"=> "all","text"=> "All"],  all is not a "World total", rather it is all valid partners codes in single request = too big!
+    //["id"=> "all","text"=> "All"], "all" is not a "World total", rather it is all valid partners codes in single request = too big!
     ["id"=> "0","text"=> "World"],
     ["id"=> "4","text"=> "Afghanistan"],
     ["id"=> "8","text"=> "Albania"],
@@ -81,13 +81,13 @@ $partners =  [
     ["id"=> "52","text"=> "Barbados"],
     ["id"=> "112","text"=> "Belarus"],
     ["id"=> "56","text"=> "Belgium"],
-    ["id"=> "58","text"=> "Belgium-Luxembourg"],
+    //["id"=> "58","text"=> "Belgium-Luxembourg"],
     ["id"=> "84","text"=> "Belize"],
     ["id"=> "204","text"=> "Benin"],
     ["id"=> "60","text"=> "Bermuda"],
     ["id"=> "64","text"=> "Bhutan"],
     ["id"=> "68","text"=> "Bolivia (Plurinational State of)"],
-    ["id"=> "535","text"=> "Bonaire"],
+    //["id"=> "535","text"=> "Bonaire"],  not sure how this fit in with "Bonaire, Sint Eustatius and Saba" since their split
     ["id"=> "70","text"=> "Bosnia Herzegovina"],
     ["id"=> "72","text"=> "Botswana"],
     ["id"=> "92","text"=> "Br. Virgin Isds"],
@@ -125,7 +125,7 @@ $partners =  [
     ["id"=> "262","text"=> "Djibouti"],
     ["id"=> "212","text"=> "Dominica"],
     ["id"=> "214","text"=> "Dominican Rep."],
-    ["id"=> "588","text"=> "East and West Pakistan"],
+    //["id"=> "588","text"=> "East and West Pakistan"],
     ["id"=> "218","text"=> "Ecuador"],
     ["id"=> "818","text"=> "Egypt"],
     ["id"=> "222","text"=> "El Salvador"],
@@ -138,7 +138,7 @@ $partners =  [
     ["id"=> "238","text"=> "Falkland Isds (Malvinas)"],
     ["id"=> "242","text"=> "Fiji"],
     ["id"=> "246","text"=> "Finland"],
-    ["id"=> "886","text"=> "Fmr Arab Rep. of Yemen"],
+/*    ["id"=> "886","text"=> "Fmr Arab Rep. of Yemen"],
     ["id"=> "278","text"=> "Fmr Dem. Rep. of Germany"],
     ["id"=> "866","text"=> "Fmr Dem. Rep. of Vietnam"],
     ["id"=> "720","text"=> "Fmr Dem. Yemen"],
@@ -153,7 +153,7 @@ $partners =  [
     ["id"=> "835","text"=> "Fmr Tanganyika"],
     ["id"=> "810","text"=> "Fmr USSR"],
     ["id"=> "890","text"=> "Fmr Yugoslavia"],
-    ["id"=> "836","text"=> "Fmr Zanzibar and Pemba Isd"],
+    ["id"=> "836","text"=> "Fmr Zanzibar and Pemba Isd"],*/
     ["id"=> "251","text"=> "France"],
     ["id"=> "254","text"=> "French Guiana"],
     ["id"=> "258","text"=> "French Polynesia"],
@@ -178,7 +178,7 @@ $partners =  [
     ["id"=> "348","text"=> "Hungary"],
     ["id"=> "352","text"=> "Iceland"],
     ["id"=> "699","text"=> "India"],
-    ["id"=> "356","text"=> "India, excl. Sikkim"],
+    //["id"=> "356","text"=> "India, excl. Sikkim"],
     ["id"=> "360","text"=> "Indonesia"],
     ["id"=> "364","text"=> "Iran"],
     ["id"=> "368","text"=> "Iraq"],
@@ -223,7 +223,7 @@ $partners =  [
     ["id"=> "516","text"=> "Namibia"],
     ["id"=> "524","text"=> "Nepal"],
     ["id"=> "530","text"=> "Neth. Antilles"],
-    ["id"=> "532","text"=> "Neth. Antilles and Aruba"],
+    //["id"=> "532","text"=> "Neth. Antilles and Aruba"],
     ["id"=> "528","text"=> "Netherlands"],
     ["id"=> "540","text"=> "New Caledonia"],
     ["id"=> "554","text"=> "New Zealand"],
@@ -232,13 +232,13 @@ $partners =  [
     ["id"=> "566","text"=> "Nigeria"],
     ["id"=> "579","text"=> "Norway"],
     ["id"=> "512","text"=> "Oman"],
-    ["id"=> "490","text"=> "Other Asia, nes"],
+    //["id"=> "490","text"=> "Other Asia, nes"],
     ["id"=> "586","text"=> "Pakistan"],
     ["id"=> "585","text"=> "Palau"],
     ["id"=> "591","text"=> "Panama"],
     ["id"=> "598","text"=> "Papua New Guinea"],
     ["id"=> "600","text"=> "Paraguay"],
-    ["id"=> "459","text"=> "Peninsula Malaysia"],
+    //["id"=> "459","text"=> "Peninsula Malaysia"],
     ["id"=> "604","text"=> "Peru"],
     ["id"=> "608","text"=> "Philippines"],
     ["id"=> "616","text"=> "Poland"],
@@ -250,11 +250,11 @@ $partners =  [
     ["id"=> "642","text"=> "Romania"],
     ["id"=> "643","text"=> "Russian Federation"],
     ["id"=> "646","text"=> "Rwanda"],
-    ["id"=> "647","text"=> "Ryukyu Isd"],
-    ["id"=> "461","text"=> "Sabah"],
+    //["id"=> "647","text"=> "Ryukyu Isd"],  part of Japan
+    //["id"=> "461","text"=> "Sabah"],  //part of Malaysia
     ["id"=> "654","text"=> "Saint Helena"],
     ["id"=> "659","text"=> "Saint Kitts and Nevis"],
-    ["id"=> "658","text"=> "Saint Kitts, Nevis and Anguilla"],
+    //["id"=> "658","text"=> "Saint Kitts, Nevis and Anguilla"],
     ["id"=> "662","text"=> "Saint Lucia"],
     ["id"=> "534","text"=> "Saint Maarten"],
     ["id"=> "666","text"=> "Saint Pierre and Miquelon"],
@@ -262,7 +262,7 @@ $partners =  [
     ["id"=> "882","text"=> "Samoa"],
     ["id"=> "674","text"=> "San Marino"],
     ["id"=> "678","text"=> "Sao Tome and Principe"],
-    ["id"=> "457","text"=> "Sarawak"],
+    //["id"=> "457","text"=> "Sarawak"],  //part of Malaysia
     ["id"=> "682","text"=> "Saudi Arabia"],
     ["id"=> "686","text"=> "Senegal"],
     ["id"=> "688","text"=> "Serbia"],
@@ -307,7 +307,7 @@ $partners =  [
     ["id"=> "858","text"=> "Uruguay"],
     ["id"=> "850","text"=> "US Virgin Isds"],
     ["id"=> "842","text"=> "USA"],
-    ["id"=> "841","text"=> "USA (before 1981)"],
+    //["id"=> "841","text"=> "USA (before 1981)"],
     ["id"=> "860","text"=> "Uzbekistan"],
     ["id"=> "548","text"=> "Vanuatu"],
     ["id"=> "862","text"=> "Venezuela"],
@@ -328,8 +328,20 @@ function ApiCrawl($catid, $api_row){
 */
     global $reporting, $partners, $periodicities, $dataFolder, $db;
 
+    //one-time test to make sure all partners can be assigned to countries
+/*    foreach($partners as $partner) {
+        $partnerGeo = nameLookup($partner["text"]);
+        if(!$partnerGeo){
+            printNow("Unable to found geography (country in MD db) for $partner[text]");
+        } else {
+            printNow("$partner[text] detected as $partnerGeo[name]");
+        }
+    }
+    die();
+*/
+
     //get the runid and the starting configurations
-    $apiid = $api_row["appid"];
+    $apiid = $api_row["apiid"];
     if(isset($api_row["runid"])){
         //new run
         $runId = $api_row["runid"];
@@ -364,8 +376,8 @@ function ApiCrawl($catid, $api_row){
 
     $unApiCallCount = 0; //max possible records = 2 flows * 7656 commodities * 5 partners * 5 recent periods = 378,000 records, but in practise much less.  US to world = 50k records; EU to world = 38k records
     $status = ["skipped"=>0, "added"=>0, "failed"=>0,"updated"=>0];
-    $PARTNERS_PER_REQUEST = 5;
-    $MAX_CALLS_PER_HOUR = 100;
+    $MAX_PARTNERS_PER_REQUEST = 5;  //this needs to be flexible if the request gets denied for too many records
+    $MAX_CALLS_PER_HOUR = 2; // = 2 while debugging. normally = 100;
     $UNCOMM_TRADE_URL = "http://comtrade.un.org/";
 
     for($iFreq = $runIndexes["freq"]; $iFreq < count($periodicities); $iFreq++){
@@ -375,6 +387,7 @@ function ApiCrawl($catid, $api_row){
             $iPartner = 0;
             print("<b>Reporter".$reporter["text"]."</b><br>");
             $reporterGeography = nameLookup($reporter["text"]);
+            if(!$reporterGeography) emailAdminFatal("fatal UNCOMMTRADE error", "Unable ot find georaphy for reporter $reporter[text].");
 /*            $counts[$reporter["text"]] = [
                 "Export"=> [
                     "L2"=>0,
@@ -392,15 +405,29 @@ function ApiCrawl($catid, $api_row){
                 ]
             ];*/
             $reporterId = $reporter["id"];
-            for($iPartner = $runIndexes["partner"]; $iPartner < count($reporting); $iPartner += $PARTNERS_PER_REQUEST){
+            $partnerRequestCount = $MAX_PARTNERS_PER_REQUEST;
+            for($iPartner = $runIndexes["partner"]; $iPartner < count($reporting); $iPartner += $partnerRequestCount){
                 if($unApiCallCount >= $MAX_CALLS_PER_HOUR){
                     //end this command
                     runQuery("update apirunjobs set status='S', enddt=now() where jobid = $jobId");
+                    $nextRunIndexes = [
+                        "freq"=>$iFreq,
+                        "reporter"=>$iReporter,
+                        "partner"=>$iPartner,
+                    ];
+                    $nextRunJsonSql = safeStringSQL(json_encode($nextRunIndexes));
+                    runQuery("update apiruns set runjson=$nextRunJsonSql where runid=$runId");
                     ApiRunFinished($api_row);  //update the counts, freqs, maps, and ghandles
-                    return;
+                    return $status;
                 }
-
-                $slicePartners = array_slice($partners, $iPartner, $PARTNERS_PER_REQUEST);
+                //dynamic number of partners = 2 on failure else five
+                if($partnerRequestCount==0){
+                    //die("partnerRequestCount reset at iPartner = $iPartner");
+                    $partnerRequestCount = 2;
+                } else {
+                    $partnerRequestCount = $MAX_PARTNERS_PER_REQUEST;
+                }
+                $slicePartners = array_slice($partners, $iPartner, $partnerRequestCount);
                 $apIds = [];
                 foreach($slicePartners as $partner){
                     array_push($apIds, $partner["id"]);
@@ -413,12 +440,9 @@ function ApiCrawl($catid, $api_row){
                 //fmt=csv because resulting download is less than 1/3 = faster + no json_decode with large memory requirements
                 //example of US to first 5: http://comtrade.un.org/api/get?r=842&p=0,4,8,12,20&max=100000&cc=ALL&rg=1,2&freq=M&ps=recent&fmt=json
 
-                $iPartner += $PARTNERS_PER_REQUEST;
                 $unApiCallCount++;
-
-                //wget works whereas the php curl and fopen command fails (similar to eurostat)
                 $outputfile = $dataFolder . "undata".microtime(true).".csv";
-                $cmd = "wget -q \"$url\" -O $outputfile";
+                $cmd = "wget -q \"$url\" -O $outputfile";   //wget works whereas the php curl and fopen command fails (similar to eurostat)
                 print($url);
                 print(exec($cmd));
 
@@ -430,84 +454,128 @@ function ApiCrawl($catid, $api_row){
                 $recordCount = 0;
                 $collation = [];  //each CSV return is collated by flow, commodity (set), partner (series), periods (setdata array) before any saves to the database because periods are not together and sets are not together.  This will greatly reduced DB operations
                 while(!feof($fp)){
-                    $record = fgetcsv($fp);
+                    $line = fgets($fp);
+                    $record = str_getcsv($line);
                     $recordCount++;
-                    //if($recordCount<10){print($recordCount); print_r($record);}
-                    $partnerName = $record[array_search("Partner", $header, true)];
-                    $aggregateLevel = $record[array_search("Aggregate Level", $header)];
-                    $commodityCode = $record[array_search("Commodity Code", $header)];
-                    $commodityName = $record[array_search("Commodity", $header)];
-                    $period = $record[array_search("Period", $header)];
-                    $tradeFlow = strtolower($record[array_search("Trade Flow", $header)]);
-                    $value = trim($record[array_search("Trade Value (US$)", $header)]);
-                    $weight = trim($record[array_search("Netweight (kg)", $header)]);
+                    if(count($record)!=count($header)){
+                        printNow("Invalid data row number $recordCount of $url:  $line");
+                    } else {
+                        //if($recordCount<10){print($recordCount); print_r($record);}
+                        $partnerName = $record[array_search("Partner", $header, true)];
+                        $aggregateLevel = $record[array_search("Aggregate Level", $header)];
+                        $commodityCode = $record[array_search("Commodity Code", $header)];
+                        $commodityName = $record[array_search("Commodity", $header)];
+                        $period = $record[array_search("Period", $header)];
+                        $tradeFlow = strtolower($record[array_search("Trade Flow", $header)]);
+                        $value = trim($record[array_search("Trade Value (US$)", $header)]);
+                        $weight = trim($record[array_search("Netweight (kg)", $header)]);
 
+                        if(!$partnerName || !$aggregateLevel || !$commodityCode || !$commodityName || !$period || !$tradeFlow){
+                            if ($recordCount==1) {
+                                if ($partnerRequestCount < $MAX_PARTNERS_PER_REQUEST) {
+                                    emailAdminFatal("UN CommTrade fatal error", "Error in call with partnerRequestCount=$partnerRequestCount for $url");
+                                } else {
+                                    $partnerRequestCount = 0;  //don't increment iPartner loop counter; adjusted upward to 2 on next iteration
+                                    printNow("too many records requested:  $url");
+                                }
+                            }
+                        } else {
+                            if(!isset($collation[$tradeFlow])) $collation[$tradeFlow] = [];
+                            $commodityKey = $aggregateLevel==0 ? "HS" . $commodityCode : "HS" . sprintf("%0".$aggregateLevel."d", $commodityCode);  //level 0 = "TOTAL", level 2, 4, & 6 are numberic
+                            if(!isset($collation[$tradeFlow][$commodityKey])) $collation[$tradeFlow][$commodityKey] = [
+                                "commodityCode" => $commodityCode,
+                                "commodityName" => $commodityName,
+                                "level" => $aggregateLevel,
+                                "partners" => [],
+                            ];
 
-
-                    if(!isset($collation[$tradeFlow])) $collation[$tradeFlow] = [];
-                    $commodityKey = "HS" . sprintf("%06d", $commodityCode);
-                    if(!isset($collation[$tradeFlow][$commodityKey])) $collation[$tradeFlow][$commodityKey] = [
-                        "commodityCode" => $commodityCode,
-                        "commodityName" => $commodityName,
-                        "level" => $aggregateLevel,
-                        "partners" => [],
-                    ];
-
-                    if(!isset($collation[$tradeFlow][$commodityKey]["partners"][$partnerName])) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName] = [
-                        "id"=> $record[array_search("Partner Code", $header, true)],
-                        "value" => [],
-                        "weight" => [],
-                    ];
-                    if(is_numeric($value)) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName]["value"][] = [$period . ":" . $value];
-                    if(is_numeric($weight)) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName]["weight"][] = [$period . ":" . $weight];
+                            if(!isset($collation[$tradeFlow][$commodityKey]["partners"][$partnerName])) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName] = [
+                                "id"=> $record[array_search("Partner Code", $header, true)],
+                                "value" => [],
+                                "weight" => [],
+                            ];
+                            if(is_numeric($value)) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName]["value"][$period] = [$period . ":" . $value];
+                            if(is_numeric($weight)) $collation[$tradeFlow][$commodityKey]["partners"][$partnerName]["weight"][$period] = [$period . ":" . $weight];
+                        }
+                    }
                 }
-                if($recordCount>=99999) emailAdminFatal("UN CommTrade fatal error", "Maximum recordcount exceeded for $url");
                 unlink($outputfile);
+                if($recordCount>=99999) emailAdminFatal("UN CommTrade fatal error", "Maximum record count exceeded for $url");  //this never happen because the API issues an error rather than the 100,000 record of a large query
 
                 //save the collation's sets, setdata and categories
-                foreach($collation as $tradeFlow => &$flowData){
+                //category notes:
+                //  1. exports and imports in same category (i.e. no "imports" root or sub cat
+                //  2. sets in cat = 1 aggregate level higher (i.e level 2 in root, level 4 in level 2, and level 6 in level 4)
+                foreach($collation as $tradeFlow => &$flowData){  //note: if too many records requested,  api error causes $collation = [] so the save loop is effectively skipped
                     asort($flowData);  //make sure the commodity keys are ordered
                     $valueSetId = null;
                     $weightSetId = null;
-                    $tradeCatId = setCategoryById($apiid, $tradeFlow, $tradeFlow, "HS"); //harmonized system = root UN Comm Trade apicatid
+
+                    //import and exports are combined rather than separate root categories  $tradeCatId = setCategoryById($apiid, $tradeFlow, $tradeFlow, "HS"); //harmonized system = root UN Comm Trade apicatid
                     foreach($flowData as $commodityKey => &$commodityData) {
-                        if($commodityData["level"] == 2){
-                            //root level aggregate
-                            $commodityCatId = setCategoryById($apiid, $tradeFlow, $tradeFlow, $tradeFlow);
-                        } else {
-                            //else 
+                        //create the aggregate categories as needed and find my category
+                        switch($commodityData["level"]){
+                            case "0":  //"TOTAL"
+                                //no child cat
+                                $myCatId = $api_row["rootcatid"];
+                                break;
+                            case "2":
+                                $childCatId = setCategoryById($apiid, $commodityKey, $commodityData["commodityName"], "HS");
+                                $myCatId = $api_row["rootcatid"];
+                                break;
+                            case "4":
+                                $parentApiCatId = substr($commodityKey, 0, -2);
+                                $childCatId = setCategoryById($apiid, $commodityKey, $commodityData["commodityName"], $parentApiCatId);
+                                $myCatId = getCategoryById($apiid, $parentApiCatId);
+                                break;
+                            case "6":
+                                $parentApiCatId = substr($commodityKey, 0, -2);
+                                $myCatId = getCategoryById($apiid, $parentApiCatId);
+                                break;
+                            default:
+                                emailAdminFatal("UN Commtrade fatal error","unrecognized aggregate Level: $commodityData[level] for $commodityKey");
                         }
+                        if(!$myCatId) emailAdminFatal("UN Commtrade fatal error","unable to find parent category with apicatid $parentApiCatId for child commomdity key $commodityKey");
+
                         foreach($commodityData["partners"] as $partnerName => &$partnerData){
-                            $partnerGeoId = nameLookup($partnerName);
-                            if(!$partnerGeoId) emailAdminFatal("UN CommTrade fatal error", "Unable to found geogrpahy for $partnerName");
+                            $partnerGeography = nameLookup($partnerName);
+                            if(!$partnerGeography) emailAdminFatal("UN CommTrade fatal error", "Unable to found geography (country in MD db) for $partnerName");
+                            $partnerGeoId = $partnerGeography["geoid"];
                             if(count($partnerData["value"])) {
                                 if (!$valueSetId) {
-                                    $valueKey = $reporterId . "-" . $tradeFlow . "-" . $commodityKey . "-USD";
-                                    $name = "$reporterGeography[name] $tradeFlow of $commodityData[name]";
-                                    $valueSetId = saveSet($apiid, $valueKey, $name, "US Dollars", $api_row["name"], $UNCOMM_TRADE_URL, "", "", "null", "", null, "M");
+                                    $valueSetKey = $reporterId . "-" . $tradeFlow . "-" . $commodityKey . "-USD";
+                                    $name = "$reporterGeography[name] $tradeFlow of $commodityData[commodityName] ".($tradeFlow=="imports"?"from":"to")." &hellip;";
+                                    $valueSetId = saveSet($apiid, $valueSetKey, $name, "US Dollars", $api_row["name"], $UNCOMM_TRADE_URL, "", "", "null", "", null, "M");
                                 }
-                                saveSetData($status, $valueSetId, null, null, $freq, $partnerGeoId, "", $partnerData["value"]);
+                                $mergedData = mergeSetData($valueSetId, $freq, $partnerGeoId, "", $partnerData["value"]);
+                                saveSetData($status, $valueSetId, null, null, $freq, $partnerGeoId, "", $mergedData);
                             }
                             if(count($partnerData["weight"])) {
-                                if (!$valueSetId) {
-                                    $valueKey = $reporterId . "-" . $tradeFlow . "-" . $commodityKey . "-KG";
-                                    $name = "$reporterGeography[name] $tradeFlow of $commodityData[name]";
-                                    $valueSetId = saveSet($apiid, $valueKey, $name, "kg (net)", $api_row["name"], $UNCOMM_TRADE_URL, "", "", "null", "", null, "M");
-                                    $valueCatId = setCategoryById();
+                                if (!$weightSetId) {
+                                    $weightSetKey = $reporterId . "-" . $tradeFlow . "-" . $commodityKey . "-KG";
+                                    $name = "$reporterGeography[name] $tradeFlow of $commodityData[commodityName] ".($tradeFlow=="imports"?"from":"to")." &hellip;";
+                                    $weightSetId = saveSet($apiid, $weightSetKey, $name, "kg (net)", $api_row["name"], $UNCOMM_TRADE_URL, "", "", "null", "", null, "M");
                                 }
-                                saveSetData($status, $valueSetId, null, null, $freq, $partnerGeoId, "", $partnerData["value"]);
+                                $mergedData = mergeSetData($weightSetId, $freq, $partnerGeoId, "", $partnerData["weight"]);
+                                saveSetData($status, $weightSetId, null, null, $freq, $partnerGeoId, "", $mergedData);
                             }
                         }
                     }
                 }
 
-
-
-                printNow("Precessed $recordCount records");
+                printNow("Processed $recordCount records from $url");
                 sleep(1);
             }
         }
     }
+
+    //if this point is reach, it is because the loopp is complete and there is nothing left to do = alert via email
+    //update the run json and runjob
+    if($unApiCallCount>0) {
+        runQuery("update apirunjobs set status='S', enddt=now() where jobid = $jobId");
+        ApiRunFinished($api_row);  //update the counts, freqs, maps, and ghandles
+    }
+    emailAdmin("UN Commtrade cycle complete","RunId $api_row[runid] for periods: $periodicities[0][ps]");
 }
 
 

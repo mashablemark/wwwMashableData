@@ -393,12 +393,17 @@ function jvmCodeLookup($jVectorMapCode, $set = "ALL"){
 }
 
 function nameLookup($name, $set = "countries"){
+    //fix common abbreviations:
+    $name = str_replace("Isds", "Islands", $name);
+    $name = str_replace("Dem.", "Democratic", $name);
+    $name = str_replace("Rep.", "Republic", $name);
+
     static $geographies = "null";
     static $lookup = [];
     if($geographies=="null"){
         //one time load of the grographies
         $geographies = array();
-        $geos_sql = "select geoid, name, iso3166, regexes, currency from geographies where geoset = ". safeStringSQL($set);
+        $geos_sql = "select geoid, name, iso3166, regexes, exceptex, currency from geographies where geoset = ". safeStringSQL($set)." order by length(name) desc";
         $result = runQuery($geos_sql);
         while($row=$result->fetch_assoc()){
             $geographies[] = $row;
@@ -406,8 +411,9 @@ function nameLookup($name, $set = "countries"){
     }
     if(isset($lookup[$name])) return $lookup[$name];  //previously found
     foreach($geographies as $i => $geography){
-        if($name==$geography["name"] || preg_match("#". $geography["regexes"]."#", $name, $geoMatches)===1 && ($geography["exceptex"]==null || preg_match("#". $geography["exceptex"]."#", $name)==0)){
+        if($name==$geography["name"] || $geography["regexes"] && (preg_match("#". $geography["regexes"]."#", $name, $geoMatches)===1 && ($geography["exceptex"]==null || preg_match("#". $geography["exceptex"]."#", $name)==0))){
             $lookup[$name] = $geography;
+            array_splice($geographies, $i, 1);
             return $lookup[$name];
         }
     }
