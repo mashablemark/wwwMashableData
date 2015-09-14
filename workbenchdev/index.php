@@ -161,6 +161,7 @@
                         <option value="9">European Union Statistics (Eurostats)</option>
                         <option value="6">Joint Oil Data Initiative</option>
                         <option value="2">St. Louis Federal Reserve</option>
+                        <option value="10">U.N. Commodities Trade Statistics</option>
                         <option value="5">U.N. Food and Agricultural Organization</option>
                         <option value="8">US Census Bureau</option>
                         <option value="4">US Energy Information Administration</option>

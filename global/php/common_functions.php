@@ -288,6 +288,18 @@ function setCategoryById($apiid, $apicatid, $name, $apiparentid){ //insert categ
     $result = runQuery($sql);
     return $catid;
 }
+
+function getCategoryById($apiid, $apicatid){ //insert categories and catcat records as needed; return catid
+    global $db;
+    $sql = "select * from categories where apicatid=" . safeStringSQL($apicatid) . " and apiid=" . $apiid;
+    $result = runQuery($sql, "check cat");
+    if($result->num_rows==0){
+        return null;
+    } else {
+        $row = $result->fetch_assoc();
+        return $row["catid"];
+    }
+}
 function setThemeByName($apiid, $themeName){
     global $db;
     $sql = "select themeid from themes where apiid=$apiid and name='$themeName'";
@@ -384,7 +396,7 @@ function unixDateFromMd($mdDate){
 }
 //function for sets-based structures
 function setCatSet($catid, $setid, $geoid = 0){
-    if($catid==0 || $setid==0) return false;
+    if($catid==0 || $setid==0 || $catid==null || $setid==null) return false;
     $sql = "select setid from categorysets where setid=$setid and catid = $catid and (geoid=$geoid or geoid=0)";  //geoid=0 covers the entire set
     $temp= runQuery($sql, "check for CatSets relationship");
     if($temp->num_rows==0){
@@ -602,6 +614,28 @@ function saveSet($apiid, $setKey=null, $name, $units, $src, $url, $metadata='', 
         if($setKey===null) $setKey = "null";
         logEvent("saveSet found dup set / key", "apiid: $apiid, setKey $setKey, name: $name, units: $units");
         return false;
+    }
+}
+function mergeSetData($setId, $freq, $geoId, $latLon, $newData){
+    $result = runQuery("select data from setdata where setid=$setId and freq='$freq' and geoid=$geoId and latlon=".safeStringSQL($latLon, false));
+    if($result->num_rows==0){
+        //no existing record to merge
+        return $newData;
+    } else {
+        $row = $result->fetch_assoc();
+        $mergedData = explode("|", $row["data"]);
+        foreach($newData as $newPoint){
+            $aryPoint = explode(":", $newPoint);
+            $dateKey = $aryPoint[0] . ":";
+            $index = array_search($dateKey, $mergedData);
+            if($index !== false){
+                $mergedData[$index] = $newPoint;
+            } else {
+                $mergedData[] = $newPoint;
+            }
+        }
+        sort($mergedData);
+        return $mergedData;
     }
 }
 function saveSetData(&$status, $setid, $apiid = null, $seriesKey = null, $freq, $geoid=0, $latlon="", $arrayData, $apidt=null, $metadata= false, $logAs="save / update setdata"){
